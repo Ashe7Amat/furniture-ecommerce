@@ -1,0 +1,121 @@
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 20px;
+}
+.login-box {
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+.login-box h2 {
+  font-size: 1.8rem;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+.login-box p {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 30px;
+}
+.input-group input {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-size: 1rem;
+  outline: none;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
+.input-group input:focus {
+  border-color: #000;
+}
+.error-msg {
+  color: #d32f2f;
+  font-size: 0.85rem;
+  margin-bottom: 15px;
+  text-align: left;
+}
+.login-btn {
+  width: 100%;
+  padding: 15px;
+  background: #000;
+  color: #fff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background-color 0.2s;
+}
+.login-btn:hover {
+  background: #333;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 30px 0;
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #eaeaea;
+}
+.login-divider span {
+  padding: 0 15px;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.google-btn {
+  width: 100%;
+  padding: 14px;
+  background: #fff;
+  color: #000;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+.google-btn:hover {
+  background: #f9f9f9;
+  border-color: #999;
+}
+.google-btn:disabled {
+  background: #f5f5f5;
+  color: #666;
+  cursor: not-allowed;
+  border-color: #eee;
+}
+.google-loading-text {
+  font-weight: 400;
+}
+
+.login-toggle-link {
+  margin-top: 20px;
+  text-align: center;
+}
+.text-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+.text-btn:hover {
+  color: #000;
+}

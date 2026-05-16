@@ -1,0 +1,16 @@
+# Dependencias
+client/node_modules/
+server/node_modules/
+
+# Producción
+client/dist/
+
+# Variables de entorno y credenciales (CRÍTICO)
+.env
+client/.env
+server/.env
+*.env.local
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

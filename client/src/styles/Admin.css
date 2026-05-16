@@ -1,0 +1,306 @@
+.admin-layout {
+  display: flex;
+  min-height: calc(100vh - 160px); /* Adjusts depending on header and footer height */
+  background: #fff;
+}
+
+.admin-sidebar {
+  width: 22%;
+  min-width: 240px;
+  background: #f9f9f9;
+  border-right: 1px solid #eaeaea;
+  padding: 40px 20px;
+}
+
+.sidebar-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #999;
+  margin-bottom: 30px;
+  padding-left: 15px;
+  font-weight: 600;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sidebar-btn {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 12px 15px;
+  font-size: 0.95rem;
+  color: #555;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  border-left: 3px solid transparent;
+}
+
+.sidebar-btn:hover {
+  background: #f0f0f0;
+  color: #000;
+}
+
+.sidebar-btn.active {
+  font-weight: 600;
+  color: #000;
+  background: #f0f0f0;
+  border-left-color: #000;
+}
+
+.admin-content {
+  flex: 1;
+  padding: 40px 60px;
+  background: #fff;
+}
+
+.admin-view.fade-in {
+  animation: fadeIn 0.4s ease;
+}
+
+/* Resumen Tab */
+.resumen-cards {
+  display: flex;
+  gap: 20px;
+  margin-top: 30px;
+}
+.resumen-card {
+  flex: 1;
+  background: #fdfdfd;
+  padding: 30px;
+  border-radius: 4px;
+  text-align: center;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+}
+.resumen-card h3 {
+  font-size: 2.5rem;
+  margin: 0 0 10px 0;
+  font-weight: 400;
+}
+.resumen-card p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+/* Formularios adaptados */
+.admin-form {
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 30px;
+}
+.admin-form input,
+.admin-form textarea,
+.admin-form select {
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 1rem;
+}
+.admin-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.file-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.admin-btn {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 15px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+.admin-btn:hover {
+  background: #333;
+}
+.admin-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.admin-status {
+  margin-top: 20px;
+  font-weight: 500;
+  color: #d35400;
+}
+.admin-msg {
+  text-align: center;
+  padding: 100px;
+  font-size: 1.2rem;
+}
+
+/* Categorias manager */
+.admin-cat-manager {
+  width: 100%;
+  margin-top: 30px;
+}
+.cat-add-form {
+  display: flex;
+  gap: 10px;
+  max-width: 600px;
+}
+.cat-add-form input {
+  flex: 1;
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  font-size: 0.95rem;
+}
+.cat-add-form button {
+  padding: 12px 20px;
+}
+
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 30px;
+}
+.cat-card {
+  background: #fdfdfd;
+  border: 1px solid #eaeaea;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.01);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.cat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+}
+.cat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+.cat-card-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #000;
+}
+.cat-card-del-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+  padding: 0;
+}
+.cat-card-del-btn:hover {
+  color: #d32f2f;
+}
+.cat-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid #eaeaea;
+  padding-top: 15px;
+}
+.cat-card-stats p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Inventario manager */
+.admin-inventory-manager {
+  margin-top: 30px;
+}
+.inventory-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inventory-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px;
+  background: #fff;
+  border: 1px solid #eaeaea;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.01);
+}
+.inv-name {
+  flex: 2;
+  font-weight: 500;
+}
+.inv-category, .inv-state, .inv-price {
+  flex: 1;
+  color: #666;
+  font-size: 0.9rem;
+}
+.inv-del-btn {
+  background: transparent;
+  border: 1px solid #ccc;
+  color: #666;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.inv-del-btn:hover {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+  .admin-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eaeaea;
+    padding: 20px;
+  }
+  .sidebar-menu {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .sidebar-btn {
+    white-space: nowrap;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+  }
+  .sidebar-btn.active {
+    border-left-color: transparent;
+    border-bottom-color: #000;
+  }
+  .admin-content {
+    padding: 20px;
+  }
+  .resumen-cards {
+    flex-direction: column;
+  }
+}
