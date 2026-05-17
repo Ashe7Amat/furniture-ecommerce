@@ -25,20 +25,45 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product, modality) => {
     const price = modality === 'compra' ? product.precio_venta : product.precio_alquiler;
-    const newItem = {
-      id: `${product.id}-${modality}-${Date.now()}`,
-      productId: product.id,
-      nombre: product.nombre,
-      imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : 'https://via.placeholder.com/300x200?text=Sin+Imagen',
-      precio: price,
-      modalidad: modality
-    };
-    setCartItems(prev => [...prev, newItem]);
+    setCartItems(prev => {
+      const existingItem = prev.find(item => item.productId === product.id && item.modalidad === modality);
+      if (existingItem) {
+        return prev.map(item => 
+          item.id === existingItem.id 
+            ? { ...item, cantidad: (item.cantidad || 1) + 1 } 
+            : item
+        );
+      } else {
+        const newItem = {
+          id: `${product.id}-${modality}`,
+          productId: product.id,
+          nombre: product.nombre,
+          imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : 'https://via.placeholder.com/300x200?text=Sin+Imagen',
+          precio: price,
+          modalidad: modality,
+          cantidad: 1
+        };
+        return [...prev, newItem];
+      }
+    });
     setIsCartOpen(true);
   };
 
   const removeFromCart = (idToRemove) => {
     setCartItems(prev => prev.filter(item => item.id !== idToRemove));
+  };
+
+  const updateQuantity = (id, delta) => {
+    setCartItems(prev => {
+      const existing = prev.find(item => item.id === id);
+      if (!existing) return prev;
+      if ((existing.cantidad || 1) + delta <= 0) {
+        return prev.filter(item => item.id !== id);
+      }
+      return prev.map(item => 
+        item.id === id ? { ...item, cantidad: (item.cantidad || 1) + delta } : item
+      );
+    });
   };
 
   const emptyCart = () => {
@@ -49,11 +74,11 @@ export const CartProvider = ({ children }) => {
     setIsCartOpen(!isCartOpen);
   };
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + item.precio, 0);
+  const cartTotal = cartItems.reduce((acc, item) => acc + (item.precio * (item.cantidad || 1)), 0);
 
   return (
     <CartContext.Provider value={{ 
-      cartItems, addToCart, removeFromCart, emptyCart, 
+      cartItems, addToCart, removeFromCart, updateQuantity, emptyCart, 
       isCartOpen, toggleCart, setIsCartOpen, cartTotal 
     }}>
       {children}

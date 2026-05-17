@@ -176,6 +176,17 @@
   z-index: 2000;
   display: flex;
   flex-direction: column;
+  /* Hidden by default */
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.search-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 .search-backdrop {
   position: absolute;
@@ -189,8 +200,17 @@
   width: 100%;
   padding: 20px 4vw 40px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-  transform-origin: top;
-  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Slide from top */
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.search-overlay.open .search-panel {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 .search-panel-header {
   display: flex;
@@ -291,6 +311,11 @@
   height: 100vh;
   z-index: 2000;
   display: flex;
+  /* Backdrop hidden by default */
+  visibility: hidden;
+}
+.mega-menu-overlay.open {
+  visibility: visible;
 }
 .mega-menu-backdrop {
   position: absolute;
@@ -298,6 +323,12 @@
   height: 100%;
   background: rgba(0,0,0,0.5);
   z-index: -1;
+  /* Fade in/out independently */
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mega-menu-overlay.open .mega-menu-backdrop {
+  opacity: 1;
 }
 .mega-menu-panel {
   width: 400px;
@@ -310,7 +341,9 @@
   padding: 30px;
   display: flex;
   flex-direction: column;
-  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  /* Premium slide transition */
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: 5px 0 30px rgba(0,0,0,0.1);
 }
 .primary-panel {
@@ -321,7 +354,7 @@
   transform: translateX(0);
 }
 .primary-panel.shifted {
-  transform: translateX(-100px); /* Push back slightly when secondary opens */
+  transform: translateX(-100px);
   opacity: 0.8;
 }
 .secondary-panel {
@@ -468,9 +501,10 @@
   letter-spacing: 1px;
 }
 
-@keyframes slideDown {
-  from { transform: scaleY(0); }
-  to { transform: scaleY(1); }
+/* Legacy fadeIn kept for user dropdown */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 768px) {

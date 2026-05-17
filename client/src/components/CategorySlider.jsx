@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCategorias } from '../services/api';
 import '../styles/CategorySlider.css';
 
 const CategorySlider = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentCategory = searchParams.get('category');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const currentCategory = searchParams.get('categoria'); // ← clave correcta
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
@@ -14,12 +15,11 @@ const CategorySlider = () => {
 
   const handleCategoryClick = (catName) => {
     if (currentCategory === catName) {
-      searchParams.delete('category');
+      // Si ya está activa, limpiar filtro → ver todo el catálogo
+      navigate('/catalogo');
     } else {
-      searchParams.set('category', catName);
+      navigate(`/catalogo?categoria=${encodeURIComponent(catName)}`);
     }
-    searchParams.delete('favorites'); // Limpiar favoritos al cambiar categoria
-    setSearchParams(searchParams);
   };
 
   if (categories.length === 0) return null;
@@ -28,8 +28,8 @@ const CategorySlider = () => {
     <div className="category-slider-wrapper">
       <div className="category-slider">
         {categories.map((cat) => (
-          <div 
-            key={cat.id} 
+          <div
+            key={cat.id}
             className={`category-item ${currentCategory === cat.nombre ? 'active' : ''}`}
             onClick={() => handleCategoryClick(cat.nombre)}
           >

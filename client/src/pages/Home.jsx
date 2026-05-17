@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getMuebles, getCategorias } from '../services/api';
 import '../styles/Home.css';
 
 export default function Home() {
@@ -11,22 +12,18 @@ export default function Home() {
     useEffect(() => {
         const cargarPortada = async () => {
             try {
-                // 1. Obtener categorías dinámicas para el Slider
-                const resCat = await fetch('http://localhost:5000/api/categorias');
-                const dataCat = await resCat.json();
+                const [dataCat, dataMue] = await Promise.all([
+                    getCategorias(),
+                    getMuebles()
+                ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
-
-                // 2. Obtener productos de la base de datos para el escaparate
-                const resMue = await fetch('http://localhost:5000/api/muebles');
-                const dataMue = await resMue.json();
-                setDestacados(Array.isArray(dataMue) ? dataMue.slice(0, 4) : []); // Mostramos los primeros 4
+                setDestacados(Array.isArray(dataMue) ? dataMue.slice(0, 4) : []);
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
                 setLoading(false);
             }
         };
-
         cargarPortada();
     }, []);
 
@@ -55,9 +52,9 @@ export default function Home() {
                 <h2 className="home-section-title">Compra por categoría</h2>
                 <div className="category-horizontal-slider">
                     {categorias.map(cat => (
-                        <div 
-                            key={cat.id} 
-                            className="slider-item-circle" 
+                        <div
+                            key={cat.id}
+                            className="slider-item-circle"
                             onClick={() => navigate(`/catalogo?categoria=${cat.nombre}`)}
                             style={{ cursor: 'pointer' }}
                         >

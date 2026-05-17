@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getMuebles } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -6,23 +6,29 @@ import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
 import '../styles/Catalog.css';
 
-const Catalog = () => {
-  const [muebles, setMuebles] = useState([]);
-  const [filteredMuebles, setFilteredMuebles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchParams] = useSearchParams();
-  const { favorites } = React.useContext(FavoritesContext);
-  
-  const currentCategory = searchParams.get('categoria');
+export default function Catalog() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoriaUrl = searchParams.get('categoria');
   const showFavorites = searchParams.get('favorites') === 'true';
 
+  // 🛡️ Extraemos favorites de forma segura por si el contexto está vacío al cargar
+  const context = useContext(FavoritesContext);
+  const favorites = context ? context.favorites : [];
+
+  const [todosLosMuebles, setTodosLosMuebles] = useState([]);
+  const [mueblesFiltrados, setMueblesFiltrados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [orden, setOrden] = useState('recomendados');
+
+  // 1. Cargar datos usando el servicio centralizado (nunca fetch manual)
   useEffect(() => {
     const fetchMuebles = async () => {
       try {
+        setLoading(true); // Aseguramos que salgan los skeletons al cargar
         const data = await getMuebles();
-        setMuebles(data);
+        setTodosLosMuebles(Array.isArray(data) ? data : []);
       } catch (error) {
-        console.error(error);
+        console.error('Error cargando muebles:', error);
       } finally {
         setLoading(false);
       }
@@ -30,71 +36,113 @@ const Catalog = () => {
     fetchMuebles();
   }, []);
 
-  // Efecto para filtrar localmente sin re-fetching
+  // 2. Filtrar y ordenar reactivamente — NUNCA muta todosLosMuebles
   useEffect(() => {
-    let result = muebles;
-    if (showFavorites) {
-      result = result.filter(m => favorites.includes(m.id));
-    } else if (currentCategory) {
-      result = result.filter(m => m.categoria?.toLowerCase() === currentCategory.toLowerCase());
-    }
-    setFilteredMuebles(result);
-  }, [muebles, currentCategory, showFavorites, favorites]);
+    let resultado = [...todosLosMuebles];
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loader"></div>
-        <p>Cargando catálogo...</p>
-      </div>
-    );
-  }
+    // Filtro: favoritos tiene prioridad (Blindado contra arrays de objetos)
+    if (showFavorites) {
+      resultado = resultado.filter(m =>
+        favorites.some(fav => fav === m.id || fav.id === m.id)
+      );
+    }
+    // Filtro: Categoría
+    else if (categoriaUrl) {
+      resultado = resultado.filter(m =>
+        m.categoria && m.categoria.toLowerCase() === categoriaUrl.toLowerCase()
+      );
+    }
+
+    // Ordenación por precio
+    if (orden === 'menor') {
+      resultado.sort((a, b) => a.precio_venta - b.precio_venta);
+    } else if (orden === 'mayor') {
+      resultado.sort((a, b) => b.precio_venta - a.precio_venta);
+    }
+
+    setMueblesFiltrados(resultado);
+  }, [todosLosMuebles, categoriaUrl, showFavorites, favorites, orden]);
+
+  // ⚡ Función limpia para el botón de "Ver todo"
+  const limpiarFiltros = () => {
+    setSearchParams({});
+    setOrden('recomendados');
+  };
 
   return (
     <div className="catalog-container">
+      {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}
       <header className="catalog-header">
-        <h1>{showFavorites ? 'Tus Favoritos' : (currentCategory ? currentCategory : 'Nuestra Colección')}</h1>
-        <p>{showFavorites ? 'Piezas que te han enamorado.' : (currentCategory ? `Descubre la elegancia y versatilidad de nuestra colección de ${currentCategory.toLowerCase()}.` : 'Encuentra la pieza perfecta para tu espacio. Restaurada con pasión y cuidado.')}</p>
+        <span style={{ fontSize: '11px', letterSpacing: '2px', color: '#8c8c8c', textTransform: 'uppercase' }}>
+          {showFavorites ? 'Tu Selección' : (categoriaUrl ? 'Colección Seleccionada' : 'Catálogo')}
+        </span>
+        <h1 style={{ textTransform: 'capitalize' }}>
+          {showFavorites ? 'Tus Favoritos' : (categoriaUrl || 'Colección Completa')}
+        </h1>
+        <p>
+          {showFavorites
+            ? 'Piezas que te han enamorado.'
+            : categoriaUrl
+              ? `Descubre la elegancia y versatilidad de nuestra colección de ${categoriaUrl.toLowerCase()}.`
+              : 'Encuentra la pieza perfecta para tu espacio. Restaurada con pasión y cuidado.'}
+        </p>
+
+        {/* BOTÓN LIMPIEZA DE FILTRO REPARADO */}
+        {categoriaUrl && !showFavorites && (
+          <button
+            className="catalog-clear-filter"
+            onClick={limpiarFiltros}
+          >
+            ← Ver toda la colección
+          </button>
+        )}
+
+        {/* SELECTOR DE ORDENACIÓN */}
+        <select
+          className="catalog-sort-select"
+          value={orden}
+          onChange={(e) => setOrden(e.target.value)}
+        >
+          <option value="recomendados">Recomendados</option>
+          <option value="menor">Precio: Menor a Mayor</option>
+          <option value="mayor">Precio: Mayor a Menor</option>
+        </select>
       </header>
-      
+
       {!showFavorites && <CategorySlider />}
-      
-      {(() => {
-        const displayMuebles = [...filteredMuebles];
-        if (!showFavorites && displayMuebles.length < 8) {
-          const mockCards = [
-            { id: 'mock-1', nombre: 'Sofá de diseño Elunda', descripcion: 'Lino y madera maciza', precio_venta: 899, imagenes: ['https://images.unsplash.com/photo-1550254478-ead40cc54513?q=80&w=800'] },
-            { id: 'mock-2', nombre: 'Mesa auxiliar Tirant', descripcion: 'Mármol travertino y metal', precio_venta: 149, imagenes: ['https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?q=80&w=800'] },
-            { id: 'mock-3', nombre: 'Butaca escandinava Björn', descripcion: 'Tela boucle blanca', precio_venta: 320, imagenes: ['https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?q=80&w=800'] },
-            { id: 'mock-4', nombre: 'Lámpara de pie Odis', descripcion: 'Acero cepillado negro', precio_venta: 85, imagenes: ['https://images.unsplash.com/photo-1507473885765-e6ed057f782c?q=80&w=800'] },
-            { id: 'mock-5', nombre: 'Alfombra tejida Nori', descripcion: '100% yute natural', precio_venta: 110, imagenes: ['https://images.unsplash.com/photo-1600607686527-6fb886090705?q=80&w=800'] },
-            { id: 'mock-6', nombre: 'Estantería modular Kross', descripcion: 'Roble claro', precio_venta: 450, imagenes: ['https://images.unsplash.com/photo-1595514535163-0bd9f57bf311?q=80&w=800'] },
-            { id: 'mock-7', nombre: 'Mesa de comedor Viena', descripcion: 'Cristal templado y roble', precio_venta: 590, imagenes: ['https://images.unsplash.com/photo-1604578762246-41134e37f9cc?q=80&w=800'] },
-            { id: 'mock-8', nombre: 'Silla minimalista Kori', descripcion: 'Madera curvada negra', precio_venta: 125, imagenes: ['https://images.unsplash.com/photo-1503602642458-232111445657?q=80&w=800'] }
-          ];
-          const missing = 8 - displayMuebles.length;
-          displayMuebles.push(...mockCards.slice(0, missing));
-        }
 
-        if (displayMuebles.length === 0) {
-          return (
-            <div className="empty-state">
-              <h2>{showFavorites ? 'Aún no tienes favoritos' : 'No hay muebles en esta categoría'}</h2>
-              <p>Explora nuestro catálogo para encontrar piezas únicas.</p>
+      {/* SKELETON LOADERS mientras carga */}
+      {loading ? (
+        <div className="products-grid">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="skeleton-card">
+              <div className="skeleton-image"></div>
+              <div className="skeleton-text-title"></div>
+              <div className="skeleton-text-desc"></div>
             </div>
-          );
-        }
-
-        return (
-          <div className="products-grid">
-            {displayMuebles.map((mueble) => (
-              <ProductCard key={mueble.id} mueble={mueble} />
-            ))}
-          </div>
-        );
-      })()}
+          ))}
+        </div>
+      ) : mueblesFiltrados.length > 0 ? (
+        <div
+          key={categoriaUrl || 'all'}
+          className="products-grid products-grid--animated"
+        >
+          {mueblesFiltrados.map((mueble, index) => (
+            <div
+              key={mueble.id}
+              className="product-card-animated"
+              style={{ animationDelay: `${index * 0.06}s` }}
+            >
+              <ProductCard mueble={mueble} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <h2>{showFavorites ? 'Aún no tienes favoritos' : 'No hay productos en esta categoría'}</h2>
+          <p>Explora nuestro catálogo para encontrar piezas únicas.</p>
+        </div>
+      )}
     </div>
   );
-};
-
-export default Catalog;
+}

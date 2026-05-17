@@ -4,6 +4,40 @@
   padding: 40px 20px;
 }
 
+/* ─── ANIMACIONES DE CAMBIO DE CATEGORÍA ─── */
+
+/* El grid entero hace un micro-fade cuando cambia de key */
+@keyframes catalog-grid-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Cada card sube suavemente con un retraso escalonado */
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.products-grid--animated {
+  animation: catalog-grid-in 0.25s ease forwards;
+}
+
+.product-card-animated {
+  opacity: 0; /* invisible hasta que la animación comience */
+  animation: card-rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+
 .catalog-header {
   text-align: center;
   margin-bottom: 70px;
@@ -26,6 +60,25 @@
   margin: 0 auto;
   font-weight: 300;
   line-height: 1.6;
+}
+
+.catalog-clear-filter {
+  display: inline-block;
+  margin-top: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: #888;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+.catalog-clear-filter:hover {
+  color: #000;
 }
 
 .products-grid {

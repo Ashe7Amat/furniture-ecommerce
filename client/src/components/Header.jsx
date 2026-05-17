@@ -128,89 +128,85 @@ const Header = () => {
         </div>
       </header>
 
-      {/* --- SEARCH OVERLAY --- */}
-      {isSearchOpen && (
-        <div className="search-overlay fade-in">
-          <div className="search-backdrop" onClick={closeSearch}></div>
-          <div className="search-panel">
-            <div className="search-panel-header">
-              <input 
-                type="text" 
-                placeholder="¿Qué estás buscando?" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-              <button className="close-search-btn" onClick={closeSearch}>✕ Cerrar</button>
+      {/* --- SEARCH OVERLAY (always in DOM, toggled via CSS class) --- */}
+      <div className={`search-overlay${isSearchOpen ? ' open' : ''}`}>
+        <div className="search-backdrop" onClick={closeSearch}></div>
+        <div className="search-panel">
+          <div className="search-panel-header">
+            <input 
+              type="text" 
+              placeholder="¿Qué estás buscando?" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              tabIndex={isSearchOpen ? 0 : -1}
+            />
+            <button className="close-search-btn" onClick={closeSearch}>✕ Cerrar</button>
+          </div>
+          <div className="search-panel-content">
+            <div className="search-suggestions">
+              <h3>Sugerencias</h3>
+              <ul>
+                {categorias.slice(0, 5).map(cat => (
+                  <li key={cat.id} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</li>
+                ))}
+              </ul>
             </div>
-            <div className="search-panel-content">
-              <div className="search-suggestions">
-                <h3>Sugerencias</h3>
-                <ul>
-                  {categorias.slice(0, 5).map(cat => (
-                    <li key={cat.id} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="search-results">
-                <h3>Te puede interesar</h3>
-                <div className="search-results-grid">
-                  {searchResults.length > 0 ? searchResults.map(item => (
-                    <Link to={`/mueble/${item.id}`} key={item.id} className="search-result-card" onClick={closeSearch}>
-                      <img src={item.imagenes ? item.imagenes[0] : 'https://via.placeholder.com/150'} alt={item.nombre} />
-                      <p>{item.nombre}</p>
-                    </Link>
-                  )) : (
-                    <p className="no-results-text">Empieza a escribir para ver muebles...</p>
-                  )}
-                </div>
+            <div className="search-results">
+              <h3>Te puede interesar</h3>
+              <div className="search-results-grid">
+                {searchResults.length > 0 ? searchResults.map(item => (
+                  <Link to={`/mueble/${item.id}`} key={item.id} className="search-result-card" onClick={closeSearch}>
+                    <img src={item.imagenes ? item.imagenes[0] : 'https://via.placeholder.com/150'} alt={item.nombre} />
+                    <p>{item.nombre}</p>
+                  </Link>
+                )) : (
+                  <p className="no-results-text">Empieza a escribir para ver muebles...</p>
+                )}
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* --- SIDE MENU (MEGAMENU) --- */}
-      {isMenuOpen && (
-        <div className="mega-menu-overlay fade-in">
-          <div className="mega-menu-backdrop" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}></div>
-          
-          {/* Primera capa (Main Menu) */}
-          <div className={`mega-menu-panel primary-panel ${isMenuOpen ? 'open' : ''} ${isProductsMenuOpen ? 'shifted' : ''}`}>
-            <div className="mega-menu-header">
-              <Link to="/" className="logo" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>Kave Home</Link>
-              <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
-            </div>
-            <ul className="mega-menu-list">
-              <li>
-                <button className="mega-menu-item" onClick={() => setIsProductsMenuOpen(true)}>
-                  Productos <span className="arrow">›</span>
+      {/* --- SIDE MENU (always in DOM, toggled via CSS class) --- */}
+      <div className={`mega-menu-overlay${isMenuOpen ? ' open' : ''}`}>
+        <div className="mega-menu-backdrop" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}></div>
+        
+        {/* Primera capa (Main Menu) */}
+        <div className={`mega-menu-panel primary-panel${isMenuOpen ? ' open' : ''}${isProductsMenuOpen ? ' shifted' : ''}`}>
+          <div className="mega-menu-header">
+            <Link to="/" className="logo" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>Kave Home</Link>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+          </div>
+          <ul className="mega-menu-list">
+            <li>
+              <button className="mega-menu-item" onClick={() => setIsProductsMenuOpen(true)}>
+                Productos <span className="arrow">›</span>
+              </button>
+            </li>
+            <li><button className="mega-menu-item">Novedades</button></li>
+            <li><button className="mega-menu-item">Inspiración</button></li>
+          </ul>
+        </div>
+
+        {/* Segunda capa (Products Submenu) */}
+        <div className={`mega-menu-panel secondary-panel${isProductsMenuOpen ? ' open' : ''}`}>
+          <div className="mega-menu-header">
+            <button className="mega-menu-back" onClick={() => setIsProductsMenuOpen(false)}>‹ Volver</button>
+            <h3>Productos</h3>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+          </div>
+          <ul className="mega-menu-list sub-list">
+            {categorias.map(cat => (
+              <li key={cat.id}>
+                <button className="mega-menu-item" onClick={(e) => handleNavClick(e, cat.nombre)}>
+                  {cat.nombre}
                 </button>
               </li>
-              <li><button className="mega-menu-item">Novedades</button></li>
-              <li><button className="mega-menu-item">Inspiración</button></li>
-            </ul>
-          </div>
-
-          {/* Segunda capa (Products Submenu) */}
-          <div className={`mega-menu-panel secondary-panel ${isProductsMenuOpen ? 'open' : ''}`}>
-            <div className="mega-menu-header">
-              <button className="mega-menu-back" onClick={() => setIsProductsMenuOpen(false)}>‹ Volver</button>
-              <h3>Productos</h3>
-              <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
-            </div>
-            <ul className="mega-menu-list sub-list">
-              {categorias.map(cat => (
-                <li key={cat.id}>
-                  <button className="mega-menu-item" onClick={(e) => handleNavClick(e, cat.nombre)}>
-                    {cat.nombre}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+            ))}
+          </ul>
         </div>
-      )}
+      </div>
     </>
   );
 };
