@@ -1,3 +1,4 @@
+// client/src/components/CartDrawer.jsx
 import React, { useContext, useState } from 'react';
 import { CartContext } from '../context/CartContext';
 import { ToastContext } from '../context/ToastContext';
@@ -11,12 +12,10 @@ const CartDrawer = () => {
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
 
-  if (!isCartOpen) return null;
-
   const applyCoupon = () => {
     if (couponCode.toUpperCase() === 'BIENVENIDA10') {
       setDiscount(0.10);
-      showToast('Cupón aplicado con éxito', 'success');
+      showToast('Cupón del 10% aplicado con éxito', 'success');
     } else {
       setDiscount(0);
       showToast('Cupón inválido', 'error');
@@ -36,66 +35,118 @@ const CartDrawer = () => {
 
   return (
     <>
-      <div className="cart-overlay" onClick={toggleCart}></div>
-      <div className="cart-drawer">
+      {/* Overlay translúcido de fondo */}
+      <div className={`cart-overlay ${isCartOpen ? 'active' : ''}`} onClick={toggleCart}></div>
+      
+      {/* Contenedor lateral deslizable (Cart Drawer) */}
+      <div className={`cart-drawer ${isCartOpen ? 'active' : ''}`}>
         <div className="cart-header">
           <h2>Tu Cesta ({cartItems.length})</h2>
-          <button className="cart-close-btn" onClick={toggleCart}>✕</button>
+          <button className="cart-close-btn" onClick={toggleCart} aria-label="Cerrar cesta">✕</button>
         </div>
         
         <div className="cart-items-container">
           {cartItems.length === 0 ? (
-            <div className="cart-empty">
-              <p>Tu cesta está vacía</p>
-              <button className="cart-continue-btn" onClick={toggleCart}>Continuar comprando</button>
+            /* Estado vacío (Empty State) premium y evocador */
+            <div className="cart-empty-state">
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#B38A70" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '24px', opacity: 0.85 }}>
+                <path d="M4 18v3h2v-3" />
+                <path d="M18 18v3h2v-3" />
+                <path d="M5 4h14a1 1 0 0 1 1 1v7H4V5a1 1 0 0 1 1-1z" />
+                <path d="M4 12h16" />
+                <path d="M5 12v6h14v-6" />
+              </svg>
+              <h3>Tu cesta está vacía</h3>
+              <p>Cada una de nuestras piezas es única, restaurada a mano y cargada de historia. Explora el catálogo para encontrar la tuya.</p>
+              <button className="cart-explore-btn" onClick={toggleCart}>
+                Explorar Colección
+              </button>
             </div>
           ) : (
+            /* Grid con tarjetas de producto refinadas */
             cartItems.map(item => (
               <div key={item.id} className="cart-item">
-                <div className="cart-item-img">
+                <div className="cart-item-img-container">
                   <img src={item.imagen} alt={item.nombre} />
                 </div>
-                <div className="cart-item-info">
-                  <span className="cart-item-modality">{item.modalidad === 'compra' ? 'Compra' : 'Alquiler/día'}</span>
-                  <h4 className="cart-item-name">{item.nombre}</h4>
-                  <span className="cart-item-price">{item.precio} €</span>
-                  <div className="cart-item-quantity">
-                    <button onClick={() => updateQuantity(item.id, -1)}>-</button>
-                    <span>{item.cantidad || 1}</span>
-                    <button onClick={() => updateQuantity(item.id, 1)}>+</button>
+                
+                <div className="cart-item-details">
+                  <div className="cart-item-meta">
+                    <span className="cart-item-modality-badge">
+                      {item.modalidad === 'compra' ? 'Compra' : 'Alquiler'}
+                    </span>
+                    <button 
+                      className="cart-item-delete-btn" 
+                      onClick={() => handleRemove(item.id)} 
+                      title="Eliminar artículo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <h4 className="cart-item-title">{item.nombre}</h4>
+                  
+                  <div className="cart-item-pricing-qty">
+                    <span className="cart-item-price-label">{item.precio} €</span>
+                    <div className="cart-qty-selector">
+                      <button 
+                        className="qty-btn" 
+                        onClick={() => updateQuantity(item.id, -1)}
+                        disabled={item.cantidad <= 1}
+                      >
+                        −
+                      </button>
+                      <span className="qty-number">{item.cantidad || 1}</span>
+                      <button 
+                        className="qty-btn" 
+                        onClick={() => updateQuantity(item.id, 1)}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button className="cart-item-remove" onClick={() => handleRemove(item.id)}>✕</button>
               </div>
             ))
           )}
         </div>
 
+        {/* Footer del Carrito (Subtotal, Cupón y Pago Seguro) */}
         {cartItems.length > 0 && (
           <div className="cart-footer">
-            <div className="cart-coupon">
+            <div className="cart-coupon-section">
               <input 
                 type="text" 
-                placeholder="Código de cupón" 
+                placeholder="Código de descuento" 
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
+                className="cart-coupon-input"
               />
-              <button onClick={applyCoupon}>Aplicar</button>
+              <button onClick={applyCoupon} className="cart-coupon-apply-btn">
+                Aplicar
+              </button>
             </div>
-            <div className="cart-total">
-              <span>Total</span>
-              <div className="cart-total-price">
-                {discount > 0 && <span style={{textDecoration: 'line-through', marginRight: '8px', opacity: 0.6}}>{cartTotal.toFixed(2)} €</span>}
+            
+            <div className="cart-subtotal-row">
+              <span>Subtotal</span>
+              <div>
+                {discount > 0 && (
+                  <span style={{ textDecoration: 'line-through', marginRight: '10px', opacity: 0.5, fontSize: '0.95rem' }}>
+                    {cartTotal.toFixed(2)} €
+                  </span>
+                )}
                 <span>{finalTotal.toFixed(2)} €</span>
               </div>
             </div>
+            
             <button className="cart-checkout-btn" onClick={handleCheckoutClick}>
-              Confirmar pedido
+              Confirmar Pedido
             </button>
           </div>
         )}
       </div>
 
+      {/* Pasarela de pago */}
       <CheckoutModal 
         isOpen={isCheckoutOpen} 
         onClose={() => setIsCheckoutOpen(false)} 
