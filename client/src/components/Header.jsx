@@ -4,7 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { CartContext } from '../context/CartContext';
-import { getCategorias, buscarMuebles } from '../services/api';
+import { getCategorias, getMuebles } from '../services/api';
 import '../styles/HeaderFooter.css';
 
 const Header = () => {
@@ -18,8 +18,9 @@ const Header = () => {
   
   // Search state
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   
   // Megamenu state
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -42,13 +43,26 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Carga perezosa del catálogo al abrir el buscador por primera vez
   useEffect(() => {
-    if (searchQuery.length > 2) {
-      buscarMuebles(searchQuery).then(data => setSearchResults(data));
-    } else {
-      setSearchResults([]);
+    if (isSearchOpen && allProducts.length === 0) {
+      getMuebles().then(data => setAllProducts(Array.isArray(data) ? data : []));
     }
-  }, [searchQuery]);
+  }, [isSearchOpen]);
+
+  // Filtrado en vivo — case-insensitive sobre nombre y categoría
+  useEffect(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (term.length === 0) {
+      setSearchResults([]);
+      return;
+    }
+    const filtered = allProducts.filter(p =>
+      p.nombre?.toLowerCase().includes(term) ||
+      p.categoria?.toLowerCase().includes(term)
+    );
+    setSearchResults(filtered);
+  }, [searchTerm, allProducts]);
 
   const handleNavClick = (e, category) => {
     e.preventDefault();
@@ -59,7 +73,7 @@ const Header = () => {
 
   const closeSearch = () => {
     setIsSearchOpen(false);
-    setSearchQuery('');
+    setSearchTerm('');
     setSearchResults([]);
   };
 
@@ -136,9 +150,10 @@ const Header = () => {
             <input 
               type="text" 
               placeholder="¿Qué estás buscando?" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               tabIndex={isSearchOpen ? 0 : -1}
+              autoComplete="off"
             />
             <button className="close-search-btn" onClick={closeSearch}>✕ Cerrar</button>
           </div>
@@ -152,17 +167,45 @@ const Header = () => {
               </ul>
             </div>
             <div className="search-results">
-              <h3>Te puede interesar</h3>
-              <div className="search-results-grid">
-                {searchResults.length > 0 ? searchResults.map(item => (
-                  <Link to={`/mueble/${item.id}`} key={item.id} className="search-result-card" onClick={closeSearch}>
-                    <img src={item.imagenes ? item.imagenes[0] : 'https://via.placeholder.com/150'} alt={item.nombre} />
-                    <p>{item.nombre}</p>
-                  </Link>
-                )) : (
+              <h3>{searchTerm ? 'Resultados' : 'Te puede interesar'}</h3>
+
+              {/* Resultados predictivos */}
+              {searchTerm.trim() ? (
+                searchResults.length > 0 ? (
+                  <div className="search-live-results">
+                    {searchResults.slice(0, 6).map(producto => (
+                      <Link
+                        to={`/producto/${producto.id}`}
+                        key={producto.id}
+                        className="search-live-item"
+                        onClick={closeSearch}
+                      >
+                        <img
+                          src={producto.imagenes?.[0] || 'https://via.placeholder.com/60'}
+                          alt={producto.nombre}
+                          className="search-live-img"
+                        />
+                        <div className="search-live-info">
+                          <span className="search-live-name">{producto.nombre}</span>
+                          <span className="search-live-cat">{producto.categoria}</span>
+                        </div>
+                        <span className="search-live-price">
+                          {producto.precio_venta?.toLocaleString('es-ES')} €
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-results-text">
+                    No se encontraron resultados para &ldquo;<strong>{searchTerm}</strong>&rdquo;
+                  </p>
+                )
+              ) : (
+                /* Estado vacío — grid editorial por defecto */
+                <div className="search-results-grid">
                   <p className="no-results-text">Empieza a escribir para ver muebles...</p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

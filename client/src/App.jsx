@@ -32,6 +32,7 @@ function App() {
 
                   <Route path="/catalogo" element={<Catalog />} />
                   <Route path="/mueble/:id" element={<ProductDetail />} />
+                  <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/login" element={<Login />} />
 
                   {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}

@@ -182,6 +182,8 @@
   pointer-events: none;
   transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
               visibility 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .search-overlay.open {
   opacity: 1;
@@ -192,14 +194,15 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.4);
+  background: rgba(62, 50, 42, 0.25);
   z-index: -1;
 }
 .search-panel {
-  background: #fff;
+  background: #F5F2EC;
   width: 100%;
   padding: 20px 4vw 40px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 30px rgba(62, 50, 42, 0.08);
+  border-bottom: 1px solid #E2DCD0;
   /* Slide from top */
   opacity: 0;
   transform: translateY(-20px);
@@ -215,7 +218,7 @@
 .search-panel-header {
   display: flex;
   align-items: center;
-  border-bottom: 2px solid #000;
+  border-bottom: 2px solid #E2DCD0;
   padding-bottom: 10px;
   margin-bottom: 30px;
 }
@@ -223,8 +226,14 @@
   flex: 1;
   border: none;
   outline: none;
+  background: transparent;
   font-size: 1.5rem;
   font-weight: 300;
+  color: #3E322A;
+}
+.search-panel-header input::placeholder {
+  color: #857468;
+  opacity: 0.7;
 }
 .close-search-btn {
   background: none;
@@ -233,10 +242,11 @@
   text-transform: uppercase;
   letter-spacing: 1px;
   cursor: pointer;
-  color: #666;
+  color: #857468;
+  transition: color 0.2s ease;
 }
 .close-search-btn:hover {
-  color: #000;
+  color: #3E322A;
 }
 
 .search-panel-content {
@@ -246,13 +256,16 @@
 .search-suggestions {
   width: 20%;
   min-width: 200px;
+  border-right: 1px solid #E2DCD0;
+  padding-right: 20px;
 }
 .search-suggestions h3, .search-results h3 {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #999;
+  letter-spacing: 1.5px;
+  color: #857468;
   margin-bottom: 20px;
+  font-weight: 600;
 }
 .search-suggestions ul {
   list-style: none;
@@ -263,16 +276,20 @@
   gap: 15px;
 }
 .search-suggestions li {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 400;
   cursor: pointer;
+  color: #3E322A;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 .search-suggestions li:hover {
-  text-decoration: underline;
+  color: #B38A70;
+  transform: translateX(3px);
 }
 
 .search-results {
   flex: 1;
+  padding-left: 20px;
 }
 .search-results-grid {
   display: grid;
@@ -281,7 +298,7 @@
 }
 .search-result-card {
   text-decoration: none;
-  color: #000;
+  color: #3E322A;
   display: flex;
   flex-direction: column;
 }
@@ -291,6 +308,7 @@
   object-fit: cover;
   margin-bottom: 10px;
   border-radius: 2px;
+  background-color: #EDE8E0;
 }
 .search-result-card p {
   margin: 0;
@@ -298,8 +316,78 @@
   font-weight: 500;
 }
 .no-results-text {
-  color: #666;
+  color: #857468;
   font-size: 1rem;
+}
+
+/* LIVE SEARCH RESULTS LIST */
+.search-live-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+/* Scrollbar para la lista predictiva */
+.search-live-results::-webkit-scrollbar {
+  width: 4px;
+}
+.search-live-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+.search-live-results::-webkit-scrollbar-thumb {
+  background: #E2DCD0;
+  border-radius: 2px;
+}
+
+.search-live-item {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 10px 16px;
+  gap: 16px;
+  background: #FCFAF8;
+  border: 1px solid #E2DCD0;
+  border-radius: 4px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+.search-live-item:hover {
+  background-color: #EDE8E0;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(62, 50, 42, 0.04);
+}
+.search-live-img {
+  width: 54px;
+  height: 54px;
+  object-fit: cover;
+  border-radius: 4px;
+  background-color: #EDE8E0;
+  border: 1px solid #E2DCD0;
+}
+.search-live-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.search-live-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #3E322A;
+}
+.search-live-cat {
+  font-size: 0.75rem;
+  color: #857468;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.search-live-price {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #B38A70;
 }
 
 /* MEGAMENU (SIDE PANEL) */
