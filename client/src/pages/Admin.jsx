@@ -303,6 +303,72 @@ const Admin = () => {
                 <p>Alquilados</p>
               </div>
             </div>
+
+            {/* Panel de Avisos / Últimas Ventas */}
+            <div style={{ marginTop: '40px' }} className="ultimas-ventas-section">
+              <h3 style={{ 
+                fontSize: '1.25rem', 
+                color: '#3E322A', 
+                fontWeight: 400, 
+                marginBottom: '20px', 
+                borderBottom: '1px solid #E2DCD0', 
+                paddingBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                🔔 Avisos / Últimas Ventas
+              </h3>
+              {muebles.filter(m => m.estado === 'vendido' || m.estado === 'alquilado').length === 0 ? (
+                <p style={{ color: '#857468', fontSize: '0.95rem', fontStyle: 'italic' }}>No se han registrado transacciones aún.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {muebles.filter(m => m.estado === 'vendido' || m.estado === 'alquilado').map(m => (
+                    <div 
+                      key={m.id} 
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '16px',
+                        background: '#FCFAF8',
+                        border: '1px solid #E2DCD0',
+                        borderRadius: '6px',
+                        boxShadow: '0 2px 8px rgba(62,50,42,0.02)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                        <div style={{ width: '45px', height: '45px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #E2DCD0' }}>
+                          <img src={m.imagenes?.[0] || 'https://via.placeholder.com/150'} alt={m.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '1rem', color: '#3E322A', fontWeight: 500 }}>{m.nombre}</h4>
+                          <span style={{ fontSize: '0.8rem', color: '#857468', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.categoria}</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          backgroundColor: m.estado === 'vendido' ? '#fbe9e7' : '#e8f5e9',
+                          color: m.estado === 'vendido' ? '#d84315' : '#2e7d32',
+                          borderRadius: '20px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          textTransform: 'uppercase',
+                          marginBottom: '6px'
+                        }}>
+                          {m.estado}
+                        </span>
+                        <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#3E322A' }}>
+                          {m.precio_venta ? `${m.precio_venta} €` : `${m.precio_alquiler} €/día`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

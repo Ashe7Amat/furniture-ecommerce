@@ -198,3 +198,19 @@ export const updateProfile = async (profileData) => {
     return { error: error.message };
   }
 };
+
+export const checkoutCart = async (checkoutData) => {
+  try {
+    const response = await fetch(`${API_URL}/muebles/comprar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(checkoutData)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al procesar el pago');
+    return data;
+  } catch (error) {
+    console.error('Error en checkoutCart:', error);
+    return { error: error.message };
+  }
+};
