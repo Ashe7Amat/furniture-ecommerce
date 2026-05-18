@@ -1,14 +1,21 @@
 // client/src/components/CartDrawer.jsx
 import React, { useContext, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { ToastContext } from '../context/ToastContext';
+import { AuthContext } from '../context/AuthContext';
 import CheckoutModal from './CheckoutModal';
+import AuthModal from './AuthModal';
 import '../styles/CartDrawer.css';
 
 const CartDrawer = () => {
   const { isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal } = useContext(CartContext);
   const { showToast } = useContext(ToastContext);
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
 
@@ -25,7 +32,11 @@ const CartDrawer = () => {
   const finalTotal = discount > 0 ? cartTotal * (1 - discount) : cartTotal;
 
   const handleCheckoutClick = () => {
-    setIsCheckoutOpen(true);
+    if (!user) {
+      setIsAuthOpen(true);
+    } else {
+      setIsCheckoutOpen(true);
+    }
   };
 
   const handleRemove = (id) => {
@@ -58,7 +69,13 @@ const CartDrawer = () => {
               </svg>
               <h3>Tu cesta está vacía</h3>
               <p>Cada una de nuestras piezas es única, restaurada a mano y cargada de historia. Explora el catálogo para encontrar la tuya.</p>
-              <button className="cart-explore-btn" onClick={toggleCart}>
+              <button 
+                className="cart-explore-btn" 
+                onClick={() => {
+                  toggleCart();
+                  navigate('/catalogo');
+                }}
+              >
                 Explorar Colección
               </button>
             </div>
@@ -150,6 +167,16 @@ const CartDrawer = () => {
       <CheckoutModal 
         isOpen={isCheckoutOpen} 
         onClose={() => setIsCheckoutOpen(false)} 
+      />
+
+      {/* Pop-up de autenticación suave previa al checkout */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onSuccess={() => {
+          setIsAuthOpen(false);
+          setIsCheckoutOpen(true);
+        }}
       />
     </>
   );
