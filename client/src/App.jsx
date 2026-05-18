@@ -14,6 +14,10 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home'; // <-- Importación alineada y corregida
 import Admin from './pages/Admin';
 import Profile from './pages/Profile';
+import About from './pages/About';
+import Sustainability from './pages/Sustainability';
+import Contact from './pages/Contact';
+import Legal from './pages/Legal';
 
 function App() {
   return (
@@ -34,6 +38,11 @@ function App() {
                   <Route path="/mueble/:id" element={<ProductDetail />} />
                   <Route path="/producto/:id" element={<ProductDetail />} />
                   <Route path="/login" element={<Login />} />
+
+                  <Route path="/sobre-nosotros" element={<About />} />
+                  <Route path="/sostenibilidad" element={<Sustainability />} />
+                  <Route path="/contacto" element={<Contact />} />
+                  <Route path="/legal" element={<Legal />} />
 
                   {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                   <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />

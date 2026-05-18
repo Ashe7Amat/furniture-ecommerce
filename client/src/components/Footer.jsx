@@ -30,14 +30,13 @@ const Footer = () => {
         <div className="footer-links">
           <div className="footer-column">
             <h4>Nosotros</h4>
-            <a href="#">La marca</a>
-            <a href="#">Sostenibilidad</a>
-            <a href="#">Nuestro espacio</a>
+            <Link to="/sobre-nosotros">La marca</Link>
+            <Link to="/sostenibilidad">Sostenibilidad</Link>
+            <Link to="/legal">Aviso Legal</Link>
           </div>
           <div className="footer-column">
             <h4>Contacto</h4>
-            <a href="#">Preguntas frecuentes</a>
-            <a href="#">Centro de ayuda</a>
+            <Link to="/contacto">Contacto</Link>
             <a
               href="https://www.instagram.com/nave5bcn"
               target="_blank"
