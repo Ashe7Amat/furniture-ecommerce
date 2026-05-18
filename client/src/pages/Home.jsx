@@ -32,10 +32,10 @@ export default function Home() {
             {/* HERO BANNER - ESTILO KAVE HOME */}
             <section className="home-hero">
                 <div className="hero-content">
-                    <span className="hero-subtitle">Colección Atemporal</span>
-                    <h1 className="hero-title">Granite</h1>
+                    <span className="hero-subtitle">Almacén de ideas</span>
+                    <h1 className="hero-title">Nave 5 Barcelona</h1>
                     <p className="hero-description">
-                        Granite es elegancia pura. Diseñada con formas rotundas y minimalistas, esta colección se inspira en el carácter escandinavo de los años 70. Un conjunto de piezas exclusivas cuidando cada detalle para aportar personalidad a tus espacios.
+                        Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios.
                     </p>
                     <Link to="/catalogo" className="btn-hero-black">Descubrir</Link>
                 </div>

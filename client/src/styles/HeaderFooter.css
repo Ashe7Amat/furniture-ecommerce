@@ -439,9 +439,42 @@
   margin-bottom: 10px;
 }
 .footer-newsletter p {
-  color: #666;
+  color: #857468;
   font-size: 0.9rem;
   margin-bottom: 20px;
+}
+
+/* Dirección física */
+.footer-address {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #E2DCD0;
+}
+.footer-address-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #B38A70;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+.footer-address-text {
+  font-style: normal;
+  font-size: 0.9rem;
+  color: #857468;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* Instagram link */
+.footer-instagram-link {
+  font-size: 0.9rem;
+  color: #B38A70;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-instagram-link:hover {
+  color: #3E322A;
 }
 .newsletter-form {
   display: flex;
