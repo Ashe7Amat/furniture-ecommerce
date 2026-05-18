@@ -1,16 +1,17 @@
 .product-card {
   text-decoration: none;
-  color: #000;
+  color: #3E322A;
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;
+  background-color: #FCFAF8;
 }
 
 .product-image-container {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
-  background-color: #e3dfd9;
+  background-color: #EDE8E0;
   margin-bottom: 15px;
   overflow: hidden;
 }
@@ -47,7 +48,8 @@
   position: absolute;
   top: 15px;
   left: 15px;
-  background: #fff;
+  background: #F5F2EC;
+  color: #3E322A;
   padding: 5px 10px;
   font-size: 0.7rem;
   font-weight: 600;
@@ -69,12 +71,12 @@
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 5px 0;
-  color: #000;
+  color: #3E322A;
 }
 
 .product-description {
   font-size: 0.85rem;
-  color: #666;
+  color: #857468;
   margin: 0 0 10px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -84,5 +86,5 @@
 .price-value {
   font-size: 1rem;
   font-weight: 700;
-  color: #000;
+  color: #3E322A;
 }

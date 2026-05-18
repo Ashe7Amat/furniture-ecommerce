@@ -22,7 +22,7 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #8c8c8c;
+    color: #857468;
     display: block;
     margin-bottom: 12px;
 }
@@ -37,31 +37,31 @@
 .hero-description {
     font-size: 15px;
     line-height: 1.6;
-    color: #4a4a4a;
+    color: #857468;
     margin-bottom: 36px;
 }
 
 .btn-hero-black {
     display: inline-block;
     padding: 14px 36px;
-    background: #000;
-    color: #fff;
+    background: #3E322A;
+    color: #F5F2EC;
     text-decoration: none;
     font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    transition: opacity 0.3s;
+    transition: background 0.3s;
 }
 
 .btn-hero-black:hover {
-    opacity: 0.85;
+    background: #B38A70;
 }
 
 .hero-image-box {
     width: 100%;
     aspect-ratio: 4/3;
     overflow: hidden;
-    background: #f5f5f5;
+    background: #EDE8E0;
 }
 
 .hero-image-box img {
@@ -102,7 +102,7 @@
     flex-direction: column;
     align-items: center;
     text-decoration: none;
-    color: #000;
+    color: #3E322A;
     min-width: 110px;
 }
 
@@ -112,7 +112,7 @@
     border-radius: 50%;
     overflow: hidden;
     margin-bottom: 14px;
-    background: #fafafa;
+    background: #EDE8E0;
 }
 
 .circle-wrapper img {
@@ -139,7 +139,7 @@
 }
 
 .link-underline-clean {
-    color: #000;
+    color: #3E322A;
     text-decoration: none;
     font-size: 14px;
     border-bottom: 1px solid transparent;
@@ -147,7 +147,7 @@
 }
 
 .link-underline-clean:hover {
-    border-color: #000;
+    border-color: #3E322A;
 }
 
 .home-loading-feed {
@@ -167,7 +167,7 @@
 
 .home-product-card {
     text-decoration: none;
-    color: #000;
+    color: #3E322A;
 }
 
 .home-card-img-holder {
@@ -175,7 +175,7 @@
     width: 100%;
     aspect-ratio: 1;
     overflow: hidden;
-    background: #f7f7f7;
+    background: #EDE8E0;
     margin-bottom: 16px;
 }
 
@@ -194,7 +194,8 @@
     position: absolute;
     top: 16px;
     left: 16px;
-    background: #fff;
+    background: #F5F2EC;
+    color: #3E322A;
     padding: 4px 10px;
     font-size: 10px;
     font-weight: 500;
@@ -214,7 +215,7 @@
 
 .home-card-desc {
     font-size: 13px;
-    color: #666;
+    color: #857468;
     margin-bottom: 10px;
     white-space: nowrap;
     overflow: hidden;
@@ -245,7 +246,7 @@
 }
 
 .gallery-text-block {
-    background-color: #f4f1eb;
+    background-color: #EDE8E0;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -257,12 +258,12 @@
     font-size: 1.2rem;
     font-weight: 300;
     line-height: 1.6;
-    color: #333;
+    color: #3E322A;
 }
 
 /* Sustainability Banner */
 .home-sustainability {
-    background-color: #e8ece6;
+    background-color: #E8E0D5;
     padding: 60px 40px;
     text-align: center;
     margin-bottom: 80px;
@@ -272,13 +273,13 @@
     font-size: 2rem;
     font-weight: 300;
     margin-bottom: 15px;
-    color: #222;
+    color: #3E322A;
 }
 
 .sustainability-content p {
     font-size: 1.1rem;
     font-weight: 300;
-    color: #555;
+    color: #857468;
     max-width: 600px;
     margin: 0 auto;
     line-height: 1.6;

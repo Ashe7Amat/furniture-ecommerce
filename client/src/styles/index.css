@@ -1,8 +1,13 @@
 :root {
-  --primary-color: #1a252f;
-  --accent-color: #d35400;
-  --bg-color: #f4f6f8;
-  --text-color: #2c3e50;
+  /* ─── PALETA VERANO CÁLIDO ─── */
+  --bg-color:        #F5F2EC;  /* Arena/avena — fondo de lienzo */
+  --primary-color:   #3E322A;  /* Espresso oscuro — texto principal */
+  --secondary-color: #857468;  /* Marrón grisáceo — texto secundario */
+  --accent-color:    #B38A70;  /* Terracota/arcilla — botones, íconos */
+  --accent-hover:    #9D735A;  /* Terracota oscuro — hover de botones */
+  --card-bg:         #FCFAF8;  /* Blanco roto — fondo de tarjetas */
+  --border-color:    #E2DCD0;  /* Divisores y bordes orgánicos */
+  --text-color:      #3E322A;  /* = primary-color, para compatibilidad */
 }
 
 body {
@@ -24,12 +29,12 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f1f1; 
+  background: var(--bg-color);
 }
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1; 
+  background: var(--border-color);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8; 
+  background: var(--secondary-color);
 }

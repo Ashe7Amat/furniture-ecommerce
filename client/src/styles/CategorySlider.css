@@ -41,7 +41,7 @@
 }
 
 .category-item.active .category-img-container {
-  border-color: var(--primary-color);
+  border-color: #B38A70;
 }
 
 .category-img-container img {
@@ -59,12 +59,12 @@
 .category-name {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #555;
+  color: #857468;
   text-align: center;
   transition: color 0.3s ease;
 }
 .category-item.active .category-name,
 .category-item:hover .category-name {
   font-weight: 600;
-  color: #000;
+  color: #3E322A;
 }
