@@ -26,12 +26,14 @@
   width: 100%;
   max-width: 440px;
   height: 100vh;
-  background: #FCFAF8; /* Arena blanquecina / Popup background */
+  background: rgba(252, 250, 248, 0.85); /* Arena blanquecina translúcida */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: 2000;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #E2DCD0;
-  box-shadow: -10px 0 40px rgba(62, 50, 42, 0.08);
+  border-left: 1px solid rgba(226, 220, 208, 0.6);
+  box-shadow: -10px 0 40px rgba(62, 50, 42, 0.05);
   transform: translateX(100%);
   transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
   font-family: 'Outfit', 'Inter', sans-serif;
@@ -47,8 +49,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 30px;
-  border-bottom: 1px solid #E2DCD0;
-  background-color: #FCFAF8;
+  border-bottom: 1px solid rgba(226, 220, 208, 0.6);
+  background-color: transparent;
 }
 
 .cart-header h2 {
@@ -298,8 +300,8 @@
 /* Footer Section */
 .cart-footer {
   padding: 24px 30px 30px 30px;
-  border-top: 1px solid #E2DCD0;
-  background: #FCFAF8;
+  border-top: 1px solid rgba(226, 220, 208, 0.6);
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 20px;

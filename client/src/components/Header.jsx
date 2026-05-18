@@ -71,6 +71,12 @@ const Header = () => {
     navigate(`/catalogo?categoria=${category}`);
   };
 
+  const handleLinkClick = (path) => {
+    setIsMenuOpen(false);
+    setIsProductsMenuOpen(false);
+    navigate(path);
+  };
+
   const closeSearch = () => {
     setIsSearchOpen(false);
     setSearchTerm('');
@@ -245,8 +251,16 @@ const Header = () => {
                 Productos <span className="arrow">›</span>
               </button>
             </li>
-            <li><button className="mega-menu-item">Novedades</button></li>
-            <li><button className="mega-menu-item">Inspiración</button></li>
+            <li>
+              <button className="mega-menu-item" onClick={() => handleLinkClick('/catalogo')}>
+                Novedades
+              </button>
+            </li>
+            <li>
+              <button className="mega-menu-item" onClick={() => handleLinkClick('/sobre-nosotros')}>
+                Inspiración
+              </button>
+            </li>
           </ul>
         </div>
 
