@@ -2,8 +2,16 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { supabase } from '../utils/supabaseClient';
-import { createMueble, getMuebles, deleteMueble, getCategorias, createCategoria, deleteCategoria } from '../services/api';
+import { 
+  createMueble, 
+  getMuebles, 
+  updateMueble, 
+  deleteMueble, 
+  getCategorias, 
+  createCategoria, 
+  updateCategoria, 
+  deleteCategoria 
+} from '../services/api';
 import '../styles/Admin.css';
 
 const Admin = () => {
@@ -14,7 +22,18 @@ const Admin = () => {
   
   const [muebles, setMuebles] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  
+  // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
+  const [categoriaFile, setCategoriaFile] = useState(null);
+  
+  // Estados para modales de edición (CMS)
+  const [muebleAEditar, setMuebleAEditar] = useState(null);
+  const [categoriaAEditar, setCategoriaAEditar] = useState(null);
+  
+  // Nuevos archivos durante la edición
+  const [editMuebleFiles, setEditMuebleFiles] = useState([]);
+  const [editCategoriaFile, setEditCategoriaFile] = useState(null);
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -82,10 +101,26 @@ const Admin = () => {
   const handleAddCategoria = async (e) => {
     e.preventDefault();
     if (!nuevaCat) return;
-    await createCategoria({ nombre: nuevaCat });
-    showToast('Categoría creada correctamente', 'success');
-    setNuevaCat('');
-    cargarCategorias();
+
+    setStatus('Creando categoría...');
+    const formDataToSend = new FormData();
+    formDataToSend.append('nombre', nuevaCat);
+    if (categoriaFile) {
+      formDataToSend.append('imagen', categoriaFile);
+    }
+
+    const res = await createCategoria(formDataToSend);
+    if (res) {
+      showToast('Categoría creada correctamente', 'success');
+      setNuevaCat('');
+      setCategoriaFile(null);
+      const fileInput = document.getElementById('categoria-file-input');
+      if (fileInput) fileInput.value = '';
+      cargarCategorias();
+    } else {
+      showToast('Error al crear la categoría', 'error');
+    }
+    setStatus('');
   };
 
   const handleDeleteCategoria = (id) => {
@@ -110,52 +145,94 @@ const Admin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus('Subiendo imágenes...');
-    
-    let uploadedUrls = [];
-
-    for (const file of files) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `muebles/${fileName}`;
-
-      const { data, error } = await supabase.storage
-        .from('imagenes')
-        .upload(filePath, file);
-
-      if (error) {
-        setStatus(`Error al subir imágenes: ${error.message}`);
-        showToast('Error al subir imágenes', 'error');
-        return;
-      }
-
-      const { data: publicData } = supabase.storage
-        .from('imagenes')
-        .getPublicUrl(filePath);
-
-      uploadedUrls.push(publicData.publicUrl);
-    }
-
     setStatus('Guardando producto...');
 
-    const newMueble = {
-      ...formData,
-      precio_venta: formData.precio_venta ? parseFloat(formData.precio_venta) : null,
-      precio_alquiler: formData.precio_alquiler ? parseFloat(formData.precio_alquiler) : null,
-      imagenes: uploadedUrls
-    };
+    const formDataToSend = new FormData();
+    formDataToSend.append('nombre', formData.nombre);
+    formDataToSend.append('categoria', formData.categoria);
+    formDataToSend.append('descripcion', formData.descripcion);
+    if (formData.precio_venta) formDataToSend.append('precio_venta', formData.precio_venta);
+    if (formData.precio_alquiler) formDataToSend.append('precio_alquiler', formData.precio_alquiler);
+    formDataToSend.append('estado', formData.estado);
 
-    const res = await createMueble(newMueble);
+    for (const file of files) {
+      formDataToSend.append('imagenes', file);
+    }
+
+    const res = await createMueble(formDataToSend);
     if (res) {
       setStatus('');
       showToast('Producto añadido con éxito al catálogo', 'success');
       setFormData({ nombre: '', categoria: '', descripcion: '', precio_venta: '', precio_alquiler: '', estado: 'disponible' });
       setFiles([]);
+      const fileInput = document.getElementById('mueble-file-input');
+      if (fileInput) fileInput.value = '';
       cargarMuebles(); // Refresh inventory
       setVistaActiva('inventario'); // Jump to inventory to see it
     } else {
       setStatus('Error al guardar en base de datos.');
       showToast('Error al guardar producto', 'error');
+    }
+  };
+
+  const handleUpdateMuebleSubmit = async (e) => {
+    e.preventDefault();
+    if (!muebleAEditar) return;
+    setStatus('Actualizando producto...');
+
+    const formDataToSend = new FormData();
+    formDataToSend.append('nombre', muebleAEditar.nombre || '');
+    formDataToSend.append('categoria', muebleAEditar.categoria || '');
+    formDataToSend.append('descripcion', muebleAEditar.descripcion || '');
+    formDataToSend.append('precio_venta', muebleAEditar.precio_venta || '');
+    formDataToSend.append('precio_alquiler', muebleAEditar.precio_alquiler || '');
+    formDataToSend.append('estado', muebleAEditar.estado || 'disponible');
+
+    // Siempre enviamos las imágenes existentes que persisten tras las eliminaciones individuales
+    formDataToSend.append('imagenes_existentes', JSON.stringify(muebleAEditar.imagenes || []));
+
+    if (editMuebleFiles.length > 0) {
+      for (const file of editMuebleFiles) {
+        formDataToSend.append('imagenes', file);
+      }
+    }
+
+    const res = await updateMueble(muebleAEditar.id, formDataToSend);
+    if (res) {
+      setStatus('');
+      showToast('Producto actualizado correctamente', 'success');
+      setMuebleAEditar(null);
+      setEditMuebleFiles([]);
+      cargarMuebles();
+    } else {
+      setStatus('Error al actualizar.');
+      showToast('Error al actualizar el producto', 'error');
+    }
+  };
+
+  const handleUpdateCategoriaSubmit = async (e) => {
+    e.preventDefault();
+    if (!categoriaAEditar) return;
+    setStatus('Actualizando categoría...');
+
+    const formDataToSend = new FormData();
+    formDataToSend.append('nombre', categoriaAEditar.nombre || '');
+    if (editCategoriaFile) {
+      formDataToSend.append('imagen', editCategoriaFile);
+    } else {
+      formDataToSend.append('imagen_url', categoriaAEditar.imagen_url || '');
+    }
+
+    const res = await updateCategoria(categoriaAEditar.id, formDataToSend);
+    if (res) {
+      setStatus('');
+      showToast('Categoría actualizada correctamente', 'success');
+      setCategoriaAEditar(null);
+      setEditCategoriaFile(null);
+      cargarCategorias();
+    } else {
+      setStatus('Error al actualizar.');
+      showToast('Error al actualizar la categoría', 'error');
     }
   };
 
@@ -254,7 +331,7 @@ const Admin = () => {
 
               <div className="file-input-wrapper">
                 <label>Imágenes (Selecciona varias):</label>
-                <input type="file" multiple accept="image/*" onChange={handleFileChange} />
+                <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} required />
               </div>
 
               <button type="submit" className="admin-btn" disabled={status.includes('Subiendo') || status.includes('Guardando')}>Guardar Producto</button>
@@ -274,10 +351,49 @@ const Admin = () => {
                       <span className="inv-name">{m.nombre}</span>
                       <span className="inv-category">{m.categoria}</span>
                       <span className="inv-state">
-                        {m.estado === 'vendido' ? '🔴 Vendido' : m.estado === 'alquilado' ? '🟡 Alquilado' : '🟢 Disponible'}
+                        <select 
+                          value={m.estado || 'disponible'} 
+                          onChange={async (e) => {
+                            const nuevoEstado = e.target.value;
+                            const res = await updateMueble(m.id, { estado: nuevoEstado });
+                            if (res) {
+                              showToast('Estado actualizado', 'success');
+                              cargarMuebles();
+                            } else {
+                              showToast('Error al cambiar estado', 'error');
+                            }
+                          }}
+                          className="inv-status-select"
+                          style={{
+                            padding: '6px 12px',
+                            border: '1px solid #E2DCD0',
+                            borderRadius: '4px',
+                            backgroundColor: '#FCFAF8',
+                            color: '#3E322A',
+                            fontFamily: 'inherit',
+                            cursor: 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="disponible">🟢 Disponible</option>
+                          <option value="vendido">🔴 Vendido</option>
+                          <option value="alquilado">🟡 Alquilado</option>
+                        </select>
                       </span>
                       <span className="inv-price">{m.precio_venta ? `${m.precio_venta}€` : `${m.precio_alquiler}€/día`}</span>
-                      <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={() => setMuebleAEditar(m)} className="inv-edit-btn" style={{
+                          backgroundColor: 'transparent',
+                          border: '1px solid #E2DCD0',
+                          color: '#857468',
+                          padding: '8px 16px',
+                          borderRadius: '4px',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}>Editar</button>
+                        <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -296,7 +412,18 @@ const Admin = () => {
                   placeholder="Nueva categoría (Ej: Sofás)" 
                   value={nuevaCat} 
                   onChange={(e) => setNuevaCat(e.target.value)} 
+                  required
                 />
+                <div className="file-input-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Imagen de la Categoría:</label>
+                  <input 
+                    type="file" 
+                    id="categoria-file-input"
+                    accept="image/*" 
+                    onChange={(e) => setCategoriaFile(e.target.files[0])} 
+                    required
+                  />
+                </div>
                 <button type="submit" className="admin-btn">Crear Categoría</button>
               </form>
               
@@ -305,7 +432,24 @@ const Admin = () => {
                   <div key={cat.id} className="cat-card">
                     <div className="cat-card-header">
                       <h3>{cat.nombre}</h3>
-                      <button onClick={() => handleDeleteCategoria(cat.id)} className="cat-card-del-btn" aria-label="Eliminar">🗑️</button>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => setCategoriaAEditar(cat)} 
+                          className="cat-card-edit-btn" 
+                          aria-label="Editar"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            padding: '0',
+                            color: '#857468'
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button onClick={() => handleDeleteCategoria(cat.id)} className="cat-card-del-btn" aria-label="Eliminar">🗑️</button>
+                      </div>
                     </div>
                     {cat.stats ? (
                       <div className="cat-card-stats">
@@ -326,6 +470,315 @@ const Admin = () => {
         )}
 
       </main>
+
+      {/* MODAL DE EDICIÓN MUEBLE (CMS CLIENT-PROOF) */}
+      {muebleAEditar && (
+        <div className="admin-modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(62, 50, 42, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000
+        }}>
+          <div className="admin-modal-content" style={{
+            background: '#FCFAF8',
+            border: '1px solid #E2DCD0',
+            borderRadius: '8px',
+            padding: '30px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 10px 35px rgba(62, 50, 42, 0.15)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div className="admin-modal-header" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              borderBottom: '1px solid #E2DCD0',
+              paddingBottom: '12px'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#3E322A', fontWeight: 300 }}>Editar Producto</h3>
+              <button 
+                onClick={() => setMuebleAEditar(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  color: '#857468',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateMuebleSubmit} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Nombre del Mueble:</label>
+                <input 
+                  type="text" 
+                  value={muebleAEditar.nombre || ''} 
+                  onChange={(e) => setMuebleAEditar({ ...muebleAEditar, nombre: e.target.value })} 
+                  required 
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Categoría:</label>
+                <select 
+                  value={muebleAEditar.categoria || ''} 
+                  onChange={(e) => setMuebleAEditar({ ...muebleAEditar, categoria: e.target.value })} 
+                  required
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                >
+                  <option value="">Selecciona una categoría</option>
+                  {categorias.map(cat => (
+                    <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Descripción:</label>
+                <textarea 
+                  value={muebleAEditar.descripcion || ''} 
+                  onChange={(e) => setMuebleAEditar({ ...muebleAEditar, descripcion: e.target.value })} 
+                  required 
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A', minHeight: '100px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Venta (€):</label>
+                  <input 
+                    type="number" 
+                    value={muebleAEditar.precio_venta || ''} 
+                    onChange={(e) => setMuebleAEditar({ ...muebleAEditar, precio_venta: e.target.value })} 
+                    style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A', width: '100%' }}
+                  />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Alquiler (€/día):</label>
+                  <input 
+                    type="number" 
+                    value={muebleAEditar.precio_alquiler || ''} 
+                    onChange={(e) => setMuebleAEditar({ ...muebleAEditar, precio_alquiler: e.target.value })} 
+                    style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A', width: '100%' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Estado:</label>
+                <select 
+                  value={muebleAEditar.estado || 'disponible'} 
+                  onChange={(e) => setMuebleAEditar({ ...muebleAEditar, estado: e.target.value })}
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                >
+                  <option value="disponible">🟢 Disponible</option>
+                  <option value="vendido">🔴 Vendido</option>
+                  <option value="alquilado">🟡 Alquilado</option>
+                </select>
+              </div>
+
+              {muebleAEditar.imagenes && muebleAEditar.imagenes.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Imágenes actuales (Haz clic en ✕ para eliminar):</label>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {muebleAEditar.imagenes.map((imgUrl, idx) => (
+                      <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #E2DCD0' }}>
+                        <img src={imgUrl} alt={`Mueble ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            confirmarBorrado(
+                              'Eliminar Imagen de Producto',
+                              '¿Estás seguro de que deseas eliminar esta imagen de este producto? Se quitará de la previsualización actual.',
+                              () => {
+                                const updatedImgs = muebleAEditar.imagenes.filter((_, i) => i !== idx);
+                                setMuebleAEditar({ ...muebleAEditar, ...muebleAEditar, imagenes: updatedImgs });
+                              }
+                            );
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            right: '4px',
+                            background: 'rgba(62, 50, 42, 0.8)',
+                            color: '#FCFAF8',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="file-input-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Añadir más imágenes (Opcional):</label>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*" 
+                  onChange={(e) => setEditMuebleFiles(Array.from(e.target.files))} 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="admin-btn"
+                disabled={status.includes('Actualizando')}
+                style={{ marginTop: '10px' }}
+              >
+                Guardar Cambios
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN CATEGORÍA (CMS CLIENT-PROOF) */}
+      {categoriaAEditar && (
+        <div className="admin-modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(62, 50, 42, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000
+        }}>
+          <div className="admin-modal-content" style={{
+            background: '#FCFAF8',
+            border: '1px solid #E2DCD0',
+            borderRadius: '8px',
+            padding: '30px',
+            width: '90%',
+            maxWidth: '500px',
+            boxShadow: '0 10px 35px rgba(62, 50, 42, 0.15)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div className="admin-modal-header" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              borderBottom: '1px solid #E2DCD0',
+              paddingBottom: '12px'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '1.4rem', color: '#3E322A', fontWeight: 300 }}>Editar Categoría</h3>
+              <button 
+                onClick={() => setCategoriaAEditar(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.2rem',
+                  color: '#857468',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleUpdateCategoriaSubmit} className="admin-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Nombre de la Categoría:</label>
+                <input 
+                  type="text" 
+                  value={categoriaAEditar.nombre || ''} 
+                  onChange={(e) => setCategoriaAEditar({ ...categoriaAEditar, nombre: e.target.value })} 
+                  required 
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                />
+              </div>
+
+              {categoriaAEditar.imagen_url && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Imagen actual (Haz clic en ✕ para eliminar):</label>
+                  <div style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #E2DCD0' }}>
+                    <img src={categoriaAEditar.imagen_url} alt="Categoría" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        confirmarBorrado(
+                          'Eliminar Imagen de Categoría',
+                          '¿Estás seguro de que deseas eliminar la imagen representativa de esta categoría?',
+                          () => {
+                            setCategoriaAEditar({ ...categoriaAEditar, imagen_url: '' });
+                          }
+                        );
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: '4px',
+                        right: '4px',
+                        background: 'rgba(62, 50, 42, 0.8)',
+                        color: '#FCFAF8',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: '20px',
+                        height: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="file-input-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Reemplazar Imagen (Opcional):</label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={(e) => setEditCategoriaFile(e.target.files[0])} 
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className="admin-btn"
+                disabled={status.includes('Actualizando')}
+                style={{ marginTop: '10px' }}
+              >
+                Guardar Cambios
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmación global para admin */}
       <ConfirmModal 

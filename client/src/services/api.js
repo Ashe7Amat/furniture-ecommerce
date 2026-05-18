@@ -61,15 +61,38 @@ export const registerUser = async (userData) => {
 
 export const createMueble = async (muebleData) => {
   try {
+    const isFormData = muebleData instanceof FormData;
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const body = isFormData ? muebleData : JSON.stringify(muebleData);
+
     const response = await fetch(`${API_URL}/muebles`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(muebleData)
+      headers,
+      body
     });
     if (!response.ok) throw new Error('Error al crear el mueble');
     return await response.json();
   } catch (error) {
     console.error('Error en createMueble:', error);
+    return null;
+  }
+};
+
+export const updateMueble = async (id, muebleData) => {
+  try {
+    const isFormData = muebleData instanceof FormData;
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const body = isFormData ? muebleData : JSON.stringify(muebleData);
+
+    const response = await fetch(`${API_URL}/muebles/${id}`, {
+      method: 'PUT',
+      headers,
+      body
+    });
+    if (!response.ok) throw new Error('Error al actualizar el mueble');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en updateMueble:', error);
     return null;
   }
 };
@@ -100,15 +123,38 @@ export const getCategorias = async () => {
 
 export const createCategoria = async (categoriaData) => {
   try {
+    const isFormData = categoriaData instanceof FormData;
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
+
     const response = await fetch(`${API_URL}/categorias`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(categoriaData)
+      headers,
+      body
     });
     if (!response.ok) throw new Error('Error al crear categoría');
     return await response.json();
   } catch (error) {
     console.error('Error en createCategoria:', error);
+    return null;
+  }
+};
+
+export const updateCategoria = async (id, categoriaData) => {
+  try {
+    const isFormData = categoriaData instanceof FormData;
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
+
+    const response = await fetch(`${API_URL}/categorias/${id}`, {
+      method: 'PUT',
+      headers,
+      body
+    });
+    if (!response.ok) throw new Error('Error al actualizar categoría');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en updateCategoria:', error);
     return null;
   }
 };

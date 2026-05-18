@@ -100,7 +100,7 @@ export default function Home() {
                 <div className="gallery-grid">
                     <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1000" alt="Interior minimalista" className="gallery-img" />
                     <div className="gallery-text-block">
-                        <p>Espacios que inspiran. Comparte tu rincón con el hashtag #KaveHome.</p>
+                        <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
                     </div>
                     <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1000" alt="Diseño de interiores" className="gallery-img" />
                 </div>

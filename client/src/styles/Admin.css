@@ -1,14 +1,14 @@
 .admin-layout {
   display: flex;
   min-height: calc(100vh - 160px); /* Adjusts depending on header and footer height */
-  background: #fff;
+  background: transparent; /* blends with arena body */
 }
 
 .admin-sidebar {
   width: 22%;
   min-width: 240px;
-  background: #f9f9f9;
-  border-right: 1px solid #eaeaea;
+  background: #EDE8E0; /* warm neutral arena sidebar */
+  border-right: 1px solid #E2DCD0;
   padding: 40px 20px;
 }
 
@@ -16,7 +16,7 @@
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 2px;
-  color: #999;
+  color: #857468;
   margin-bottom: 30px;
   padding-left: 15px;
   font-weight: 600;
@@ -34,7 +34,7 @@
   text-align: left;
   padding: 12px 15px;
   font-size: 0.95rem;
-  color: #555;
+  color: #857468;
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.2s;
@@ -44,25 +44,34 @@
 }
 
 .sidebar-btn:hover {
-  background: #f0f0f0;
-  color: #000;
+  background: #FCFAF8;
+  color: #3E322A;
 }
 
 .sidebar-btn.active {
   font-weight: 600;
-  color: #000;
-  background: #f0f0f0;
-  border-left-color: #000;
+  color: #3E322A;
+  background: #FCFAF8;
+  border-left-color: #B38A70;
 }
 
 .admin-content {
   flex: 1;
   padding: 40px 60px;
-  background: #fff;
+  background: transparent;
 }
 
 .admin-view.fade-in {
   animation: fadeIn 0.4s ease;
+}
+
+.admin-view h2 {
+  color: #3E322A;
+  font-weight: 300;
+  font-size: 2.2rem;
+  letter-spacing: -0.5px;
+  margin-top: 0;
+  margin-bottom: 30px;
 }
 
 /* Resumen Tab */
@@ -73,21 +82,22 @@
 }
 .resumen-card {
   flex: 1;
-  background: #fdfdfd;
+  background: #FCFAF8;
   padding: 30px;
   border-radius: 4px;
   text-align: center;
-  border: 1px solid #eaeaea;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+  border: 1px solid #E2DCD0;
+  box-shadow: 0 4px 12px rgba(62,50,42,0.02);
 }
 .resumen-card h3 {
   font-size: 2.5rem;
   margin: 0 0 10px 0;
-  font-weight: 400;
+  font-weight: 300;
+  color: #3E322A;
 }
 .resumen-card p {
   margin: 0;
-  color: #666;
+  color: #857468;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -106,10 +116,18 @@
 .admin-form textarea,
 .admin-form select {
   padding: 15px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+  border: 1px solid #E2DCD0;
+  border-radius: 4px;
   font-family: inherit;
   font-size: 1rem;
+  background-color: #FCFAF8;
+  color: #3E322A;
+  outline: none;
+}
+.admin-form input:focus,
+.admin-form textarea:focus,
+.admin-form select:focus {
+  border-color: #B38A70;
 }
 .admin-form textarea {
   min-height: 120px;
@@ -119,34 +137,41 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  color: #3E322A;
+}
+.file-input-wrapper label {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 .admin-btn {
-  background: #000;
-  color: #fff;
+  background: #3E322A;
+  color: #F5F2EC;
   border: none;
   padding: 15px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: background 0.2s;
 }
 .admin-btn:hover {
-  background: #333;
+  background: #B38A70;
 }
 .admin-btn:disabled {
-  background: #ccc;
+  background: #E2DCD0;
+  color: #857468;
   cursor: not-allowed;
 }
 .admin-status {
   margin-top: 20px;
   font-weight: 500;
-  color: #d35400;
+  color: #B38A70;
 }
 .admin-msg {
   text-align: center;
   padding: 100px;
   font-size: 1.2rem;
+  color: #3E322A;
 }
 
 /* Categorias manager */
@@ -156,18 +181,29 @@
 }
 .cat-add-form {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
   max-width: 600px;
+  background: #FCFAF8;
+  padding: 24px;
+  border-radius: 6px;
+  border: 1px solid #E2DCD0;
 }
 .cat-add-form input {
-  flex: 1;
   padding: 12px 15px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+  border: 1px solid #E2DCD0;
+  border-radius: 4px;
   font-size: 0.95rem;
+  background-color: #FCFAF8;
+  color: #3E322A;
+  outline: none;
+}
+.cat-add-form input:focus {
+  border-color: #B38A70;
 }
 .cat-add-form button {
   padding: 12px 20px;
+  align-self: flex-start;
 }
 
 .cat-grid {
@@ -177,16 +213,16 @@
   margin-top: 30px;
 }
 .cat-card {
-  background: #fdfdfd;
-  border: 1px solid #eaeaea;
+  background: #FCFAF8;
+  border: 1px solid #E2DCD0;
   border-radius: 4px;
   padding: 20px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.01);
+  box-shadow: 0 2px 10px rgba(62,50,42,0.01);
   transition: transform 0.2s, box-shadow 0.2s;
 }
 .cat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+  box-shadow: 0 4px 15px rgba(62,50,42,0.04);
 }
 .cat-card-header {
   display: flex;
@@ -198,31 +234,31 @@
   margin: 0;
   font-size: 1.2rem;
   font-weight: 500;
-  color: #000;
+  color: #3E322A;
 }
 .cat-card-del-btn {
   background: none;
   border: none;
-  color: #999;
+  color: #857468;
   cursor: pointer;
   font-size: 1.1rem;
   transition: color 0.2s;
   padding: 0;
 }
 .cat-card-del-btn:hover {
-  color: #d32f2f;
+  color: #c0392b;
 }
 .cat-card-stats {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-top: 1px solid #eaeaea;
+  border-top: 1px solid #E2DCD0;
   padding-top: 15px;
 }
 .cat-card-stats p {
   margin: 0;
   font-size: 0.85rem;
-  color: #666;
+  color: #857468;
   line-height: 1.4;
 }
 
@@ -243,35 +279,36 @@
   align-items: center;
   justify-content: space-between;
   padding: 15px 20px;
-  background: #fff;
-  border: 1px solid #eaeaea;
+  background: #FCFAF8;
+  border: 1px solid #E2DCD0;
   border-radius: 4px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.01);
+  box-shadow: 0 2px 5px rgba(62,50,42,0.01);
 }
 .inv-name {
   flex: 2;
   font-weight: 500;
+  color: #3E322A;
 }
 .inv-category, .inv-state, .inv-price {
   flex: 1;
-  color: #666;
+  color: #857468;
   font-size: 0.9rem;
 }
 .inv-del-btn {
   background: transparent;
-  border: 1px solid #ccc;
-  color: #666;
+  border: 1px solid #E2DCD0;
+  color: #857468;
   cursor: pointer;
   font-weight: 500;
   font-size: 0.85rem;
   padding: 8px 16px;
-  border-radius: 2px;
+  border-radius: 4px;
   transition: all 0.2s;
 }
 .inv-del-btn:hover {
-  background: #000;
-  color: #fff;
-  border-color: #000;
+  background: #3E322A;
+  color: #F5F2EC;
+  border-color: #3E322A;
 }
 
 @media (max-width: 768px) {
@@ -281,7 +318,7 @@
   .admin-sidebar {
     width: 100%;
     border-right: none;
-    border-bottom: 1px solid #eaeaea;
+    border-bottom: 1px solid #E2DCD0;
     padding: 20px;
   }
   .sidebar-menu {
@@ -295,7 +332,7 @@
   }
   .sidebar-btn.active {
     border-left-color: transparent;
-    border-bottom-color: #000;
+    border-bottom-color: #B38A70;
   }
   .admin-content {
     padding: 20px;

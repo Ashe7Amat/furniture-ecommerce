@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { uploadToSupabase } = require('../utils/upload');
 
 // 1. Obtener todas las categorías con sus estadísticas de inventario completas
 const obtenerCategorias = async (req, res) => {
@@ -49,23 +50,68 @@ const obtenerCategorias = async (req, res) => {
     }
 };
 
-// 2. Crear una nueva categoría
+// 2. Crear una nueva categoría con soporte de carga física de imágenes
 const crearCategoria = async (req, res) => {
     try {
-        const { nombre, imagen_url } = req.body;
+        const { nombre } = req.body;
+        let imagen_url = req.body.imagen_url;
+
+        // Si se subió un archivo físico
+        if (req.file) {
+            imagen_url = await uploadToSupabase(req.file, 'categorias');
+        }
+
         const { data, error } = await supabase
             .from('categorias')
-            .insert([{ nombre, imagen_url: imagen_url || 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=200' }])
+            .insert([{ 
+                nombre, 
+                imagen_url: imagen_url || 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=200' 
+            }])
             .select();
 
         if (error) throw error;
         res.status(201).json({ success: true, data });
     } catch (error) {
+        console.error('Error al crear categoría:', error);
         res.status(500).json({ error: 'Error al crear la categoría.' });
     }
 };
 
-// 3. Eliminar una categoría
+// 3. Editar una categoría
+const editarCategoria = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nombre } = req.body;
+        let imagen_url = req.body.imagen_url;
+
+        // Si se subió un archivo físico para reemplazar la imagen anterior
+        if (req.file) {
+            imagen_url = await uploadToSupabase(req.file, 'categorias');
+        }
+
+        const updateData = {};
+        if (nombre !== undefined) {
+            updateData.nombre = nombre;
+        }
+        if (imagen_url !== undefined) {
+            updateData.imagen_url = imagen_url === '' ? null : imagen_url;
+        }
+
+        const { data, error } = await supabase
+            .from('categorias')
+            .update(updateData)
+            .eq('id', id)
+            .select();
+
+        if (error) throw error;
+        res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error('Error al editar categoría:', error);
+        res.status(500).json({ error: 'Error al editar la categoría.' });
+    }
+};
+
+// 4. Eliminar una categoría
 const eliminarCategoria = async (req, res) => {
     try {
         const { id } = req.params;
@@ -80,5 +126,6 @@ const eliminarCategoria = async (req, res) => {
 module.exports = {
     obtenerCategorias,
     crearCategoria,
+    editarCategoria,
     eliminarCategoria
 };

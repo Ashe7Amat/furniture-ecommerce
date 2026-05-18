@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { obtenerMuebles, obtenerMueblePorId, crearMueble, eliminarMueble, buscarMuebles } = require('../controllers/mueblesController');
+const { obtenerMuebles, obtenerMueblePorId, crearMueble, editarMueble, eliminarMueble, buscarMuebles } = require('../controllers/mueblesController');
+const { upload } = require('../utils/upload');
 
 router.get('/', obtenerMuebles);
+router.get('/buscar', buscarMuebles);
 router.get('/:id', obtenerMueblePorId);
-router.post('/', crearMueble);
-router.delete('/:id', eliminarMueble); // <-- Conectamos el método HTTP DELETE
+router.post('/', upload.array('imagenes', 5), crearMueble);
+router.put('/:id', upload.array('imagenes', 5), editarMueble);
+router.delete('/:id', eliminarMueble);
 
 module.exports = router;

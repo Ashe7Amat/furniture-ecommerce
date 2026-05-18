@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { uploadToSupabase } = require('../utils/upload');
 
 // 1. Obtener todos los muebles (Catálogo)
 const obtenerMuebles = async (req, res) => {
@@ -32,10 +33,29 @@ const obtenerMueblePorId = async (req, res) => {
   }
 };
 
-// 3. Crear un nuevo mueble
+// 3. Crear un nuevo mueble con soporte de carga física de imágenes
 const crearMueble = async (req, res) => {
   try {
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, disponible, imagenes, estado } = req.body;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+    let imagenes = [];
+
+    // Si se subieron archivos físicos
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const url = await uploadToSupabase(file, 'muebles');
+        if (url) imagenes.push(url);
+      }
+    } else if (req.body.imagenes) {
+      if (typeof req.body.imagenes === 'string') {
+        try {
+          imagenes = JSON.parse(req.body.imagenes);
+        } catch (e) {
+          imagenes = [req.body.imagenes];
+        }
+      } else {
+        imagenes = Array.isArray(req.body.imagenes) ? req.body.imagenes : [req.body.imagenes];
+      }
+    }
 
     const { data, error } = await supabase
       .from('muebles')
@@ -44,9 +64,9 @@ const crearMueble = async (req, res) => {
           nombre,
           categoria,
           descripcion,
-          precio_venta: parseFloat(precio_venta),
-          precio_alquiler_dia: parseFloat(precio_alquiler_dia),
-          disponible: disponible !== undefined ? disponible : true,
+          precio_venta: (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta),
+          precio_alquiler_dia: (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler),
+          disponible: disponible !== undefined ? (disponible === 'true' || disponible === true) : true,
           imagenes,
           estado: estado || 'disponible'
         }
@@ -61,7 +81,74 @@ const crearMueble = async (req, res) => {
   }
 };
 
-// 4. Eliminar un mueble (¡La nueva función!)
+// 4. Editar un mueble
+const editarMueble = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+
+    const updateData = {};
+    if (nombre !== undefined) updateData.nombre = nombre;
+    if (categoria !== undefined) updateData.categoria = categoria;
+    if (descripcion !== undefined) updateData.descripcion = descripcion;
+    if (precio_venta !== undefined) updateData.precio_venta = (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta);
+    if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler);
+    if (disponible !== undefined) updateData.disponible = disponible === 'true' || disponible === true;
+    if (estado !== undefined) updateData.estado = estado;
+
+    // Soporte para combinar imágenes existentes con las nuevas subidas físicas
+    let imagenesFinales = [];
+    if (req.body.imagenes_existentes !== undefined) {
+      if (typeof req.body.imagenes_existentes === 'string') {
+        try {
+          imagenesFinales = JSON.parse(req.body.imagenes_existentes);
+        } catch (e) {
+          imagenesFinales = [req.body.imagenes_existentes];
+        }
+      } else {
+        imagenesFinales = Array.isArray(req.body.imagenes_existentes) ? req.body.imagenes_existentes : [req.body.imagenes_existentes];
+      }
+    }
+
+    // Si se subieron nuevos archivos de imágenes físicos
+    if (req.files && req.files.length > 0) {
+      const nuevasUrls = [];
+      for (const file of req.files) {
+        const url = await uploadToSupabase(file, 'muebles');
+        if (url) nuevasUrls.push(url);
+      }
+      imagenesFinales = [...imagenesFinales, ...nuevasUrls];
+    } else if (req.body.imagenes !== undefined && req.body.imagenes_existentes === undefined) {
+      if (typeof req.body.imagenes === 'string') {
+        try {
+          imagenesFinales = JSON.parse(req.body.imagenes);
+        } catch (e) {
+          imagenesFinales = [req.body.imagenes];
+        }
+      } else {
+        imagenesFinales = Array.isArray(req.body.imagenes) ? req.body.imagenes : [req.body.imagenes];
+      }
+    }
+
+    if (imagenesFinales.length > 0 || req.body.imagenes_existentes !== undefined || req.body.imagenes !== undefined) {
+      updateData.imagenes = imagenesFinales;
+    }
+
+    const { data, error } = await supabase
+      .from('muebles')
+      .update(updateData)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.status(200).json({ success: true, message: 'Mueble editado con éxito', data });
+  } catch (error) {
+    console.error('Error al editar mueble:', error.message);
+    res.status(500).json({ error: 'Error al editar el mueble.' });
+  }
+};
+
+// 5. Eliminar un mueble
 const eliminarMueble = async (req, res) => {
   try {
     const { id } = req.params;
@@ -80,20 +167,12 @@ const eliminarMueble = async (req, res) => {
   }
 };
 
-module.exports = {
-  obtenerMuebles,
-  obtenerMueblePorId,
-  crearMueble,
-  eliminarMueble // <-- No olvides exportarla aquí
-};
-
-// Buscar muebles por coincidencia de texto (para las sugerencias en tiempo real)
+// 6. Buscar muebles por coincidencia de texto
 const buscarMuebles = async (req, res) => {
   try {
     const { q } = req.query;
     if (!q) return res.status(200).json([]);
 
-    // Buscamos filas que contengan el texto en el nombre o descripción (ignore case)
     const { data, error } = await supabase
       .from('muebles')
       .select('*')
@@ -107,11 +186,11 @@ const buscarMuebles = async (req, res) => {
   }
 };
 
-// Asegúrate de añadir 'buscarMuebles' al module.exports final:
 module.exports = {
   obtenerMuebles,
   obtenerMueblePorId,
   crearMueble,
+  editarMueble,
   eliminarMueble,
-  buscarMuebles // <-- Añadido
+  buscarMuebles
 };
