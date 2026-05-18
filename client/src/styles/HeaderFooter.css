@@ -422,17 +422,18 @@
   width: 400px;
   max-width: 90vw;
   height: 100%;
-  background: #F5F2EC;
+  background: #FCFAF8; /* Arena blanquecina / Popup background */
   position: absolute;
   top: 0;
   left: 0;
-  padding: 30px;
+  padding: 40px 30px;
   display: flex;
   flex-direction: column;
+  border-right: 1px solid #E2DCD0;
   /* Premium slide transition */
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-              opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 5px 0 30px rgba(62,50,42,0.12);
+  transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1),
+              opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 10px 0 40px rgba(62, 50, 42, 0.08);
 }
 .primary-panel {
   transform: translateX(-100%);
@@ -451,6 +452,19 @@
 }
 .secondary-panel.open {
   transform: translateX(0);
+}
+
+/* Premium transition for the header custom SVG icons */
+.header-icon-svg {
+  color: #3E322A;
+  transition: color 0.25s ease, stroke-width 0.25s ease, transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.icon-btn:hover .header-icon-svg {
+  color: #B38A70; /* Terracota */
+  transform: translateY(-1px);
+}
+.icon-btn:active .header-icon-svg {
+  transform: translateY(0) scale(0.95);
 }
 
 .mega-menu-header {

@@ -279,26 +279,89 @@ const loginCliente = async (req, res) => {
   }
 };
 
-// Actualizar datos del perfil del cliente
+// Actualizar datos del perfil del cliente (Seguro - Requiere contraseña solo si cambia email/password)
 const actualizarPerfil = async (req, res) => {
   try {
-    const { emailActual, nuevoNombre, nuevoEmail } = req.body;
+    const { emailActual, nuevoNombre, nuevoEmail, passwordActual, nuevaPassword } = req.body;
 
-    const { data, error } = await supabase
+    const estaCambiandoEmail = nuevoEmail && nuevoEmail !== emailActual;
+    const estaCambiandoPassword = !!nuevaPassword;
+
+    // Solo verificar la contraseña si se está intentando cambiar email o contraseña
+    if (estaCambiandoEmail || estaCambiandoPassword) {
+      if (!passwordActual) {
+        return res.status(400).json({ error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.' });
+      }
+
+      // 1. Buscar al usuario en la base de datos para comparar contraseñas
+      const { data: usuario, error: fetchError } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('email', emailActual)
+        .single();
+
+      if (fetchError || !usuario) {
+        return res.status(404).json({ error: 'El usuario no existe.' });
+      }
+
+      // 2. Verificar la contraseña actual
+      const contraseñaCorrecta = await bcrypt.compare(passwordActual, usuario.password);
+      if (!contraseñaCorrecta) {
+        return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+      }
+    }
+
+    // 3. Preparar los campos a actualizar
+    const updateFields = {};
+    if (nuevoNombre !== undefined) updateFields.nombre = nuevoNombre;
+    if (nuevoEmail !== undefined) {
+      // Si cambia de email, verificar si el nuevo email ya está registrado por otro usuario
+      if (nuevoEmail !== emailActual) {
+        const { data: emailDuplicado } = await supabase
+          .from('clientes')
+          .select('email')
+          .eq('email', nuevoEmail)
+          .single();
+        
+        if (emailDuplicado) {
+          return res.status(400).json({ error: 'El nuevo correo electrónico ya está en uso.' });
+        }
+      }
+      updateFields.email = nuevoEmail;
+    }
+
+    // 4. Si se desea cambiar la contraseña
+    if (nuevaPassword) {
+      if (nuevaPassword.length < 6) {
+        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
+      }
+      const salt = await bcrypt.genSalt(10);
+      updateFields.password = await bcrypt.hash(nuevaPassword, salt);
+    }
+
+    // 5. Ejecutar la actualización en Supabase
+    const { data: dataActualizada, error: updateError } = await supabase
       .from('clientes')
-      .update({ nombre: nuevoNombre, email: nuevoEmail })
+      .update(updateFields)
       .eq('email', emailActual)
       .select();
 
-    if (error) throw error;
+    if (updateError || !dataActualizada || dataActualizada.length === 0) {
+      throw new Error(updateError?.message || 'Error al actualizar registro en base de datos');
+    }
 
     res.status(200).json({
       success: true,
-      user: { nombre: data[0].nombre, email: data[0].email, rol: data[0].rol }
+      message: 'Perfil actualizado con éxito.',
+      user: { 
+        nombre: dataActualizada[0].nombre, 
+        email: dataActualizada[0].email, 
+        rol: dataActualizada[0].rol 
+      }
     });
   } catch (error) {
     console.error('Error al actualizar perfil:', error.message);
-    res.status(500).json({ error: 'No se pudo actualizar la información.' });
+    res.status(500).json({ error: 'No se pudo actualizar la información de la cuenta.' });
   }
 };
 

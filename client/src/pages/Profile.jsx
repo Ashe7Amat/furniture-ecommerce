@@ -15,6 +15,9 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'datos');
   const [nombre, setNombre] = useState(user?.nombre || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [passwordActual, setPasswordActual] = useState('');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarNuevaPassword, setConfirmarNuevaPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [favMuebles, setFavMuebles] = useState([]);
 
@@ -36,6 +39,20 @@ export default function Profile() {
 
   const handleUpdatePerfil = async (e) => {
     e.preventDefault();
+    
+    const estaCambiandoEmail = email !== user.email;
+    const estaCambiandoPassword = nuevaPassword.length > 0;
+
+    if ((estaCambiandoEmail || estaCambiandoPassword) && !passwordActual) {
+      showToast('Debes ingresar tu contraseña actual para autorizar cambios en tu correo o contraseña.', 'error');
+      return;
+    }
+
+    if (nuevaPassword && nuevaPassword !== confirmarNuevaPassword) {
+      showToast('Las nuevas contraseñas no coinciden.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch('http://localhost:5000/api/auth/perfil-update', {
@@ -44,7 +61,9 @@ export default function Profile() {
         body: JSON.stringify({
           emailActual: user.email,
           nuevoNombre: nombre,
-          nuevoEmail: email
+          nuevoEmail: email,
+          passwordActual: (estaCambiandoEmail || estaCambiandoPassword) ? passwordActual : undefined,
+          nuevaPassword: estaCambiandoPassword ? nuevaPassword : undefined
         })
       });
       
@@ -52,6 +71,9 @@ export default function Profile() {
       
       if (response.ok) {
         login(data.user); 
+        setPasswordActual('');
+        setNuevaPassword('');
+        setConfirmarNuevaPassword('');
         showToast('¡Perfil actualizado con éxito!', 'success');
       } else {
         showToast(data.error || 'Error al actualizar', 'error');
@@ -115,7 +137,38 @@ export default function Profile() {
                     required
                   />
                 </div>
-                <button type="submit" className="btn-black-solid" disabled={loading}>
+                
+                <div className="form-group-clean" style={{ marginTop: '10px', borderTop: '1px solid #E2DCD0', paddingTop: '20px' }}>
+                  <label style={{ color: '#B38A70', fontWeight: '500' }}>Contraseña actual (Solo requerida si cambias correo o contraseña)</label>
+                  <input 
+                    type="password" 
+                    value={passwordActual} 
+                    onChange={(e) => setPasswordActual(e.target.value)} 
+                    placeholder="Introduce tu contraseña para autorizar"
+                  />
+                </div>
+
+                <div className="form-group-clean">
+                  <label>Nueva contraseña (Dejar en blanco si no deseas cambiarla)</label>
+                  <input 
+                    type="password" 
+                    value={nuevaPassword} 
+                    onChange={(e) => setNuevaPassword(e.target.value)} 
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+
+                <div className="form-group-clean">
+                  <label>Confirmar nueva contraseña</label>
+                  <input 
+                    type="password" 
+                    value={confirmarNuevaPassword} 
+                    onChange={(e) => setConfirmarNuevaPassword(e.target.value)} 
+                    placeholder="Repite la nueva contraseña"
+                  />
+                </div>
+
+                <button type="submit" className="btn-black-solid" disabled={loading} style={{ marginTop: '15px' }}>
                   {loading ? 'Guardando...' : 'GUARDAR CAMBIOS'}
                 </button>
               </form>

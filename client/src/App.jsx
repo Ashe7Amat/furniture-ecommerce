@@ -18,6 +18,7 @@ import About from './pages/About';
 import Sustainability from './pages/Sustainability';
 import Contact from './pages/Contact';
 import Legal from './pages/Legal';
+import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <FavoritesProvider>
           <CartProvider>
             <BrowserRouter>
+              <ScrollToTop />
               <div className="app-container">
                 <Header />
                 <Routes>

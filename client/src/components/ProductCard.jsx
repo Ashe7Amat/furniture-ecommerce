@@ -20,8 +20,10 @@ const ProductCard = ({ mueble }) => {
     <Link to={`/mueble/${mueble.id}`} className="product-card">
       <div className="product-image-container">
         <img src={imageUrl} alt={mueble.nombre || 'Mueble'} className="product-image" />
-        <button className="fav-btn" onClick={handleFavClick}>
-          {isFav ? '🖤' : '🤍'}
+        <button className="fav-btn" onClick={handleFavClick} aria-label="Favorito">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={isFav ? "#B38A70" : "none"} stroke={isFav ? "#B38A70" : "#3E322A"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="card-fav-svg">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
         </button>
         {mueble.estado === 'vendido' && (
           <div className="product-sold-overlay">

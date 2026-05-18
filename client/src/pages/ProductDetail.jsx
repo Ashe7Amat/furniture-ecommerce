@@ -119,10 +119,12 @@ const ProductDetail = () => {
             <button 
               className="icon-btn" 
               onClick={() => toggleFavorite(mueble.id)} 
-              style={{ fontSize: '1.5rem', cursor: 'pointer', background: 'none', border: 'none' }}
+              style={{ cursor: 'pointer', background: 'none', border: 'none', display: 'flex', alignItems: 'center', padding: '8px' }}
               aria-label="Añadir a favoritos"
             >
-              {favorites.includes(mueble.id) ? '🖤' : '🤍'}
+              <svg width="24" height="24" viewBox="0 0 24 24" fill={favorites.includes(mueble.id) ? "#B38A70" : "none"} stroke={favorites.includes(mueble.id) ? "#B38A70" : "#3E322A"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
             </button>
           </div>
           <p className="pd-price">{mueble.precio_venta ? `${mueble.precio_venta} €` : 'Consultar precio'}</p>
