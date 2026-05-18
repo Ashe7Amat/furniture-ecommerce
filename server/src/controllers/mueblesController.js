@@ -268,33 +268,33 @@ const comprarMuebles = async (req, res) => {
         .select('nombre, estado, disponible')
         .eq('id', item.productId)
         .single();
-      
+
       if (getError || !mueble) {
         return res.status(404).json({ error: `La pieza con ID ${item.productId} no existe en catálogo.` });
       }
 
       // 2. Si ya está vendido, abortar y avisar de inmediato
       if (mueble.estado === 'vendido') {
-        return res.status(400).json({ 
-          error: `Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida por otro cliente.` 
+        return res.status(400).json({
+          error: `Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida por otro cliente.`
         });
       }
 
       // 3. Si está alquilado y el cliente desea comprarlo
       if (mueble.estado === 'alquilado' && item.modalidad === 'compra') {
-        return res.status(400).json({ 
-          error: `Lo sentimos, la pieza única "${mueble.nombre}" está alquilada en este momento y no se puede comprar.` 
+        return res.status(400).json({
+          error: `Lo sentimos, la pieza única "${mueble.nombre}" está alquilada en este momento y no se puede comprar.`
         });
       }
 
       // 4. Si sigue libre, proceder a actualizar el estado en base de datos
       const nuevoEstado = item.modalidad === 'compra' ? 'vendido' : 'alquilado';
-      
+
       const { error: updateError } = await supabase
         .from('muebles')
-        .update({ 
+        .update({
           estado: nuevoEstado,
-          disponible: false 
+          disponible: false
         })
         .eq('id', item.productId);
 
@@ -307,9 +307,9 @@ const comprarMuebles = async (req, res) => {
     // Enviar notificación de email (asíncrono)
     enviarEmailVentaAdmin(items, clienteInfo || {}, total || 0);
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Compra procesada correctamente. El catálogo ha sido actualizado.' 
+    res.status(200).json({
+      success: true,
+      message: 'Compra procesada correctamente. El catálogo ha sido actualizado.'
     });
   } catch (error) {
     console.error('Error al procesar la compra:', error.message);

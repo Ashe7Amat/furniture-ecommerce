@@ -322,7 +322,7 @@ const actualizarPerfil = async (req, res) => {
           .select('email')
           .eq('email', nuevoEmail)
           .single();
-        
+
         if (emailDuplicado) {
           return res.status(400).json({ error: 'El nuevo correo electrónico ya está en uso.' });
         }
@@ -353,10 +353,10 @@ const actualizarPerfil = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Perfil actualizado con éxito.',
-      user: { 
-        nombre: dataActualizada[0].nombre, 
-        email: dataActualizada[0].email, 
-        rol: dataActualizada[0].rol 
+      user: {
+        nombre: dataActualizada[0].nombre,
+        email: dataActualizada[0].email,
+        rol: dataActualizada[0].rol
       }
     });
   } catch (error) {

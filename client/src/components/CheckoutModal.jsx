@@ -9,7 +9,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState('card');
   const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, apple_processing, processing, success
   const [orderNumber, setOrderNumber] = useState('');
-  
+
   // Estados para datos de cliente y pago
   const [email, setEmail] = useState('');
   const [cardholderName, setCardholderName] = useState('');
@@ -50,7 +50,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     if (!/^\d{2}\/\d{2}$/.test(val)) return 'Formato inválido. Debe ser MM/AA.';
     const [month, year] = val.split('/').map(Number);
     if (month < 1 || month > 12) return 'El mes debe estar entre 01 y 12.';
-    
+
     const now = new Date();
     const currentYear = now.getFullYear() % 100;
     const currentMonth = now.getMonth() + 1;
@@ -134,14 +134,14 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   };
 
   // --- CÁLCULO DE VALIDEZ DE FORMULARIO ---
-  const isCardFormInvalid = 
+  const isCardFormInvalid =
     validateEmail(email) !== '' ||
     validateCardholderName(cardholderName) !== '' ||
     validateCardNumber(cardNumber) !== '' ||
     validateExpiry(expiry) !== '' ||
     validateCvv(cvv) !== '';
 
-  const isBizumFormInvalid = 
+  const isBizumFormInvalid =
     validateEmail(email) !== '' ||
     validatePhone(bizumPhone) !== '';
 
@@ -239,10 +239,10 @@ const CheckoutModal = ({ isOpen, onClose }) => {
       {paymentStatus === 'apple_processing' && (
         <div className="apple-processing-overlay">
           <div className="apple-spinner"></div>
-          <p>Procesando con Apple Pay...<br/>Verificando mediante Face ID / Touch ID</p>
+          <p>Procesando con Apple Pay...<br />Verificando mediante Face ID / Touch ID</p>
         </div>
       )}
-      
+
       {paymentStatus === 'processing' && (
         <div className="processing-overlay">
           <div className="classic-spinner"></div>
@@ -276,9 +276,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             <div className="tab-content card-tab">
               <div className="form-group">
                 <label>Correo Electrónico</label>
-                <input 
-                  type="email" 
-                  placeholder="ana@ejemplo.com" 
+                <input
+                  type="email"
+                  placeholder="ana@ejemplo.com"
                   value={email}
                   onChange={handleEmailChange}
                   onBlur={() => handleBlur('email', email, validateEmail)}
@@ -288,9 +288,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
               <div className="form-group">
                 <label>Nombre del titular</label>
-                <input 
-                  type="text" 
-                  placeholder="Ej. Ana Martínez" 
+                <input
+                  type="text"
+                  placeholder="Ej. Ana Martínez"
                   value={cardholderName}
                   onChange={handleCardholderChange}
                   onBlur={() => handleBlur('cardholderName', cardholderName, validateCardholderName)}
@@ -300,11 +300,11 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
               <div className="form-group">
                 <label>Número de tarjeta</label>
-                <input 
-                  type="text" 
-                  placeholder="0000 0000 0000 0000" 
-                  value={cardNumber} 
-                  onChange={handleCardNumberChange} 
+                <input
+                  type="text"
+                  placeholder="0000 0000 0000 0000"
+                  value={cardNumber}
+                  onChange={handleCardNumberChange}
                   onBlur={() => handleBlur('cardNumber', cardNumber, validateCardNumber)}
                 />
                 {touched.cardNumber && errors.cardNumber && <span className="error-text">{errors.cardNumber}</span>}
@@ -313,10 +313,10 @@ const CheckoutModal = ({ isOpen, onClose }) => {
               <div className="form-row">
                 <div className="form-group half">
                   <label>Caducidad</label>
-                  <input 
-                    type="text" 
-                    placeholder="MM/AA" 
-                    maxLength="5" 
+                  <input
+                    type="text"
+                    placeholder="MM/AA"
+                    maxLength="5"
                     value={expiry}
                     onChange={handleExpiryChange}
                     onBlur={() => handleBlur('expiry', expiry, validateExpiry)}
@@ -325,10 +325,10 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 </div>
                 <div className="form-group half">
                   <label>CVV</label>
-                  <input 
-                    type="password" 
-                    placeholder="123" 
-                    maxLength="4" 
+                  <input
+                    type="password"
+                    placeholder="123"
+                    maxLength="4"
                     value={cvv}
                     onChange={handleCvvChange}
                     onBlur={() => handleBlur('cvv', cvv, validateCvv)}
@@ -337,8 +337,8 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              <button 
-                className="checkout-btn-solid" 
+              <button
+                className="checkout-btn-solid"
                 onClick={() => simulatePayment('card')}
                 disabled={isCardFormInvalid}
               >
@@ -350,12 +350,12 @@ const CheckoutModal = ({ isOpen, onClose }) => {
           {activeTab === 'bizum' && (
             <div className="tab-content bizum-tab">
               <p>Introduce tu correo y teléfono asociado a Bizum para recibir la notificación de confirmación.</p>
-              
+
               <div className="form-group" style={{ marginTop: '15px' }}>
                 <label>Correo Electrónico</label>
-                <input 
-                  type="email" 
-                  placeholder="ana@ejemplo.com" 
+                <input
+                  type="email"
+                  placeholder="ana@ejemplo.com"
                   value={email}
                   onChange={handleEmailChange}
                   onBlur={() => handleBlur('email', email, validateEmail)}
@@ -365,9 +365,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
               <div className="form-group">
                 <label>Número de teléfono</label>
-                <input 
-                  type="tel" 
-                  placeholder="600000000" 
+                <input
+                  type="tel"
+                  placeholder="600000000"
                   value={bizumPhone}
                   onChange={handlePhoneChange}
                   onBlur={() => handleBlur('bizumPhone', bizumPhone, validatePhone)}
@@ -375,8 +375,8 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 {touched.bizumPhone && errors.bizumPhone && <span className="error-text">{errors.bizumPhone}</span>}
               </div>
 
-              <button 
-                className="checkout-btn-solid" 
+              <button
+                className="checkout-btn-solid"
                 onClick={() => simulatePayment('bizum')}
                 disabled={isBizumFormInvalid}
               >
