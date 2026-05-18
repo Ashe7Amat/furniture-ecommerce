@@ -252,7 +252,7 @@ const enviarEmailVentaAdmin = async (items, clienteInfo, total) => {
   }
 };
 
-// 7. Registrar compra y actualizar el estado a "vendido" / "alquilado"
+// 7. Registrar compra y actualizar el estado a "vendido" / "alquilado" (Verificando disponibilidad previa)
 const comprarMuebles = async (req, res) => {
   try {
     const { items, clienteInfo, total } = req.body;
@@ -260,11 +260,37 @@ const comprarMuebles = async (req, res) => {
       return res.status(400).json({ error: 'El carrito de compras está vacío.' });
     }
 
-    // Para cada item en el carrito, actualizar su estado en Supabase
+    // Para cada item en el carrito, verificar disponibilidad antes de proceder
     for (const item of items) {
+      // 1. Consultar el estado real actual en Supabase
+      const { data: mueble, error: getError } = await supabase
+        .from('muebles')
+        .select('nombre, estado, disponible')
+        .eq('id', item.productId)
+        .single();
+      
+      if (getError || !mueble) {
+        return res.status(404).json({ error: `La pieza con ID ${item.productId} no existe en catálogo.` });
+      }
+
+      // 2. Si ya está vendido, abortar y avisar de inmediato
+      if (mueble.estado === 'vendido') {
+        return res.status(400).json({ 
+          error: `Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida por otro cliente.` 
+        });
+      }
+
+      // 3. Si está alquilado y el cliente desea comprarlo
+      if (mueble.estado === 'alquilado' && item.modalidad === 'compra') {
+        return res.status(400).json({ 
+          error: `Lo sentimos, la pieza única "${mueble.nombre}" está alquilada en este momento y no se puede comprar.` 
+        });
+      }
+
+      // 4. Si sigue libre, proceder a actualizar el estado en base de datos
       const nuevoEstado = item.modalidad === 'compra' ? 'vendido' : 'alquilado';
       
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('muebles')
         .update({ 
           estado: nuevoEstado,
@@ -272,9 +298,9 @@ const comprarMuebles = async (req, res) => {
         })
         .eq('id', item.productId);
 
-      if (error) {
-        console.error(`Error al actualizar el mueble ${item.productId}:`, error.message);
-        throw error;
+      if (updateError) {
+        console.error(`Error al actualizar el mueble ${item.productId}:`, updateError.message);
+        throw updateError;
       }
     }
 

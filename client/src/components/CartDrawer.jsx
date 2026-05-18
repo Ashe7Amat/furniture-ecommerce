@@ -117,6 +117,8 @@ const CartDrawer = () => {
                       <button 
                         className="qty-btn" 
                         onClick={() => updateQuantity(item.id, 1)}
+                        disabled={item.cantidad >= 1}
+                        title="Esta es una pieza única restaurada y solo hay 1 unidad disponible."
                       >
                         +
                       </button>

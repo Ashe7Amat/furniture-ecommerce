@@ -63,7 +63,6 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     addToCart(mueble, modalidad);
-    showToast('Producto añadido a la cesta');
   };
 
   return (

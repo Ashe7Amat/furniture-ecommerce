@@ -1,10 +1,12 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AuthContext } from './AuthContext';
+import { ToastContext } from './ToastContext';
 
 export const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
+  const { showToast } = useContext(ToastContext);
   const storageKey = user ? `kaveCart_${user.email}` : 'kaveCart_guest';
 
   const [cartItems, setCartItems] = useState(() => {
@@ -25,14 +27,13 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product, modality) => {
     const price = modality === 'compra' ? product.precio_venta : product.precio_alquiler;
+    let alreadyExists = false;
+
     setCartItems(prev => {
       const existingItem = prev.find(item => item.productId === product.id && item.modalidad === modality);
       if (existingItem) {
-        return prev.map(item => 
-          item.id === existingItem.id 
-            ? { ...item, cantidad: (item.cantidad || 1) + 1 } 
-            : item
-        );
+        alreadyExists = true;
+        return prev;
       } else {
         const newItem = {
           id: `${product.id}-${modality}`,
@@ -46,7 +47,13 @@ export const CartProvider = ({ children }) => {
         return [...prev, newItem];
       }
     });
-    setIsCartOpen(true);
+
+    if (alreadyExists) {
+      showToast('Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.', 'warning');
+    } else {
+      showToast('Producto añadido a la cesta.', 'success');
+      setIsCartOpen(true);
+    }
   };
 
   const removeFromCart = (idToRemove) => {
@@ -54,16 +61,29 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = (id, delta) => {
+    let limitReached = false;
+
     setCartItems(prev => {
       const existing = prev.find(item => item.id === id);
       if (!existing) return prev;
+      
+      if (delta > 0) {
+        limitReached = true;
+        return prev;
+      }
+      
       if ((existing.cantidad || 1) + delta <= 0) {
         return prev.filter(item => item.id !== id);
       }
+      
       return prev.map(item => 
         item.id === id ? { ...item, cantidad: (item.cantidad || 1) + delta } : item
       );
     });
+
+    if (limitReached) {
+      showToast('Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.', 'warning');
+    }
   };
 
   const emptyCart = () => {
