@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getMuebles } from '../services/api';
+import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
+import ProductSkeleton from '../components/ProductSkeleton';
 import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
 import '../styles/Catalog.css';
@@ -17,23 +18,29 @@ export default function Catalog() {
 
   const [todosLosMuebles, setTodosLosMuebles] = useState([]);
   const [mueblesFiltrados, setMueblesFiltrados] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [soloDisponibles, setSoloDisponibles] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orden, setOrden] = useState('recomendados');
 
   // 1. Cargar datos usando el servicio centralizado (nunca fetch manual)
   useEffect(() => {
-    const fetchMuebles = async () => {
+    const fetchDatos = async () => {
       try {
         setLoading(true); // Aseguramos que salgan los skeletons al cargar
-        const data = await getMuebles();
-        setTodosLosMuebles(Array.isArray(data) ? data : []);
+        const [mueblesData, categoriasData] = await Promise.all([
+          getMuebles(),
+          getCategorias()
+        ]);
+        setTodosLosMuebles(Array.isArray(mueblesData) ? mueblesData : []);
+        setCategorias(Array.isArray(categoriasData) ? categoriasData : []);
       } catch (error) {
         console.error('Error cargando muebles:', error);
       } finally {
         setLoading(false);
       }
     };
-    fetchMuebles();
+    fetchDatos();
   }, []);
 
   // 2. Filtrar y ordenar reactivamente — NUNCA muta todosLosMuebles
@@ -53,6 +60,11 @@ export default function Catalog() {
       );
     }
 
+    // Filtro: Disponible
+    if (soloDisponibles) {
+      resultado = resultado.filter(m => m.estado !== 'vendido' && m.estado !== 'alquilado');
+    }
+
     // Ordenación por precio
     if (orden === 'menor') {
       resultado.sort((a, b) => a.precio_venta - b.precio_venta);
@@ -61,12 +73,24 @@ export default function Catalog() {
     }
 
     setMueblesFiltrados(resultado);
-  }, [todosLosMuebles, categoriaUrl, showFavorites, favorites, orden]);
+  }, [todosLosMuebles, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
 
   // ⚡ Función limpia para el botón de "Ver todo"
   const limpiarFiltros = () => {
     setSearchParams({});
     setOrden('recomendados');
+    setSoloDisponibles(false);
+  };
+
+  const handleCategoryChange = (e) => {
+    const val = e.target.value;
+    const newParams = new URLSearchParams(searchParams);
+    if (val) {
+      newParams.set('categoria', val);
+    } else {
+      newParams.delete('categoria');
+    }
+    setSearchParams(newParams);
   };
 
   return (
@@ -96,30 +120,59 @@ export default function Catalog() {
             ← Ver toda la colección
           </button>
         )}
-
-        {/* SELECTOR DE ORDENACIÓN */}
-        <select
-          className="catalog-sort-select"
-          value={orden}
-          onChange={(e) => setOrden(e.target.value)}
-        >
-          <option value="recomendados">Recomendados</option>
-          <option value="menor">Precio: Menor a Mayor</option>
-          <option value="mayor">Precio: Mayor a Menor</option>
-        </select>
       </header>
 
       {!showFavorites && <CategorySlider />}
+
+      {/* PANEL DE FILTROS MINIMALISTA */}
+      <div className="catalog-filter-panel">
+        <div className="filter-group">
+          <label htmlFor="category-select">Categoría</label>
+          <select
+            id="category-select"
+            value={categoriaUrl || ''}
+            onChange={handleCategoryChange}
+            className="filter-select"
+          >
+            <option value="">Todas las categorías</option>
+            {categorias.map(cat => (
+              <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-group filter-checkbox-group">
+          <label className="checkbox-container">
+            <input
+              type="checkbox"
+              checked={soloDisponibles}
+              onChange={(e) => setSoloDisponibles(e.target.checked)}
+            />
+            <span className="checkbox-custom"></span>
+            Disponible
+          </label>
+        </div>
+
+        <div className="filter-group">
+          <label htmlFor="sort-select">Ordenar por precio</label>
+          <select
+            id="sort-select"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+            className="filter-select"
+          >
+            <option value="recomendados">Recomendados</option>
+            <option value="menor">Precio: Menor a Mayor</option>
+            <option value="mayor">Precio: Mayor a Menor</option>
+          </select>
+        </div>
+      </div>
 
       {/* SKELETON LOADERS mientras carga */}
       {loading ? (
         <div className="products-grid">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="skeleton-card">
-              <div className="skeleton-image"></div>
-              <div className="skeleton-text-title"></div>
-              <div className="skeleton-text-desc"></div>
-            </div>
+            <ProductSkeleton key={i} />
           ))}
         </div>
       ) : mueblesFiltrados.length > 0 ? (

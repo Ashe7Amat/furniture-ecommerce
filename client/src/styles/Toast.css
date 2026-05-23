@@ -1,10 +1,10 @@
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  bottom: 30px;
+  right: 30px;
   display: flex;
-  flex-direction: column;
-  gap: 10px;
+  flex-direction: column-reverse; /* Apila los nuevos al fondo y desplaza los anteriores hacia arriba */
+  gap: 12px;
   z-index: 9999;
   pointer-events: none;
 }
@@ -13,48 +13,76 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #000;
-  color: #fff;
-  padding: 15px 20px;
+  padding: 14px 18px;
   border-radius: 4px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
   pointer-events: auto;
-  min-width: 280px;
+  min-width: 290px;
+  max-width: 420px;
+  box-shadow: 0 8px 30px rgba(62, 50, 42, 0.18);
+  font-family: inherit;
   
-  transform: translateX(120%);
-  animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: slideUpFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-item.toast-success {
+  background-color: #3E322A; /* Café oscuro de Nave 5 */
+  color: #F5F2EC; /* Arena de Nave 5 */
+  border: 1px solid #857468; /* Borde café medio */
+}
+
+.toast-item.toast-success .toast-icon {
+  color: #B38A70; /* Terracota / acento de Nave 5 */
 }
 
 .toast-item.toast-error {
-  background: #d32f2f;
+  background-color: #5C2D24; /* Café/rojo ladrillo oscuro */
+  color: #F5F2EC;
+  border: 1px solid #8B4A3F;
+}
+
+.toast-item.toast-error .toast-icon {
+  color: #D96B52; /* Terracota vivo */
 }
 
 .toast-icon {
-  font-weight: 700;
-  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .toast-message {
   flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
 }
 
 .toast-close {
   background: none;
   border: none;
-  color: #999;
+  color: #857468; /* Café medio */
   cursor: pointer;
-  padding: 0;
-  font-size: 0.9rem;
-  transition: color 0.2s;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, transform 0.2s;
+  border-radius: 3px;
 }
 
 .toast-close:hover {
-  color: #fff;
+  color: #F5F2EC;
+  background-color: rgba(245, 242, 236, 0.08);
 }
 
-@keyframes slideInRight {
-  to { transform: translateX(0); }
+@keyframes slideUpFade {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+

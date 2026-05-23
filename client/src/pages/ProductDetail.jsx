@@ -90,7 +90,7 @@ const ProductDetail = () => {
         {/* COLUMNA IZQUIERDA: GALERIA VISUAL */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
-            <img src={mainImage} alt={mueble.nombre} className="pd-main-image" />
+            <img key={mainImage} src={mainImage} alt={mueble.nombre} className="pd-main-image" />
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
           </div>
@@ -101,7 +101,6 @@ const ProductDetail = () => {
                   key={index} 
                   className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
                   onClick={() => setMainImage(img)}
-                  onMouseEnter={() => setMainImage(img)}
                 >
                   <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" />
                 </button>
