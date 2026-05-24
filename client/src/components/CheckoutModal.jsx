@@ -12,6 +12,15 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
   // Estados para datos de cliente y pago
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [zipCode, setZipCode] = useState('');
+  const [provincia, setProvincia] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Estados específicos de pasarela
   const [cardholderName, setCardholderName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -31,10 +40,43 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     return '';
   };
 
+  const validateFullName = (val) => {
+    if (!val) return 'El nombre completo es obligatorio.';
+    if (val.trim().length < 3) return 'Debe tener al menos 3 caracteres.';
+    return '';
+  };
+
+  const validatePhone = (val) => {
+    const raw = val.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    if (!raw) return 'El teléfono es obligatorio.';
+    if (!/^[6789]\d{8}$/.test(raw)) return 'Debe tener 9 dígitos.';
+    return '';
+  };
+
+  const validateAddress = (val) => {
+    if (!val) return 'La dirección de entrega es obligatoria.';
+    return '';
+  };
+
+  const validateCity = (val) => {
+    if (!val) return 'La ciudad es obligatoria.';
+    return '';
+  };
+
+  const validateZipCode = (val) => {
+    if (!val) return 'El código postal es obligatorio.';
+    if (!/^\d{5}$/.test(val)) return 'Debe tener 5 dígitos.';
+    return '';
+  };
+
+  const validateProvincia = (val) => {
+    if (!val) return 'La provincia es obligatoria.';
+    return '';
+  };
+
   const validateCardholderName = (val) => {
     if (!val) return 'El nombre del titular es obligatorio.';
     if (val.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres.';
-    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(val)) return 'El nombre solo puede contener letras y espacios.';
     return '';
   };
 
@@ -63,13 +105,6 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   const validateCvv = (val) => {
     if (!val) return 'El CVV es obligatorio.';
     if (!/^\d{3,4}$/.test(val)) return 'El CVV debe tener 3 o 4 dígitos.';
-    return '';
-  };
-
-  const validatePhone = (val) => {
-    const raw = val.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-    if (!raw) return 'El teléfono es obligatorio.';
-    if (!/^[679]\d{8}$/.test(raw)) return 'Número español no válido (debe tener 9 dígitos y empezar por 6, 7 o 9).';
     return '';
   };
 
@@ -134,38 +169,42 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   };
 
   // --- CÁLCULO DE VALIDEZ DE FORMULARIO ---
-  const isCardFormInvalid =
+  const isGeneralFormInvalid =
     validateEmail(email) !== '' ||
+    validateFullName(fullName) !== '' ||
+    validatePhone(phone) !== '' ||
+    validateAddress(address) !== '' ||
+    validateCity(city) !== '' ||
+    validateZipCode(zipCode) !== '' ||
+    validateProvincia(provincia) !== '';
+
+  const isCardDetailsInvalid =
     validateCardholderName(cardholderName) !== '' ||
     validateCardNumber(cardNumber) !== '' ||
     validateExpiry(expiry) !== '' ||
     validateCvv(cvv) !== '';
-
-  const isBizumFormInvalid =
-    validateEmail(email) !== '' ||
-    validatePhone(bizumPhone) !== '';
 
   // --- SIMULACIÓN Y PROCESAMIENTO DE COMPRA ---
   const simulatePayment = (type) => {
     if (type === 'apple') {
       setPaymentStatus('apple_processing');
       setTimeout(() => {
-        finishPayment('apple', { nombre: 'Cliente Apple Pay', email: 'applepay@nave5barcelona.com' });
+        finishPayment('apple');
       }, 1500);
     } else if (type === 'bizum') {
       setPaymentStatus('processing');
       setTimeout(() => {
-        finishPayment('bizum', { nombre: 'Cliente Bizum', email: email });
+        finishPayment('bizum');
       }, 2000);
     } else {
       setPaymentStatus('processing');
       setTimeout(() => {
-        finishPayment('card', { nombre: cardholderName, email: email });
+        finishPayment('card');
       }, 2000);
     }
   };
 
-  const finishPayment = async (type, clientInfo) => {
+  const finishPayment = async (type) => {
     try {
       const itemsToSend = cartItems.map(item => ({
         productId: item.productId,
@@ -178,9 +217,12 @@ const CheckoutModal = ({ isOpen, onClose }) => {
       const res = await checkoutCart({
         items: itemsToSend,
         clienteInfo: {
-          nombre: clientInfo.nombre,
-          email: clientInfo.email,
-          metodoPago: type === 'apple' ? 'Apple Pay' : type === 'bizum' ? 'Bizum' : 'Tarjeta de Crédito'
+          nombre: fullName,
+          email: email,
+          telefono: phone,
+          direccion: `${address}, ${zipCode} ${city} (${provincia})`,
+          notas: notes || 'Ninguna',
+          metodoPago: type === 'apple' ? 'Apple Pay' : type === 'bizum' ? `Bizum (${bizumPhone})` : `Tarjeta (Titular: ${cardholderName})`
         },
         total: cartTotal
       });
@@ -210,6 +252,13 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     setTimeout(() => {
       setPaymentStatus('idle');
       setEmail('');
+      setFullName('');
+      setPhone('');
+      setAddress('');
+      setCity('');
+      setZipCode('');
+      setProvincia('');
+      setNotes('');
       setCardholderName('');
       setCardNumber('');
       setExpiry('');
@@ -256,134 +305,250 @@ const CheckoutModal = ({ isOpen, onClose }) => {
           <button className="close-checkout" onClick={onClose}>✕</button>
         </div>
 
-        <div className="checkout-tabs">
-          <button className={`tab-btn ${activeTab === 'card' ? 'active' : ''}`} onClick={() => setActiveTab('card')}>Tarjeta</button>
-          <button className={`tab-btn ${activeTab === 'apple' ? 'active' : ''}`} onClick={() => setActiveTab('apple')}>Apple Pay</button>
-          <button className={`tab-btn ${activeTab === 'bizum' ? 'active' : ''}`} onClick={() => setActiveTab('bizum')}>Bizum</button>
-        </div>
-
         <div className="checkout-body">
-          {activeTab === 'apple' && (
-            <div className="tab-content apple-tab">
-              <p>Paga de forma instantánea y segura usando tu dispositivo Apple sin ingresar datos manuales.</p>
-              <button className="apple-pay-btn" onClick={() => simulatePayment('apple')}>
-                 Pay
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'card' && (
-            <div className="tab-content card-tab">
-              <div className="form-group">
-                <label>Correo Electrónico</label>
-                <input
-                  type="email"
-                  placeholder="ana@ejemplo.com"
-                  value={email}
-                  onChange={handleEmailChange}
-                  onBlur={() => handleBlur('email', email, validateEmail)}
-                />
-                {touched.email && errors.email && <span className="error-text">{errors.email}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Nombre del titular</label>
+          {/* SECCIÓN 1: DATOS DE ENVÍO Y CONTACTO */}
+          <div className="checkout-section">
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+              1. Datos de Entrega y Contacto
+            </h3>
+            
+            <div className="form-row">
+              <div className="form-group half">
+                <label>Nombre y Apellidos</label>
                 <input
                   type="text"
                   placeholder="Ej. Ana Martínez"
-                  value={cardholderName}
-                  onChange={handleCardholderChange}
-                  onBlur={() => handleBlur('cardholderName', cardholderName, validateCardholderName)}
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setCardholderName(e.target.value);
+                  }}
+                  onBlur={() => handleBlur('fullName', fullName, validateFullName)}
                 />
-                {touched.cardholderName && errors.cardholderName && <span className="error-text">{errors.cardholderName}</span>}
+                {touched.fullName && errors.fullName && <span className="error-text">{errors.fullName}</span>}
               </div>
-
-              <div className="form-group">
-                <label>Número de tarjeta</label>
-                <input
-                  type="text"
-                  placeholder="0000 0000 0000 0000"
-                  value={cardNumber}
-                  onChange={handleCardNumberChange}
-                  onBlur={() => handleBlur('cardNumber', cardNumber, validateCardNumber)}
-                />
-                {touched.cardNumber && errors.cardNumber && <span className="error-text">{errors.cardNumber}</span>}
-              </div>
-
-              <div className="form-row">
-                <div className="form-group half">
-                  <label>Caducidad</label>
-                  <input
-                    type="text"
-                    placeholder="MM/AA"
-                    maxLength="5"
-                    value={expiry}
-                    onChange={handleExpiryChange}
-                    onBlur={() => handleBlur('expiry', expiry, validateExpiry)}
-                  />
-                  {touched.expiry && errors.expiry && <span className="error-text">{errors.expiry}</span>}
-                </div>
-                <div className="form-group half">
-                  <label>CVV</label>
-                  <input
-                    type="password"
-                    placeholder="123"
-                    maxLength="4"
-                    value={cvv}
-                    onChange={handleCvvChange}
-                    onBlur={() => handleBlur('cvv', cvv, validateCvv)}
-                  />
-                  {touched.cvv && errors.cvv && <span className="error-text">{errors.cvv}</span>}
-                </div>
-              </div>
-
-              <button
-                className="checkout-btn-solid"
-                onClick={() => simulatePayment('card')}
-                disabled={isCardFormInvalid}
-              >
-                Pagar {cartTotal} € de forma segura
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'bizum' && (
-            <div className="tab-content bizum-tab">
-              <p>Introduce tu correo y teléfono asociado a Bizum para recibir la notificación de confirmación.</p>
-
-              <div className="form-group" style={{ marginTop: '15px' }}>
-                <label>Correo Electrónico</label>
-                <input
-                  type="email"
-                  placeholder="ana@ejemplo.com"
-                  value={email}
-                  onChange={handleEmailChange}
-                  onBlur={() => handleBlur('email', email, validateEmail)}
-                />
-                {touched.email && errors.email && <span className="error-text">{errors.email}</span>}
-              </div>
-
-              <div className="form-group">
-                <label>Número de teléfono</label>
+              <div className="form-group half">
+                <label>Teléfono de Contacto</label>
                 <input
                   type="tel"
-                  placeholder="600000000"
-                  value={bizumPhone}
-                  onChange={handlePhoneChange}
-                  onBlur={() => handleBlur('bizumPhone', bizumPhone, validatePhone)}
+                  placeholder="Ej. 600123456"
+                  maxLength="9"
+                  value={phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    setPhone(val);
+                    setBizumPhone(val);
+                  }}
+                  onBlur={() => handleBlur('phone', phone, validatePhone)}
                 />
-                {touched.bizumPhone && errors.bizumPhone && <span className="error-text">{errors.bizumPhone}</span>}
+                {touched.phone && errors.phone && <span className="error-text">{errors.phone}</span>}
               </div>
-
-              <button
-                className="checkout-btn-solid"
-                onClick={() => simulatePayment('bizum')}
-                disabled={isBizumFormInvalid}
-              >
-                Pagar {cartTotal} € con Bizum
-              </button>
             </div>
-          )}
+
+            <div className="form-group">
+              <label>Correo Electrónico</label>
+              <input
+                type="email"
+                placeholder="ana@ejemplo.com"
+                value={email}
+                onChange={handleEmailChange}
+                onBlur={() => handleBlur('email', email, validateEmail)}
+              />
+              {touched.email && errors.email && <span className="error-text">{errors.email}</span>}
+            </div>
+
+            <div className="form-group">
+              <label>Dirección de Envío (Calle, número, piso, puerta)</label>
+              <input
+                type="text"
+                placeholder="Calle Mayor 15, 2º B"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                onBlur={() => handleBlur('address', address, validateAddress)}
+              />
+              {touched.address && errors.address && <span className="error-text">{errors.address}</span>}
+            </div>
+
+            <div className="form-row">
+              <div className="form-group third">
+                <label>Ciudad</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Barcelona"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  onBlur={() => handleBlur('city', city, validateCity)}
+                />
+                {touched.city && errors.city && <span className="error-text">{errors.city}</span>}
+              </div>
+              <div className="form-group third">
+                <label>Código Postal</label>
+                <input
+                  type="text"
+                  placeholder="Ej. 08001"
+                  maxLength="5"
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  onBlur={() => handleBlur('zipCode', zipCode, validateZipCode)}
+                />
+                {touched.zipCode && errors.zipCode && <span className="error-text">{errors.zipCode}</span>}
+              </div>
+              <div className="form-group third">
+                <label>Provincia</label>
+                <input
+                  type="text"
+                  placeholder="Ej. Barcelona"
+                  value={provincia}
+                  onChange={(e) => setProvincia(e.target.value)}
+                  onBlur={() => handleBlur('provincia', provincia, validateProvincia)}
+                />
+                {touched.provincia && errors.provincia && <span className="error-text">{errors.provincia}</span>}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Notas de Entrega / Alquiler (Opcional)</label>
+              <textarea
+                placeholder="Ej. Horario de entrega preferente, ascensor disponible, etc."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows="2"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '2px',
+                  fontFamily: 'inherit',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* SECCIÓN 2: DETALLES DEL PAGO */}
+          <div className="checkout-section" style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px' }}>
+              2. Detalles del Pago
+            </h3>
+            
+            <div className="checkout-tabs">
+              <button type="button" className={`tab-btn ${activeTab === 'card' ? 'active' : ''}`} onClick={() => setActiveTab('card')}>Tarjeta</button>
+              <button type="button" className={`tab-btn ${activeTab === 'apple' ? 'active' : ''}`} onClick={() => setActiveTab('apple')}>Apple Pay</button>
+              <button type="button" className={`tab-btn ${activeTab === 'bizum' ? 'active' : ''}`} onClick={() => setActiveTab('bizum')}>Bizum</button>
+            </div>
+
+            <div className="tab-content-wrapper" style={{ marginTop: '15px' }}>
+              {activeTab === 'apple' && (
+                <div className="tab-content apple-tab">
+                  <p>Paga de forma instantánea y segura usando tu dispositivo Apple sin ingresar datos manuales.</p>
+                  <button 
+                    type="button" 
+                    className="apple-pay-btn" 
+                    onClick={() => simulatePayment('apple')}
+                    disabled={isGeneralFormInvalid}
+                  >
+                     Pay
+                  </button>
+                  {isGeneralFormInvalid && <p className="help-text-error">Debes rellenar los datos de envío arriba para poder pagar.</p>}
+                </div>
+              )}
+
+              {activeTab === 'card' && (
+                <div className="tab-content card-tab">
+                  <div className="form-group">
+                    <label>Nombre del titular de la tarjeta</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Ana Martínez"
+                      value={cardholderName}
+                      onChange={handleCardholderChange}
+                      onBlur={() => handleBlur('cardholderName', cardholderName, validateCardholderName)}
+                    />
+                    {touched.cardholderName && errors.cardholderName && <span className="error-text">{errors.cardholderName}</span>}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Número de tarjeta</label>
+                    <input
+                      type="text"
+                      placeholder="0000 0000 0000 0000"
+                      value={cardNumber}
+                      onChange={handleCardNumberChange}
+                      onBlur={() => handleBlur('cardNumber', cardNumber, validateCardNumber)}
+                    />
+                    {touched.cardNumber && errors.cardNumber && <span className="error-text">{errors.cardNumber}</span>}
+                  </div>
+
+                  <div className="form-row">
+                    <div className="form-group half">
+                      <label>Caducidad</label>
+                      <input
+                        type="text"
+                        placeholder="MM/AA"
+                        maxLength="5"
+                        value={expiry}
+                        onChange={handleExpiryChange}
+                        onBlur={() => handleBlur('expiry', expiry, validateExpiry)}
+                      />
+                      {touched.expiry && errors.expiry && <span className="error-text">{errors.expiry}</span>}
+                    </div>
+                    <div className="form-group half">
+                      <label>CVV</label>
+                      <input
+                        type="password"
+                        placeholder="123"
+                        maxLength="4"
+                        value={cvv}
+                        onChange={handleCvvChange}
+                        onBlur={() => handleBlur('cvv', cvv, validateCvv)}
+                      />
+                      {touched.cvv && errors.cvv && <span className="error-text">{errors.cvv}</span>}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="checkout-btn-solid"
+                    onClick={() => simulatePayment('card')}
+                    disabled={isGeneralFormInvalid || isCardDetailsInvalid}
+                  >
+                    Pagar {cartTotal} € de forma segura
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'bizum' && (
+                <div className="tab-content bizum-tab">
+                  <p>Introduce tu teléfono asociado a Bizum para recibir la notificación de confirmación.</p>
+
+                  <div className="form-group" style={{ marginTop: '15px' }}>
+                    <label>Número de teléfono para Bizum</label>
+                    <input
+                      type="tel"
+                      placeholder="Ej. 600123456"
+                      maxLength="9"
+                      value={bizumPhone}
+                      onChange={handlePhoneChange}
+                      onBlur={() => handleBlur('bizumPhone', bizumPhone, validatePhone)}
+                    />
+                    {touched.bizumPhone && errors.bizumPhone && <span className="error-text">{errors.bizumPhone}</span>}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="checkout-btn-solid"
+                    onClick={() => simulatePayment('bizum')}
+                    disabled={isGeneralFormInvalid || validatePhone(bizumPhone) !== ''}
+                  >
+                    Pagar {cartTotal} € con Bizum
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

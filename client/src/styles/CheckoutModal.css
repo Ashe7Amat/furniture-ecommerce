@@ -15,10 +15,11 @@
 .checkout-modal {
   background: #fff;
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
   border-radius: 4px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
   animation: modalFadeIn 0.3s ease;
   position: relative;
 }
@@ -131,8 +132,15 @@
   display: flex;
   gap: 20px;
 }
-.form-group.half {
+.form-group.half, .form-group.third {
   flex: 1;
+}
+
+.help-text-error {
+  color: #e74c3c;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-top: 10px;
 }
 
 .form-group label {

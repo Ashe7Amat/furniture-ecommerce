@@ -211,9 +211,12 @@ const enviarEmailVentaAdmin = async (items, clienteInfo, total) => {
         <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 10px;">🔔 ¡Nueva Venta Registrada!</h2>
         <p>Se ha completado una transacción con éxito en <strong>Nave 5 Barcelona</strong>.</p>
         
-        <h3 style="color: #857468; margin-top: 20px;">Detalles del Cliente:</h3>
+        <h3 style="color: #857468; margin-top: 20px;">Detalles del Cliente y Envío:</h3>
         <p style="margin: 4px 0;"><strong>Nombre:</strong> ${clienteInfo.nombre || 'No provisto'}</p>
         <p style="margin: 4px 0;"><strong>Email:</strong> ${clienteInfo.email || 'No provisto'}</p>
+        <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${clienteInfo.telefono || 'No provisto'}</p>
+        <p style="margin: 4px 0;"><strong>Dirección de Entrega:</strong> ${clienteInfo.direccion || 'No provista'}</p>
+        <p style="margin: 4px 0;"><strong>Notas de Envío:</strong> ${clienteInfo.notas || 'Ninguna'}</p>
         <p style="margin: 4px 0;"><strong>Método de Pago:</strong> ${clienteInfo.metodoPago || 'Tarjeta'}</p>
 
         <h3 style="color: #857468; margin-top: 20px;">Productos Adquiridos:</h3>
@@ -243,6 +246,7 @@ const enviarEmailVentaAdmin = async (items, clienteInfo, total) => {
       console.log('\n--- 📧 SIMULACIÓN DE EMAIL RECIBIDO EN ADMINISTRACIÓN ---');
       console.log('Para:', process.env.ADMIN_EMAIL || 'admin@nave5barcelona.com');
       console.log('Asunto: 🔔 Nueva venta en Nave 5 Barcelona');
+      console.log('Cliente:', clienteInfo);
       console.log('Detalle de items:', items);
       console.log('Total:', total, '€');
       console.log('--------------------------------------------------------\n');
