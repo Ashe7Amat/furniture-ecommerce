@@ -14,3 +14,5 @@ server/.env
 # Archivos del sistema
 .DS_Store
 Thumbs.db
+# Archivos temporales de Vite
+client/vite.config.js.timestamp-*
