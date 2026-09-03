@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMuebles, getCategorias } from '../services/api';
+import { formatPrice } from '../utils/format';
+import { useScrollReveal } from '../utils/useScrollReveal';
 import '../styles/Home.css';
 
 export default function Home() {
@@ -8,6 +10,8 @@ export default function Home() {
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+    const galleryRef = useScrollReveal();
+    const sustainabilityRef = useScrollReveal();
 
     useEffect(() => {
         const cargarPortada = async () => {
@@ -42,7 +46,8 @@ export default function Home() {
                 <div className="hero-image-box">
                     <img
                         src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=1000"
-                        alt="Ambiente Kave Home"
+                        alt="Interior restaurado en Nave 5 Barcelona"
+                        decoding="async"
                     />
                 </div>
             </section>
@@ -59,7 +64,7 @@ export default function Home() {
                             style={{ cursor: 'pointer' }}
                         >
                             <div className="circle-wrapper">
-                                <img src={cat.imagen_url} alt={cat.nombre} />
+                                <img src={cat.imagen_url} alt={cat.nombre} loading="lazy" decoding="async" />
                             </div>
                             <span className="circle-label">{cat.nombre}</span>
                         </div>
@@ -81,13 +86,15 @@ export default function Home() {
                         {destacados.map(mueble => (
                             <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
                                 <div className="home-card-img-holder">
-                                    <img src={mueble.imagenes?.[0] || 'https://via.placeholder.com/400'} alt={mueble.nombre} />
+                                    <img src={mueble.imagenes?.[0] || 'https://via.placeholder.com/400'} alt={mueble.nombre} loading="lazy" decoding="async" />
                                     {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
                                 </div>
                                 <div className="home-card-meta">
                                     <h3>{mueble.nombre}</h3>
                                     <p className="home-card-desc">{mueble.descripcion}</p>
-                                    <span className="home-card-price">{mueble.precio_venta} €</span>
+                                    <span className="home-card-price">
+                                        {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar')}
+                                    </span>
                                 </div>
                             </Link>
                         ))}
@@ -95,19 +102,19 @@ export default function Home() {
                 )}
             </section>
 
-            {/* KAVE GALLERY BLOCK */}
-            <section className="home-gallery-section">
+            {/* GALERÍA DE AMBIENTE */}
+            <section className="home-gallery-section reveal-init" ref={galleryRef}>
                 <div className="gallery-grid">
-                    <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1000" alt="Interior minimalista" className="gallery-img" />
+                    <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1000" alt="Interior minimalista" className="gallery-img" loading="lazy" decoding="async" />
                     <div className="gallery-text-block">
                         <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
                     </div>
-                    <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1000" alt="Diseño de interiores" className="gallery-img" />
+                    <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1000" alt="Diseño de interiores" className="gallery-img" loading="lazy" decoding="async" />
                 </div>
             </section>
 
             {/* SOSTENIBILIDAD BANNER */}
-            <section className="home-sustainability">
+            <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
                 <div className="sustainability-content">
                     <h2>Diseño con impacto positivo</h2>
                     <p>Muebles creados pensando en el mañana. Trabajamos con madera certificada FSC y materiales reciclados para reducir nuestra huella de carbono sin renunciar a la estética.</p>

@@ -361,7 +361,7 @@ const Admin = () => {
                           {m.estado}
                         </span>
                         <p style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600, color: '#3E322A' }}>
-                          {m.precio_venta ? `${m.precio_venta} €` : `${m.precio_alquiler} €/día`}
+                          {m.precio_venta ? `${m.precio_venta} €` : `${m.precio_alquiler_dia} €/día`}
                         </p>
                       </div>
                     </div>
@@ -446,7 +446,7 @@ const Admin = () => {
                           <option value="alquilado">🟡 Alquilado</option>
                         </select>
                       </span>
-                      <span className="inv-price">{m.precio_venta ? `${m.precio_venta}€` : `${m.precio_alquiler}€/día`}</span>
+                      <span className="inv-price">{m.precio_venta ? `${m.precio_venta}€` : `${m.precio_alquiler_dia}€/día`}</span>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={() => setMuebleAEditar(m)} className="inv-edit-btn" style={{
                           backgroundColor: 'transparent',
@@ -636,7 +636,7 @@ const Admin = () => {
                   <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Alquiler (€/día):</label>
                   <input 
                     type="number" 
-                    value={muebleAEditar.precio_alquiler || ''} 
+                    value={muebleAEditar.precio_alquiler ?? muebleAEditar.precio_alquiler_dia ?? ''}
                     onChange={(e) => setMuebleAEditar({ ...muebleAEditar, precio_alquiler: e.target.value })} 
                     style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A', width: '100%' }}
                   />

@@ -2,20 +2,82 @@
   /* ─── PALETA VERANO CÁLIDO ─── */
   --bg-color:        #F5F2EC;  /* Arena/avena — fondo de lienzo */
   --primary-color:   #3E322A;  /* Espresso oscuro — texto principal */
-  --secondary-color: #857468;  /* Marrón grisáceo — texto secundario */
+  --secondary-color: #6E5D51;  /* Marrón grisáceo — texto secundario (oscurecido para contraste AA) */
   --accent-color:    #B38A70;  /* Terracota/arcilla — botones, íconos */
   --accent-hover:    #9D735A;  /* Terracota oscuro — hover de botones */
   --card-bg:         #FCFAF8;  /* Blanco roto — fondo de tarjetas */
+  --surface-alt:     #EDE8E0;  /* Relleno de imágenes/placeholders */
   --border-color:    #E2DCD0;  /* Divisores y bordes orgánicos */
   --text-color:      #3E322A;  /* = primary-color, para compatibilidad */
+
+  --success-color:   #5F7F5B;
+  --success-bg:      #E7EEE1;
+  --danger-color:    #A85338;
+  --danger-bg:       #F5E5DD;
+
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Fraunces', ui-serif, 'Iowan Old Style', 'Palatino Linotype', serif;
+
+  color-scheme: light;
+}
+
+/* ─── MODO OSCURO: sigue al sistema salvo que el usuario elija explícitamente ─── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-color:        #221B16;
+    --primary-color:   #F1EAE0;
+    --secondary-color: #C7B8AA;
+    --accent-color:    #DDAE81;
+    --accent-hover:    #EFCBA0;
+    --card-bg:         #2A211A;
+    --surface-alt:     #362A21;
+    --border-color:    #42352B;
+    --text-color:      #F1EAE0;
+    --success-color:   #93B48E;
+    --success-bg:      #2B3527;
+    --danger-color:    #DE8467;
+    --danger-bg:       #3A2620;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg-color:        #221B16;
+  --primary-color:   #F1EAE0;
+  --secondary-color: #C7B8AA;
+  --accent-color:    #DDAE81;
+  --accent-hover:    #EFCBA0;
+  --card-bg:         #2A211A;
+  --surface-alt:     #362A21;
+  --border-color:    #42352B;
+  --text-color:      #F1EAE0;
+  --success-color:   #93B48E;
+  --success-bg:      #2B3527;
+  --danger-color:    #DE8467;
+  --danger-bg:       #3A2620;
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-body);
   background-color: var(--bg-color);
   color: var(--text-color);
   -webkit-font-smoothing: antialiased;
+  transition: background-color .3s ease, color .3s ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .app-container {

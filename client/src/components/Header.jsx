@@ -5,7 +5,11 @@ import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { CartContext } from '../context/CartContext';
 import { getCategorias, getMuebles } from '../services/api';
+import { formatPrice } from '../utils/format';
 import '../styles/HeaderFooter.css';
+
+const getSystemPrefersDark = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
 const Header = () => {
   const { user, logout } = useContext(AuthContext);
@@ -26,8 +30,29 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProductsMenuOpen, setIsProductsMenuOpen] = useState(false);
 
+  // Tema (claro/oscuro)
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    const saved = localStorage.getItem('nave5Theme');
+    if (saved === 'dark' || saved === 'light') return saved === 'dark';
+    return getSystemPrefersDark();
+  });
+
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const saved = localStorage.getItem('nave5Theme');
+    if (saved === 'dark' || saved === 'light') {
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = isDarkTheme ? 'light' : 'dark';
+    setIsDarkTheme(!isDarkTheme);
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('nave5Theme', next);
+  };
 
   useEffect(() => {
     getCategorias().then(data => setCategorias(data));
@@ -113,6 +138,24 @@ const Header = () => {
         </div>
 
         <div className="header-right">
+
+          <button
+            className="icon-btn theme-toggle-btn"
+            onClick={toggleTheme}
+            aria-label={isDarkTheme ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-pressed={isDarkTheme}
+          >
+            {isDarkTheme ? (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" className="header-icon-svg">
+                <path d="M20 14.6A8.6 8.6 0 0 1 9.4 4a8.6 8.6 0 1 0 10.6 10.6z" />
+              </svg>
+            ) : (
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="header-icon-svg">
+                <circle cx="12" cy="12" r="4.2" />
+                <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />
+              </svg>
+            )}
+          </button>
 
           <Link to="/cuenta?tab=favoritos" className="icon-btn header-fav-btn" aria-label="Favoritos">
             <svg width="20" height="20" viewBox="0 0 24 24" fill={favorites.length > 0 ? "#B38A70" : "none"} stroke={favorites.length > 0 ? "#B38A70" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
@@ -208,13 +251,15 @@ const Header = () => {
                           src={producto.imagenes?.[0] || 'https://via.placeholder.com/60'}
                           alt={producto.nombre}
                           className="search-live-img"
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div className="search-live-info">
                           <span className="search-live-name">{producto.nombre}</span>
                           <span className="search-live-cat">{producto.categoria}</span>
                         </div>
                         <span className="search-live-price">
-                          {producto.precio_venta?.toLocaleString('es-ES')} €
+                          {producto.precio_venta ? `${formatPrice(producto.precio_venta)} €` : (producto.precio_alquiler_dia ? `${formatPrice(producto.precio_alquiler_dia)} €/día` : '')}
                         </span>
                       </Link>
                     ))}
