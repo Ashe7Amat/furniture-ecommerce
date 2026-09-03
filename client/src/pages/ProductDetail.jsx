@@ -5,6 +5,7 @@ import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
+import { formatPrice } from '../utils/format';
 import '../styles/ProductDetail.css';
 
 const ProductDetail = () => {
@@ -90,7 +91,7 @@ const ProductDetail = () => {
         {/* COLUMNA IZQUIERDA: GALERIA VISUAL */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
-            <img key={mainImage} src={mainImage} alt={mueble.nombre} className="pd-main-image" />
+            <img key={mainImage} src={mainImage} alt={mueble.nombre} className="pd-main-image" decoding="async" />
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
           </div>
@@ -102,7 +103,7 @@ const ProductDetail = () => {
                   className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
                   onClick={() => setMainImage(img)}
                 >
-                  <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" />
+                  <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -113,7 +114,7 @@ const ProductDetail = () => {
         <div className="pd-info">
           <span className="pd-category">{mueble.categoria || 'Selected Collection'}</span>
           <div className="pd-title-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h1 className="pd-title">{mueble.nombre}</h1>
+            <h1 className="pd-title font-display">{mueble.nombre}</h1>
             <button 
               className="icon-btn" 
               onClick={() => toggleFavorite(mueble.id)} 
@@ -125,7 +126,7 @@ const ProductDetail = () => {
               </svg>
             </button>
           </div>
-          <p className="pd-price">{mueble.precio_venta ? `${mueble.precio_venta} €` : 'Consultar precio'}</p>
+          <p className="pd-price font-display">{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : 'Consultar precio'}</p>
           
           <div className="pd-description">
             <p>{mueble.descripcion}</p>
@@ -150,15 +151,15 @@ const ProductDetail = () => {
                   onClick={() => setModalidad('compra')}
                 >
                   <span className="pd-opt-title">Comprar pieza única</span>
-                  {mueble.precio_venta && <span className="pd-opt-price">{mueble.precio_venta} €</span>}
+                  {mueble.precio_venta && <span className="pd-opt-price">{formatPrice(mueble.precio_venta)} €</span>}
                 </button>
                 <button 
                   className={`pd-option-btn outline ${modalidad === 'alquiler' ? 'active' : ''}`}
-                  disabled={!mueble.precio_alquiler || mueble.estado === 'vendido'}
+                  disabled={!mueble.precio_alquiler_dia || mueble.estado === 'vendido'}
                   onClick={() => setModalidad('alquiler')}
                 >
                   <span className="pd-opt-title">Alquilar por días</span>
-                  {mueble.precio_alquiler ? <span className="pd-opt-price">{mueble.precio_alquiler} €/día</span> : <span className="pd-opt-price">No disponible</span>}
+                  {mueble.precio_alquiler_dia ? <span className="pd-opt-price">{formatPrice(mueble.precio_alquiler_dia)} €/día</span> : <span className="pd-opt-price">No disponible</span>}
                 </button>
               </div>
             </div>

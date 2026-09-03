@@ -26,7 +26,7 @@ export const CartProvider = ({ children }) => {
   }, [cartItems, storageKey]);
 
   const addToCart = (product, modality) => {
-    const price = modality === 'compra' ? product.precio_venta : product.precio_alquiler;
+    const price = modality === 'compra' ? product.precio_venta : product.precio_alquiler_dia;
     let alreadyExists = false;
 
     setCartItems(prev => {

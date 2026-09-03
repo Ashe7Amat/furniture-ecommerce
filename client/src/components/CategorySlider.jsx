@@ -34,7 +34,7 @@ const CategorySlider = () => {
             onClick={() => handleCategoryClick(cat.nombre)}
           >
             <div className="category-img-container">
-              <img src={cat.imagen_url || 'https://via.placeholder.com/100'} alt={cat.nombre} />
+              <img src={cat.imagen_url || 'https://via.placeholder.com/100'} alt={cat.nombre} loading="lazy" decoding="async" />
             </div>
             <span className="category-name">{cat.nombre}</span>
           </div>

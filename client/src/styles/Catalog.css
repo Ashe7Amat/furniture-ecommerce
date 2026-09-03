@@ -45,17 +45,18 @@
 }
 
 .catalog-header h1 {
+  font-family: var(--font-display);
   font-size: 3.5rem;
-  color: #000;
+  color: var(--primary-color);
   margin-bottom: 20px;
   letter-spacing: -1.5px;
-  font-weight: 300;
+  font-weight: 500;
   text-transform: capitalize;
 }
 
 .catalog-header p {
   font-size: 1.1rem;
-  color: #666;
+  color: var(--secondary-color);
   max-width: 600px;
   margin: 0 auto;
   font-weight: 300;
@@ -70,7 +71,7 @@
   padding: 0;
   font-size: 0.82rem;
   font-family: inherit;
-  color: #888;
+  color: var(--secondary-color);
   letter-spacing: 0.5px;
   cursor: pointer;
   text-decoration: underline;
@@ -78,7 +79,7 @@
   transition: color 0.2s ease;
 }
 .catalog-clear-filter:hover {
-  color: #000;
+  color: var(--primary-color);
 }
 
 .products-grid {
@@ -97,7 +98,7 @@
 }
 
 .loader {
-  border: 4px solid #f3f3f3;
+  border: 4px solid var(--surface-alt);
   border-top: 4px solid var(--accent-color);
   border-radius: 50%;
   width: 50px;
@@ -117,7 +118,7 @@
 }
 
 .empty-state p {
-  color: #666;
+  color: var(--secondary-color);
 }
 
 /* --- PANEL DE FILTROS MINIMALISTA --- */
@@ -129,8 +130,8 @@
   justify-content: space-between;
   padding: 20px;
   margin: 30px auto 40px auto;
-  background-color: #FCFAF8; /* Blanco roto / arena muy claro */
-  border: 1px solid #E2DCD0;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   max-width: 1200px;
 }
@@ -147,7 +148,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #857468; /* Café medio */
+  color: var(--secondary-color);
   font-weight: 600;
 }
 
@@ -155,9 +156,9 @@
   padding: 10px 14px;
   font-family: inherit;
   font-size: 0.9rem;
-  color: #3E322A; /* Café oscuro */
-  background-color: #FCFAF8;
-  border: 1px solid #E2DCD0;
+  color: var(--primary-color);
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
   border-radius: 3px;
   outline: none;
   cursor: pointer;
@@ -171,7 +172,7 @@
 }
 
 .filter-select:focus {
-  border-color: #B38A70; /* Terracota / acento */
+  border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(179, 138, 112, 0.1);
 }
 
@@ -190,7 +191,7 @@
   cursor: pointer;
   user-select: none;
   font-size: 0.9rem;
-  color: #3E322A;
+  color: var(--primary-color);
   position: relative;
   font-weight: 500 !important; /* Override standard label weight */
 }
@@ -206,8 +207,8 @@
 .checkbox-custom {
   height: 18px;
   width: 18px;
-  background-color: #FCFAF8;
-  border: 1.5px solid #E2DCD0;
+  background-color: var(--card-bg);
+  border: 1.5px solid var(--border-color);
   border-radius: 3px;
   transition: all 0.2s ease;
   display: inline-block;
@@ -215,12 +216,12 @@
 }
 
 .checkbox-container:hover input ~ .checkbox-custom {
-  border-color: #B38A70;
+  border-color: var(--accent-color);
 }
 
 .checkbox-container input:checked ~ .checkbox-custom {
-  background-color: #3E322A;
-  border-color: #3E322A;
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .checkbox-custom:after {

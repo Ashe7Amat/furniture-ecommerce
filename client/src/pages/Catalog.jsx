@@ -97,7 +97,7 @@ export default function Catalog() {
     <div className="catalog-container">
       {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}
       <header className="catalog-header">
-        <span style={{ fontSize: '11px', letterSpacing: '2px', color: '#8c8c8c', textTransform: 'uppercase' }}>
+        <span style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--secondary-color)', textTransform: 'uppercase' }}>
           {showFavorites ? 'Tu Selección' : (categoriaUrl ? 'Colección Seleccionada' : 'Catálogo')}
         </span>
         <h1 style={{ textTransform: 'capitalize' }}>
