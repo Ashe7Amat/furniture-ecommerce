@@ -1,7 +1,7 @@
-const nodemailer = require('nodemailer');
 const Stripe = require('stripe');
 const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
+const { enviarNotificacionVenta } = require('../utils/email');
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -176,75 +176,6 @@ const buscarMuebles = async (req, res) => {
   }
 };
 
-// Auxiliar para enviar notificación por email de la venta
-const enviarEmailVentaAdmin = async (items, clienteInfo, total) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || 'mock_user',
-        pass: process.env.SMTP_PASS || 'mock_pass',
-      },
-    });
-
-    const itemsHtml = items.map(item => `
-      <li>
-        <strong>${item.nombre}</strong> - ${item.modalidad === 'compra' ? 'Compra' : 'Alquiler'} (${item.cantidad} x ${item.precio} €)
-      </li>
-    `).join('');
-
-    const emailContent = `
-      <div style="font-family: sans-serif; color: #3E322A; max-width: 600px; padding: 20px; background-color: #F5F2EC; border-radius: 8px;">
-        <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 10px;">🔔 ¡Nueva Venta Registrada!</h2>
-        <p>Se ha completado una transacción con éxito en <strong>Nave 5 Barcelona</strong>.</p>
-
-        <h3 style="color: #857468; margin-top: 20px;">Detalles del Cliente y Envío:</h3>
-        <p style="margin: 4px 0;"><strong>Nombre:</strong> ${clienteInfo.nombre || 'No provisto'}</p>
-        <p style="margin: 4px 0;"><strong>Email:</strong> ${clienteInfo.email || 'No provisto'}</p>
-        <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${clienteInfo.telefono || 'No provisto'}</p>
-        <p style="margin: 4px 0;"><strong>Dirección de Entrega:</strong> ${clienteInfo.direccion || 'No provista'}</p>
-        <p style="margin: 4px 0;"><strong>Notas de Envío:</strong> ${clienteInfo.notas || 'Ninguna'}</p>
-        <p style="margin: 4px 0;"><strong>Método de Pago:</strong> ${clienteInfo.metodoPago || 'Tarjeta (Stripe)'}</p>
-
-        <h3 style="color: #857468; margin-top: 20px;">Productos Adquiridos:</h3>
-        <ul style="padding-left: 20px; line-height: 1.6;">
-          ${itemsHtml}
-        </ul>
-
-        <div style="margin-top: 30px; padding: 15px; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 4px; text-align: right;">
-          <strong style="font-size: 1.1rem; color: #3E322A;">Total Transacción: ${total.toFixed(2)} €</strong>
-        </div>
-
-        <p style="font-size: 0.85rem; color: #857468; margin-top: 40px; border-top: 1px solid #E2DCD0; padding-top: 10px; text-align: center;">
-          © 2026 Nave 5 Barcelona | Almacén de ideas
-        </p>
-      </div>
-    `;
-
-    if (process.env.SMTP_USER && process.env.SMTP_USER !== 'mock_user') {
-      await transporter.sendMail({
-        from: '"Nave 5 Barcelona" <no-reply@nave5barcelona.com>',
-        to: process.env.ADMIN_EMAIL || process.env.SMTP_USER,
-        subject: `🔔 Nueva venta en Nave 5 Barcelona - ${total.toFixed(2)} €`,
-        html: emailContent
-      });
-      console.log('✅ Correo de notificación de venta enviado al administrador.');
-    } else {
-      console.log('\n--- 📧 SIMULACIÓN DE EMAIL RECIBIDO EN ADMINISTRACIÓN ---');
-      console.log('Para:', process.env.ADMIN_EMAIL || 'admin@nave5barcelona.com');
-      console.log('Asunto: 🔔 Nueva venta en Nave 5 Barcelona');
-      console.log('Cliente:', clienteInfo);
-      console.log('Detalle de items:', items);
-      console.log('Total:', total.toFixed(2), '€');
-      console.log('--------------------------------------------------------\n');
-    }
-  } catch (error) {
-    console.error('❌ Error al enviar la notificación de email:', error.message);
-  }
-};
-
 // Mira en Supabase el precio REAL de cada pieza del carrito (nunca se confía en el
 // precio que manda el navegador) y devuelve las líneas listas para Stripe / para marcar
 // como vendidas. Lanza un error legible si algo ya no está disponible.
@@ -309,7 +240,11 @@ const procesarCompra = async (lineas, clienteInfo) => {
   }
 
   const total = lineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
-  enviarEmailVentaAdmin(lineas, clienteInfo || {}, total);
+
+  // Notificación por email al administrador vía Resend. enviarNotificacionVenta() nunca
+  // lanza (try/catch interno): un fallo en el envío del correo jamás debe romper el checkout.
+  enviarNotificacionVenta({ items: lineas, clienteInfo: clienteInfo || {}, total, fecha: new Date() });
+
   return total;
 };
 
