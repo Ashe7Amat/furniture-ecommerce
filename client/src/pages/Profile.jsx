@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { getMuebles } from '../services/api';
+import { getMuebles, updateProfile } from '../services/api';
 import { Link, useSearchParams } from 'react-router-dom';
 import './Profile.css';
 
@@ -55,28 +55,22 @@ export default function Profile() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/auth/perfil-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          emailActual: user.email,
-          nuevoNombre: nombre,
-          nuevoEmail: email,
-          passwordActual: (estaCambiandoEmail || estaCambiandoPassword) ? passwordActual : undefined,
-          nuevaPassword: estaCambiandoPassword ? nuevaPassword : undefined
-        })
+      const data = await updateProfile({
+        emailActual: user.email,
+        nuevoNombre: nombre,
+        nuevoEmail: email,
+        passwordActual: (estaCambiandoEmail || estaCambiandoPassword) ? passwordActual : undefined,
+        nuevaPassword: estaCambiandoPassword ? nuevaPassword : undefined
       });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        login(data.user); 
+
+      if (data.error) {
+        showToast(data.error, 'error');
+      } else {
+        login(data.user);
         setPasswordActual('');
         setNuevaPassword('');
         setConfirmarNuevaPassword('');
         showToast('¡Perfil actualizado con éxito!', 'success');
-      } else {
-        showToast(data.error || 'Error al actualizar', 'error');
       }
     } catch (error) {
       showToast('Error de conexión con el servidor', 'error');
