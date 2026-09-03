@@ -1,4 +1,10 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Cabecera de sesión: se añade sola en cuanto hay un usuario logueado con token
+const authHeaders = () => {
+  const token = localStorage.getItem('kaveToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export const getMuebles = async () => {
   try {
@@ -62,7 +68,7 @@ export const registerUser = async (userData) => {
 export const createMueble = async (muebleData) => {
   try {
     const isFormData = muebleData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
     const body = isFormData ? muebleData : JSON.stringify(muebleData);
 
     const response = await fetch(`${API_URL}/muebles`, {
@@ -81,7 +87,7 @@ export const createMueble = async (muebleData) => {
 export const updateMueble = async (id, muebleData) => {
   try {
     const isFormData = muebleData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
     const body = isFormData ? muebleData : JSON.stringify(muebleData);
 
     const response = await fetch(`${API_URL}/muebles/${id}`, {
@@ -100,7 +106,8 @@ export const updateMueble = async (id, muebleData) => {
 export const deleteMueble = async (id) => {
   try {
     const response = await fetch(`${API_URL}/muebles/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: authHeaders()
     });
     if (!response.ok) throw new Error('Error al eliminar mueble');
     return await response.json();
@@ -124,7 +131,7 @@ export const getCategorias = async () => {
 export const createCategoria = async (categoriaData) => {
   try {
     const isFormData = categoriaData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
     const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
 
     const response = await fetch(`${API_URL}/categorias`, {
@@ -143,7 +150,7 @@ export const createCategoria = async (categoriaData) => {
 export const updateCategoria = async (id, categoriaData) => {
   try {
     const isFormData = categoriaData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
     const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
 
     const response = await fetch(`${API_URL}/categorias/${id}`, {
@@ -162,7 +169,8 @@ export const updateCategoria = async (id, categoriaData) => {
 export const deleteCategoria = async (id) => {
   try {
     const response = await fetch(`${API_URL}/categorias/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: authHeaders()
     });
     if (!response.ok) throw new Error('Error al eliminar categoría');
     return await response.json();
@@ -187,7 +195,7 @@ export const updateProfile = async (profileData) => {
   try {
     const response = await fetch(`${API_URL}/auth/perfil-update`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(profileData)
     });
     const data = await response.json();
@@ -199,6 +207,8 @@ export const updateProfile = async (profileData) => {
   }
 };
 
+// Compra "de respaldo" (sin pasarela real) — se mantiene por compatibilidad, pero el
+// checkout ahora usa crearSesionPago() más abajo.
 export const checkoutCart = async (checkoutData) => {
   try {
     const response = await fetch(`${API_URL}/muebles/comprar`, {
@@ -211,6 +221,37 @@ export const checkoutCart = async (checkoutData) => {
     return data;
   } catch (error) {
     console.error('Error en checkoutCart:', error);
+    return { error: error.message };
+  }
+};
+
+// Crea una sesión de pago real de Stripe (modo test o real, según la clave del servidor)
+// y devuelve la URL a la que hay que redirigir al comprador.
+export const crearSesionPago = async ({ items, clienteInfo }) => {
+  try {
+    const response = await fetch(`${API_URL}/muebles/crear-sesion-pago`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, clienteInfo })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo iniciar el pago.');
+    return data;
+  } catch (error) {
+    console.error('Error en crearSesionPago:', error);
+    return { error: error.message };
+  }
+};
+
+// Confirma una sesión de Stripe tras volver del pago (se llama desde la página de éxito)
+export const confirmarSesionPago = async (sessionId) => {
+  try {
+    const response = await fetch(`${API_URL}/muebles/confirmar-sesion?session_id=${encodeURIComponent(sessionId)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo confirmar el pago.');
+    return data;
+  } catch (error) {
+    console.error('Error en confirmarSesionPago:', error);
     return { error: error.message };
   }
 };

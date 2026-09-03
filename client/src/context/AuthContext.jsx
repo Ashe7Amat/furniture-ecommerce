@@ -12,14 +12,21 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = (userData) => {
+  // token es opcional: el login "Google" de demo no genera uno real
+  const login = (userData, token) => {
     setUser(userData);
     localStorage.setItem('kaveUser', JSON.stringify(userData));
+    if (token) {
+      localStorage.setItem('kaveToken', token);
+    } else {
+      localStorage.removeItem('kaveToken');
+    }
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('kaveUser');
+    localStorage.removeItem('kaveToken');
   };
 
   return (

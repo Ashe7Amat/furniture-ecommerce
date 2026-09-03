@@ -18,6 +18,8 @@ import About from './pages/About';
 import Sustainability from './pages/Sustainability';
 import Contact from './pages/Contact';
 import Legal from './pages/Legal';
+import CheckoutExito from './pages/CheckoutExito';
+import CheckoutCancelado from './pages/CheckoutCancelado';
 import ScrollToTop from './components/ScrollToTop';
 
 function App() {
@@ -45,6 +47,9 @@ function App() {
                   <Route path="/sostenibilidad" element={<Sustainability />} />
                   <Route path="/contacto" element={<Contact />} />
                   <Route path="/legal" element={<Legal />} />
+
+                  <Route path="/checkout/exito" element={<CheckoutExito />} />
+                  <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
 
                   {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                   <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />

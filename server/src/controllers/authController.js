@@ -1,6 +1,7 @@
 // server/src/controllers/authController.js
 const supabase = require('../data/supabase');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
 // Auxiliar para enviar correo de bienvenida al cliente
@@ -181,6 +182,15 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
   }
 };
 
+// Firma un token de sesión (válido 7 días) con los datos mínimos del usuario
+const firmarToken = (usuario) => {
+  return jwt.sign(
+    { email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+};
+
 // 1. REGISTRO DE NUEVOS CLIENTES
 const registrarCliente = async (req, res) => {
   try {
@@ -224,10 +234,13 @@ const registrarCliente = async (req, res) => {
     // Se ejecuta de manera asíncrona no bloqueante
     enviarEmailBienvenida(nuevoUsuario[0].email, nuevoUsuario[0].nombre);
 
+    const token = firmarToken(nuevoUsuario[0]);
+
     res.status(201).json({
       success: true,
       message: 'Cuenta creada con éxito.',
-      user: { nombre: nuevoUsuario[0].nombre, email: nuevoUsuario[0].email, rol: nuevoUsuario[0].rol }
+      user: { nombre: nuevoUsuario[0].nombre, email: nuevoUsuario[0].email, rol: nuevoUsuario[0].rol },
+      token
     });
 
   } catch (error) {
@@ -263,14 +276,17 @@ const loginCliente = async (req, res) => {
       return res.status(400).json({ error: 'Contraseña incorrecta.' });
     }
 
-    // Login exitoso: Devolvemos los datos limpios (sin la contraseña)
+    // Login exitoso: Devolvemos los datos limpios (sin la contraseña) + token de sesión
+    const token = firmarToken(usuario);
+
     res.status(200).json({
       success: true,
       user: {
         nombre: usuario.nombre,
         email: usuario.email,
         rol: usuario.rol
-      }
+      },
+      token
     });
 
   } catch (error) {
@@ -282,7 +298,10 @@ const loginCliente = async (req, res) => {
 // Actualizar datos del perfil del cliente (Seguro - Requiere contraseña solo si cambia email/password)
 const actualizarPerfil = async (req, res) => {
   try {
-    const { emailActual, nuevoNombre, nuevoEmail, passwordActual, nuevaPassword } = req.body;
+    const { nuevoNombre, nuevoEmail, passwordActual, nuevaPassword } = req.body;
+    // El email de la cuenta a modificar viene del token verificado, nunca del body:
+    // así un usuario no puede editar la cuenta de otro cambiando el JSON de la petición.
+    const emailActual = req.usuario.email;
 
     const estaCambiandoEmail = nuevoEmail && nuevoEmail !== emailActual;
     const estaCambiandoPassword = !!nuevaPassword;

@@ -39,7 +39,7 @@ const Login = () => {
       if (!nombre) return setError('El nombre es obligatorio para registrarse.');
       const res = await registerUser({ nombre, email, password });
       if (res.success) {
-        login(res.user);
+        login(res.user, res.token);
         showToast(`¡Cuenta creada con éxito! Bienvenido, ${res.user.nombre}`, 'success');
         navigate('/');
       } else {
@@ -48,7 +48,7 @@ const Login = () => {
     } else {
       const res = await loginUser(email, password);
       if (res.success) {
-        login(res.user);
+        login(res.user, res.token);
         showToast(`¡Hola de nuevo, ${res.user.nombre}!`, 'success');
         navigate('/');
       } else {

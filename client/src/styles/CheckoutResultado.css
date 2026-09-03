@@ -1,0 +1,75 @@
+.checkout-resultado-page {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+}
+
+.checkout-resultado-box {
+  max-width: 460px;
+  width: 100%;
+  text-align: center;
+  padding: 50px 40px;
+  border: 1px solid #E2DCD0;
+  border-radius: 6px;
+  background: #FCFAF8;
+}
+
+.checkout-resultado-box h1 {
+  font-size: 1.4rem;
+  font-weight: 500;
+  color: #3E322A;
+  margin: 0 0 12px;
+}
+
+.checkout-resultado-box .success-msg {
+  color: #857468;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+
+.success-icon, .error-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 20px;
+}
+.success-icon {
+  background: #3E322A;
+  color: #fff;
+}
+.error-icon {
+  background: #F5E2DD;
+  color: #9A3324;
+}
+
+.checkout-resultado-box .checkout-btn-solid {
+  display: inline-block;
+  text-decoration: none;
+  background: #3E322A;
+  color: #fff;
+  padding: 14px 28px;
+  border-radius: 2px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.classic-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #E2DCD0;
+  border-top-color: #3E322A;
+  border-radius: 50%;
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}

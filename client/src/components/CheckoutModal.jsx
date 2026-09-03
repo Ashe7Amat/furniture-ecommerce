@@ -1,16 +1,16 @@
 // client/src/components/CheckoutModal.jsx
 import React, { useState, useContext } from 'react';
 import { CartContext } from '../context/CartContext';
-import { checkoutCart } from '../services/api';
+import { crearSesionPago } from '../services/api';
 import '../styles/CheckoutModal.css';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
-  const { cartItems, cartTotal, emptyCart, setIsCartOpen } = useContext(CartContext);
+  const { cartItems, cartTotal } = useContext(CartContext);
   const [activeTab, setActiveTab] = useState('card');
-  const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, apple_processing, processing, success
-  const [orderNumber, setOrderNumber] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, redirecting
+  const [payError, setPayError] = useState('');
 
-  // Estados para datos de cliente y pago
+  // Estados para datos de cliente y envío
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -19,13 +19,6 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   const [zipCode, setZipCode] = useState('');
   const [provincia, setProvincia] = useState('');
   const [notes, setNotes] = useState('');
-
-  // Estados específicos de pasarela
-  const [cardholderName, setCardholderName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [bizumPhone, setBizumPhone] = useState('');
 
   // Estados de validación
   const [errors, setErrors] = useState({});
@@ -74,40 +67,6 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     return '';
   };
 
-  const validateCardholderName = (val) => {
-    if (!val) return 'El nombre del titular es obligatorio.';
-    if (val.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres.';
-    return '';
-  };
-
-  const validateCardNumber = (val) => {
-    const raw = val.replace(/\s+/g, '');
-    if (!raw) return 'El número de tarjeta es obligatorio.';
-    if (raw.length !== 16) return 'El número de tarjeta debe tener exactamente 16 dígitos.';
-    return '';
-  };
-
-  const validateExpiry = (val) => {
-    if (!val) return 'La fecha de caducidad es obligatoria.';
-    if (!/^\d{2}\/\d{2}$/.test(val)) return 'Formato inválido. Debe ser MM/AA.';
-    const [month, year] = val.split('/').map(Number);
-    if (month < 1 || month > 12) return 'El mes debe estar entre 01 y 12.';
-
-    const now = new Date();
-    const currentYear = now.getFullYear() % 100;
-    const currentMonth = now.getMonth() + 1;
-    if (year < currentYear || (year === currentYear && month < currentMonth)) {
-      return 'La tarjeta está caducada.';
-    }
-    return '';
-  };
-
-  const validateCvv = (val) => {
-    if (!val) return 'El CVV es obligatorio.';
-    if (!/^\d{3,4}$/.test(val)) return 'El CVV debe tener 3 o 4 dígitos.';
-    return '';
-  };
-
   // --- MANEJADORES DE ENTRADAS ---
   const handleBlur = (field, val, validator) => {
     setTouched(prev => ({ ...prev, [field]: true }));
@@ -122,52 +81,6 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleCardholderChange = (e) => {
-    const val = e.target.value;
-    setCardholderName(val);
-    if (touched.cardholderName) {
-      setErrors(prev => ({ ...prev, cardholderName: validateCardholderName(val) }));
-    }
-  };
-
-  const handleCardNumberChange = (e) => {
-    let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    let formattedValue = value.replace(/(.{4})/g, '$1 ').trim();
-    const truncated = formattedValue.substring(0, 19);
-    setCardNumber(truncated);
-    if (touched.cardNumber) {
-      setErrors(prev => ({ ...prev, cardNumber: validateCardNumber(truncated) }));
-    }
-  };
-
-  const handleExpiryChange = (e) => {
-    let value = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    if (value.length > 2) {
-      value = `${value.substring(0, 2)}/${value.substring(2, 4)}`;
-    }
-    const truncated = value.substring(0, 5);
-    setExpiry(truncated);
-    if (touched.expiry) {
-      setErrors(prev => ({ ...prev, expiry: validateExpiry(truncated) }));
-    }
-  };
-
-  const handleCvvChange = (e) => {
-    const val = e.target.value.replace(/[^0-9]/g, '').substring(0, 4);
-    setCvv(val);
-    if (touched.cvv) {
-      setErrors(prev => ({ ...prev, cvv: validateCvv(val) }));
-    }
-  };
-
-  const handlePhoneChange = (e) => {
-    const val = e.target.value.replace(/[^0-9]/g, '').substring(0, 9);
-    setBizumPhone(val);
-    if (touched.bizumPhone) {
-      setErrors(prev => ({ ...prev, bizumPhone: validatePhone(val) }));
-    }
-  };
-
   // --- CÁLCULO DE VALIDEZ DE FORMULARIO ---
   const isGeneralFormInvalid =
     validateEmail(email) !== '' ||
@@ -178,131 +91,57 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     validateZipCode(zipCode) !== '' ||
     validateProvincia(provincia) !== '';
 
-  const isCardDetailsInvalid =
-    validateCardholderName(cardholderName) !== '' ||
-    validateCardNumber(cardNumber) !== '' ||
-    validateExpiry(expiry) !== '' ||
-    validateCvv(cvv) !== '';
+  // --- PAGO REAL CON STRIPE (redirige a la página segura de Stripe) ---
+  const handlePagarConTarjeta = async () => {
+    setPayError('');
+    setPaymentStatus('redirecting');
 
-  // --- SIMULACIÓN Y PROCESAMIENTO DE COMPRA ---
-  const simulatePayment = (type) => {
-    if (type === 'apple') {
-      setPaymentStatus('apple_processing');
-      setTimeout(() => {
-        finishPayment('apple');
-      }, 1500);
-    } else if (type === 'bizum') {
-      setPaymentStatus('processing');
-      setTimeout(() => {
-        finishPayment('bizum');
-      }, 2000);
-    } else {
-      setPaymentStatus('processing');
-      setTimeout(() => {
-        finishPayment('card');
-      }, 2000);
-    }
-  };
+    const itemsToSend = cartItems.map(item => ({
+      productId: item.productId,
+      modalidad: item.modalidad
+    }));
 
-  const finishPayment = async (type) => {
-    try {
-      const itemsToSend = cartItems.map(item => ({
-        productId: item.productId,
-        nombre: item.nombre,
-        modalidad: item.modalidad,
-        cantidad: item.cantidad,
-        precio: item.precio
-      }));
-
-      const res = await checkoutCart({
-        items: itemsToSend,
-        clienteInfo: {
-          nombre: fullName,
-          email: email,
-          telefono: phone,
-          direccion: `${address}, ${zipCode} ${city} (${provincia})`,
-          notas: notes || 'Ninguna',
-          metodoPago: type === 'apple' ? 'Apple Pay' : type === 'bizum' ? `Bizum (${bizumPhone})` : `Tarjeta (Titular: ${cardholderName})`
-        },
-        total: cartTotal
-      });
-
-      if (res && res.success) {
-        const randomOrder = `#N5B-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-        setOrderNumber(randomOrder);
-        setPaymentStatus('success');
-        emptyCart();
-      } else {
-        alert(res?.error || 'Hubo un error al procesar el pago con el servidor.');
-        setPaymentStatus('idle');
+    const res = await crearSesionPago({
+      items: itemsToSend,
+      clienteInfo: {
+        nombre: fullName,
+        email: email,
+        telefono: phone,
+        direccion: `${address}, ${zipCode} ${city} (${provincia})`,
+        notas: notes || 'Ninguna'
       }
-    } catch (error) {
-      console.error('Error al completar el pago:', error);
-      alert('Error de conexión al procesar el pago.');
-      setPaymentStatus('idle');
+    });
+
+    if (res && res.url) {
+      window.location.href = res.url; // el comprador termina el pago en Stripe y vuelve a /checkout/exito
+      return;
     }
+
+    setPayError(res?.error || 'No se pudo iniciar el pago. Inténtalo de nuevo.');
+    setPaymentStatus('idle');
   };
 
   const handleClose = () => {
     onClose();
-    if (paymentStatus === 'success') {
-      setIsCartOpen(false); // Cierra el CartDrawer también
-    }
-    // Restablece el estado
     setTimeout(() => {
       setPaymentStatus('idle');
-      setEmail('');
-      setFullName('');
-      setPhone('');
-      setAddress('');
-      setCity('');
-      setZipCode('');
-      setProvincia('');
-      setNotes('');
-      setCardholderName('');
-      setCardNumber('');
-      setExpiry('');
-      setCvv('');
-      setBizumPhone('');
-      setErrors({});
-      setTouched({});
+      setPayError('');
     }, 300);
   };
 
-  if (paymentStatus === 'success') {
-    return (
-      <div className="checkout-overlay">
-        <div className="checkout-modal success-modal">
-          <div className="success-icon">✓</div>
-          <h2>¡Pedido confirmado con éxito!</h2>
-          <p className="order-number">Pedido {orderNumber}</p>
-          <p className="success-msg">Hemos registrado tu compra en Nave 5 Barcelona. El stock de los productos ha sido actualizado e inhabilitado.</p>
-          <button className="checkout-btn-solid" onClick={handleClose}>Volver a la tienda</button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="checkout-overlay">
-      {paymentStatus === 'apple_processing' && (
-        <div className="apple-processing-overlay">
-          <div className="apple-spinner"></div>
-          <p>Procesando con Apple Pay...<br />Verificando mediante Face ID / Touch ID</p>
-        </div>
-      )}
-
-      {paymentStatus === 'processing' && (
+      {paymentStatus === 'redirecting' && (
         <div className="processing-overlay">
           <div className="classic-spinner"></div>
-          <p>Conectando con la pasarela segura del banco...</p>
+          <p>Conectando con la pasarela segura de Stripe...</p>
         </div>
       )}
 
       <div className="checkout-modal">
         <div className="checkout-header">
           <h2>Finalizar Pago</h2>
-          <button className="close-checkout" onClick={onClose}>✕</button>
+          <button className="close-checkout" onClick={handleClose}>✕</button>
         </div>
 
         <div className="checkout-body">
@@ -311,7 +150,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
               1. Datos de Entrega y Contacto
             </h3>
-            
+
             <div className="form-row">
               <div className="form-group half">
                 <label>Nombre y Apellidos</label>
@@ -319,10 +158,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                   type="text"
                   placeholder="Ej. Ana Martínez"
                   value={fullName}
-                  onChange={(e) => {
-                    setFullName(e.target.value);
-                    setCardholderName(e.target.value);
-                  }}
+                  onChange={(e) => setFullName(e.target.value)}
                   onBlur={() => handleBlur('fullName', fullName, validateFullName)}
                 />
                 {touched.fullName && errors.fullName && <span className="error-text">{errors.fullName}</span>}
@@ -334,11 +170,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                   placeholder="Ej. 600123456"
                   maxLength="9"
                   value={phone}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/[^0-9]/g, '');
-                    setPhone(val);
-                    setBizumPhone(val);
-                  }}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
                   onBlur={() => handleBlur('phone', phone, validatePhone)}
                 />
                 {touched.phone && errors.phone && <span className="error-text">{errors.phone}</span>}
@@ -433,7 +265,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px' }}>
               2. Detalles del Pago
             </h3>
-            
+
             <div className="checkout-tabs">
               <button type="button" className={`tab-btn ${activeTab === 'card' ? 'active' : ''}`} onClick={() => setActiveTab('card')}>Tarjeta</button>
               <button type="button" className={`tab-btn ${activeTab === 'apple' ? 'active' : ''}`} onClick={() => setActiveTab('apple')}>Apple Pay</button>
@@ -443,77 +275,23 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             <div className="tab-content-wrapper" style={{ marginTop: '15px' }}>
               {activeTab === 'apple' && (
                 <div className="tab-content apple-tab">
-                  <p>Paga de forma instantánea y segura usando tu dispositivo Apple sin ingresar datos manuales.</p>
-                  <button 
-                    type="button" 
-                    className="apple-pay-btn" 
-                    onClick={() => simulatePayment('apple')}
-                    disabled={isGeneralFormInvalid}
-                  >
-                     Pay
-                  </button>
-                  {isGeneralFormInvalid && <p className="help-text-error">Debes rellenar los datos de envío arriba para poder pagar.</p>}
+                  <p>Apple Pay estará disponible en cuanto se active en la pasarela de pago. De momento, paga con tarjeta en la pestaña «Tarjeta».</p>
                 </div>
               )}
 
               {activeTab === 'card' && (
                 <div className="tab-content card-tab">
-                  <div className="form-group">
-                    <label>Nombre del titular de la tarjeta</label>
-                    <input
-                      type="text"
-                      placeholder="Ej. Ana Martínez"
-                      value={cardholderName}
-                      onChange={handleCardholderChange}
-                      onBlur={() => handleBlur('cardholderName', cardholderName, validateCardholderName)}
-                    />
-                    {touched.cardholderName && errors.cardholderName && <span className="error-text">{errors.cardholderName}</span>}
-                  </div>
+                  <p style={{ fontSize: '0.85rem', color: '#857468', marginBottom: '15px' }}>
+                    Al continuar te llevamos a la página de pago segura de Stripe, donde introduces los datos de tu tarjeta. Nave 5 Barcelona nunca ve ni guarda tu número de tarjeta.
+                  </p>
 
-                  <div className="form-group">
-                    <label>Número de tarjeta</label>
-                    <input
-                      type="text"
-                      placeholder="0000 0000 0000 0000"
-                      value={cardNumber}
-                      onChange={handleCardNumberChange}
-                      onBlur={() => handleBlur('cardNumber', cardNumber, validateCardNumber)}
-                    />
-                    {touched.cardNumber && errors.cardNumber && <span className="error-text">{errors.cardNumber}</span>}
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group half">
-                      <label>Caducidad</label>
-                      <input
-                        type="text"
-                        placeholder="MM/AA"
-                        maxLength="5"
-                        value={expiry}
-                        onChange={handleExpiryChange}
-                        onBlur={() => handleBlur('expiry', expiry, validateExpiry)}
-                      />
-                      {touched.expiry && errors.expiry && <span className="error-text">{errors.expiry}</span>}
-                    </div>
-                    <div className="form-group half">
-                      <label>CVV</label>
-                      <input
-                        type="password"
-                        placeholder="123"
-                        maxLength="4"
-                        value={cvv}
-                        onChange={handleCvvChange}
-                        onBlur={() => handleBlur('cvv', cvv, validateCvv)}
-                      />
-                      {touched.cvv && errors.cvv && <span className="error-text">{errors.cvv}</span>}
-                    </div>
-                  </div>
+                  {payError && <p className="error-text" style={{ marginBottom: '10px' }}>{payError}</p>}
 
                   <button
                     type="button"
                     className="checkout-btn-solid"
-                    onClick={() => simulatePayment('card')}
-                    disabled={isGeneralFormInvalid || isCardDetailsInvalid}
+                    onClick={handlePagarConTarjeta}
+                    disabled={isGeneralFormInvalid || paymentStatus === 'redirecting'}
                   >
                     Pagar {cartTotal} € de forma segura
                   </button>
@@ -522,29 +300,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
               {activeTab === 'bizum' && (
                 <div className="tab-content bizum-tab">
-                  <p>Introduce tu teléfono asociado a Bizum para recibir la notificación de confirmación.</p>
-
-                  <div className="form-group" style={{ marginTop: '15px' }}>
-                    <label>Número de teléfono para Bizum</label>
-                    <input
-                      type="tel"
-                      placeholder="Ej. 600123456"
-                      maxLength="9"
-                      value={bizumPhone}
-                      onChange={handlePhoneChange}
-                      onBlur={() => handleBlur('bizumPhone', bizumPhone, validatePhone)}
-                    />
-                    {touched.bizumPhone && errors.bizumPhone && <span className="error-text">{errors.bizumPhone}</span>}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="checkout-btn-solid"
-                    onClick={() => simulatePayment('bizum')}
-                    disabled={isGeneralFormInvalid || validatePhone(bizumPhone) !== ''}
-                  >
-                    Pagar {cartTotal} € con Bizum
-                  </button>
+                  <p>Bizum estará disponible en cuanto se active en la pasarela de pago. De momento, paga con tarjeta en la pestaña «Tarjeta».</p>
                 </div>
               )}
             </div>
