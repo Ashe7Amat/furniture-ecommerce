@@ -256,6 +256,18 @@ export const confirmarSesionPago = async (sessionId) => {
   }
 };
 
+// Lista los pedidos del cliente logueado (para su Historial de Pedidos en Mi Cuenta)
+export const getMisPedidos = async () => {
+  try {
+    const response = await fetch(`${API_URL}/pedidos/mios`, { headers: authHeaders() });
+    if (!response.ok) throw new Error('Error al obtener tus pedidos');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getMisPedidos:', error);
+    return [];
+  }
+};
+
 // Lista todos los pedidos para el panel de administración (nombre, dirección, teléfono,
 // productos y total de cada venta, para poder prepararla y enviarla)
 export const getPedidos = async () => {

@@ -6,6 +6,30 @@ const supabase = require('../data/supabase');
 
 const ESTADOS_VALIDOS = ['procesando', 'enviado', 'entregado', 'cancelado'];
 
+// 0. Listar los pedidos del cliente logueado (para su "Historial de Pedidos" en Mi Cuenta).
+//    El checkout es de invitado y no guarda un user_id, así que se identifican por el email
+//    con el que compró, comparado con el email de la cuenta logueada.
+const obtenerMisPedidos = async (req, res) => {
+  try {
+    const email = req.usuario?.email;
+    if (!email) {
+      return res.status(401).json({ error: 'No has iniciado sesión.' });
+    }
+
+    const { data, error } = await supabase
+      .from('pedidos')
+      .select('*')
+      .ilike('cliente_info->>email', email)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error al obtener mis pedidos:', error.message);
+    res.status(500).json({ error: 'Error interno al obtener tus pedidos.' });
+  }
+};
+
 // 1. Listar todos los pedidos, más recientes primero. Solo administradores.
 const obtenerPedidos = async (req, res) => {
   try {
@@ -50,4 +74,4 @@ const actualizarEstadoPedido = async (req, res) => {
   }
 };
 
-module.exports = { obtenerPedidos, actualizarEstadoPedido };
+module.exports = { obtenerMisPedidos, obtenerPedidos, actualizarEstadoPedido };

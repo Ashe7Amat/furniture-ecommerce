@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { getMuebles, updateProfile } from '../services/api';
+import { getMuebles, updateProfile, getMisPedidos } from '../services/api';
 import { formatPrice } from '../utils/format';
 import { Link, useSearchParams } from 'react-router-dom';
 import './Profile.css';
@@ -21,6 +21,8 @@ export default function Profile() {
   const [confirmarNuevaPassword, setConfirmarNuevaPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [favMuebles, setFavMuebles] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [cargandoPedidos, setCargandoPedidos] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'favoritos') {
@@ -29,6 +31,19 @@ export default function Profile() {
       });
     }
   }, [activeTab, favorites]);
+
+  useEffect(() => {
+    if (activeTab === 'pedidos') {
+      setCargandoPedidos(true);
+      getMisPedidos().then(data => {
+        setPedidos(Array.isArray(data) ? data : []);
+        setCargandoPedidos(false);
+      });
+    }
+  }, [activeTab]);
+
+  const ETIQUETA_ESTADO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
+  const CLASE_ESTADO = { procesando: 'badge-warning', enviado: 'badge-info', entregado: 'badge-success', cancelado: 'badge-danger' };
 
   if (!user) {
     return (
@@ -194,16 +209,46 @@ export default function Profile() {
           {activeTab === 'pedidos' && (
             <div className="tab-pane-animate">
               <h2>Historial de Compras</h2>
-              <div className="orders-mock-list">
-                <div className="order-mock-item">
-                  <div className="order-item-header">
-                    <span>Pedido <strong>#KH-2026-8941</strong></span>
-                    <span className="order-status badge-success">Entregado</span>
-                  </div>
-                  <p className="order-date">Realizado el: 14 de Mayo, 2026</p>
-                  <p className="order-total">Total: 499,00 € (Simulado - Pago Apple Pay)</p>
+              {cargandoPedidos ? (
+                <p className="empty-tab-text">Cargando tus pedidos...</p>
+              ) : pedidos.length === 0 ? (
+                <p className="empty-tab-text">
+                  Todavía no has hecho ninguna compra. Cuando compres algo con este correo ({user.email}), aparecerá aquí.
+                </p>
+              ) : (
+                <div className="orders-mock-list">
+                  {pedidos.map(pedido => {
+                    const items = Array.isArray(pedido.items) ? pedido.items : [];
+                    const fecha = pedido.created_at
+                      ? new Date(pedido.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                      : '—';
+                    const estado = pedido.estado || 'procesando';
+
+                    return (
+                      <div key={pedido.id} className="order-mock-item">
+                        <div className="order-item-header">
+                          <span>Pedido <strong>#{pedido.id.slice(0, 8).toUpperCase()}</strong></span>
+                          <span className={`order-status ${CLASE_ESTADO[estado] || 'badge-warning'}`}>
+                            {ETIQUETA_ESTADO[estado] || estado}
+                          </span>
+                        </div>
+                        <p className="order-date">Realizado el: {fecha}</p>
+                        {items.length > 0 && (
+                          <ul className="order-items-list">
+                            {items.map((item, idx) => (
+                              <li key={idx}>
+                                <span>{item.nombre}{item.modalidad === 'alquiler' ? ' (alquiler/día)' : ''}</span>
+                                <span>{item.cantidad || 1} x {formatPrice(item.precio)} €</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="order-total">Total: {formatPrice(pedido.total)} €</p>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              )}
             </div>
           )}
         </main>
