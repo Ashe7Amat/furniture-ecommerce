@@ -535,6 +535,18 @@
 .sub-list .mega-menu-item:hover {
   color: var(--primary-color);
 }
+.sub-list .mega-menu-item--general {
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-top: 6px;
+}
+.sub-list li:first-child .mega-menu-item--general {
+  margin-top: 0;
+}
+.sub-list .mega-menu-item--especifica {
+  padding-left: 14px;
+  font-size: 1.05rem;
+}
 
 
 /* Footer */

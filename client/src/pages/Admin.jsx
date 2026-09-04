@@ -25,6 +25,7 @@ const Admin = () => {
   
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
+  const [nuevaCatPadre, setNuevaCatPadre] = useState(''); // '' = categoría general (sin padre)
   const [categoriaFile, setCategoriaFile] = useState(null);
   
   // Estados para modales de edición (CMS)
@@ -69,8 +70,10 @@ const Admin = () => {
   const cargarCategorias = async () => {
     const data = await getCategorias();
     setCategorias(data);
-    if (data.length > 0 && !formData.categoria) {
-      setFormData(prev => ({ ...prev, categoria: data[0].nombre }));
+    // Un mueble solo puede pertenecer a una categoría específica (con padre), nunca a una general
+    const especificas = data.filter(c => c.categoria_padre_id);
+    if (especificas.length > 0 && !formData.categoria) {
+      setFormData(prev => ({ ...prev, categoria: especificas[0].nombre }));
     }
   };
 
@@ -105,6 +108,7 @@ const Admin = () => {
     setStatus('Creando categoría...');
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', nuevaCat);
+    formDataToSend.append('categoria_padre_id', nuevaCatPadre);
     if (categoriaFile) {
       formDataToSend.append('imagen', categoriaFile);
     }
@@ -113,6 +117,7 @@ const Admin = () => {
     if (res) {
       showToast('Categoría creada correctamente', 'success');
       setNuevaCat('');
+      setNuevaCatPadre('');
       setCategoriaFile(null);
       const fileInput = document.getElementById('categoria-file-input');
       if (fileInput) fileInput.value = '';
@@ -217,6 +222,7 @@ const Admin = () => {
 
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', categoriaAEditar.nombre || '');
+    formDataToSend.append('categoria_padre_id', categoriaAEditar.categoria_padre_id || '');
     if (editCategoriaFile) {
       formDataToSend.append('imagen', editCategoriaFile);
     } else {
@@ -379,8 +385,12 @@ const Admin = () => {
               <input name="nombre" placeholder="Nombre del mueble" value={formData.nombre} onChange={handleInputChange} required />
               <select name="categoria" value={formData.categoria} onChange={handleInputChange} required>
                 <option value="">Selecciona una categoría</option>
-                {categorias.map(cat => (
-                  <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                {categorias.filter(c => !c.categoria_padre_id).map(general => (
+                  <optgroup key={general.id} label={general.nombre}>
+                    {categorias.filter(esp => esp.categoria_padre_id === general.id).map(esp => (
+                      <option key={esp.id} value={esp.nombre}>{esp.nombre}</option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
               <textarea name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
@@ -473,64 +483,82 @@ const Admin = () => {
             <h2>Gestionar Categorías</h2>
             <div className="admin-cat-manager">
               <form onSubmit={handleAddCategoria} className="cat-add-form">
-                <input 
-                  type="text" 
-                  placeholder="Nueva categoría (Ej: Sofás)" 
-                  value={nuevaCat} 
-                  onChange={(e) => setNuevaCat(e.target.value)} 
+                <input
+                  type="text"
+                  placeholder="Nueva categoría (Ej: Sofás)"
+                  value={nuevaCat}
+                  onChange={(e) => setNuevaCat(e.target.value)}
                   required
                 />
                 <div className="file-input-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Categoría general (opcional):</label>
+                  <select
+                    value={nuevaCatPadre}
+                    onChange={(e) => setNuevaCatPadre(e.target.value)}
+                    style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                  >
+                    <option value="">— Es una categoría general —</option>
+                    {categorias.filter(c => !c.categoria_padre_id).map(general => (
+                      <option key={general.id} value={general.id}>Dentro de: {general.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="file-input-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Imagen de la Categoría:</label>
-                  <input 
-                    type="file" 
+                  <input
+                    type="file"
                     id="categoria-file-input"
-                    accept="image/*" 
-                    onChange={(e) => setCategoriaFile(e.target.files[0])} 
+                    accept="image/*"
+                    onChange={(e) => setCategoriaFile(e.target.files[0])}
                     required
                   />
                 </div>
                 <button type="submit" className="admin-btn">Crear Categoría</button>
               </form>
-              
-              <div className="cat-grid">
-                {categorias.map(cat => (
-                  <div key={cat.id} className="cat-card">
-                    <div className="cat-card-header">
-                      <h3>{cat.nombre}</h3>
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <button 
-                          onClick={() => setCategoriaAEditar(cat)} 
-                          className="cat-card-edit-btn" 
-                          aria-label="Editar"
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            padding: '0',
-                            color: '#857468'
-                          }}
-                        >
-                          ✏️
-                        </button>
-                        <button onClick={() => handleDeleteCategoria(cat.id)} className="cat-card-del-btn" aria-label="Eliminar">🗑️</button>
+
+              {categorias.filter(c => !c.categoria_padre_id).map(general => (
+                <div key={general.id} className="cat-group">
+                  <h3 className="cat-group-title">{general.nombre}</h3>
+                  <div className="cat-grid">
+                    {[general, ...categorias.filter(esp => esp.categoria_padre_id === general.id)].map(cat => (
+                      <div key={cat.id} className={`cat-card${cat.id === general.id ? ' cat-card--general' : ''}`}>
+                        <div className="cat-card-header">
+                          <h3>{cat.nombre}{cat.id === general.id && ' (general)'}</h3>
+                          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <button
+                              onClick={() => setCategoriaAEditar(cat)}
+                              className="cat-card-edit-btn"
+                              aria-label="Editar"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                padding: '0',
+                                color: '#857468'
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button onClick={() => handleDeleteCategoria(cat.id)} className="cat-card-del-btn" aria-label="Eliminar">🗑️</button>
+                          </div>
+                        </div>
+                        {cat.stats ? (
+                          <div className="cat-card-stats">
+                            <p>Productos totales: {cat.stats.totalProductos}</p>
+                            <p>Stock: {cat.stats.disponibles} disponibles | {cat.stats.vendidos} vendidos | {cat.stats.alquilados} alquilados</p>
+                            <p>Valor del catálogo: {cat.stats.valorTotalVenta}</p>
+                          </div>
+                        ) : (
+                          <div className="cat-card-stats">
+                            <p>Cargando analíticas...</p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    {cat.stats ? (
-                      <div className="cat-card-stats">
-                        <p>Productos totales: {cat.stats.totalProductos}</p>
-                        <p>Stock: {cat.stats.disponibles} disponibles | {cat.stats.vendidos} vendidos | {cat.stats.alquilados} alquilados</p>
-                        <p>Valor del catálogo: {cat.stats.valorTotalVenta}</p>
-                      </div>
-                    ) : (
-                      <div className="cat-card-stats">
-                        <p>Cargando analíticas...</p>
-                      </div>
-                    )}
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -606,8 +634,12 @@ const Admin = () => {
                   style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
                 >
                   <option value="">Selecciona una categoría</option>
-                  {categorias.map(cat => (
-                    <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+                  {categorias.filter(c => !c.categoria_padre_id).map(general => (
+                    <optgroup key={general.id} label={general.nombre}>
+                      {categorias.filter(esp => esp.categoria_padre_id === general.id).map(esp => (
+                        <option key={esp.id} value={esp.nombre}>{esp.nombre}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
@@ -782,6 +814,20 @@ const Admin = () => {
                   required 
                   style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
                 />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', color: '#857468', fontWeight: 600 }}>Categoría general (opcional):</label>
+                <select
+                  value={categoriaAEditar.categoria_padre_id || ''}
+                  onChange={(e) => setCategoriaAEditar({ ...categoriaAEditar, categoria_padre_id: e.target.value ? parseInt(e.target.value, 10) : null })}
+                  style={{ padding: '12px', border: '1px solid #E2DCD0', borderRadius: '4px', backgroundColor: '#FCFAF8', color: '#3E322A' }}
+                >
+                  <option value="">— Es una categoría general —</option>
+                  {categorias.filter(c => !c.categoria_padre_id && c.id !== categoriaAEditar.id).map(general => (
+                    <option key={general.id} value={general.id}>Dentro de: {general.nombre}</option>
+                  ))}
+                </select>
               </div>
 
               {categoriaAEditar.imagen_url && (

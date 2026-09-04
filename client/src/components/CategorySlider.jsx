@@ -10,7 +10,9 @@ const CategorySlider = () => {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    getCategorias().then(data => setCategories(data));
+    // Solo mostramos las categorías generales aquí (arriba del todo del catálogo);
+    // las específicas se eligen desde el desplegable de filtros, más abajo.
+    getCategorias().then(data => setCategories(Array.isArray(data) ? data.filter(c => !c.categoria_padre_id) : []));
   }, []);
 
   const handleCategoryClick = (catName) => {

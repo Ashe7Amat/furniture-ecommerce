@@ -56,7 +56,7 @@ export default function Home() {
             <section className="home-slider-section">
                 <h2 className="home-section-title">Compra por categoría</h2>
                 <div className="category-horizontal-slider">
-                    {categorias.map(cat => (
+                    {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
                         <div
                             key={cat.id}
                             className="slider-item-circle"

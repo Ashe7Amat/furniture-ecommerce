@@ -228,7 +228,7 @@ const Header = () => {
             <div className="search-suggestions">
               <h3>Sugerencias</h3>
               <ul>
-                {categorias.slice(0, 5).map(cat => (
+                {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
                   <li key={cat.id} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</li>
                 ))}
               </ul>
@@ -317,12 +317,29 @@ const Header = () => {
             <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
           </div>
           <ul className="mega-menu-list sub-list">
-            {categorias.map(cat => (
-              <li key={cat.id}>
-                <button className="mega-menu-item" onClick={(e) => handleNavClick(e, cat.nombre)}>
-                  {cat.nombre}
-                </button>
-              </li>
+            {categorias.filter(cat => !cat.categoria_padre_id).map(general => (
+              <React.Fragment key={general.id}>
+                <li>
+                  <button
+                    className="mega-menu-item mega-menu-item--general"
+                    onClick={(e) => handleNavClick(e, general.nombre)}
+                  >
+                    {general.nombre}
+                  </button>
+                </li>
+                {categorias
+                  .filter(esp => esp.categoria_padre_id === general.id)
+                  .map(esp => (
+                    <li key={esp.id}>
+                      <button
+                        className="mega-menu-item mega-menu-item--especifica"
+                        onClick={(e) => handleNavClick(e, esp.nombre)}
+                      >
+                        {esp.nombre}
+                      </button>
+                    </li>
+                  ))}
+              </React.Fragment>
             ))}
           </ul>
         </div>

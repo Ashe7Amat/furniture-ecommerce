@@ -19,10 +19,14 @@ const obtenerCategorias = async (req, res) => {
 
         if (errMue) throw errMue;
 
-        // Calculamos los KPIs para cada categoría
-        const categoriasConStats = categorias.map(cat => {
-            const mueblesDeCat = muebles.filter(m => m.categoria === cat.nombre);
+        // Calculamos los KPIs para cada categoría.
+        // Las categorías específicas (con padre) cruzan directo por nombre contra muebles.categoria.
+        // Las categorías generales (sin padre) no tienen productos con ese nombre exacto —
+        // sus estadísticas son la suma de las de sus categorías hijas.
+        const mueblesPorNombre = (nombreCategoria) =>
+            muebles.filter(m => m.categoria === nombreCategoria);
 
+        const calcularStats = (mueblesDeCat) => {
             const totalProductos = mueblesDeCat.length;
             const disponibles = mueblesDeCat.filter(m => m.estado === 'disponible').length;
             const vendidos = mueblesDeCat.filter(m => m.estado === 'vendido').length;
@@ -32,14 +36,28 @@ const obtenerCategorias = async (req, res) => {
             const valorTotalVenta = mueblesDeCat.reduce((sum, m) => sum + (m.precio_venta || 0), 0);
 
             return {
+                totalProductos,
+                disponibles,
+                vendidos,
+                alquilados,
+                valorTotalVenta: valorTotalVenta.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+            };
+        };
+
+        const categoriasConStats = categorias.map(cat => {
+            const esGeneral = !cat.categoria_padre_id;
+            let mueblesDeCat;
+
+            if (esGeneral) {
+                const hijas = categorias.filter(c => c.categoria_padre_id === cat.id);
+                mueblesDeCat = hijas.flatMap(hija => mueblesPorNombre(hija.nombre));
+            } else {
+                mueblesDeCat = mueblesPorNombre(cat.nombre);
+            }
+
+            return {
                 ...cat,
-                stats: {
-                    totalProductos,
-                    disponibles,
-                    vendidos,
-                    alquilados,
-                    valorTotalVenta: valorTotalVenta.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
-                }
+                stats: calcularStats(mueblesDeCat)
             };
         });
 
@@ -56,6 +74,9 @@ const crearCategoria = async (req, res) => {
         const { nombre } = req.body;
         let imagen_url = req.body.imagen_url;
 
+        // categoria_padre_id: vacío/ausente = categoría general (nivel superior)
+        const categoria_padre_id = req.body.categoria_padre_id ? parseInt(req.body.categoria_padre_id, 10) : null;
+
         // Si se subió un archivo físico
         if (req.file) {
             imagen_url = await uploadToSupabase(req.file, 'categorias');
@@ -63,9 +84,10 @@ const crearCategoria = async (req, res) => {
 
         const { data, error } = await supabase
             .from('categorias')
-            .insert([{ 
-                nombre, 
-                imagen_url: imagen_url || 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=200' 
+            .insert([{
+                nombre,
+                imagen_url: imagen_url || 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=200',
+                categoria_padre_id
             }])
             .select();
 
@@ -95,6 +117,10 @@ const editarCategoria = async (req, res) => {
         }
         if (imagen_url !== undefined) {
             updateData.imagen_url = imagen_url === '' ? null : imagen_url;
+        }
+        // categoria_padre_id: string vacío = pasa a ser categoría general (sin padre)
+        if (req.body.categoria_padre_id !== undefined) {
+            updateData.categoria_padre_id = req.body.categoria_padre_id ? parseInt(req.body.categoria_padre_id, 10) : null;
         }
 
         const { data, error } = await supabase

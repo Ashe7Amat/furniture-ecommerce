@@ -53,10 +53,20 @@ export default function Catalog() {
         favorites.some(fav => fav === m.id || fav.id === m.id)
       );
     }
-    // Filtro: Categoría
+    // Filtro: Categoría (admite tanto una categoría específica como una general,
+    // en cuyo caso se incluyen los productos de todas sus categorías hijas)
     else if (categoriaUrl) {
+      const catObjetivo = categorias.find(c => c.nombre.toLowerCase() === categoriaUrl.toLowerCase());
+      const esGeneral = catObjetivo && !catObjetivo.categoria_padre_id;
+
+      const nombresPermitidos = esGeneral
+        ? categorias
+            .filter(c => c.categoria_padre_id === catObjetivo.id)
+            .map(c => c.nombre.toLowerCase())
+        : [categoriaUrl.toLowerCase()];
+
       resultado = resultado.filter(m =>
-        m.categoria && m.categoria.toLowerCase() === categoriaUrl.toLowerCase()
+        m.categoria && nombresPermitidos.includes(m.categoria.toLowerCase())
       );
     }
 
@@ -73,7 +83,7 @@ export default function Catalog() {
     }
 
     setMueblesFiltrados(resultado);
-  }, [todosLosMuebles, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
+  }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
 
   // ⚡ Función limpia para el botón de "Ver todo"
   const limpiarFiltros = () => {
@@ -135,8 +145,15 @@ export default function Catalog() {
             className="filter-select"
           >
             <option value="">Todas las categorías</option>
-            {categorias.map(cat => (
-              <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
+            {categorias.filter(cat => !cat.categoria_padre_id).map(general => (
+              <optgroup key={general.id} label={general.nombre}>
+                <option value={general.nombre}>Todo · {general.nombre}</option>
+                {categorias
+                  .filter(esp => esp.categoria_padre_id === general.id)
+                  .map(esp => (
+                    <option key={esp.id} value={esp.nombre}>{esp.nombre}</option>
+                  ))}
+              </optgroup>
             ))}
           </select>
         </div>
