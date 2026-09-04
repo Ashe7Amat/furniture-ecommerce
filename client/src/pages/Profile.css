@@ -13,16 +13,21 @@
 }
 
 .profile-header h1 {
+  font-family: var(--font-display);
   font-size: 2.5rem;
-  font-weight: 300;
+  font-weight: 500;
+  color: var(--primary-color);
   margin-bottom: 10px;
   letter-spacing: -0.5px;
 }
 
 .welcome-text {
-  color: #666;
+  color: var(--secondary-color);
   font-size: 1.1rem;
   font-weight: 300;
+}
+.welcome-text strong {
+  color: var(--primary-color);
 }
 
 /* Layout con Aside y Main */
@@ -49,21 +54,22 @@
   padding: 12px 15px;
   font-size: 1rem;
   font-weight: 400;
-  color: #888;
+  color: var(--secondary-color);
   cursor: pointer;
   border-left: 2px solid transparent;
   transition: all 0.3s ease;
+  font-family: inherit;
 }
 
 .profile-tabs-menu button:hover {
-  color: #333;
+  color: var(--primary-color);
 }
 
 .profile-tabs-menu button.active {
-  color: #3E322A;
+  color: var(--primary-color);
   font-weight: 500;
-  border-left-color: #B38A70; /* Terracota */
-  background-color: #FCFAF8; /* Arena blanquecina */
+  border-left-color: var(--accent-color);
+  background-color: var(--card-bg);
 }
 
 /* Contenido Principal (75%) */
@@ -83,13 +89,14 @@
 }
 
 .tab-pane-animate h2 {
+  font-family: var(--font-display);
   font-size: 1.8rem;
-  font-weight: 300;
+  font-weight: 500;
   margin-top: 0;
   margin-bottom: 30px;
   padding-bottom: 15px;
-  border-bottom: 1px solid #E2DCD0;
-  color: #3E322A;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--primary-color);
 }
 
 /* Formulario Minimalista (Mis Datos) */
@@ -106,29 +113,41 @@
   gap: 8px;
 }
 
+.form-group-clean.form-group-security {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+}
+.form-group-clean.form-group-security label {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+
 .form-group-clean label {
   font-size: 0.9rem;
-  color: #666;
+  color: var(--secondary-color);
   font-weight: 400;
 }
 
 .form-group-clean input {
   border: none;
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--border-color);
   padding: 10px 0;
   font-size: 1rem;
+  color: var(--primary-color);
   outline: none;
   transition: border-color 0.3s;
   background: transparent;
+  font-family: inherit;
 }
 
 .form-group-clean input:focus {
-  border-bottom-color: #000;
+  border-bottom-color: var(--accent-color);
 }
 
 .btn-black-solid {
-  background-color: #3E322A; /* Espresso */
-  color: #FCFAF8;
+  background-color: var(--primary-color);
+  color: var(--bg-color);
   border: none;
   padding: 15px 20px;
   font-size: 0.9rem;
@@ -141,11 +160,12 @@
 }
 
 .btn-black-solid:hover {
-  background-color: #B38A70; /* Terracota */
+  background-color: var(--accent-hover);
 }
 
 .btn-black-solid:disabled {
-  background-color: #857468;
+  background-color: var(--surface-alt);
+  color: var(--secondary-color);
   cursor: not-allowed;
 }
 
@@ -172,8 +192,8 @@
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
-  background-color: #f9f9f9;
-  border-radius: 2px;
+  background-color: var(--surface-alt);
+  border-radius: 4px;
   margin-bottom: 15px;
 }
 
@@ -181,17 +201,18 @@
   margin: 0 0 5px 0;
   font-size: 1rem;
   font-weight: 500;
-  color: #000;
+  color: var(--primary-color);
 }
 
 .fav-mini-info p {
   margin: 0;
   font-size: 0.95rem;
-  color: #666;
+  color: var(--secondary-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .empty-tab-text {
-  color: #888;
+  color: var(--secondary-color);
   font-size: 1rem;
 }
 
@@ -203,10 +224,10 @@
 }
 
 .order-mock-item {
-  border: 1px solid #eaeaea;
+  border: 1px solid var(--border-color);
   padding: 25px;
-  border-radius: 4px;
-  background: #fafafa;
+  border-radius: 6px;
+  background: var(--card-bg);
 }
 
 .order-item-header {
@@ -218,6 +239,7 @@
 
 .order-item-header span {
   font-size: 1.1rem;
+  color: var(--primary-color);
 }
 
 .order-status {
@@ -225,23 +247,25 @@
   font-weight: 600;
   text-transform: uppercase;
   padding: 4px 10px;
-  border-radius: 2px;
+  border-radius: 20px;
 }
 
 .badge-success {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+  background-color: var(--success-bg);
+  color: var(--success-color);
 }
 
 .order-date {
-  color: #666;
+  color: var(--secondary-color);
   font-size: 0.95rem;
   margin: 0 0 5px 0;
 }
 
 .order-total {
   font-weight: 500;
+  color: var(--primary-color);
   margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Responsividad */
@@ -250,25 +274,25 @@
     flex-direction: column;
     gap: 30px;
   }
-  
+
   .profile-tabs-menu {
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
-    border-bottom: 1px solid #eaeaea;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
   }
-  
+
   .profile-tabs-menu button {
     border-left: none;
     border-bottom: 2px solid transparent;
     white-space: nowrap;
     padding: 10px 15px;
   }
-  
+
   .profile-tabs-menu button.active {
     border-left: none;
-    border-bottom-color: #000;
+    border-bottom-color: var(--accent-color);
     background-color: transparent;
   }
 

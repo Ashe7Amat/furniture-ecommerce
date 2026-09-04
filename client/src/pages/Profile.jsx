@@ -3,6 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { getMuebles, updateProfile } from '../services/api';
+import { formatPrice } from '../utils/format';
 import { Link, useSearchParams } from 'react-router-dom';
 import './Profile.css';
 
@@ -132,8 +133,8 @@ export default function Profile() {
                   />
                 </div>
                 
-                <div className="form-group-clean" style={{ marginTop: '10px', borderTop: '1px solid #E2DCD0', paddingTop: '20px' }}>
-                  <label style={{ color: '#B38A70', fontWeight: '500' }}>Contraseña actual (Solo requerida si cambias correo o contraseña)</label>
+                <div className="form-group-clean form-group-security">
+                  <label>Contraseña actual (Solo requerida si cambias correo o contraseña)</label>
                   <input 
                     type="password" 
                     value={passwordActual} 
@@ -162,7 +163,7 @@ export default function Profile() {
                   />
                 </div>
 
-                <button type="submit" className="btn-black-solid" disabled={loading} style={{ marginTop: '15px' }}>
+                <button type="submit" className="btn-black-solid" disabled={loading}>
                   {loading ? 'Guardando...' : 'GUARDAR CAMBIOS'}
                 </button>
               </form>
@@ -178,10 +179,10 @@ export default function Profile() {
                 <div className="favorites-profile-grid">
                   {favMuebles.map(mueble => (
                     <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="favorite-mini-card">
-                      <img src={mueble.imagenes?.[0] || 'https://via.placeholder.com/400'} alt={mueble.nombre} />
+                      <img src={mueble.imagenes?.[0] || 'https://via.placeholder.com/400'} alt={mueble.nombre} loading="lazy" decoding="async" />
                       <div className="fav-mini-info">
                         <h4>{mueble.nombre}</h4>
-                        <p>{mueble.precio_venta} €</p>
+                        <p>{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar')}</p>
                       </div>
                     </Link>
                   ))}

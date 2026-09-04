@@ -346,7 +346,7 @@
   background: transparent;
 }
 .search-live-results::-webkit-scrollbar-thumb {
-  background: #E2DCD0;
+  background: var(--border-color);
   border-radius: 2px;
 }
 

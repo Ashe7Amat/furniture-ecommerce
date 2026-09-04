@@ -14,36 +14,36 @@
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  border-radius: 4px;
+  border-radius: 6px;
   pointer-events: auto;
   min-width: 290px;
   max-width: 420px;
-  box-shadow: 0 8px 30px rgba(62, 50, 42, 0.18);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
   font-family: inherit;
-  
+
   opacity: 0;
   transform: translateY(20px);
   animation: slideUpFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .toast-item.toast-success {
-  background-color: #3E322A; /* Café oscuro de Nave 5 */
-  color: #F5F2EC; /* Arena de Nave 5 */
-  border: 1px solid #857468; /* Borde café medio */
+  background-color: var(--primary-color);
+  color: var(--bg-color);
+  border: 1px solid var(--secondary-color);
 }
 
 .toast-item.toast-success .toast-icon {
-  color: #B38A70; /* Terracota / acento de Nave 5 */
+  color: var(--accent-color);
 }
 
 .toast-item.toast-error {
-  background-color: #5C2D24; /* Café/rojo ladrillo oscuro */
-  color: #F5F2EC;
-  border: 1px solid #8B4A3F;
+  background-color: var(--danger-color);
+  color: var(--bg-color);
+  border: 1px solid var(--danger-color);
 }
 
 .toast-item.toast-error .toast-icon {
-  color: #D96B52; /* Terracota vivo */
+  color: var(--bg-color);
 }
 
 .toast-icon {
@@ -64,19 +64,20 @@
 .toast-close {
   background: none;
   border: none;
-  color: #857468; /* Café medio */
+  color: inherit;
+  opacity: 0.7;
   cursor: pointer;
   padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s, transform 0.2s;
+  transition: opacity 0.2s, background-color 0.2s;
   border-radius: 3px;
 }
 
 .toast-close:hover {
-  color: #F5F2EC;
-  background-color: rgba(245, 242, 236, 0.08);
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.12);
 }
 
 @keyframes slideUpFade {
@@ -85,4 +86,3 @@
     transform: translateY(0);
   }
 }
-
