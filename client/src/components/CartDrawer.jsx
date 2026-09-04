@@ -60,7 +60,7 @@ const CartDrawer = () => {
           {cartItems.length === 0 ? (
             /* Estado vacío (Empty State) premium y evocador */
             <div className="cart-empty-state">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#B38A70" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '24px', opacity: 0.85 }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="cart-empty-icon">
                 <path d="M4 18v3h2v-3" />
                 <path d="M18 18v3h2v-3" />
                 <path d="M5 4h14a1 1 0 0 1 1 1v7H4V5a1 1 0 0 1 1-1z" />
@@ -84,7 +84,7 @@ const CartDrawer = () => {
             cartItems.map(item => (
               <div key={item.id} className="cart-item">
                 <div className="cart-item-img-container">
-                  <img src={item.imagen} alt={item.nombre} />
+                  <img src={item.imagen} alt={item.nombre} loading="lazy" decoding="async" />
                 </div>
                 
                 <div className="cart-item-details">

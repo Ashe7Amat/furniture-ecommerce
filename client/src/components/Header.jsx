@@ -129,7 +129,7 @@ const Header = () => {
         
         <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <div className="header-search-bar" onClick={() => setIsSearchOpen(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#857468" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-color)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }}>
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -158,7 +158,7 @@ const Header = () => {
           </button>
 
           <Link to="/cuenta?tab=favoritos" className="icon-btn header-fav-btn" aria-label="Favoritos">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={favorites.length > 0 ? "#B38A70" : "none"} stroke={favorites.length > 0 ? "#B38A70" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={favorites.length > 0 ? "var(--accent-color)" : "none"} stroke={favorites.length > 0 ? "var(--accent-color)" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
             {favorites.length > 0 && <span className="fav-badge">{favorites.length}</span>}

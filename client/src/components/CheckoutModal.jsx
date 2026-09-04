@@ -147,7 +147,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
         <div className="checkout-body">
           {/* SECCIÓN 1: DATOS DE ENVÍO Y CONTACTO */}
           <div className="checkout-section">
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+            <h3 className="checkout-section-title">
               1. Datos de Entrega y Contacto
             </h3>
 
@@ -245,24 +245,13 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows="2"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ccc',
-                  borderRadius: '2px',
-                  fontFamily: 'inherit',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  resize: 'vertical'
-                }}
               />
             </div>
           </div>
 
           {/* SECCIÓN 2: DETALLES DEL PAGO */}
-          <div className="checkout-section" style={{ marginTop: '25px', paddingTop: '20px', borderTop: '1px solid #eee' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#3e322a', marginBottom: '15px' }}>
+          <div className="checkout-section checkout-section-payment">
+            <h3 className="checkout-section-title checkout-section-title-plain">
               2. Detalles del Pago
             </h3>
 
@@ -281,11 +270,11 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
               {activeTab === 'card' && (
                 <div className="tab-content card-tab">
-                  <p style={{ fontSize: '0.85rem', color: '#857468', marginBottom: '15px' }}>
+                  <p className="card-tab-note">
                     Al continuar te llevamos a la página de pago segura de Stripe, donde introduces los datos de tu tarjeta. Nave 5 Barcelona nunca ve ni guarda tu número de tarjeta.
                   </p>
 
-                  {payError && <p className="error-text" style={{ marginBottom: '10px' }}>{payError}</p>}
+                  {payError && <p className="error-text">{payError}</p>}
 
                   <button
                     type="button"
@@ -293,7 +282,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                     onClick={handlePagarConTarjeta}
                     disabled={isGeneralFormInvalid || paymentStatus === 'redirecting'}
                   >
-                    Pagar {cartTotal} € de forma segura
+                    Pagar {cartTotal.toFixed(2)} € de forma segura
                   </button>
                 </div>
               )}

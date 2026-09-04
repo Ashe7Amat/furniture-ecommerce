@@ -11,20 +11,21 @@
   width: 100%;
   text-align: center;
   padding: 50px 40px;
-  border: 1px solid #E2DCD0;
+  border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #FCFAF8;
+  background: var(--card-bg);
 }
 
 .checkout-resultado-box h1 {
-  font-size: 1.4rem;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
   font-weight: 500;
-  color: #3E322A;
+  color: var(--primary-color);
   margin: 0 0 12px;
 }
 
 .checkout-resultado-box .success-msg {
-  color: #857468;
+  color: var(--secondary-color);
   font-size: 0.95rem;
   line-height: 1.5;
   margin-bottom: 28px;
@@ -41,32 +42,36 @@
   margin: 0 auto 20px;
 }
 .success-icon {
-  background: #3E322A;
-  color: #fff;
+  background: var(--success-color);
+  color: var(--bg-color);
 }
 .error-icon {
-  background: #F5E2DD;
-  color: #9A3324;
+  background: var(--danger-bg);
+  color: var(--danger-color);
 }
 
 .checkout-resultado-box .checkout-btn-solid {
   display: inline-block;
   text-decoration: none;
-  background: #3E322A;
-  color: #fff;
+  background: var(--primary-color);
+  color: var(--bg-color);
   padding: 14px 28px;
-  border-radius: 2px;
+  border-radius: 4px;
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
+  transition: background 0.2s ease;
+}
+.checkout-resultado-box .checkout-btn-solid:hover {
+  background: var(--accent-hover);
 }
 
 .classic-spinner {
   width: 34px;
   height: 34px;
-  border: 3px solid #E2DCD0;
-  border-top-color: #3E322A;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-color);
   border-radius: 50%;
   animation: girar 0.8s linear infinite;
 }

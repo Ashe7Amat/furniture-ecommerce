@@ -13,13 +13,13 @@
 }
 
 .checkout-modal {
-  background: #fff;
+  background: var(--card-bg);
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  border-radius: 4px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
   animation: modalFadeIn 0.3s ease;
   position: relative;
 }
@@ -34,12 +34,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 30px;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .checkout-header h2 {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
   font-weight: 500;
+  color: var(--primary-color);
   margin: 0;
 }
 
@@ -48,15 +50,33 @@
   border: none;
   font-size: 1.2rem;
   cursor: pointer;
-  color: #666;
+  color: var(--secondary-color);
 }
 .close-checkout:hover {
-  color: #000;
+  color: var(--primary-color);
+}
+
+.checkout-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 5px;
+}
+.checkout-section-title-plain {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.checkout-section.checkout-section-payment {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
 }
 
 .checkout-tabs {
   display: flex;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tab-btn {
@@ -67,14 +87,15 @@
   border-bottom: 2px solid transparent;
   font-size: 0.95rem;
   font-weight: 500;
-  color: #666;
+  color: var(--secondary-color);
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .tab-btn.active {
-  color: #000;
-  border-bottom-color: #000;
+  color: var(--primary-color);
+  border-bottom-color: var(--accent-color);
 }
 
 .checkout-body {
@@ -84,6 +105,7 @@
 
 .tab-content {
   animation: fadeIn 0.3s ease;
+  margin-top: 15px;
 }
 
 @keyframes fadeIn {
@@ -91,7 +113,7 @@
   to { opacity: 1; }
 }
 
-.apple-tab {
+.apple-tab, .bizum-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -99,27 +121,16 @@
   gap: 30px;
   padding: 20px 0;
 }
-.apple-tab p {
-  color: #555;
+.apple-tab p, .bizum-tab p {
+  color: var(--secondary-color);
   font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.apple-pay-btn {
-  background: #000;
-  color: #fff;
-  width: 100%;
-  max-width: 250px;
-  padding: 15px;
-  border-radius: 40px;
-  font-size: 1.2rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-.apple-pay-btn:hover {
-  background: #222;
+.card-tab-note {
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+  margin-bottom: 15px;
 }
 
 .form-group {
@@ -136,41 +147,41 @@
   flex: 1;
 }
 
-.help-text-error {
-  color: #e74c3c;
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-top: 10px;
-}
-
 .form-group label {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #555;
+  color: var(--secondary-color);
   font-weight: 600;
 }
 
-.form-group input {
+.form-group input,
+.form-group textarea {
   padding: 14px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--primary-color);
   font-size: 1rem;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
 }
-.form-group input:focus {
-  border-color: #000;
+.form-group input:focus,
+.form-group textarea:focus {
+  border-color: var(--accent-color);
 }
 
 .checkout-btn-solid {
-  background: #000;
-  color: #fff;
+  background: var(--primary-color);
+  color: var(--bg-color);
   width: 100%;
   padding: 16px;
   border: none;
-  border-radius: 2px;
+  border-radius: 4px;
   font-size: 1rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -178,53 +189,26 @@
   cursor: pointer;
   margin-top: 10px;
   transition: background 0.2s;
+  font-variant-numeric: tabular-nums;
 }
-.checkout-btn-solid:hover {
-  background: #333;
+.checkout-btn-solid:hover:not(:disabled) {
+  background: var(--accent-hover);
 }
-
-/* Success Modal */
-.success-modal {
-  text-align: center;
-  padding: 50px 40px;
-}
-.success-icon {
-  width: 60px;
-  height: 60px;
-  background: #000;
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  margin: 0 auto 20px;
-}
-.success-modal h2 {
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-}
-.order-number {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #555;
-  margin-bottom: 20px;
-}
-.success-msg {
-  color: #666;
-  font-size: 0.95rem;
-  margin-bottom: 30px;
-  line-height: 1.5;
+.checkout-btn-solid:disabled {
+  background: var(--surface-alt);
+  color: var(--secondary-color);
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
-/* Loading Overlays */
-.processing-overlay, .apple-processing-overlay {
+/* Loading Overlay */
+.processing-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--card-bg) 96%, transparent);
   z-index: 2010;
   display: flex;
   flex-direction: column;
@@ -233,37 +217,18 @@
   text-align: center;
   padding: 40px;
 }
-.apple-processing-overlay {
-  background: rgba(0, 0, 0, 0.9);
-  color: #fff;
-}
-.apple-processing-overlay p {
-  margin-top: 20px;
-  font-size: 1.1rem;
-  line-height: 1.5;
-  font-weight: 500;
-}
 .processing-overlay p {
   margin-top: 20px;
   font-size: 1.1rem;
-  color: #000;
+  color: var(--primary-color);
   font-weight: 500;
 }
 
 .classic-spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #000;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.apple-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top: 4px solid #fff;
+  border: 4px solid var(--surface-alt);
+  border-top: 4px solid var(--accent-color);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -274,18 +239,9 @@
 }
 
 .error-text {
-  color: #e74c3c;
+  color: var(--danger-color);
   font-size: 0.8rem;
   margin-top: 4px;
   font-weight: 500;
-}
-
-.checkout-btn-solid:disabled {
-  background: #cccccc;
-  color: #666666;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-.checkout-btn-solid:disabled:hover {
-  background: #cccccc;
+  display: block;
 }
