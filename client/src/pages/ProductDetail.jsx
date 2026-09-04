@@ -82,7 +82,7 @@ const ProductDetail = () => {
       </Helmet>
 
       <div className="pd-breadcrumb">
-        <button onClick={() => navigate('/')} className="pd-back-link">
+        <button onClick={() => navigate(-1)} className="pd-back-link">
           &larr; Volver a la colección
         </button>
       </div>

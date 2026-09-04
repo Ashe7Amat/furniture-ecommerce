@@ -180,8 +180,28 @@
 @media (max-width: 720px) {
   .qv-card {
     grid-template-columns: 1fr;
+    max-height: 92vh;
   }
   .qv-image-wrap {
-    min-height: 220px;
+    min-height: 160px;
+    max-height: 30vh;
+  }
+  .qv-body {
+    padding: 24px 20px;
+  }
+  .qv-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .qv-name {
+    font-size: 1.3rem;
+    margin: 10px 0 6px;
+  }
+  .qv-price {
+    font-size: 1.35rem;
+    margin-bottom: 16px;
   }
 }
