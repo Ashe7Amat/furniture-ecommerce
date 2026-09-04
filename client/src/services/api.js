@@ -191,6 +191,24 @@ export const buscarMuebles = async (q) => {
   }
 };
 
+// Login real con Google: manda el token verificado que devuelve el botón de Google
+// para que el servidor compruebe la firma y abra (o cree) la sesión del cliente.
+export const loginConGoogle = async (credential) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo iniciar sesión con Google.');
+    return data;
+  } catch (error) {
+    console.error('Error en loginConGoogle:', error);
+    return { error: error.message };
+  }
+};
+
 export const updateProfile = async (profileData) => {
   try {
     const response = await fetch(`${API_URL}/auth/perfil-update`, {

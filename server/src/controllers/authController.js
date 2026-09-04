@@ -3,6 +3,13 @@ const supabase = require('../data/supabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
+
+// Cliente para verificar los tokens que manda el botón de Google. Si no hay
+// GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
+// (se avisa con un error claro en vez de fallar de forma rara).
+const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
 // Auxiliar para enviar correo de bienvenida al cliente
 const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
@@ -391,8 +398,79 @@ const actualizarPerfil = async (req, res) => {
   }
 };
 
+// 4. INICIO DE SESIÓN CON GOOGLE ("Continuar con Google")
+// El cliente manda el "credential" (un ID token firmado por Google) que devuelve el botón
+// de Google Identity Services. Aquí se verifica esa firma directamente con Google -- nunca
+// nos fiamos de lo que diga el navegador sin comprobarlo -- y con el email verificado se
+// busca o se crea la cuenta en la misma tabla "clientes" de siempre, para que el resto de
+// la web (Mis Pedidos, Mis Datos, etc.) funcione exactamente igual que con un login normal.
+const loginConGoogle = async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({ error: 'Falta el token de Google.' });
+    }
+    if (!googleClient) {
+      console.error('Login con Google: falta GOOGLE_CLIENT_ID en las variables de entorno del servidor.');
+      return res.status(500).json({ error: 'El inicio de sesión con Google no está disponible ahora mismo.' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload.email_verified) {
+      return res.status(401).json({ error: 'No se pudo verificar la cuenta de Google.' });
+    }
+
+    const email = payload.email;
+    const nombre = payload.name || email.split('@')[0];
+
+    // Buscar si ya existía una cuenta con este email (registrada con contraseña o con
+    // Google anteriormente); si no existe, se crea una cuenta nueva.
+    const { data: usuarioExistente, error: fetchError } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+
+    let usuario = usuarioExistente;
+
+    if (!usuario) {
+      // Las cuentas creadas por Google no se usan nunca con contraseña, pero la columna
+      // "password" es obligatoria: se rellena con un valor aleatorio e inservible.
+      const passwordInservible = await bcrypt.hash(crypto.randomUUID(), 10);
+      const { data: nuevoUsuario, error: insertError } = await supabase
+        .from('clientes')
+        .insert([{ nombre, email, password: passwordInservible, rol: 'cliente' }])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      usuario = nuevoUsuario;
+    }
+
+    const token = firmarToken(usuario);
+
+    res.status(200).json({
+      success: true,
+      user: { nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
+      token
+    });
+  } catch (error) {
+    console.error('Error en login con Google:', error.message);
+    res.status(401).json({ error: 'No se pudo iniciar sesión con Google.' });
+  }
+};
+
 module.exports = {
   registrarCliente,
   loginCliente,
-  actualizarPerfil
+  actualizarPerfil,
+  loginConGoogle
 };

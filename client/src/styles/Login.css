@@ -108,8 +108,25 @@
   cursor: not-allowed;
   border-color: var(--border-color);
 }
+
+.google-btn-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.google-btn-real {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .google-loading-text {
+  color: var(--secondary-color);
+  font-size: 0.9rem;
   font-weight: 400;
+  margin: 0;
+  padding: 14px;
 }
 
 .login-toggle-link {

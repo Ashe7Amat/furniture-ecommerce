@@ -1,9 +1,11 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
-import { loginUser, registerUser } from '../services/api';
+import { loginUser, registerUser, loginConGoogle } from '../services/api';
 import '../styles/Login.css';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const Login = () => {
   const [isRegister, setIsRegister] = useState(false);
@@ -12,22 +14,65 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
-  
+  const googleBtnRef = useRef(null);
+
   const { login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let timer;
-    if (googleLoading) {
-      timer = setTimeout(() => {
-        login({ email: 'cliente@gmail.com', nombre: 'Carlos (Demo)', rol: 'cliente' });
-        showToast('¡Sesión iniciada con Google correctamente!', 'success');
-        navigate('/');
-      }, 1500);
+  // Login real con Google: recibe el token verificado que devuelve el botón oficial
+  // de Google y lo manda al servidor para que compruebe la firma y abra la sesión.
+  const handleGoogleCredential = async (response) => {
+    setGoogleLoading(true);
+    const res = await loginConGoogle(response.credential);
+    setGoogleLoading(false);
+
+    if (res?.success) {
+      login(res.user, res.token);
+      showToast(`¡Hola, ${res.user.nombre}!`, 'success');
+      navigate('/');
+    } else {
+      showToast(res?.error || 'No se pudo iniciar sesión con Google.', 'error');
     }
-    return () => clearTimeout(timer);
-  }, [googleLoading, login, navigate, showToast]);
+  };
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
+
+    // El script de Google Identity Services se carga una sola vez para toda la app.
+    const cargarBotonGoogle = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        shape: 'rectangular',
+        text: 'continue_with',
+        logo_alignment: 'left',
+        locale: 'es',
+        width: Math.min(googleBtnRef.current.offsetWidth || 380, 400),
+      });
+    };
+
+    const scriptExistente = document.getElementById('google-identity-script');
+    if (scriptExistente && window.google?.accounts?.id) {
+      cargarBotonGoogle();
+      return;
+    }
+
+    const script = scriptExistente || document.createElement('script');
+    script.id = 'google-identity-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = cargarBotonGoogle;
+    if (!scriptExistente) document.body.appendChild(script);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -113,30 +158,16 @@ const Login = () => {
           <span>o</span>
         </div>
 
-        <button 
-          className="google-btn" 
-          onClick={(e) => {
-            e.preventDefault();
-            setGoogleLoading(true);
-          }} 
-          disabled={googleLoading}
-        >
-          {googleLoading ? (
-            <span className="google-loading-text">Conectando con Google...</span>
-          ) : (
-            <>
-              <svg className="google-icon" viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
-                <g transform="matrix(1, 0, 0, 1, 27.009001, -39.238998)">
-                  <path fill="#4285F4" d="M -3.264 51.509 C -3.264 50.719 -3.334 49.969 -3.454 49.239 L -14.754 49.239 L -14.754 53.749 L -8.284 53.749 C -8.574 55.229 -9.424 56.479 -10.684 57.329 L -10.684 60.329 L -6.824 60.329 C -4.564 58.239 -3.264 55.159 -3.264 51.509 Z"/>
-                  <path fill="#34A853" d="M -14.754 63.239 C -11.514 63.239 -8.804 62.159 -6.824 60.329 L -10.684 57.329 C -11.764 58.049 -13.134 58.489 -14.754 58.489 C -17.884 58.489 -20.534 56.379 -21.484 53.529 L -25.464 53.529 L -25.464 56.619 C -23.494 60.539 -19.444 63.239 -14.754 63.239 Z"/>
-                  <path fill="#FBBC05" d="M -21.484 53.529 C -21.734 52.809 -21.864 52.039 -21.864 51.239 C -21.864 50.439 -21.724 49.669 -21.484 48.949 L -21.484 45.859 L -25.464 45.859 C -26.284 47.479 -26.754 49.299 -26.754 51.239 C -26.754 53.179 -26.284 54.999 -25.464 56.619 L -21.484 53.529 Z"/>
-                  <path fill="#EA4335" d="M -14.754 43.989 C -12.984 43.989 -11.404 44.599 -10.154 45.789 L -6.734 42.369 C -8.804 40.429 -11.514 39.239 -14.754 39.239 C -19.444 39.239 -23.494 41.939 -25.464 45.859 L -21.484 48.949 C -20.534 46.099 -17.884 43.989 -14.754 43.989 Z"/>
-                </g>
-              </svg>
-              <span>Continuar con Google</span>
-            </>
-          )}
-        </button>
+        {GOOGLE_CLIENT_ID ? (
+          <div className="google-btn-wrap">
+            {googleLoading && <p className="google-loading-text">Conectando con Google...</p>}
+            <div ref={googleBtnRef} className="google-btn-real" style={{ display: googleLoading ? 'none' : 'flex' }} />
+          </div>
+        ) : (
+          <button className="google-btn" disabled>
+            <span>Continuar con Google (no configurado)</span>
+          </button>
+        )}
       </div>
     </div>
   );
