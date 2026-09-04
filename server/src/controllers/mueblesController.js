@@ -1,7 +1,7 @@
 const Stripe = require('stripe');
 const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
-const { enviarNotificacionVenta } = require('../utils/email');
+const { enviarNotificacionVenta, enviarConfirmacionCliente } = require('../utils/email');
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
@@ -214,10 +214,11 @@ const construirLineasDesdeCarrito = async (items) => {
   return lineas;
 };
 
-// Marca cada pieza como vendida/alquilada en Supabase y avisa por email al admin.
+// Marca cada pieza como vendida/alquilada en Supabase, guarda el pedido (para el panel
+// de administración) y avisa por email tanto al admin como al propio comprador.
 // Es tolerante a que se llame dos veces con las mismas piezas (p. ej. si el comprador
 // recarga la página de confirmación) para no romper esa pantalla tras haber cobrado ya.
-const procesarCompra = async (lineas, clienteInfo) => {
+const procesarCompra = async (lineas, clienteInfo, sessionId) => {
   for (const linea of lineas) {
     const nuevoEstado = linea.modalidad === 'compra' ? 'vendido' : 'alquilado';
 
@@ -240,10 +241,42 @@ const procesarCompra = async (lineas, clienteInfo) => {
   }
 
   const total = lineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
+  const fecha = new Date();
 
-  // Notificación por email al administrador vía Resend. enviarNotificacionVenta() nunca
-  // lanza (try/catch interno): un fallo en el envío del correo jamás debe romper el checkout.
-  enviarNotificacionVenta({ items: lineas, clienteInfo: clienteInfo || {}, total, fecha: new Date() });
+  // Guardamos el pedido para que aparezca en el panel de administración con toda la
+  // info necesaria para prepararlo y enviarlo (cliente, dirección, productos, total).
+  // Si esta misma sesión de Stripe ya generó un pedido (p. ej. el comprador recargó la
+  // pantalla de confirmación), no lo duplicamos.
+  if (sessionId) {
+    const { data: pedidoExistente } = await supabase
+      .from('pedidos')
+      .select('id')
+      .eq('stripe_session_id', sessionId)
+      .maybeSingle();
+
+    if (!pedidoExistente) {
+      const { error: errorPedido } = await supabase.from('pedidos').insert({
+        items: lineas,
+        cliente_info: clienteInfo || {},
+        total,
+        metodo_entrega: 'domicilio',
+        direccion_envio: clienteInfo?.direccion || null,
+        estado: 'procesando',
+        stripe_session_id: sessionId
+      });
+
+      if (errorPedido) {
+        console.error('Error al guardar el pedido en Supabase:', errorPedido.message);
+      }
+    }
+  }
+
+  const pedidoParaEmail = { items: lineas, clienteInfo: clienteInfo || {}, total, fecha };
+
+  // Notificaciones por email vía Resend. Ninguna de las dos funciones lanza (try/catch
+  // interno): un fallo en el envío del correo jamás debe romper el checkout.
+  enviarNotificacionVenta(pedidoParaEmail);
+  enviarConfirmacionCliente(pedidoParaEmail);
 
   return total;
 };
@@ -324,7 +357,7 @@ const confirmarSesion = async (req, res) => {
           direccion: session.metadata.clienteDireccion,
           notas: session.metadata.clienteNotas,
           metodoPago: 'Tarjeta (Stripe)'
-        })
+        }, session.id)
       : (session.amount_total || 0) / 100;
 
     res.status(200).json({

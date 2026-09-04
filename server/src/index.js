@@ -4,6 +4,7 @@ const cors = require('cors');
 const mueblesRoutes = require('./routes/mueblesRoutes');
 const authRoutes = require('./routes/authRoutes');
 const categoriasRoutes = require('./routes/categoriasRoutes');
+const pedidosRoutes = require('./routes/pedidosRoutes');
 
 const app = express();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/api/muebles', mueblesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);
+app.use('/api/pedidos', pedidosRoutes);
 
 // Ruta base de comprobación
 app.get('/', (req, res) => {

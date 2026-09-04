@@ -120,4 +120,108 @@ const enviarNotificacionVenta = async (pedido) => {
   }
 };
 
-module.exports = { enviarNotificacionVenta };
+// Construye el HTML del correo de confirmación que recibe el propio comprador.
+// Mismo estilo visual que el aviso al admin, pero con tono y contenido de cara al cliente.
+const construirHtmlConfirmacionCliente = (pedido) => {
+  const { items = [], clienteInfo = {}, total = 0, fecha = new Date() } = pedido;
+
+  const fechaFormateada = new Date(fecha).toLocaleString('es-ES', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  });
+
+  const filasProductos = items.map(item => `
+    <tr>
+      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #3E322A;">
+        ${item.nombre}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
+      </td>
+      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #857468; text-align: right;">
+        ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
+      </td>
+    </tr>
+  `).join('');
+
+  return `
+    <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
+      <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
+        ¡Gracias por tu compra, ${clienteInfo.nombre || ''}!
+      </h2>
+
+      <p style="color: #857468;">
+        Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.
+      </p>
+
+      <h3 style="color: #857468; margin-bottom: 6px;">Productos</h3>
+      <table style="width: 100%; border-collapse: collapse;">
+        ${filasProductos}
+      </table>
+
+      <div style="margin-top: 16px; padding: 14px 16px; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 4px; text-align: right;">
+        <strong style="font-size: 1.1rem;">Total: ${Number(total).toFixed(2)} €</strong>
+      </div>
+
+      <h3 style="color: #857468; margin-top: 24px; margin-bottom: 6px;">Envío a</h3>
+      <p style="margin: 4px 0;">${clienteInfo.direccion || 'Dirección no provista'}</p>
+      ${clienteInfo.notas && clienteInfo.notas !== 'Ninguna' ? `<p style="margin: 4px 0; color: #857468;"><strong>Notas:</strong> ${clienteInfo.notas}</p>` : ''}
+
+      <p style="color: #857468; margin-top: 24px;">
+        Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados
+        en cuanto esté listo para el envío. Si tienes cualquier duda, simplemente responde a este
+        correo.
+      </p>
+
+      <p style="font-size: 0.85rem; color: #857468; margin-top: 32px; border-top: 1px solid #E2DCD0; padding-top: 10px; text-align: center;">
+        ${fechaFormateada} · Nave 5 Barcelona · Almacén de ideas
+      </p>
+    </div>
+  `;
+};
+
+// Envía al COMPRADOR la confirmación de que su pedido se ha registrado con éxito.
+// Igual de tolerante a fallos que enviarNotificacionVenta: nunca lanza, un fallo aquí
+// no debe romper el checkout ni impedir que se guarde el pedido o se avise al admin.
+//
+// Aviso importante: con el dominio "sandbox" de Resend (onboarding@resend.dev, el valor
+// por defecto si no se configura RESEND_FROM), Resend SOLO entrega correos a la dirección
+// con la que se verificó la cuenta de Resend -- no a clientes reales con otro email. Para
+// que este correo le llegue a cualquier comprador hace falta verificar un dominio propio
+// en Resend (Dashboard > Domains) y apuntar RESEND_FROM a ese dominio.
+const enviarConfirmacionCliente = async (pedido) => {
+  try {
+    const destinatario = pedido?.clienteInfo?.email;
+    if (!destinatario) {
+      console.warn('enviarConfirmacionCliente: el pedido no trae email de cliente, no se envía nada.');
+      return;
+    }
+
+    if (!resend) {
+      console.log('\n--- SIMULACIÓN DE EMAIL AL CLIENTE (RESEND_API_KEY no configurada) ---');
+      console.log('Para:', destinatario);
+      console.log('Pedido:', JSON.stringify(pedido, null, 2));
+      console.log('-------------------------------------------------------------\n');
+      return;
+    }
+
+    const total = pedido.total ?? (pedido.items || []).reduce(
+      (acc, item) => acc + Number(item.precio) * (item.cantidad || 1), 0
+    );
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: destinatario,
+      subject: 'Hemos recibido tu pedido - Nave 5 Barcelona',
+      html: construirHtmlConfirmacionCliente({ ...pedido, total }),
+    });
+
+    if (error) {
+      console.error('Error al enviar la confirmación al cliente (Resend):', error);
+      return;
+    }
+
+    console.log('Correo de confirmación al cliente enviado. ID Resend:', data?.id);
+  } catch (error) {
+    console.error('Error al enviar la confirmación al cliente (Resend):', error.message || error);
+  }
+};
+
+module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente };

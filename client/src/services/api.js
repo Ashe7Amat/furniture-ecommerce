@@ -255,3 +255,32 @@ export const confirmarSesionPago = async (sessionId) => {
     return { error: error.message };
   }
 };
+
+// Lista todos los pedidos para el panel de administración (nombre, dirección, teléfono,
+// productos y total de cada venta, para poder prepararla y enviarla)
+export const getPedidos = async () => {
+  try {
+    const response = await fetch(`${API_URL}/pedidos`, { headers: authHeaders() });
+    if (!response.ok) throw new Error('Error al obtener los pedidos');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getPedidos:', error);
+    return [];
+  }
+};
+
+// Cambia el estado de un pedido (procesando / enviado / entregado / cancelado)
+export const actualizarEstadoPedido = async (id, estado) => {
+  try {
+    const response = await fetch(`${API_URL}/pedidos/${id}/estado`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ estado })
+    });
+    if (!response.ok) throw new Error('Error al actualizar el estado del pedido');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en actualizarEstadoPedido:', error);
+    return null;
+  }
+};

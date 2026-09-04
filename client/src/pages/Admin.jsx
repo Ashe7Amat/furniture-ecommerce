@@ -11,7 +11,9 @@ import {
   getCategorias,
   createCategoria,
   updateCategoria,
-  deleteCategoria
+  deleteCategoria,
+  getPedidos,
+  actualizarEstadoPedido
 } from '../services/api';
 import '../styles/Admin.css';
 
@@ -22,6 +24,7 @@ const ICONS = {
   add: <path d="M12 5v14M5 12h14" />,
   inventory: <path d="M3 7l9-4 9 4-9 4-9-4zm0 0v10l9 4 9-4V7M12 11v10" />,
   tag: <path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24L4 3a1 1 0 0 0-1 1l.24 5.59a2 2 0 0 0 .58 1.41l9.59 9.59a2 2 0 0 0 2.83 0l4.35-4.35a2 2 0 0 0 0-2.83zM7 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />,
+  box: <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16zM3.27 6.96 12 12l8.73-5.04M12 22.08V12" />,
   bell: <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />,
   warning: <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />,
   search: <><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.6-4.6" /></>,
@@ -44,6 +47,8 @@ const Admin = () => {
 
   const [muebles, setMuebles] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [pedidos, setPedidos] = useState([]);
+  const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
 
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
@@ -90,6 +95,7 @@ const Admin = () => {
     if (user) {
       cargarCategorias();
       cargarMuebles();
+      cargarPedidos();
     }
   }, [user]);
 
@@ -100,6 +106,21 @@ const Admin = () => {
   const cargarMuebles = async () => {
     const data = await getMuebles();
     setMuebles(data);
+  };
+
+  const cargarPedidos = async () => {
+    const data = await getPedidos();
+    setPedidos(Array.isArray(data) ? data : []);
+  };
+
+  const handleCambiarEstadoPedido = async (id, nuevoEstado) => {
+    const res = await actualizarEstadoPedido(id, nuevoEstado);
+    if (res) {
+      showToast('Estado del pedido actualizado', 'success');
+      setPedidos(prev => prev.map(p => (p.id === id ? { ...p, estado: nuevoEstado } : p)));
+    } else {
+      showToast('Error al actualizar el estado del pedido', 'error');
+    }
   };
 
   const cargarCategorias = async () => {
@@ -352,6 +373,12 @@ const Admin = () => {
   const sinImagen = muebles.filter(m => !m.imagenes || m.imagenes.length === 0).length;
   const sinCategoria = muebles.filter(m => !m.categoria).length;
 
+  // Cálculos para pedidos
+  const pedidosPendientes = pedidos.filter(p => p.estado === 'procesando').length;
+  const pedidosFiltrados = filtroEstadoPedido ? pedidos.filter(p => p.estado === filtroEstadoPedido) : pedidos;
+  const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
+  const ETIQUETA_ESTADO_PEDIDO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
+
   return (
     <div className="admin-layout">
       {/* Sidebar */}
@@ -366,6 +393,10 @@ const Admin = () => {
           </button>
           <button className={`sidebar-btn ${vistaActiva === 'inventario' ? 'active' : ''}`} onClick={() => setVistaActiva('inventario')}>
             <Icon name="inventory" /> Gestionar Inventario
+          </button>
+          <button className={`sidebar-btn ${vistaActiva === 'pedidos' ? 'active' : ''}`} onClick={() => setVistaActiva('pedidos')}>
+            <Icon name="box" /> Pedidos
+            {pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
           </button>
           <button className={`sidebar-btn ${vistaActiva === 'categorias' ? 'active' : ''}`} onClick={() => setVistaActiva('categorias')}>
             <Icon name="tag" /> Gestionar Categorías
@@ -401,6 +432,10 @@ const Admin = () => {
               <div className="resumen-card">
                 <h3>{formatPrice(valorDisponible)} €</h3>
                 <p>Valor en stock</p>
+              </div>
+              <div className="resumen-card accent-warning">
+                <h3>{pedidosPendientes}</h3>
+                <p>Pedidos por procesar</p>
               </div>
             </div>
 
@@ -614,6 +649,89 @@ const Admin = () => {
                 <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={paginaSegura === 1}>← Anterior</button>
                 <span>Página {paginaSegura} de {totalPaginas}</span>
                 <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={paginaSegura === totalPaginas}>Siguiente →</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {vistaActiva === 'pedidos' && (
+          <div className="admin-view fade-in">
+            <div className="admin-view-head">
+              <h2>Pedidos</h2>
+              <p>{pedidosFiltrados.length} de {pedidos.length} pedidos</p>
+            </div>
+
+            <div className="admin-toolbar">
+              <select value={filtroEstadoPedido} onChange={(e) => setFiltroEstadoPedido(e.target.value)}>
+                <option value="">Todos los estados</option>
+                {ESTADOS_PEDIDO.map(estado => (
+                  <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+                ))}
+              </select>
+              <button className="admin-btn-ghost" onClick={cargarPedidos}>Actualizar</button>
+            </div>
+
+            {pedidosFiltrados.length === 0 ? (
+              <p className="admin-empty-note">
+                {pedidos.length === 0
+                  ? 'Todavía no se ha registrado ningún pedido.'
+                  : 'No hay pedidos que coincidan con este filtro.'}
+              </p>
+            ) : (
+              <div className="pedidos-list">
+                {pedidosFiltrados.map(pedido => {
+                  const cliente = pedido.cliente_info || {};
+                  const items = Array.isArray(pedido.items) ? pedido.items : [];
+                  const fecha = pedido.created_at
+                    ? new Date(pedido.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
+                    : '—';
+
+                  return (
+                    <div key={pedido.id} className="pedido-card">
+                      <div className="pedido-card-header">
+                        <div>
+                          <span className="pedido-fecha">{fecha}</span>
+                          <span className="pedido-id">Ref. {pedido.id.slice(0, 8).toUpperCase()}</span>
+                        </div>
+                        <select
+                          value={pedido.estado}
+                          onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
+                          className={`pedido-estado-select estado-${pedido.estado}`}
+                        >
+                          {ESTADOS_PEDIDO.map(estado => (
+                            <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="pedido-card-body">
+                        <div className="pedido-cliente">
+                          <h4>Cliente</h4>
+                          <p><strong>{cliente.nombre || 'Sin nombre'}</strong></p>
+                          {cliente.email && <p><a href={`mailto:${cliente.email}`}>{cliente.email}</a></p>}
+                          {cliente.telefono && <p><a href={`tel:${cliente.telefono}`}>{cliente.telefono}</a></p>}
+                          <p className="pedido-direccion">{pedido.direccion_envio || cliente.direccion || 'Sin dirección de envío'}</p>
+                          {cliente.notas && cliente.notas !== 'Ninguna' && (
+                            <p className="pedido-notas"><strong>Notas:</strong> {cliente.notas}</p>
+                          )}
+                        </div>
+
+                        <div className="pedido-items">
+                          <h4>Productos</h4>
+                          <ul>
+                            {items.map((item, idx) => (
+                              <li key={idx}>
+                                <span>{item.nombre}{item.modalidad === 'alquiler' ? ' (alquiler/día)' : ''}</span>
+                                <span>{item.cantidad || 1} x {formatPrice(item.precio)} €</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="pedido-total">Total: <strong>{formatPrice(pedido.total)} €</strong></div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
