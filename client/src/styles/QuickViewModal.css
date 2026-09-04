@@ -20,12 +20,12 @@
 .qv-card {
   background: var(--card-bg);
   border-radius: 4px;
-  max-width: 1040px;
+  max-width: 1280px;
   width: 100%;
-  max-height: 90vh;
+  max-height: 92vh;
   overflow: auto;
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
+  grid-template-columns: 1.3fr 1fr;
   position: relative;
   animation: qvRise 0.35s cubic-bezier(.16,1,.3,1);
 }
@@ -37,11 +37,11 @@
 
 .qv-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: 20px;
+  right: 20px;
   z-index: 2;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: var(--surface-alt);
@@ -58,7 +58,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 460px;
+  min-height: 560px;
 }
 
 .qv-image-wrap img {
@@ -82,13 +82,13 @@
 }
 
 .qv-body {
-  padding: 44px 40px;
+  padding: 56px 48px;
   display: flex;
   flex-direction: column;
 }
 
 .qv-category {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: var(--secondary-color);
@@ -96,21 +96,22 @@
 }
 
 .qv-name {
-  font-size: 1.75rem;
-  margin: 16px 0 10px;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  margin: 18px 0 12px;
   color: var(--primary-color);
 }
 
 .qv-desc {
   color: var(--secondary-color);
-  font-size: 0.92rem;
-  line-height: 1.65;
-  margin-bottom: 18px;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  margin-bottom: 22px;
 }
 
 .qv-price {
-  font-size: 1.6rem;
-  margin-bottom: 22px;
+  font-size: 2rem;
+  margin-bottom: 26px;
   display: block;
   color: var(--primary-color);
   font-variant-numeric: tabular-nums;
@@ -125,10 +126,10 @@
 
 .qv-btn {
   flex: 1;
-  min-width: 160px;
-  padding: 13px 20px;
+  min-width: 180px;
+  padding: 16px 24px;
   border-radius: 2px;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-weight: 600;

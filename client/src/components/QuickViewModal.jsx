@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -32,11 +33,11 @@ const QuickViewModal = ({ mueble, onClose }) => {
     onClose();
   };
 
-  return (
+  return createPortal(
     <div className="qv-overlay" role="dialog" aria-modal="true" aria-labelledby="qv-title" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="qv-card">
         <button className="qv-close" onClick={onClose} aria-label="Cerrar" ref={closeBtnRef}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M5 5l14 14M19 5L5 19" /></svg>
         </button>
 
         <div className="qv-image-wrap">
@@ -65,7 +66,8 @@ const QuickViewModal = ({ mueble, onClose }) => {
           <Link to={`/mueble/${mueble.id}`} className="qv-link-full" onClick={onClose}>Ver ficha completa →</Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
