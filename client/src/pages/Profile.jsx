@@ -82,7 +82,11 @@ export default function Profile() {
       if (data.error) {
         showToast(data.error, 'error');
       } else {
-        login(data.user);
+        // Importante: hay que pasar también el token nuevo que devuelve el servidor.
+        // Si se llama a login() solo con el usuario, login() borra el token de sesión
+        // guardado (kaveToken) y las peticiones autenticadas posteriores (Mis Pedidos,
+        // futuras ediciones del perfil...) dejan de funcionar sin ningún aviso visible.
+        login(data.user, data.token);
         setPasswordActual('');
         setNuevaPassword('');
         setConfirmarNuevaPassword('');

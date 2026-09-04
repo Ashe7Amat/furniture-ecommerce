@@ -369,6 +369,12 @@ const actualizarPerfil = async (req, res) => {
       throw new Error(updateError?.message || 'Error al actualizar registro en base de datos');
     }
 
+    // Se firma un token nuevo porque el token de sesión lleva dentro el nombre/email/rol:
+    // si no se renueva aquí, el nombre o el email quedan desactualizados en la sesión y,
+    // si cambió el email, las peticiones autenticadas posteriores (p. ej. "Mis Pedidos")
+    // dejarían de encontrar nada porque seguirían buscando con el email antiguo.
+    const token = firmarToken(dataActualizada[0]);
+
     res.status(200).json({
       success: true,
       message: 'Perfil actualizado con éxito.',
@@ -376,7 +382,8 @@ const actualizarPerfil = async (req, res) => {
         nombre: dataActualizada[0].nombre,
         email: dataActualizada[0].email,
         rol: dataActualizada[0].rol
-      }
+      },
+      token
     });
   } catch (error) {
     console.error('Error al actualizar perfil:', error.message);
