@@ -59,16 +59,62 @@
 }
 
 .hero-image-box {
+    position: relative;
     width: 100%;
     aspect-ratio: 4/3;
     overflow: hidden;
     background: var(--surface-alt);
 }
 
-.hero-image-box img {
+/* Slider del hero: las fotos se apilan y hacen crossfade, estilo IKEA/Kave Home */
+.hero-slide-img {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+}
+
+.hero-slide-img.is-active {
+    opacity: 1;
+}
+
+.hero-slide-dots {
+    position: absolute;
+    z-index: 2;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+}
+
+.hero-dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    transition: transform 0.3s, background 0.3s;
+}
+
+.hero-dot:hover {
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.hero-dot.is-active {
+    background: #fff;
+    transform: scale(1.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-slide-img {
+        transition: none;
+    }
 }
 
 /* Slider de Categorías */

@@ -6,13 +6,30 @@ import { useScrollReveal } from '../utils/useScrollReveal';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/Home.css';
 
+// Fotos reales del almacén para el slider del hero (estilo banner rotativo tipo IKEA/Kave Home).
+const HERO_SLIDES = [
+    { src: '/img/hero-almacen.webp', alt: 'Vista general del almacén de Nave 5 Barcelona' },
+    { src: '/img/hero-aerea.webp', alt: 'Vista aérea del almacén de Nave 5 Barcelona' },
+    { src: '/img/hero-sillones.webp', alt: 'Butacas de cine rojas de época en el almacén de Nave 5' },
+    { src: '/img/hero-showroom.webp', alt: 'Rincón de showroom con sofás y decoración en Nave 5' },
+];
+const HERO_SLIDE_INTERVAL_MS = 5500;
+
 export default function Home() {
     const [categorias, setCategorias] = useState([]);
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [heroSlide, setHeroSlide] = useState(0);
     const navigate = useNavigate();
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setHeroSlide(prev => (prev + 1) % HERO_SLIDES.length);
+        }, HERO_SLIDE_INTERVAL_MS);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         const cargarPortada = async () => {
@@ -45,11 +62,29 @@ export default function Home() {
                     <Link to="/catalogo" className="btn-hero-black">Descubrir</Link>
                 </div>
                 <div className="hero-image-box">
-                    <img
-                        src="/img/hero-almacen.webp"
-                        alt="Vista del almacén de Nave 5 Barcelona"
-                        decoding="async"
-                    />
+                    {HERO_SLIDES.map((slide, i) => (
+                        <img
+                            key={slide.src}
+                            src={slide.src}
+                            alt={slide.alt}
+                            decoding="async"
+                            fetchPriority={i === 0 ? 'high' : undefined}
+                            loading={i === 0 ? undefined : 'lazy'}
+                            className={`hero-slide-img${i === heroSlide ? ' is-active' : ''}`}
+                        />
+                    ))}
+                    <div className="hero-slide-dots">
+                        {HERO_SLIDES.map((slide, i) => (
+                            <button
+                                key={slide.src}
+                                type="button"
+                                className={`hero-dot${i === heroSlide ? ' is-active' : ''}`}
+                                aria-label={`Ver foto ${i + 1} de ${HERO_SLIDES.length}`}
+                                aria-current={i === heroSlide}
+                                onClick={() => setHeroSlide(i)}
+                            />
+                        ))}
+                    </div>
                 </div>
             </section>
 
