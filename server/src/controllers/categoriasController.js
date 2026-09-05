@@ -61,6 +61,10 @@ const obtenerCategorias = async (req, res) => {
             };
         });
 
+        // Las categorías casi no cambian entre visitas: se cachea un rato corto en el
+        // navegador/CDN (las estadísticas de stock pueden variar con cada venta, así que
+        // el tiempo de caché se mantiene bajo a propósito).
+        res.set('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=120');
         res.status(200).json(categoriasConStats);
     } catch (error) {
         console.error('Error al calcular estadísticas de categorías:', error.message);

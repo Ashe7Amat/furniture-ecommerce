@@ -224,4 +224,67 @@ const enviarConfirmacionCliente = async (pedido) => {
   }
 };
 
-module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente };
+// Construye el HTML del correo de bienvenida para una cuenta nueva.
+const construirHtmlBienvenida = (nombreCliente) => `
+  <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 6px; overflow: hidden;">
+    <div style="background-color: #3E322A; padding: 40px 30px; text-align: center;">
+      <h1 style="color: #FCFAF8; font-size: 1.5rem; font-weight: 300; text-transform: uppercase; letter-spacing: 3px; margin: 0 0 10px 0;">Nave 5 Barcelona</h1>
+      <p style="color: #B38A70; font-size: 0.85rem; margin: 0; letter-spacing: 1px; font-style: italic;">Almacén de ideas</p>
+    </div>
+    <div style="padding: 40px 30px; line-height: 1.6;">
+      <h2 style="font-size: 1.25rem; font-weight: 400; margin-top: 0; color: #3E322A;">¡Hola, ${nombreCliente}!</h2>
+      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
+        Te damos la bienvenida más cálida a <strong>Nave 5 Barcelona</strong>. Nos hace inmensamente felices que te unas a nuestra pequeña gran comunidad dedicada a la recuperación y restauración artesanal de piezas singulares.
+      </p>
+      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
+        Creemos en un diseño sincero y sostenible, en piezas con alma y carácter que añaden calidez y una historia que contar a los hogares contemporáneos.
+      </p>
+      <div style="background-color: #F5F2EC; border-left: 3px solid #B38A70; padding: 20px; margin: 30px 0; border-radius: 4px;">
+        <p style="margin: 0; font-style: italic; color: #3E322A; font-size: 0.92rem;">"La imperfección del paso del tiempo restaurada con respeto y pasión."</p>
+      </div>
+      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
+        A partir de ahora tienes acceso a tu panel de compras, puedes guardar tus piezas favoritas y disfrutar de un proceso de compra fluido y seguro.
+      </p>
+      <div style="text-align: center; margin: 35px 0 15px 0;">
+        <a href="https://nave5barcelona.com" style="background-color: #B38A70; color: #FCFAF8; text-decoration: none; padding: 14px 28px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; border-radius: 4px; display: inline-block;">Visitar Colección</a>
+      </div>
+    </div>
+    <div style="background-color: #F5F2EC; border-top: 1px solid #E2DCD0; padding: 30px; text-align: center; font-size: 0.8rem; color: #857468;">
+      <p style="margin: 4px 0;"><strong>Nave 5 Barcelona | Almacén de ideas</strong></p>
+      <p style="margin: 4px 0;">Carrer del Plom, 32-34, interior, 08038 Barcelona</p>
+      <p style="margin: 4px 0;">Sostenibilidad • Artesanía • Diseño Slow</p>
+    </div>
+  </div>
+`;
+
+// Envía el correo de bienvenida a una cuenta recién registrada. Antes esta web usaba
+// Nodemailer con un SMTP de prueba (Ethereal) solo para este correo, mientras que las
+// notificaciones de venta ya usaban Resend -- dos proveedores de email distintos para
+// mantener. Ahora todo pasa por Resend, igual que el resto de correos de la tienda.
+// Nunca lanza: un fallo aquí no debe impedir que la cuenta se cree con éxito.
+const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
+  try {
+    if (!resend) {
+      console.log(`[SIMULACIÓN EMAIL] Bienvenida enviada a ${emailDestinatario} (${nombreCliente})`);
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: emailDestinatario,
+      subject: '¡Te damos la bienvenida a Nave 5 Barcelona! 🤎',
+      html: construirHtmlBienvenida(nombreCliente),
+    });
+
+    if (error) {
+      console.error('Error al enviar el email de bienvenida (Resend):', error);
+      return;
+    }
+
+    console.log('Correo de bienvenida enviado. ID Resend:', data?.id);
+  } catch (error) {
+    console.error('Error al enviar el email de bienvenida (Resend):', error.message || error);
+  }
+};
+
+module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida };

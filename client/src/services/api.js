@@ -6,9 +6,13 @@ const authHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-export const getMuebles = async () => {
+export const getMuebles = async (opciones = {}) => {
   try {
-    const response = await fetch(`${API_URL}/muebles`);
+    const params = new URLSearchParams();
+    if (opciones.limit) params.set('limit', opciones.limit);
+    const query = params.toString() ? `?${params.toString()}` : '';
+
+    const response = await fetch(`${API_URL}/muebles${query}`);
     if (!response.ok) {
       throw new Error('Error al obtener los muebles');
     }

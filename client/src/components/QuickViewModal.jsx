@@ -1,9 +1,10 @@
-import React, { useContext, useEffect, useRef } from 'react';
+import { useContext, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice } from '../utils/format';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/QuickViewModal.css';
 
 const QuickViewModal = ({ mueble, onClose }) => {
@@ -13,7 +14,7 @@ const QuickViewModal = ({ mueble, onClose }) => {
   const isFav = isFavorite(mueble.id);
   const isSold = mueble.estado === 'vendido';
   const isAlquilado = mueble.estado === 'alquilado';
-  const imageUrl = mueble.imagenes?.[0] || 'https://via.placeholder.com/600x600?text=Sin+Imagen';
+  const imageUrl = mueble.imagenes?.[0] || PLACEHOLDER_IMG;
 
   useEffect(() => {
     closeBtnRef.current?.focus();

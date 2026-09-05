@@ -1,4 +1,3 @@
-import React from 'react';
 import InfoPageLayout from '../components/InfoPageLayout';
 
 const About = () => {
@@ -12,7 +11,7 @@ const About = () => {
       </p>
 
       <div className="info-pullquote">
-        <p>"No fabricamos muebles nuevos; rescatamos el carácter y el oficio del pasado para integrarlo con orgullo en los hogares contemporáneos."</p>
+        <p>&ldquo;No fabricamos muebles nuevos; rescatamos el carácter y el oficio del pasado para integrarlo con orgullo en los hogares contemporáneos.&rdquo;</p>
       </div>
 
       <p>

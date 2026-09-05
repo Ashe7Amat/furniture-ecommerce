@@ -1,6 +1,7 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import { AuthContext } from './AuthContext';
 import { ToastContext } from './ToastContext';
+import { PLACEHOLDER_IMG } from '../utils/images';
 
 export const CartContext = createContext();
 
@@ -39,7 +40,7 @@ export const CartProvider = ({ children }) => {
           id: `${product.id}-${modality}`,
           productId: product.id,
           nombre: product.nombre,
-          imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : 'https://via.placeholder.com/300x200?text=Sin+Imagen',
+          imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : PLACEHOLDER_IMG,
           precio: price,
           modalidad: modality,
           cantidad: 1

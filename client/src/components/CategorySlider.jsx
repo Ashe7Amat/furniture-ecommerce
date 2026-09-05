@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCategorias } from '../services/api';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/CategorySlider.css';
 
 const CategorySlider = () => {
@@ -36,7 +37,7 @@ const CategorySlider = () => {
             onClick={() => handleCategoryClick(cat.nombre)}
           >
             <div className="category-img-container">
-              <img src={cat.imagen_url || 'https://via.placeholder.com/100'} alt={cat.nombre} loading="lazy" decoding="async" />
+              <img src={cat.imagen_url || PLACEHOLDER_IMG} alt={cat.nombre} loading="lazy" decoding="async" />
             </div>
             <span className="category-name">{cat.nombre}</span>
           </div>

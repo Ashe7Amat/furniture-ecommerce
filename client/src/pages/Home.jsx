@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMuebles, getCategorias } from '../services/api';
 import { formatPrice } from '../utils/format';
 import { useScrollReveal } from '../utils/useScrollReveal';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/Home.css';
 
 export default function Home() {
@@ -18,10 +19,10 @@ export default function Home() {
             try {
                 const [dataCat, dataMue] = await Promise.all([
                     getCategorias(),
-                    getMuebles()
+                    getMuebles({ limit: 4 })
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
-                setDestacados(Array.isArray(dataMue) ? dataMue.slice(0, 4) : []);
+                setDestacados(Array.isArray(dataMue) ? dataMue : []);
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
@@ -86,7 +87,7 @@ export default function Home() {
                         {destacados.map(mueble => (
                             <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
                                 <div className="home-card-img-holder">
-                                    <img src={mueble.imagenes?.[0] || 'https://via.placeholder.com/400'} alt={mueble.nombre} loading="lazy" decoding="async" />
+                                    <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
                                     {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
                                 </div>
                                 <div className="home-card-meta">

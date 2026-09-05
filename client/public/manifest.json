@@ -1,0 +1,12 @@
+{
+  "name": "Nave 5 Barcelona",
+  "short_name": "Nave 5",
+  "description": "Almacén de ideas — muebles restaurados con historia, en el corazón de Barcelona.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F2EC",
+  "theme_color": "#3E322A",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" }
+  ]
+}

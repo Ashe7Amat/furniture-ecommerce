@@ -106,3 +106,9 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--secondary-color);
 }
+
+/* Se ve una fracción de segundo mientras se descarga una página con lazy-loading
+   (normalmente ni llega a mostrarse gracias a la caché del navegador) */
+.page-loading {
+  min-height: 40vh;
+}

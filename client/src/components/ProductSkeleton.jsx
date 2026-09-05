@@ -1,5 +1,4 @@
 // client/src/components/ProductSkeleton.jsx
-import React from 'react';
 import '../styles/ProductSkeleton.css';
 import '../styles/ProductCard.css'; // Asegura que hereda la estructura general de ProductCard
 

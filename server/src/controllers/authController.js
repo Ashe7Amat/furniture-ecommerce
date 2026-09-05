@@ -2,192 +2,20 @@
 const supabase = require('../data/supabase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
+const { enviarEmailBienvenida } = require('../utils/email');
 
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
 // (se avisa con un error claro en vez de fallar de forma rara).
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
-// Auxiliar para enviar correo de bienvenida al cliente
-const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || 'mock_user',
-        pass: process.env.SMTP_PASS || 'mock_pass',
-      },
-    });
-
-    const htmlBody = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <style>
-          body {
-            margin: 0;
-            padding: 0;
-            background-color: #F5F2EC;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #3E322A;
-          }
-          .email-wrapper {
-            width: 100%;
-            background-color: #F5F2EC;
-            padding: 40px 0;
-          }
-          .email-container {
-            max-width: 600px;
-            margin: 0 auto;
-            background-color: #FCFAF8;
-            border: 1px solid #E2DCD0;
-            border-radius: 6px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(62,50,42,0.04);
-          }
-          .email-header {
-            background-color: #3E322A;
-            padding: 40px 30px;
-            text-align: center;
-          }
-          .email-header h1 {
-            color: #FCFAF8;
-            font-size: 1.5rem;
-            font-weight: 300;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            margin: 0 0 10px 0;
-          }
-          .email-header p {
-            color: #B38A70;
-            font-size: 0.85rem;
-            margin: 0;
-            letter-spacing: 1px;
-            font-style: italic;
-          }
-          .email-body {
-            padding: 40px 30px;
-            line-height: 1.6;
-          }
-          .email-body h2 {
-            font-size: 1.25rem;
-            font-weight: 400;
-            margin-top: 0;
-            color: #3E322A;
-          }
-          .email-body p {
-            font-size: 0.95rem;
-            color: #857468;
-            margin-bottom: 20px;
-          }
-          .highlight-box {
-            background-color: #F5F2EC;
-            border-left: 3px solid #B38A70;
-            padding: 20px;
-            margin: 30px 0;
-            border-radius: 4px;
-          }
-          .highlight-box p {
-            margin: 0;
-            font-style: italic;
-            color: #3E322A;
-            font-size: 0.92rem;
-          }
-          .cta-button-container {
-            text-align: center;
-            margin: 35px 0 15px 0;
-          }
-          .cta-button {
-            background-color: #B38A70;
-            color: #FCFAF8;
-            text-decoration: none;
-            padding: 14px 28px;
-            font-size: 0.88rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-weight: 500;
-            border-radius: 4px;
-            display: inline-block;
-          }
-          .email-footer {
-            background-color: #F5F2EC;
-            border-top: 1px solid #E2DCD0;
-            padding: 30px;
-            text-align: center;
-            font-size: 0.8rem;
-            color: #857468;
-          }
-          .email-footer p {
-            margin: 4px 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="email-wrapper">
-          <div class="email-container">
-            <div class="email-header">
-              <h1>Nave 5 Barcelona</h1>
-              <p>Almacén de ideas</p>
-            </div>
-            
-            <div class="email-body">
-              <h2>¡Hola, ${nombreCliente}!</h2>
-              <p>Te damos la bienvenida más cálida a <strong>Nave 5 Barcelona</strong>. Nos hace inmensamente felices que te unas a nuestra pequeña gran comunidad dedicada a la recuperación y restauración artesanal de piezas singulares.</p>
-              
-              <p>Creemos en un diseño sincero y sostenible, en piezas con alma y carácter que añaden calidez y una historia que contar a los hogares contemporáneos. Cada mueble de nuestro catálogo ha sido mimado y devuelto a la vida en nuestro propio taller.</p>
-              
-              <div class="highlight-box">
-                <p>"La imperfección del paso del tiempo restaurada con respeto y pasión."</p>
-              </div>
-
-              <p>A partir de ahora, tienes acceso exclusivo a nuestro panel de compras, podrás guardar tus piezas favoritas y disfrutar de un proceso de checkout fluido y seguro para adquirir esa obra única que estás buscando.</p>
-              
-              <div class="cta-button-container">
-                <a href="https://nave5barcelona.com" class="cta-button">Visitar Colección</a>
-              </div>
-            </div>
-            
-            <div class="email-footer">
-              <p><strong>Nave 5 Barcelona | Almacén de ideas</strong></p>
-              <p>Carrer del Plom, 32-34, interior, 08038 Barcelona</p>
-              <p>Sostenibilidad • Artesanía • Diseño Slow</p>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    if (!process.env.SMTP_USER || process.env.SMTP_USER === 'mock_user') {
-      console.log('\n======================================================');
-      console.log('📬 [SIMULACIÓN SMTP] - EMAIL DE BIENVENIDA ENVIADO');
-      console.log(`Para: ${emailDestinatario} (${nombreCliente})`);
-      console.log('Asunto: ¡Te damos la bienvenida a Nave 5 Barcelona!');
-      console.log('------------------------------------------------------');
-      console.log('Mensaje de Bienvenida Generado Exitosamente:');
-      console.log(`"Hola ${nombreCliente}, ¡bienvenido a nuestro Almacén de Ideas de Nave 5!"`);
-      console.log('======================================================\n');
-      return;
-    }
-
-    await transporter.sendMail({
-      from: `"Nave 5 Barcelona" <${process.env.SMTP_USER}>`,
-      to: emailDestinatario,
-      subject: '¡Te damos la bienvenida a Nave 5 Barcelona! 🤎',
-      html: htmlBody,
-    });
-
-    console.log(`📧 Correo de bienvenida enviado con éxito a: ${emailDestinatario}`);
-  } catch (error) {
-    console.error('❌ Error enviando email de bienvenida:', error.message);
-  }
-};
+// Validación básica de email/contraseña, compartida entre registro y (parcialmente) el
+// cambio de contraseña. No sustituye una verificación de email por link, pero evita
+// altas con datos claramente inválidos.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LENGTH = 6;
 
 // Firma un token de sesión (válido 7 días) con los datos mínimos del usuario
 const firmarToken = (usuario) => {
@@ -205,6 +33,12 @@ const registrarCliente = async (req, res) => {
 
     if (!nombre || !email || !password) {
       return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Introduce un email válido.' });
+    }
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({ error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.` });
     }
 
     // Comprobar si el email ya existe en Supabase
@@ -272,15 +106,19 @@ const loginCliente = async (req, res) => {
       .eq('email', email)
       .single();
 
+    // Mensaje de error genérico (no distinguir "no existe" de "contraseña incorrecta"):
+    // así quien llame a la API no puede usarlo para averiguar qué emails están registrados.
+    const CREDENCIALES_INVALIDAS = { error: 'Email o contraseña incorrectos.' };
+
     if (error || !usuario) {
-      return res.status(404).json({ error: 'El usuario no existe.' });
+      return res.status(401).json(CREDENCIALES_INVALIDAS);
     }
 
     // Comparar la contraseña introducida con la encriptada de la base de datos
     const contraseñaCorrecta = await bcrypt.compare(password, usuario.password);
 
     if (!contraseñaCorrecta) {
-      return res.status(400).json({ error: 'Contraseña incorrecta.' });
+      return res.status(401).json(CREDENCIALES_INVALIDAS);
     }
 
     // Login exitoso: Devolvemos los datos limpios (sin la contraseña) + token de sesión

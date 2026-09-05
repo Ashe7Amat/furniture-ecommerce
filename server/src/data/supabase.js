@@ -14,11 +14,16 @@ const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-console.log("----------------------------------------");
-console.log("🔍 COMPROBANDO VARIABLES DE ENTORNO:");
-console.log("URL detectada:", supabaseUrl);
-console.log("Clave detectada:", supabaseKey ? (process.env.SUPABASE_SERVICE_ROLE_KEY ? "service_role (oculta)" : "anon (oculta)") : "No detectada");
-console.log("----------------------------------------");
+// Solo se registra el detalle de qué variables se detectaron en desarrollo local -- en
+// producción (Vercel) este log se repetiría en cada arranque en frío y no aporta nada
+// si todo está bien configurado.
+if (process.env.NODE_ENV !== 'production') {
+  console.log(
+    `[Supabase] URL: ${supabaseUrl || 'no detectada'} · Clave: ${
+      supabaseKey ? (process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon') : 'no detectada'
+    }`
+  );
+}
 
 if (!supabaseUrl || !supabaseUrl.startsWith('http') || !supabaseKey) {
   console.error("❌ ERROR CRÍTICO: Falta SUPABASE_URL o una clave de Supabase válida. Revisa el archivo .env");

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
+import { useEffect, useState, useContext, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { confirmarSesionPago } from '../services/api';
 import { CartContext } from '../context/CartContext';

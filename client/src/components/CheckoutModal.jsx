@@ -1,5 +1,5 @@
 // client/src/components/CheckoutModal.jsx
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { CartContext } from '../context/CartContext';
 import { crearSesionPago } from '../services/api';
 import '../styles/CheckoutModal.css';

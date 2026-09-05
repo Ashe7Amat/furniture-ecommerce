@@ -1,8 +1,9 @@
-import React, { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useMemo } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatPrice } from '../utils/format';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import {
   createMueble,
   getMuebles,
@@ -91,12 +92,15 @@ const Admin = () => {
     onConfirm: null
   });
 
+  // Solo debe recargarse cuando cambia el usuario (login/logout), no en cada render --
+  // las tres funciones se redefinen en cada render pero no son las que queremos vigilar.
   useEffect(() => {
     if (user) {
       cargarCategorias();
       cargarMuebles();
       cargarPedidos();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -296,21 +300,24 @@ const Admin = () => {
     }
   };
 
-  // ─── Inventario: filtrado, orden y paginación (derivados, sin memo por simplicidad) ───
-  const muebleCoincide = (m) => {
+  // ─── Inventario: filtrado, orden y paginación (memoizados: con 157+ productos no
+  // tiene sentido recalcular esto en cada render que no afecte a estos valores) ───
+  const muebleFiltrados = useMemo(() => {
     const term = busqueda.trim().toLowerCase();
-    const matchTexto = !term || m.nombre?.toLowerCase().includes(term);
-    const matchCategoria = !filtroCategoria || m.categoria === filtroCategoria;
-    const matchEstado = !filtroEstado || (m.estado || 'disponible') === filtroEstado;
-    return matchTexto && matchCategoria && matchEstado;
-  };
+    const muebleCoincide = (m) => {
+      const matchTexto = !term || m.nombre?.toLowerCase().includes(term);
+      const matchCategoria = !filtroCategoria || m.categoria === filtroCategoria;
+      const matchEstado = !filtroEstado || (m.estado || 'disponible') === filtroEstado;
+      return matchTexto && matchCategoria && matchEstado;
+    };
 
-  const muebleFiltrados = muebles.filter(muebleCoincide).sort((a, b) => {
-    if (orden === 'nombre') return (a.nombre || '').localeCompare(b.nombre || '');
-    if (orden === 'precio_asc') return (a.precio_venta || 0) - (b.precio_venta || 0);
-    if (orden === 'precio_desc') return (b.precio_venta || 0) - (a.precio_venta || 0);
-    return 0; // 'recientes' = orden original (más nuevo primero, ya viene así de la API)
-  });
+    return muebles.filter(muebleCoincide).sort((a, b) => {
+      if (orden === 'nombre') return (a.nombre || '').localeCompare(b.nombre || '');
+      if (orden === 'precio_asc') return (a.precio_venta || 0) - (b.precio_venta || 0);
+      if (orden === 'precio_desc') return (b.precio_venta || 0) - (a.precio_venta || 0);
+      return 0; // 'recientes' = orden original (más nuevo primero, ya viene así de la API)
+    });
+  }, [muebles, busqueda, filtroCategoria, filtroEstado, orden]);
 
   const totalPaginas = Math.max(1, Math.ceil(muebleFiltrados.length / PAGE_SIZE));
   const paginaSegura = Math.min(pagina, totalPaginas);
@@ -468,7 +475,7 @@ const Admin = () => {
                     <div key={m.id} className="sale-row">
                       <div className="sale-row-info">
                         <div className="sale-thumb">
-                          <img src={m.imagenes?.[0] || 'https://via.placeholder.com/150'} alt={m.nombre} loading="lazy" decoding="async" />
+                          <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
                         </div>
                         <div>
                           <h4 className="sale-name">{m.nombre}</h4>
@@ -607,7 +614,7 @@ const Admin = () => {
                         aria-label={`Seleccionar ${m.nombre}`}
                       />
                       <div className="inv-thumb">
-                        <img src={m.imagenes?.[0] || 'https://via.placeholder.com/80'} alt={m.nombre} loading="lazy" decoding="async" />
+                        <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
                       </div>
                       <span className="inv-name">{m.nombre}</span>
                       <span className="inv-category">{m.categoria || '—'}</span>

@@ -1,5 +1,5 @@
 // client/src/components/AuthModal.jsx
-import React, { useState, useContext } from 'react';
+import { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser } from '../services/api';

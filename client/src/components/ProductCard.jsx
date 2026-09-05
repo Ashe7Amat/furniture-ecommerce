@@ -1,8 +1,9 @@
 // client/src/components/ProductCard.jsx
-import React, { useContext, useState } from 'react';
+import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice } from '../utils/format';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
 
@@ -13,7 +14,7 @@ const ProductCard = ({ mueble }) => {
   const isFav = isFavorite(mueble.id);
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
     ? mueble.imagenes[0]
-    : 'https://via.placeholder.com/300x200?text=Sin+Imagen';
+    : PLACEHOLDER_IMG;
 
   const handleFavClick = (e) => {
     e.preventDefault();

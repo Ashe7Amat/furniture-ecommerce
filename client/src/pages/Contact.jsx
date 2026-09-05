@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import InfoPageLayout from '../components/InfoPageLayout';
 
 const Contact = () => {

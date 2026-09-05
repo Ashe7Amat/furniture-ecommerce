@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Sin imagen disponible">
+  <rect width="400" height="400" fill="#F5F2EC"/>
+  <g fill="none" stroke="#B38A70" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="70" y="110" width="260" height="180" rx="8"/>
+    <circle cx="140" cy="170" r="18"/>
+    <path d="M70 250l70-60 50 40 60-70 80 90"/>
+  </g>
+  <text x="200" y="330" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="16" letter-spacing="1" fill="#857468">SIN IMAGEN</text>
+</svg>

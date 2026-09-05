@@ -6,6 +6,7 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { CartContext } from '../context/CartContext';
 import { getCategorias, getMuebles } from '../services/api';
 import { formatPrice } from '../utils/format';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/HeaderFooter.css';
 
 const getSystemPrefersDark = () =>
@@ -73,7 +74,7 @@ const Header = () => {
     if (isSearchOpen && allProducts.length === 0) {
       getMuebles().then(data => setAllProducts(Array.isArray(data) ? data : []));
     }
-  }, [isSearchOpen]);
+  }, [isSearchOpen, allProducts.length]);
 
   // Filtrado en vivo — case-insensitive sobre nombre y categoría
   useEffect(() => {
@@ -248,7 +249,7 @@ const Header = () => {
                         onClick={closeSearch}
                       >
                         <img
-                          src={producto.imagenes?.[0] || 'https://via.placeholder.com/60'}
+                          src={producto.imagenes?.[0] || PLACEHOLDER_IMG}
                           alt={producto.nombre}
                           className="search-live-img"
                           loading="lazy"

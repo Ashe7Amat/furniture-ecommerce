@@ -5,11 +5,24 @@ const { enviarNotificacionVenta, enviarConfirmacionCliente } = require('../utils
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-// 1. Obtener todos los muebles (Catálogo)
+// 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
+// recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
+// el catálogo entero de golpe solo para quedarse con los primeros 4).
 const obtenerMuebles = async (req, res) => {
   try {
-    const { data, error } = await supabase.from('muebles').select('*');
+    let query = supabase.from('muebles').select('*').order('created_at', { ascending: false });
+
+    const limit = parseInt(req.query.limit, 10);
+    if (Number.isInteger(limit) && limit > 0) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
     if (error) throw error;
+
+    // El catálogo casi no cambia entre visitas: se puede cachear un par de minutos en
+    // el navegador y en la CDN de Vercel para no volver a pedirlo en cada carga de página.
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
     res.status(200).json(data);
   } catch (error) {
     console.error('Error al obtener muebles:', error.message);

@@ -1,18 +1,19 @@
-import React, { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
-import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice } from '../utils/format';
+import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  // addToCart ya muestra su propio toast de confirmación (ver CartContext), así que no
+  // hace falta duplicar el aviso aquí.
   const { addToCart } = useContext(CartContext);
-  const { showToast } = useContext(ToastContext);
   const { favorites, toggleFavorite } = useContext(FavoritesContext);
   const [mueble, setMueble] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ const ProductDetail = () => {
           setMueble(data);
           setMainImage(data.imagenes && data.imagenes.length > 0 
             ? data.imagenes[0] 
-            : 'https://via.placeholder.com/600x600?text=Sin+Imagen');
+            : PLACEHOLDER_IMG);
           setModalidad(data.precio_venta ? 'compra' : 'alquiler');
         }
       } catch (error) {

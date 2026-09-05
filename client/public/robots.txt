@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /cuenta
+
+Sitemap: https://nave5-demo.vercel.app/sitemap.xml

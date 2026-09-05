@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback } from 'react';
+import { createContext, useState, useCallback } from 'react';
 import '../styles/Toast.css';
 
 export const ToastContext = createContext();

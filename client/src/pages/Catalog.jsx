@@ -1,11 +1,17 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import ProductSkeleton from '../components/ProductSkeleton';
 import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
 import '../styles/Catalog.css';
+
+// Array estable para cuando el contexto de favoritos aún no está listo: un `[]` literal
+// dentro del componente sería una referencia nueva en cada render, lo que haría que el
+// useMemo de abajo se recalculase de más (React compara las dependencias por referencia).
+const SIN_FAVORITOS = [];
 
 export default function Catalog() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,10 +20,9 @@ export default function Catalog() {
 
   // 🛡️ Extraemos favorites de forma segura por si el contexto está vacío al cargar
   const context = useContext(FavoritesContext);
-  const favorites = context ? context.favorites : [];
+  const favorites = context ? context.favorites : SIN_FAVORITOS;
 
   const [todosLosMuebles, setTodosLosMuebles] = useState([]);
-  const [mueblesFiltrados, setMueblesFiltrados] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [soloDisponibles, setSoloDisponibles] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -43,8 +48,10 @@ export default function Catalog() {
     fetchDatos();
   }, []);
 
-  // 2. Filtrar y ordenar reactivamente — NUNCA muta todosLosMuebles
-  useEffect(() => {
+  // 2. Filtrar y ordenar — NUNCA muta todosLosMuebles. Con useMemo en vez de un
+  // useEffect+setState aparte: se recalcula solo cuando algo relevante cambia, sin
+  // provocar un re-render extra de por medio.
+  const mueblesFiltrados = useMemo(() => {
     let resultado = [...todosLosMuebles];
 
     // Filtro: favoritos tiene prioridad (Blindado contra arrays de objetos)
@@ -82,7 +89,7 @@ export default function Catalog() {
       resultado.sort((a, b) => b.precio_venta - a.precio_venta);
     }
 
-    setMueblesFiltrados(resultado);
+    return resultado;
   }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
 
   // ⚡ Función limpia para el botón de "Ver todo"
@@ -103,8 +110,14 @@ export default function Catalog() {
     setSearchParams(newParams);
   };
 
+  const tituloPagina = showFavorites ? 'Tus Favoritos' : (categoriaUrl || 'Catálogo');
+
   return (
     <div className="catalog-container">
+      <Helmet>
+        <title>{`${tituloPagina} | Nave 5 Barcelona`}</title>
+        <meta name="description" content="Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona." />
+      </Helmet>
       {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}
       <header className="catalog-header">
         <span style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--secondary-color)', textTransform: 'uppercase' }}>

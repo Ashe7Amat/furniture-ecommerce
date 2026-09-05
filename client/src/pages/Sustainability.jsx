@@ -1,4 +1,3 @@
-import React from 'react';
 import InfoPageLayout from '../components/InfoPageLayout';
 
 const Sustainability = () => {
@@ -12,7 +11,7 @@ const Sustainability = () => {
       </p>
 
       <div className="info-pullquote">
-        <p>"Cada mueble restaurado en nuestro taller representa una victoria directa contra el olvido y una huella ecológica evitada."</p>
+        <p>&ldquo;Cada mueble restaurado en nuestro taller representa una victoria directa contra el olvido y una huella ecológica evitada.&rdquo;</p>
       </div>
 
       <h2>Nuestros Pilares Ecológicos</h2>
