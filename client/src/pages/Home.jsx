@@ -46,8 +46,8 @@ export default function Home() {
                 </div>
                 <div className="hero-image-box">
                     <img
-                        src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=1000"
-                        alt="Interior restaurado en Nave 5 Barcelona"
+                        src="/img/hero-almacen.webp"
+                        alt="Vista del almacén de Nave 5 Barcelona"
                         decoding="async"
                     />
                 </div>
@@ -106,11 +106,11 @@ export default function Home() {
             {/* GALERÍA DE AMBIENTE */}
             <section className="home-gallery-section reveal-init" ref={galleryRef}>
                 <div className="gallery-grid">
-                    <img src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1000" alt="Interior minimalista" className="gallery-img" loading="lazy" decoding="async" />
+                    <img src="/img/galeria-rincon.webp" alt="Rincón de decoración en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
                     <div className="gallery-text-block">
                         <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
                     </div>
-                    <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=1000" alt="Diseño de interiores" className="gallery-img" loading="lazy" decoding="async" />
+                    <img src="/img/galeria-butacas.webp" alt="Butacas de cine restauradas en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
                 </div>
             </section>
 
