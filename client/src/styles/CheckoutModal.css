@@ -245,3 +245,15 @@
   font-weight: 500;
   display: block;
 }
+
+.payment-error-box {
+  color: var(--danger-color);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-color);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}

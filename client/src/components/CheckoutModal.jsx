@@ -1,14 +1,23 @@
 // client/src/components/CheckoutModal.jsx
-import { useState, useContext } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { CartContext } from '../context/CartContext';
 import { crearSesionPago } from '../services/api';
 import '../styles/CheckoutModal.css';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
-  const { cartItems, cartTotal } = useContext(CartContext);
+  const { cartItems, cartTotal, validateCart } = useContext(CartContext);
   const [activeTab, setActiveTab] = useState('card');
-  const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, redirecting
+  const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, checking, redirecting
   const [payError, setPayError] = useState('');
+
+  // Al abrir el modal, comprobamos que ninguna pieza de la cesta se haya vendido o
+  // eliminado mientras tanto, para no llegar a Stripe con un carrito ya inválido.
+  useEffect(() => {
+    if (isOpen) {
+      validateCart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Estados para datos de cliente y envío
   const [email, setEmail] = useState('');
@@ -94,6 +103,24 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   // --- PAGO REAL CON STRIPE (redirige a la página segura de Stripe) ---
   const handlePagarConTarjeta = async () => {
     setPayError('');
+    setPaymentStatus('checking');
+
+    // Última comprobación por si alguna pieza se vendió o se eliminó mientras el
+    // cliente rellenaba el formulario. Si hemos tenido que quitar algo, no seguimos:
+    // le dejamos ver la cesta actualizada y pulsar Pagar otra vez.
+    const cestaValida = await validateCart();
+    if (!cestaValida) {
+      setPayError('Alguna pieza de tu cesta ya no estaba disponible y la hemos quitado automáticamente. Revisa el resumen del pedido y vuelve a intentarlo.');
+      setPaymentStatus('idle');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      setPayError('Tu cesta está vacía.');
+      setPaymentStatus('idle');
+      return;
+    }
+
     setPaymentStatus('redirecting');
 
     const itemsToSend = cartItems.map(item => ({
@@ -117,8 +144,12 @@ const CheckoutModal = ({ isOpen, onClose }) => {
       return;
     }
 
+    // El servidor hace su propia validación al crear la sesión (por si la pieza cambió
+    // justo en este instante); si rechaza algo, quitamos la cesta de la vista de "todo
+    // ok" y mostramos el motivo real que ha dado, en vez de dejar el botón sin reacción.
     setPayError(res?.error || 'No se pudo iniciar el pago. Inténtalo de nuevo.');
     setPaymentStatus('idle');
+    validateCart();
   };
 
   const handleClose = () => {
@@ -131,6 +162,13 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
   return (
     <div className="checkout-overlay">
+      {paymentStatus === 'checking' && (
+        <div className="processing-overlay">
+          <div className="classic-spinner"></div>
+          <p>Comprobando disponibilidad de tu pedido...</p>
+        </div>
+      )}
+
       {paymentStatus === 'redirecting' && (
         <div className="processing-overlay">
           <div className="classic-spinner"></div>
@@ -274,15 +312,17 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                     Al continuar te llevamos a la página de pago segura de Stripe, donde introduces los datos de tu tarjeta. Nave 5 Barcelona nunca ve ni guarda tu número de tarjeta.
                   </p>
 
-                  {payError && <p className="error-text">{payError}</p>}
+                  {payError && <p className="payment-error-box">{payError}</p>}
 
                   <button
                     type="button"
                     className="checkout-btn-solid"
                     onClick={handlePagarConTarjeta}
-                    disabled={isGeneralFormInvalid || paymentStatus === 'redirecting'}
+                    disabled={isGeneralFormInvalid || cartItems.length === 0 || paymentStatus === 'checking' || paymentStatus === 'redirecting'}
                   >
-                    Pagar {cartTotal.toFixed(2)} € de forma segura
+                    {cartItems.length === 0
+                      ? 'Tu cesta está vacía'
+                      : `Pagar ${cartTotal.toFixed(2)} € de forma segura`}
                   </button>
                 </div>
               )}

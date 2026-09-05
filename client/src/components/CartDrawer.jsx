@@ -1,5 +1,5 @@
 // client/src/components/CartDrawer.jsx
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { ToastContext } from '../context/ToastContext';
@@ -9,7 +9,7 @@ import AuthModal from './AuthModal';
 import '../styles/CartDrawer.css';
 
 const CartDrawer = () => {
-  const { isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal } = useContext(CartContext);
+  const { isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal, validateCart } = useContext(CartContext);
   const { showToast } = useContext(ToastContext);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -18,6 +18,15 @@ const CartDrawer = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
+
+  // Al abrir la cesta, comprobamos que las piezas guardadas sigan disponibles (pueden
+  // haberse vendido o eliminado desde que se añadieron, sobre todo en cestas antiguas).
+  useEffect(() => {
+    if (isCartOpen) {
+      validateCart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCartOpen]);
 
   const applyCoupon = () => {
     if (couponCode.toUpperCase() === 'BIENVENIDA10') {
