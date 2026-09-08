@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import ProductSkeleton from '../components/ProductSkeleton';
@@ -112,12 +112,13 @@ export default function Catalog() {
 
   const tituloPagina = showFavorites ? 'Tus Favoritos' : (categoriaUrl || 'Catálogo');
 
+  useDocumentMeta({
+    title: tituloPagina,
+    description: 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.',
+  });
+
   return (
     <div className="catalog-container">
-      <Helmet>
-        <title>{`${tituloPagina} | Nave 5 Barcelona`}</title>
-        <meta name="description" content="Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona." />
-      </Helmet>
       {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}
       <header className="catalog-header">
         <span style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--secondary-color)', textTransform: 'uppercase' }}>

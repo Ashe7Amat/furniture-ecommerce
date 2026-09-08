@@ -33,6 +33,8 @@ const Footer = () => {
             <Link to="/sobre-nosotros">La marca</Link>
             <Link to="/sostenibilidad">Sostenibilidad</Link>
             <Link to="/legal">Aviso Legal</Link>
+            <Link to="/privacidad">Privacidad</Link>
+            <Link to="/terminos">Términos y Condiciones</Link>
           </div>
           <div className="footer-column">
             <h4>Contacto</h4>
@@ -49,7 +51,7 @@ const Footer = () => {
           <div className="footer-column">
             <h4>Cuenta</h4>
             <Link to={user ? "/cuenta" : "/login"}>Mi cuenta</Link>
-            <a href="#">Mis pedidos</a>
+            <Link to={user ? "/cuenta?tab=pedidos" : "/login"}>Mis pedidos</Link>
             {(!user || user.rol === 'admin') && <Link to="/admin">Panel Admin</Link>}
           </div>
         </div>

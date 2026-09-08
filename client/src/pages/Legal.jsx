@@ -1,8 +1,9 @@
+import { Link } from 'react-router-dom';
 import InfoPageLayout from '../components/InfoPageLayout';
 
 const Legal = () => {
   return (
-    <InfoPageLayout eyebrow="Legal" title="Aviso Legal y Privacidad" tagline="Términos de servicio y uso">
+    <InfoPageLayout eyebrow="Legal" title="Aviso Legal" tagline="Identificación y condiciones de uso del sitio">
       <div>
         <h2 className="info-subhead-divided">1. Información General</h2>
         <p>
@@ -17,27 +18,16 @@ const Legal = () => {
       </div>
 
       <div>
-        <h2 className="info-subhead-divided">2. Propiedad Intelectual y Uso del Sitio Web</h2>
+        <h2 className="info-subhead-divided">2. Objeto del sitio web</h2>
         <p>
-          El sitio web y sus contenidos originales, incluyendo textos, diseños gráficos, logotipos, imágenes y código fuente, son propiedad exclusiva de <strong>Nave 5 Barcelona</strong> y están protegidos por las leyes internacionales de propiedad intelectual y marcas.
-        </p>
-        <p style={{ marginTop: '10px' }}>
-          El usuario se compromete a realizar un uso diligente y lícito de este sitio web. Queda prohibida la reproducción, distribución, comunicación pública o transformación no autorizada de cualquiera de sus elementos sin el consentimiento explícito y por escrito de sus titulares.
+          Este sitio web permite consultar el catálogo de piezas restauradas de Nave 5 Barcelona, gestionar una cuenta de usuario y formalizar la compra o el alquiler de piezas disponibles. Las condiciones específicas de cada operación se detallan en nuestros{' '}
+          <Link to="/terminos">Términos y Condiciones</Link>, y el tratamiento de los datos personales en nuestra{' '}
+          <Link to="/privacidad">Política de Privacidad</Link>.
         </p>
       </div>
 
       <div>
-        <h2 className="info-subhead-divided">3. Política de Privacidad (RGPD)</h2>
-        <p>
-          De conformidad con el Reglamento (UE) 2016/679 del Parlamento Europeo y del Consejo, de 27 de abril de 2016 (RGPD), y la Ley Orgánica 3/2018 (LOPDGDD), informamos que los datos recabados en nuestros formularios se tratarán bajo la responsabilidad de Nave 5 Barcelona S.L. con la única finalidad de gestionar sus solicitudes de información, pedidos y citas personalizadas.
-        </p>
-        <p style={{ marginTop: '10px' }}>
-          Sus datos no serán cedidos a terceros salvo obligación legal y se conservarán mientras dure la relación comercial o durante los años necesarios para cumplir con las obligaciones legales correspondientes. El usuario tiene derecho a acceder, rectificar, limitar y solicitar la supresión de sus datos personales enviando un correo electrónico a <strong>hola@nave5barcelona.com</strong>.
-        </p>
-      </div>
-
-      <div>
-        <h2 className="info-subhead-divided">4. Limitación de Responsabilidad</h2>
+        <h2 className="info-subhead-divided">3. Limitación de Responsabilidad</h2>
         <p>
           Nave 5 Barcelona no se hace responsable de los posibles daños o perjuicios que puedan derivarse de interferencias, omisiones, interrupciones, virus informáticos o desconexiones en el funcionamiento operativo de este sistema electrónico, motivados por causas ajenas al titular.
         </p>

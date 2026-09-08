@@ -1,15 +1,47 @@
 import { useState } from 'react';
 import InfoPageLayout from '../components/InfoPageLayout';
+import { enviarContacto } from '../services/api';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Contact = () => {
-  const [sent, setSent] = useState(false);
-  const [formData, setFormData] = useState({ nombre: '', email: '', mensaje: '' });
+  const [status, setStatus] = useState('idle'); // idle | sending | sent | error
+  const [errorMsg, setErrorMsg] = useState('');
+  const [formData, setFormData] = useState({ nombre: '', email: '', mensaje: '', web: '' });
 
-  const handleSubmit = (e) => {
+  const validar = () => {
+    if (!formData.nombre.trim() || formData.nombre.trim().length < 2) {
+      return 'Indica tu nombre.';
+    }
+    if (!EMAIL_REGEX.test(formData.email)) {
+      return 'Indica un correo electrónico válido.';
+    }
+    if (formData.mensaje.trim().length < 10) {
+      return 'Contanos un poco más — el mensaje debe tener al menos 10 caracteres.';
+    }
+    return '';
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSent(true);
-    setFormData({ nombre: '', email: '', mensaje: '' });
-    setTimeout(() => setSent(false), 5000);
+    const error = validar();
+    if (error) {
+      setStatus('error');
+      setErrorMsg(error);
+      return;
+    }
+
+    setStatus('sending');
+    const res = await enviarContacto(formData);
+    if (res.error) {
+      setStatus('error');
+      setErrorMsg(res.error);
+      return;
+    }
+
+    setStatus('sent');
+    setFormData({ nombre: '', email: '', mensaje: '', web: '' });
+    setTimeout(() => setStatus('idle'), 6000);
   };
 
   return (
@@ -45,6 +77,18 @@ const Contact = () => {
           <h3>Escríbenos tu idea</h3>
 
           <form onSubmit={handleSubmit} className="contact-form">
+            {/* Honeypot anti-spam: oculto para personas, visible para bots que rellenan todo */}
+            <input
+              type="text"
+              name="web"
+              value={formData.web}
+              onChange={(e) => setFormData({ ...formData, web: e.target.value })}
+              autoComplete="off"
+              tabIndex={-1}
+              aria-hidden="true"
+              className="contact-honeypot"
+            />
+
             <div className="contact-field">
               <label>Nombre:</label>
               <input
@@ -75,12 +119,14 @@ const Contact = () => {
               />
             </div>
 
-            <button type="submit" className="contact-submit-btn">
-              Enviar Mensaje
+            {status === 'error' && <p className="contact-error-msg">{errorMsg}</p>}
+
+            <button type="submit" className="contact-submit-btn" disabled={status === 'sending'}>
+              {status === 'sending' ? 'Enviando…' : 'Enviar Mensaje'}
             </button>
           </form>
 
-          {sent && (
+          {status === 'sent' && (
             <div className="contact-success-msg">
               ✓ ¡Mensaje enviado con éxito! Te responderemos en menos de 24 horas.
             </div>

@@ -8,6 +8,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
+import CookieConsent from './components/CookieConsent';
 import Home from './pages/Home'; // <-- Se mantiene fuera del lazy-loading: es la página de aterrizaje
 import ScrollToTop from './components/ScrollToTop';
 
@@ -24,8 +25,11 @@ const About = lazy(() => import('./pages/About'));
 const Sustainability = lazy(() => import('./pages/Sustainability'));
 const Contact = lazy(() => import('./pages/Contact'));
 const Legal = lazy(() => import('./pages/Legal'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const Terms = lazy(() => import('./pages/Terms'));
 const CheckoutExito = lazy(() => import('./pages/CheckoutExito'));
 const CheckoutCancelado = lazy(() => import('./pages/CheckoutCancelado'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Indicador mínimo mientras se descarga una página (solo se ve una fracción de segundo,
 // habitualmente ni llega a mostrarse gracias a la caché del navegador).
@@ -57,16 +61,22 @@ function App() {
                     <Route path="/sostenibilidad" element={<Sustainability />} />
                     <Route path="/contacto" element={<Contact />} />
                     <Route path="/legal" element={<Legal />} />
+                    <Route path="/privacidad" element={<PrivacyPolicy />} />
+                    <Route path="/terminos" element={<Terms />} />
 
                     <Route path="/checkout/exito" element={<CheckoutExito />} />
                     <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
 
                     {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                     <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />
+
+                    {/* Cualquier otra ruta: página 404 (siempre al final) */}
+                    <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
                 <Footer />
                 <CartDrawer />
+                <CookieConsent />
               </div>
             </BrowserRouter>
           </CartProvider>

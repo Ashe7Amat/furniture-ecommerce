@@ -318,3 +318,20 @@ export const actualizarEstadoPedido = async (id, estado) => {
     return null;
   }
 };
+
+// Envía el formulario de "Contacto". "web" es un campo honeypot (ver contactoController).
+export const enviarContacto = async ({ nombre, email, mensaje, web }) => {
+  try {
+    const response = await fetch(`${API_URL}/contacto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, email, mensaje, web })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se pudo enviar el mensaje.');
+    return { success: true };
+  } catch (error) {
+    console.error('Error en enviarContacto:', error);
+    return { error: error.message };
+  }
+};

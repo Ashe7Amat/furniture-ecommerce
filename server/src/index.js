@@ -7,8 +7,20 @@ const mueblesRoutes = require('./routes/mueblesRoutes');
 const authRoutes = require('./routes/authRoutes');
 const categoriasRoutes = require('./routes/categoriasRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
+const contactoRoutes = require('./routes/contactoRoutes');
 
 const app = express();
+
+// Fuerza HTTPS en producción. Vercel ya sirve todo por HTTPS y redirige el tráfico HTTP
+// automáticamente, pero si este servidor llega a correr detrás de otro proxy (Render,
+// Railway, un VPS propio...) que sí deje pasar HTTP en texto plano, esta cabecera
+// "x-forwarded-proto" es la forma estándar de saber si la petición original era HTTP.
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.headers['x-forwarded-proto'] === 'http') {
+    return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
+  }
+  next();
+});
 
 // Cabeceras de seguridad estándar (X-Content-Type-Options, Referrer-Policy, etc.)
 // Desactivamos CSP y COEP porque este servidor es una API JSON pura -- esas cabeceras
@@ -47,6 +59,7 @@ app.use('/api/muebles', mueblesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);
 app.use('/api/pedidos', pedidosRoutes);
+app.use('/api/contacto', contactoRoutes);
 
 // Ruta base de comprobación
 app.get('/', (req, res) => {

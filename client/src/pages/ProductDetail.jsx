@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -42,6 +42,12 @@ const ProductDetail = () => {
     fetchMueble();
   }, [id]);
 
+  useDocumentMeta({
+    title: mueble?.nombre,
+    description: mueble?.descripcion || 'Pieza de diseño restaurada a mano en Nave 5 Barcelona',
+    image: mainImage,
+  });
+
   if (loading) {
     return (
       <div className="pd-loading-container">
@@ -69,19 +75,6 @@ const ProductDetail = () => {
 
   return (
     <div className="pd-container">
-      <Helmet>
-        <title>{`${mueble.nombre} | Nave 5 Barcelona`}</title>
-        <meta name="description" content={mueble.descripcion || 'Pieza de diseño restaurada a mano en Nave 5 Barcelona'} />
-        <meta property="og:title" content={`${mueble.nombre} | Nave 5 Barcelona`} />
-        <meta property="og:description" content={mueble.descripcion || 'Pieza de diseño restaurada a mano en Nave 5 Barcelona'} />
-        <meta property="og:image" content={mainImage} />
-        <meta property="og:type" content="product" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${mueble.nombre} | Nave 5 Barcelona`} />
-        <meta name="twitter:description" content={mueble.descripcion || 'Pieza de diseño restaurada a mano en Nave 5 Barcelona'} />
-        <meta name="twitter:image" content={mainImage} />
-      </Helmet>
-
       <div className="pd-breadcrumb">
         <button onClick={() => navigate(-1)} className="pd-back-link">
           &larr; Volver a la colección

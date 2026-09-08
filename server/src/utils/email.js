@@ -287,4 +287,45 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
   }
 };
 
-module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida };
+// Envía a ADMIN_EMAIL el mensaje escrito en el formulario de "Contacto". A diferencia
+// de los correos anteriores, aquí sí importa que el controlador sepa si el envío
+// falló (para avisar al visitante de que lo intente de nuevo), así que devuelve
+// true/false en vez de tragarse el error.
+const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
+  try {
+    if (!resend) {
+      console.log(`[SIMULACIÓN EMAIL] Contacto de ${nombre} <${email}>: ${mensaje}`);
+      return true;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: EMAIL_ADMIN,
+      replyTo: email,
+      subject: `Nuevo mensaje de contacto — ${nombre}`,
+      html: `
+        <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
+          <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
+            Nuevo mensaje desde el formulario de contacto
+          </h2>
+          <p style="color: #857468;"><strong>Nombre:</strong> ${nombre}</p>
+          <p style="color: #857468;"><strong>Email:</strong> ${email}</p>
+          <p style="color: #3E322A; white-space: pre-wrap;">${mensaje}</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error al enviar el mensaje de contacto (Resend):', error);
+      return false;
+    }
+
+    console.log('Mensaje de contacto enviado. ID Resend:', data?.id);
+    return true;
+  } catch (error) {
+    console.error('Error al enviar el mensaje de contacto (Resend):', error.message || error);
+    return false;
+  }
+};
+
+module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto };
