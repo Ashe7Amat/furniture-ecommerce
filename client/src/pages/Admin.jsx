@@ -349,7 +349,7 @@ const Admin = () => {
     const cantidad = seleccionados.length;
     confirmarBorrado(
       'Eliminar productos seleccionados',
-      `¿Seguro que querés eliminar ${cantidad} producto${cantidad === 1 ? '' : 's'} de forma permanente?`,
+      `¿Seguro que quieres eliminar ${cantidad} producto${cantidad === 1 ? '' : 's'} de forma permanente?`,
       async () => {
         await Promise.all(seleccionados.map(id => deleteMueble(id)));
         showToast(`${cantidad} producto${cantidad === 1 ? '' : 's'} eliminado${cantidad === 1 ? '' : 's'}`, 'success');

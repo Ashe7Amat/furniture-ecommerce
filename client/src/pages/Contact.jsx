@@ -17,7 +17,7 @@ const Contact = () => {
       return 'Indica un correo electrónico válido.';
     }
     if (formData.mensaje.trim().length < 10) {
-      return 'Contanos un poco más — el mensaje debe tener al menos 10 caracteres.';
+      return 'Cuéntanos un poco más — el mensaje debe tener al menos 10 caracteres.';
     }
     return '';
   };

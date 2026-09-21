@@ -68,7 +68,7 @@ export default function Home() {
                             src={slide.src}
                             alt={slide.alt}
                             decoding="async"
-                            fetchPriority={i === 0 ? 'high' : undefined}
+                            fetchpriority={i === 0 ? 'high' : undefined}
                             loading={i === 0 ? undefined : 'lazy'}
                             className={`hero-slide-img${i === heroSlide ? ' is-active' : ''}`}
                         />

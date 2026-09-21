@@ -25,7 +25,7 @@ const CookieConsent = () => {
   return (
     <div className="cookie-banner" role="dialog" aria-label="Consentimiento de cookies">
       <p>
-        Usamos cookies esenciales para que la web funcione y, si nos das permiso, cookies de analítica para entender cómo se usa el sitio. Podés leer más en nuestra{' '}
+        Usamos cookies esenciales para que la web funcione y, si nos das permiso, cookies de analítica para entender cómo se usa el sitio. Puedes leer más en nuestra{' '}
         <Link to="/privacidad">Política de Privacidad</Link>.
       </p>
       <div className="cookie-banner-actions">
