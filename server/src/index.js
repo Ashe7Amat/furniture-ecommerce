@@ -32,10 +32,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Cabeceras de seguridad estándar (X-Content-Type-Options, Referrer-Policy, etc.)
-// Desactivamos CSP y COEP porque este servidor es una API JSON pura -- esas cabeceras
-// están pensadas para páginas que sirven HTML propio, no para respuestas de API.
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Cabeceras de seguridad estándar (X-Content-Type-Options, Referrer-Policy, HSTS, etc., todas
+// activadas por defecto por helmet). Desactivamos COEP porque está pensada para páginas que
+// aíslan recursos cross-origin (SharedArrayBuffer y similares), no para una API JSON.
+//
+// CSP mínima a propósito: este servidor solo devuelve JSON, nunca HTML ni ejecuta nada en un
+// navegador, así que no necesita permitir scripts/estilos/imágenes de ningún sitio -- "default-src
+// 'none'" es lo más restrictivo posible. La CSP que de verdad importa (la que controla qué puede
+// cargar la página web) vive en client/vercel.json, no aquí.
+app.use(helmet({
+  contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
+  crossOriginEmbedderPolicy: false,
+}));
 
 // Comprime las respuestas (gzip/brotli) -- reduce el peso de las respuestas de la API,
 // sobre todo la lista de muebles con imágenes y descripciones.
