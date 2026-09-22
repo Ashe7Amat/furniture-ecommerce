@@ -143,11 +143,9 @@ const actualizarPerfil = async (req, res) => {
     // Solo verificar la contraseña si se está intentando cambiar email o contraseña
     if (estaCambiandoEmail || estaCambiandoPassword) {
       if (!passwordActual) {
-        return res
-          .status(400)
-          .json({
-            error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.'
-          });
+        return res.status(400).json({
+          error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.'
+        });
       }
 
       // 1. Buscar al usuario en la base de datos para comparar contraseñas

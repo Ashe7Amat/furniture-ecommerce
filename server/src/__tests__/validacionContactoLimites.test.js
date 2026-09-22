@@ -38,13 +38,11 @@ describe('POST /api/contacto — límites de longitud', () => {
 
   test('un mensaje válido con espacios de sobra llega recortado al envío de email', async () => {
     const enviar = mock.method(email, 'enviarMensajeContacto', async () => true);
-    const res = await request(app)
-      .post('/api/contacto')
-      .send({
-        nombre: '  Ana  ',
-        email: ' ana@example.com ',
-        mensaje: '  Hola, quería preguntar algo.  '
-      });
+    const res = await request(app).post('/api/contacto').send({
+      nombre: '  Ana  ',
+      email: ' ana@example.com ',
+      mensaje: '  Hola, quería preguntar algo.  '
+    });
 
     assert.equal(res.status, 200);
     const enviado = enviar.mock.calls[0].arguments[0];
