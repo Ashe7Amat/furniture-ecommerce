@@ -1,8 +1,11 @@
 import { useState, useEffect, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
+import { useCatalogView } from '../utils/useCatalogView';
 import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
+import ProductsTable from '../components/ProductsTable';
+import CatalogViewToggle from '../components/CatalogViewToggle';
 import ProductSkeleton from '../components/ProductSkeleton';
 import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -27,6 +30,7 @@ export default function Catalog() {
   const [soloDisponibles, setSoloDisponibles] = useState(false);
   const [loading, setLoading] = useState(true);
   const [orden, setOrden] = useState('recomendados');
+  const [vista, setVista] = useCatalogView();
 
   // 1. Cargar datos usando el servicio centralizado (nunca fetch manual)
   useEffect(() => {
@@ -197,6 +201,11 @@ export default function Catalog() {
             <option value="mayor">Precio: Mayor a Menor</option>
           </select>
         </div>
+
+        <div className="filter-group filter-group--view-toggle">
+          <span className="filter-group-label-static">Vista</span>
+          <CatalogViewToggle vista={vista} onChange={setVista} />
+        </div>
       </div>
 
       {/* SKELETON LOADERS mientras carga */}
@@ -207,20 +216,24 @@ export default function Catalog() {
           ))}
         </div>
       ) : mueblesFiltrados.length > 0 ? (
-        <div
-          key={categoriaUrl || 'all'}
-          className="products-grid products-grid--animated"
-        >
-          {mueblesFiltrados.map((mueble, index) => (
-            <div
-              key={mueble.id}
-              className="product-card-animated"
-              style={{ animationDelay: `${index * 0.06}s` }}
-            >
-              <ProductCard mueble={mueble} />
-            </div>
-          ))}
-        </div>
+        vista === 'table' ? (
+          <ProductsTable productos={mueblesFiltrados} />
+        ) : (
+          <div
+            key={categoriaUrl || 'all'}
+            className="products-grid products-grid--animated"
+          >
+            {mueblesFiltrados.map((mueble, index) => (
+              <div
+                key={mueble.id}
+                className="product-card-animated"
+                style={{ animationDelay: `${index * 0.06}s` }}
+              >
+                <ProductCard mueble={mueble} />
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         <div className="empty-state">
           <h2>{showFavorites ? 'Aún no tienes favoritos' : 'No hay productos en esta categoría'}</h2>
