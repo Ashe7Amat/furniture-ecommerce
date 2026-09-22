@@ -9,7 +9,7 @@ conversación.
 | # | Tarea | Estado |
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
-| 2 | Seguridad: CSP, CORS, bcrypt, JWT + refresh, Zod, HSTS, `service_role` obligatoria | Pendiente |
+| 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` | Pendiente. Solo se crean los archivos; no se aplican a la BD real sin permiso |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | Pendiente |
 | 5 | Tests: servidor, cliente y E2E | Pendiente (la tarea 1 ya deja más de 90 tests en el servidor) |
@@ -29,6 +29,46 @@ conversación.
 4. Enviar un evento de prueba desde Stripe y comprobar respuesta 200, pedido en el panel y emails. Si con una
    firma correcta respondiera 400, revisar el log: "el cuerpo no llegó como Buffer" indicaría que algo parsea
    el cuerpo antes de tiempo.
+
+## Tarea 2: seguridad y validación (detalle)
+
+- **CSP servidor:** `default-src 'none'` en helmet (`server/src/index.js`) -- la API solo devuelve JSON, no sirve
+  HTML ni ejecuta nada en un navegador, así que es la política más restrictiva posible. HSTS no se ha tocado
+  porque helmet ya lo activaba por defecto (comprobado, no solo asumido: `max-age=31536000; includeSubDomains`
+  ya estaba presente antes de esta tarea).
+- **CSP cliente (`client/vercel.json`):** `Content-Security-Policy-Report-Only`, sin pasar a enforcing. Dos
+  matices sobre las directivas:
+  - Se quitó un comodín `https://*.vercel.app` de `connect-src` que había puesto yo mismo por descuido: mismo
+    problema que el comodín de CORS que esta tarea elimina (cualquiera puede desplegar un proyecto en Vercel).
+    Si algún día un despliegue de vista previa del backend necesita ser alcanzado desde un preview del
+    frontend, hay que añadir su origen exacto a `connect-src` a mano -- misma fricción aceptada que con
+    `ALLOWED_ORIGINS` en CORS.
+  - `script-src` y `connect-src` incluyen `js.stripe.com`/`api.stripe.com` a petición explícita, aunque **el
+    checkout actual no los usa** (es una redirección de página completa a `session.url`, no Stripe.js/Elements
+    embebido -- comprobado, no hay ningún `loadStripe`/`@stripe/stripe-js` en el cliente). Quedan preparados
+    para cuando las pestañas "Apple Pay"/"Bizum" del checkout tengan una implementación real; si eso no llega a
+    pasar, se pueden quitar sin que nada se rompa.
+- **CORS:** `CLIENT_URL` + `ALLOWED_ORIGINS` (lista separada por comas, orígenes exactos), sin comodín.
+- **`data/supabase.js` falla al arrancar** sin `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`; ya no hay respaldo a
+  la clave `anon`. `.github/workflows/ci.yml` define ambas como variables de prueba para el job del servidor.
+- **Zod** en auth/muebles/pedidos/contacto (`server/src/schemas/`), con un middleware común
+  (`middleware/validar.js`) y una clase `ErrorValidacion` (`utils/errores.js`) que distingue, en el manejador de
+  errores central y en `crearSesionPago`, qué mensajes se le pueden mostrar tal cual a quien hizo la petición.
+  `categorias` queda fuera a propósito (no estaba en el alcance pedido).
+- **Escape de HTML en emails:** H2 resuelto (ver abajo).
+- **Cambios de comportamiento deliberados** (documentados y probados, no hace falta revisarlos de nuevo):
+  - El formulario de contacto ahora **rechaza** (400) un nombre/email/mensaje demasiado largo en vez de
+    recortarlo en silencio como antes.
+  - `actualizarPerfil` ahora rechaza un `nuevoNombre` vacío y exige formato de email en `nuevoEmail` (antes no
+    validaba ninguno de los dos).
+  - `crearSesionPago`: un error que no sea de validación ahora responde 500 genérico en vez de 400 con el
+    mensaje interno tal cual (ver H3 más abajo).
+- **Bug real encontrado y corregido durante esta tarea, en código de la propia tarea:**
+  `schemas/muebles.js` (`precioOpcional`) trataba un precio de solo espacios (`'   '`) como `0` en vez de vacío,
+  porque `Number('   ')` vale `0` en JavaScript, no `NaN`. Detectado por una revisión adversarial antes de
+  commitear; corregido con un `.trim()` y cubierto con un test.
+- **Pendiente al desplegar:** configurar `ALLOWED_ORIGINS` y `SUPABASE_SERVICE_ROLE_KEY` en las variables de
+  entorno de Vercel *antes* de desplegar esta rama -- sin la segunda, el servidor no arranca en absoluto.
 
 ## Hallazgos abiertos
 
@@ -50,28 +90,50 @@ conversación.
   antiguo (un solo valor) falla con 7 piezas —el fallo original, reproducido tal cual—, y el formato nuevo
   funciona con 7, con 100 piezas y con notas de 500 caracteres. Las sesiones de prueba creadas se caducan solas
   al terminar el test, no quedan abiertas en el Dashboard.
-- **Nota de honestidad sobre la cobertura:** el controlador distingue `ErrorMetadata` (400 con mensaje claro)
-  de cualquier otro error, pero como el `catch` exterior de `crearSesionPago` ya devuelve 400 con
-  `error.message` para cualquier excepción (ver H3), esa distinción todavía no cambia nada observable por los
-  tests; empezará a importar cuando H3 separe errores de negocio de errores internos.
+- **Nota de honestidad ya superada:** la distinción `ErrorMetadata`/`ErrorValidacion` no cambiaba nada
+  observable hasta que se resolvió H3 (tarea 2). Ahora sí importa: ver H3.
 
-### H2 · MEDIA · Plantillas de email antiguas sin escapar HTML
+### H2 · RESUELTO (tarea 2) · Plantillas de email antiguas sin escapar HTML
 
-- **Dónde:** `server/src/utils/email.js`: `construirHtmlVenta`, `construirHtmlConfirmacionCliente` y
-  `enviarMensajeContacto` insertan nombre, dirección, notas, email y mensaje tal cual llegan del comprador o
-  del visitante.
-- **Impacto:** se puede inyectar HTML o enlaces en los correos que recibe el administrador (y en el de
-  confirmación que recibe el comprador).
-- **Propuesta:** usar `escaparHtml` (ya existe en el mismo archivo, la usa `enviarAlertaAdmin`) en todas las
-  plantillas y añadir tests con `<script>` y comillas. Tarea 2.
+- **Qué se hizo:** `escaparHtml` (ya existía para `enviarAlertaAdmin`, de la tarea 1) se aplicó también en
+  `construirHtmlVenta`, `construirHtmlConfirmacionCliente`, `construirHtmlBienvenida` y en la plantilla inline
+  de `enviarMensajeContacto`.
+- **Verificado:** `emailEscape.test.js`, con un payload `<script>alert(1)</script> & "Cía" <img src=x
+  onerror=alert(2)>` en cada campo relevante (nombre, email, teléfono, dirección, notas del comprador; nombre
+  de pieza; nombre del cliente en el email de bienvenida; nombre/email/mensaje del formulario de contacto):
+  ninguna etiqueta `<script>`/`<img>` sobrevive, el texto queda escapado.
 
-### H3 · MEDIA · `crear-sesion-pago` devuelve el mensaje de error sin filtrar
+### H3 · RESUELTO en su mayor parte (tarea 2) · `crear-sesion-pago` devolvía el mensaje de error sin filtrar
 
-- **Dónde:** `catch` de `crearSesionPago` (`res.status(400).json({ error: error.message ... })`).
-- **Impacto:** el cliente recibe mensajes internos de Stripe o de JavaScript, en inglés y con detalles que no
-  deberían salir.
-- **Propuesta:** distinguir errores de negocio (pieza no disponible, con mensaje en castellano) de los
-  inesperados (mensaje genérico y detalle solo en el log). Tarea 2.
+- **Qué se hizo:** el `catch` de `crearSesionPago` distingue ahora `ErrorValidacion` (400, mensaje tal cual --
+  cubre carrito/datos del comprador que no caben en la metadata, y piezas no disponibles, que ahora lanzan
+  `ErrorValidacion` en vez de `Error`) de cualquier otro error (500, mensaje genérico, detalle solo en el log).
+  Antes, cualquier excepción (incluida una caída real de la API de Stripe) se devolvía como 400 con su
+  `.message` sin filtrar.
+- **Verificado:** test en `confirmarSesion.test.js` que fuerza un fallo interno de Stripe y comprueba que la
+  respuesta es 500 genérica, sin la cadena del error interno en ningún sitio del cuerpo. Mutación: revertir la
+  distinción hace fallar ese test.
+- **No completamente cerrado:** esto cubre `crearSesionPago`. No se ha auditado sistemáticamente el resto de
+  controladores (p. ej. errores de Supabase que se re-lanzan tal cual en algún otro sitio) en busca del mismo
+  patrón -- no estaba en el alcance de esta tarea.
+
+### H8 · MEDIA · `data/supabase.js` acepta una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
+
+- **Dónde:** `server/src/data/supabase.js`, la comprobación `!supabaseUrl.startsWith('http')` acepta tanto
+  `http://` como `https://`. Es un comportamiento heredado (idéntico antes y después de la tarea 2, comprobado
+  con `git show HEAD`): no lo introdujo esta tarea, pero una revisión de la tarea 2 lo detectó al comprobar el
+  fallo rápido a fondo, y es un fallo de seguridad real, no una nota pasiva para archivar sin fecha.
+- **Impacto:** un typo de `https://` a `http://` en las variables de entorno de Vercel (o en `server/.env`) no
+  se detecta al arrancar. La clave `service_role` —que se salta todas las políticas de seguridad de Supabase—
+  viajaría sin cifrar en cada petición si esa URL alguna vez resolviera a una conexión real. Supabase Cloud da
+  siempre URLs `https://`, así que hoy el disparador es solo un error de tecleo humano, no algo que un
+  atacante pueda forzar por sí solo; aun así, el resultado de ese error de tecleo (una clave con acceso total
+  a la base de datos circulando en texto plano) es serio, de ahí la severidad media.
+- **Cuándo se cierra:** tarea 3 o 4 (la primera que toque `data/supabase.js` de nuevo). La corrección es
+  pequeña: exigir `supabaseUrl.startsWith('https://')`, con una excepción explícita para
+  `NODE_ENV === 'development'` (para no bloquear un Supabase self-hosted en local por http). No se hace ahora
+  porque no estaba en el alcance de la tarea 2 y toda edición de un archivo de seguridad en esta rama pasa por
+  su propio commit y su propio diff revisado — no se cuela como añadido de última hora en otro commit.
 
 ### H4 · BAJA · Los límites de peticiones viven en memoria
 
