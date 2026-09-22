@@ -44,8 +44,12 @@ conversación.
   forma parte de `npm test`; se lanza a mano con `npm run test:stripe` si hay una `STRIPE_SECRET_KEY` de prueba
   en `server/.env`). Ese último test reproduce el fallo original contra Stripe de verdad, no solo contra su
   documentación.
-- **Queda pendiente ejecutar** `npm run test:stripe` al menos una vez con una clave de prueba real, para
-  confirmar el contrato; no se ha hecho en esta sesión porque `server/.env` no tenía clave de Stripe.
+- **`npm run test:stripe` ejecutado (22 sep 2026) con una clave de prueba real** (`STRIPE_SECRET_KEY` en
+  `server/.env`, que sigue sin subirse al repo): 7/7 tests contra la API real. Confirmado contra Stripe de
+  verdad, no solo su documentación: los límites de 500 caracteres/50 claves son exactamente esos, el formato
+  antiguo (un solo valor) falla con 7 piezas —el fallo original, reproducido tal cual—, y el formato nuevo
+  funciona con 7, con 100 piezas y con notas de 500 caracteres. Las sesiones de prueba creadas se caducan solas
+  al terminar el test, no quedan abiertas en el Dashboard.
 - **Nota de honestidad sobre la cobertura:** el controlador distingue `ErrorMetadata` (400 con mensaje claro)
   de cualquier otro error, pero como el `catch` exterior de `crearSesionPago` ya devuelve 400 con
   `error.message` para cualquier excepción (ver H3), esa distinción todavía no cambia nada observable por los
