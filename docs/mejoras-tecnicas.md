@@ -8,7 +8,7 @@ conversación.
 
 | # | Tarea | Estado |
 |---|-------|--------|
-| 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
+| 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, bcrypt, JWT + refresh, Zod, HSTS, `service_role` obligatoria | Pendiente |
 | 3 | Migraciones SQL en `server/migrations/` | Pendiente. Solo se crean los archivos; no se aplican a la BD real sin permiso |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | Pendiente |
@@ -32,21 +32,24 @@ conversación.
 
 ## Hallazgos abiertos
 
-### H1 · ALTA · El límite de 500 caracteres de la metadata de Stripe puede impedir pagar
+### H1 · RESUELTO (commit `1e23a5d`) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
-- **Dónde:** `crearSesionPago` (`server/src/controllers/mueblesController.js`) guarda `items`,
-  `clienteNotas`, `clienteDireccion`... en la `metadata` de la sesión, y Stripe admite hasta 500 caracteres por
-  valor.
-- **Impacto:** cada pieza ocupa unos 73-75 caracteres en `items`, así que con 7 o más se supera el límite.
-  Además el campo de notas del checkout (`client/src/components/CheckoutModal.jsx`) no tiene `maxLength`: una
-  nota de entrega de más de 500 caracteres impide pagar incluso con una sola pieza. El comprador ve el mensaje
-  de error de Stripe, en inglés (ver H3).
-- **Comprobación:** según la documentación de Stripe; no se ha probado contra la API real.
-- **Propuesta:** (a) `maxLength` en notas y dirección, y validación en el servidor con mensaje en castellano;
-  (b) repartir `items` en varias claves (`items_0`, `items_1`...) y que `leerItemsDeSesion`
-  (`server/src/utils/pagos.js`) las una, o guardar el carrito en la BD y llevar solo un id en la metadata.
-  Añadir un test con 7 o más piezas.
-- **Cuándo:** antes de salir a producción real.
+- **Qué se hizo:** `server/src/utils/metadataStripe.js` reparte el carrito en varias claves (`items_0`,
+  `items_1`...) y valida cada dato del comprador contra el límite de 500 caracteres antes de llamar a Stripe,
+  con mensaje en castellano. El checkout (`client/src/components/CheckoutModal.jsx`) tiene ahora `maxLength` en
+  todos los campos de texto.
+- **Verificado:** unitarios (`metadataStripe.test.js`, incluida una comprobación de ida y vuelta de 1 a 120
+  piezas), extremo a extremo con dobles (`crearSesionPago.test.js`, carrito grande + nota larga = pago OK) y un
+  test de contrato contra la **API real de Stripe en modo test** (`__tests__/contract/stripe.contract.js`, no
+  forma parte de `npm test`; se lanza a mano con `npm run test:stripe` si hay una `STRIPE_SECRET_KEY` de prueba
+  en `server/.env`). Ese último test reproduce el fallo original contra Stripe de verdad, no solo contra su
+  documentación.
+- **Queda pendiente ejecutar** `npm run test:stripe` al menos una vez con una clave de prueba real, para
+  confirmar el contrato; no se ha hecho en esta sesión porque `server/.env` no tenía clave de Stripe.
+- **Nota de honestidad sobre la cobertura:** el controlador distingue `ErrorMetadata` (400 con mensaje claro)
+  de cualquier otro error, pero como el `catch` exterior de `crearSesionPago` ya devuelve 400 con
+  `error.message` para cualquier excepción (ver H3), esa distinción todavía no cambia nada observable por los
+  tests; empezará a importar cuando H3 separe errores de negocio de errores internos.
 
 ### H2 · MEDIA · Plantillas de email antiguas sin escapar HTML
 
