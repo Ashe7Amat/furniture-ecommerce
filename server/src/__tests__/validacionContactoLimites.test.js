@@ -1,7 +1,7 @@
 // Límites de longitud de /api/contacto (task 2, punto 6): en su propio archivo/proceso para no
 // compartir el contador del limitador (5 mensajes por IP cada 15 min) con
 // validacionContacto.test.js. Aquí caben 3 peticiones.
-const { test, describe, beforeEach, afterEach, mock } = require('node:test');
+const { test, describe, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 require('./helpers/testEnv');

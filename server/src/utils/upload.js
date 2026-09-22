@@ -47,7 +47,7 @@ const uploadToSupabase = async (file, folder = 'uploads') => {
   const fileName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${extension}`;
 
   // Subimos el archivo a Supabase Storage
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from('imagenes')
     .upload(fileName, buffer, {
       contentType,
