@@ -22,6 +22,18 @@ if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
     'servidor. Revisa server/.env en local, o las variables de entorno del proyecto en Vercel.'
   );
 }
+// H8: en producción, SUPABASE_URL debe ser https:// -- si no, la clave service_role (que se
+// salta todas las políticas de seguridad de Supabase) viajaría sin cifrar en cada petición. Un
+// typo de "https://" a "http://" en las variables de entorno de producción (hoy Vercel, pero
+// esto no debe dar por hecho dónde se despliega) no se detectaba antes de este cambio. Se
+// permite http:// fuera de producción para no bloquear un Supabase self-hosted en local.
+if (process.env.NODE_ENV === 'production' && !supabaseUrl.startsWith('https://')) {
+  throw new Error(
+    'SUPABASE_URL debe empezar por "https://" en producción (revisa un posible typo a ' +
+    '"http://" en las variables de entorno de producción): con http:// la clave service_role ' +
+    'viajaría sin cifrar en cada petición.'
+  );
+}
 if (!supabaseKey) {
   throw new Error(
     'Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno del servidor. Cópiala desde ' +
