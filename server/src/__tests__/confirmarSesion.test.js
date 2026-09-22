@@ -17,6 +17,7 @@ const app = require('../index');
 const supabase = require('../data/supabase');
 const email = require('../utils/email');
 const stripeUtil = require('../utils/stripe');
+const { leerItemsDeMetadata } = require('../utils/metadataStripe');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const {
   SECRETO_WEBHOOK, MUEBLES_DE_PRUEBA, crearSesion, crearEventoCompletado, firmarEvento
@@ -247,7 +248,7 @@ describe('POST /api/muebles/crear-sesion-pago', () => {
     assert.equal(parametros.line_items[0].price_data.unit_amount, 125000);
     assert.equal(parametros.customer_email, 'ana@example.com');
     assert.match(parametros.success_url, /^https:\/\/tienda\.example\.com\/checkout\/exito\?session_id=\{CHECKOUT_SESSION_ID\}$/);
-    assert.deepEqual(JSON.parse(parametros.metadata.items), [{ productId: 'mueble-1', modalidad: 'compra' }]);
+    assert.deepEqual(leerItemsDeMetadata(parametros.metadata), [{ productId: 'mueble-1', modalidad: 'compra' }]);
     assert.equal(parametros.metadata.clienteEmail, 'ana@example.com');
   });
 

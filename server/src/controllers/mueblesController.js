@@ -2,6 +2,7 @@ const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
+const { construirMetadataPago, ErrorMetadata } = require('../utils/metadataStripe');
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -235,8 +236,19 @@ const crearSesionPago = async (req, res) => {
     }
 
     const { items, clienteInfo } = req.body;
-    if (!items || items.length === 0) {
+    if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'El carrito de compras está vacío.' });
+    }
+
+    // Se valida antes de tocar la base de datos o Stripe: si un dato del comprador es
+    // demasiado largo, o el carrito no cabe en la metadata, se le dice con claridad en lugar de
+    // dejar que Stripe rechace la sesión con un error en inglés.
+    let metadata;
+    try {
+      metadata = construirMetadataPago({ items, clienteInfo });
+    } catch (error) {
+      if (error instanceof ErrorMetadata) return res.status(400).json({ error: error.message });
+      throw error;
     }
 
     const lineas = await construirLineasDesdeCarrito(items);
@@ -255,14 +267,7 @@ const crearSesionPago = async (req, res) => {
       customer_email: clienteInfo?.email || undefined,
       success_url: `${process.env.CLIENT_URL}/checkout/exito?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/checkout/cancelado`,
-      metadata: {
-        items: JSON.stringify(items.map(i => ({ productId: i.productId, modalidad: i.modalidad }))),
-        clienteNombre: clienteInfo?.nombre || '',
-        clienteEmail: clienteInfo?.email || '',
-        clienteTelefono: clienteInfo?.telefono || '',
-        clienteDireccion: clienteInfo?.direccion || '',
-        clienteNotas: clienteInfo?.notas || ''
-      }
+      metadata
     });
 
     res.status(200).json({ url: session.url });

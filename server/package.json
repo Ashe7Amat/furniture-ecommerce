@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "test:stripe": "node --test src/__tests__/contract/stripe.contract.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",

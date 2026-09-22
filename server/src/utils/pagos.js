@@ -7,6 +7,7 @@
 const crypto = require('crypto');
 const supabase = require('../data/supabase');
 const email = require('./email');
+const { juntarItems, leerItemsDeMetadata } = require('./metadataStripe');
 
 const CODIGO_VIOLACION_UNICIDAD = '23505';
 
@@ -34,20 +35,7 @@ const idPedidoDeSesion = (sessionId) => {
 
 // Piezas del carrito que crearSesionPago guardó en la metadata de la sesión de Stripe.
 // Devuelve null si no hay o no se pueden leer (p. ej. una sesión que no es de esta tienda).
-const leerItemsDeSesion = (session) => {
-  const bruto = session?.metadata?.items;
-  if (!bruto) return null;
-  try {
-    const items = JSON.parse(bruto);
-    // Cada elemento debe ser un objeto con productId: una metadata corrupta (p. ej. [null])
-    // haría fallar el procesado siempre y Stripe reintentaría el webhook durante días.
-    const validos = Array.isArray(items) && items.length > 0
-      && items.every(item => item && typeof item.productId === 'string' && item.productId.length > 0);
-    return validos ? items : null;
-  } catch {
-    return null;
-  }
-};
+const leerItemsDeSesion = (session) => leerItemsDeMetadata(session?.metadata);
 
 const leerClienteDeSesion = (session) => ({
   nombre: session.metadata.clienteNombre,
@@ -300,7 +288,7 @@ const avisarPagoSinRegistrar = async (session, error) => {
       `Importe cobrado: ${((session.amount_total || 0) / 100).toFixed(2)} €`,
       `Comprador: ${meta.clienteNombre || 'sin nombre'} <${meta.clienteEmail || 'sin email'}> · ${meta.clienteTelefono || 'sin teléfono'}`,
       `Dirección de entrega: ${meta.clienteDireccion || 'sin dirección'}`,
-      `Piezas (ID y modalidad): ${meta.items || 'sin datos'}`,
+      `Piezas (ID y modalidad): ${juntarItems(meta) || 'sin datos'}`,
       `Motivo del fallo: ${(error && error.message) || error}`,
       'El pago está cobrado pero el pedido no consta en el panel. Regístralo a mano o configura el webhook de Stripe para que se reintente solo.'
     ]
