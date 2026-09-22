@@ -7,6 +7,7 @@
 // Si una actualización de supabase-js cambiara la forma de estas peticiones, falla aquí.
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
+require('./helpers/testEnv');
 
 process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad
 

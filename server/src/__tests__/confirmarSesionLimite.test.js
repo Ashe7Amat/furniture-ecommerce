@@ -4,6 +4,7 @@
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
+require('./helpers/testEnv');
 
 process.env.VERCEL = '1'; // para que cuente por la IP de X-Forwarded-For
 process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad

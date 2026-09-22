@@ -49,21 +49,27 @@ app.use(helmet({
 // sobre todo la lista de muebles con imágenes y descripciones.
 app.use(compression());
 
-// CORS: solo se acepta el frontend real de Nave 5, nunca cualquier origen. Se admite
-// también localhost para desarrollo. CLIENT_URL ya se usaba para las URLs de Stripe.
+// CORS: solo se acepta el frontend real de Nave 5, nunca cualquier origen. Se admite también
+// localhost para desarrollo. CLIENT_URL ya se usaba para las URLs de Stripe.
+//
+// ALLOWED_ORIGENS es una lista adicional, separada por comas, de orígenes exactos permitidos
+// (por ejemplo, la URL de un despliegue de vista previa de Vercel de una rama concreta). Antes
+// se admitía CUALQUIER *.vercel.app -- un comodín demasiado abierto, porque cualquiera puede
+// desplegar un proyecto en Vercel y su dominio también terminaría en ".vercel.app". Ahora, sin
+// una entrada exacta en ALLOWED_ORIGINS, un despliegue de vista previa no queda autorizado: hay
+// que añadir su URL a mano. Es una fricción aceptada a cambio de no dejar la puerta abierta a
+// cualquier origen de ese dominio.
 const origenesPermitidos = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:5174',
+  ...(process.env.ALLOWED_ORIGINS || '').split(',').map(origen => origen.trim()),
 ].filter(Boolean);
 
 app.use(cors({
   origin(origin, callback) {
     // Sin cabecera "origin" (curl, apps móviles, health checks) -- se permite.
-    // También se permite cualquier *.vercel.app para no romper los despliegues de
-    // vista previa (cada rama/PR genera una URL de Vercel distinta a CLIENT_URL).
-    const esVercelPreview = origin && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
-    if (!origin || origenesPermitidos.includes(origin) || esVercelPreview) {
+    if (!origin || origenesPermitidos.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error('No autorizado por CORS'));

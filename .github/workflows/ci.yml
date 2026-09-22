@@ -33,6 +33,12 @@ jobs:
     defaults:
       run:
         working-directory: server
+    # El servidor falla al arrancar sin SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY (ver
+    # src/data/supabase.js): son claves de prueba, no reales -- ningún test toca la base de
+    # datos de verdad, todos sustituyen supabase.from por un doble en memoria o un fetch falso.
+    env:
+      SUPABASE_URL: https://ci-test.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: clave-de-prueba-solo-para-ci
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -5,6 +5,7 @@
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
+require('./helpers/testEnv');
 
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_secreto_de_prueba';
 process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad

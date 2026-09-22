@@ -3,6 +3,7 @@
 // así que no se toca ningún servicio real.
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
+require('./helpers/testEnv');
 
 process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad, pase lo que pase
 
