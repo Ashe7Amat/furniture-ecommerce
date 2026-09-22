@@ -9,14 +9,16 @@ const { ErrorValidacion } = require('../utils/errores');
 // Solo se usa para la FORMA del payload (campos obligatorios, tipos, formatos, enumerados). Las
 // reglas que dependen de la base de datos (un email ya registrado, una pieza ya vendida...) siguen
 // viviendo en el controlador, después de este middleware.
-const validar = (schema, fuente = 'body') => (req, res, next) => {
-  const resultado = schema.safeParse(req[fuente]);
-  if (!resultado.success) {
-    const primerProblema = resultado.error.issues[0];
-    return next(new ErrorValidacion(primerProblema.message, resultado.error.issues));
-  }
-  req[fuente] = resultado.data;
-  next();
-};
+const validar =
+  (schema, fuente = 'body') =>
+  (req, res, next) => {
+    const resultado = schema.safeParse(req[fuente]);
+    if (!resultado.success) {
+      const primerProblema = resultado.error.issues[0];
+      return next(new ErrorValidacion(primerProblema.message, resultado.error.issues));
+    }
+    req[fuente] = resultado.data;
+    next();
+  };
 
 module.exports = { validar };

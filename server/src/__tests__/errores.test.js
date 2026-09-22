@@ -20,7 +20,7 @@ beforeEach(() => {
 afterEach(() => mock.restoreAll());
 
 const erroresNoControlados = () =>
-  registroErrores.mock.calls.filter(c => String(c.arguments[0]).includes('Error no controlado'));
+  registroErrores.mock.calls.filter((c) => String(c.arguments[0]).includes('Error no controlado'));
 
 describe('errores al leer el cuerpo de la petición', () => {
   test('un webhook de más de 1 MB responde 413 sin volcar el stack al log', async () => {

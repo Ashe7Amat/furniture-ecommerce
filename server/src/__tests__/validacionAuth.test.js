@@ -22,26 +22,34 @@ const app = require('../index');
 // tardar varios segundos en fallar.
 beforeEach(() => {
   mock.method(supabase, 'from', () => ({
-    select: () => ({ eq: () => ({ single: async () => ({ data: null, error: { code: 'PGRST116' } }) }) }),
+    select: () => ({
+      eq: () => ({ single: async () => ({ data: null, error: { code: 'PGRST116' } }) })
+    })
   }));
 });
 afterEach(() => mock.restoreAll());
 
 describe('POST /api/auth/register — validación con Zod', () => {
   test('rechaza con 400 si falta el nombre', async () => {
-    const res = await request(app).post('/api/auth/register').send({ email: 'ana@example.com', password: '123456' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'ana@example.com', password: '123456' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'El nombre es obligatorio.');
   });
 
   test('rechaza con 400 un email con formato inválido', async () => {
-    const res = await request(app).post('/api/auth/register').send({ nombre: 'Ana', email: 'no-es-un-email', password: '123456' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ nombre: 'Ana', email: 'no-es-un-email', password: '123456' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'Introduce un email válido.');
   });
 
   test('rechaza con 400 una contraseña demasiado corta', async () => {
-    const res = await request(app).post('/api/auth/register').send({ nombre: 'Ana', email: 'ana@example.com', password: '123' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ nombre: 'Ana', email: 'ana@example.com', password: '123' });
     assert.equal(res.status, 400);
     assert.match(res.body.error, /contraseña/i);
     assert.match(res.body.error, /6/);
@@ -54,7 +62,9 @@ describe('POST /api/auth/register — validación con Zod', () => {
   });
 
   test('un nombre que no es texto (un número) da el mismo mensaje que si faltara', async () => {
-    const res = await request(app).post('/api/auth/register').send({ nombre: 123, email: 'ana@example.com', password: '123456' });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ nombre: 123, email: 'ana@example.com', password: '123456' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'El nombre es obligatorio.');
   });
@@ -76,7 +86,9 @@ describe('POST /api/auth/login — validación con Zod', () => {
   test('NO valida el formato del email (nunca lo hizo): pasa la validación y sigue al controlador', async () => {
     // Sin Supabase real detrás, sigue adelante hasta el error interno de la búsqueda -- lo
     // importante aquí es que NO se quede en la validación con "email inválido".
-    const res = await request(app).post('/api/auth/login').send({ email: 'esto-no-es-un-email', password: 'lo-que-sea' });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'esto-no-es-un-email', password: 'lo-que-sea' });
     assert.notEqual(res.body.error, 'Introduce un email válido.');
   });
 });

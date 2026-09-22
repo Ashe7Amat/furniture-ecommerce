@@ -15,7 +15,11 @@ const supabase = require('../data/supabase');
 const email = require('../utils/email');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const {
-  SECRETO_WEBHOOK, MUEBLES_DE_PRUEBA, crearSesion, crearEventoCompletado, firmarEvento
+  SECRETO_WEBHOOK,
+  MUEBLES_DE_PRUEBA,
+  crearSesion,
+  crearEventoCompletado,
+  firmarEvento
 } = require('./helpers/stripeFixtures');
 
 let fake;
@@ -66,7 +70,9 @@ describe('POST /api/stripe/webhook — verificación de firma', () => {
   });
 
   test('rechaza con 400 una firma hecha con otro secreto', async () => {
-    const res = await enviarWebhook(crearEventoCompletado(crearSesion()), { secreto: 'whsec_de_un_atacante' });
+    const res = await enviarWebhook(crearEventoCompletado(crearSesion()), {
+      secreto: 'whsec_de_un_atacante'
+    });
 
     assert.equal(res.status, 400);
     assert.equal(fake.escrituras.length, 0);
@@ -90,7 +96,9 @@ describe('POST /api/stripe/webhook — verificación de firma', () => {
 
   test('rechaza con 400 una firma correcta pero antigua (reenvío de una petición capturada)', async () => {
     const haceUnaHora = Math.floor(Date.now() / 1000) - 3600;
-    const res = await enviarWebhook(crearEventoCompletado(crearSesion()), { timestamp: haceUnaHora });
+    const res = await enviarWebhook(crearEventoCompletado(crearSesion()), {
+      timestamp: haceUnaHora
+    });
 
     assert.equal(res.status, 400);
     assert.equal(fake.escrituras.length, 0);
@@ -117,7 +125,7 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
     assert.deepEqual(res.body, { recibido: true, estado: 'procesada' });
     assert.equal(fake.tablas.pedidos.length, 1);
     assert.equal(fake.tablas.pedidos[0].stripe_session_id, 'cs_test_123');
-    assert.equal(fake.tablas.muebles.find(m => m.id === 'mueble-1').estado, 'vendido');
+    assert.equal(fake.tablas.muebles.find((m) => m.id === 'mueble-1').estado, 'vendido');
     assert.equal(correos.venta.mock.callCount(), 1);
     assert.equal(correos.cliente.mock.callCount(), 1);
   });
@@ -139,7 +147,7 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
     const evento = crearEventoCompletado(crearSesion());
     const respuestas = await Promise.all([enviarWebhook(evento), enviarWebhook(evento)]);
 
-    assert.ok(respuestas.every(r => r.status === 200));
+    assert.ok(respuestas.every((r) => r.status === 200));
     assert.equal(fake.tablas.pedidos.length, 1);
     assert.equal(correos.venta.mock.callCount(), 1);
   });
@@ -162,7 +170,9 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
   });
 
   test('una sesión completada pero sin pago confirmado (unpaid) se acusa con 200 y no se procesa', async () => {
-    const res = await enviarWebhook(crearEventoCompletado(crearSesion({ payment_status: 'unpaid' })));
+    const res = await enviarWebhook(
+      crearEventoCompletado(crearSesion({ payment_status: 'unpaid' }))
+    );
 
     assert.equal(res.status, 200);
     assert.equal(res.body.ignorado, true);
@@ -182,7 +192,10 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
 describe('POST /api/stripe/webhook — otros eventos', () => {
   test('un evento que no es checkout.session.completed se acusa con 200 y se ignora', async () => {
     const res = await enviarWebhook({
-      id: 'evt_otro', object: 'event', type: 'payment_intent.succeeded', data: { object: { id: 'pi_1' } }
+      id: 'evt_otro',
+      object: 'event',
+      type: 'payment_intent.succeeded',
+      data: { object: { id: 'pi_1' } }
     });
 
     assert.equal(res.status, 200);

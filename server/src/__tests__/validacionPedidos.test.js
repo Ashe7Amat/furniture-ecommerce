@@ -12,7 +12,10 @@ const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
-const tokenAdmin = jwt.sign({ email: 'admin@test.com', nombre: 'Admin', rol: 'admin' }, process.env.JWT_SECRET);
+const tokenAdmin = jwt.sign(
+  { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
+  process.env.JWT_SECRET
+);
 
 let fake;
 beforeEach(() => {
@@ -23,24 +26,30 @@ afterEach(() => mock.restoreAll());
 
 describe('PATCH /api/pedidos/:id/estado — validación con Zod', () => {
   test('rechaza con 400 un estado que no está en la lista, sin escribir nada', async () => {
-    const res = await request(app).patch('/api/pedidos/pedido-1/estado')
+    const res = await request(app)
+      .patch('/api/pedidos/pedido-1/estado')
       .set('Authorization', `Bearer ${tokenAdmin}`)
       .send({ estado: 'perdido' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'Estado no válido. Usa uno de: procesando, enviado, entregado, cancelado.');
+    assert.equal(
+      res.body.error,
+      'Estado no válido. Usa uno de: procesando, enviado, entregado, cancelado.'
+    );
     assert.equal(fake.tablas.pedidos[0].estado, 'procesando');
   });
 
   test('rechaza con 400 si falta el estado', async () => {
-    const res = await request(app).patch('/api/pedidos/pedido-1/estado')
+    const res = await request(app)
+      .patch('/api/pedidos/pedido-1/estado')
       .set('Authorization', `Bearer ${tokenAdmin}`)
       .send({});
     assert.equal(res.status, 400);
   });
 
   test('un estado válido se acepta y actualiza el pedido', async () => {
-    const res = await request(app).patch('/api/pedidos/pedido-1/estado')
+    const res = await request(app)
+      .patch('/api/pedidos/pedido-1/estado')
       .set('Authorization', `Bearer ${tokenAdmin}`)
       .send({ estado: 'enviado' });
 
@@ -49,7 +58,9 @@ describe('PATCH /api/pedidos/:id/estado — validación con Zod', () => {
   });
 
   test('sin token de admin, corta en 401/403 antes de llegar a la validación', async () => {
-    const res = await request(app).patch('/api/pedidos/pedido-1/estado').send({ estado: 'perdido' });
+    const res = await request(app)
+      .patch('/api/pedidos/pedido-1/estado')
+      .send({ estado: 'perdido' });
     assert.equal(res.status, 401);
   });
 });

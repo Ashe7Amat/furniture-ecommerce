@@ -29,6 +29,10 @@ describe('sin trust proxy (fuera de Vercel)', () => {
     }
 
     const conOtraIp = await enviarVacio('198.51.100.99');
-    assert.equal(conOtraIp.status, 429, 'la IP declarada en la cabecera se ignora: cuenta la del socket');
+    assert.equal(
+      conOtraIp.status,
+      429,
+      'la IP declarada en la cabecera se ignora: cuenta la del socket'
+    );
   });
 });

@@ -9,11 +9,16 @@ const { requerido, email } = require('./comunes');
 // caracteres) sin avisar a quien escribió el formulario. Ahora se RECHAZA con un mensaje claro en
 // vez de guardar el mensaje cortado a medias -- es un cambio de comportamiento deliberado.
 const schemaContacto = z.object({
-  nombre: requerido('Indica tu nombre.').min(2, 'Indica tu nombre.').max(200, 'El nombre es demasiado largo (máximo 200 caracteres).'),
-  email: email('Indica un correo electrónico válido.').max(200, 'El email es demasiado largo (máximo 200 caracteres).'),
+  nombre: requerido('Indica tu nombre.')
+    .min(2, 'Indica tu nombre.')
+    .max(200, 'El nombre es demasiado largo (máximo 200 caracteres).'),
+  email: email('Indica un correo electrónico válido.').max(
+    200,
+    'El email es demasiado largo (máximo 200 caracteres).'
+  ),
   mensaje: requerido('El mensaje debe tener al menos 10 caracteres.')
     .min(10, 'El mensaje debe tener al menos 10 caracteres.')
-    .max(5000, 'El mensaje es demasiado largo (máximo 5000 caracteres).'),
+    .max(5000, 'El mensaje es demasiado largo (máximo 5000 caracteres).')
 });
 
 module.exports = { schemaContacto };

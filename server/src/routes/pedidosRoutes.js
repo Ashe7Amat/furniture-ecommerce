@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { obtenerMisPedidos, obtenerPedidos, actualizarEstadoPedido } = require('../controllers/pedidosController');
+const {
+  obtenerMisPedidos,
+  obtenerPedidos,
+  actualizarEstadoPedido
+} = require('../controllers/pedidosController');
 const { verificarToken, verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
 const { schemaEstadoPedido } = require('../schemas/pedidos');

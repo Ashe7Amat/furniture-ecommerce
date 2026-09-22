@@ -41,7 +41,9 @@ describe('data/supabase.js — falla rápido sin SERVICE_ROLE_KEY', () => {
     process.env.SUPABASE_URL = 'https://dummy.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'clave-de-prueba-valida';
     let cliente;
-    assert.doesNotThrow(() => { cliente = recargar(); });
+    assert.doesNotThrow(() => {
+      cliente = recargar();
+    });
     assert.equal(typeof cliente.from, 'function');
   });
 });
@@ -53,7 +55,9 @@ describe('data/supabase.js — falla rápido sin SERVICE_ROLE_KEY', () => {
 // de ese detalle de aislamiento).
 describe('data/supabase.js — exige https:// en producción (H8)', () => {
   const nodeEnvOriginal = process.env.NODE_ENV;
-  afterEach(() => { process.env.NODE_ENV = nodeEnvOriginal; });
+  afterEach(() => {
+    process.env.NODE_ENV = nodeEnvOriginal;
+  });
 
   test('en producción, con SUPABASE_URL http://, lanza mencionando https://', () => {
     process.env.NODE_ENV = 'production';

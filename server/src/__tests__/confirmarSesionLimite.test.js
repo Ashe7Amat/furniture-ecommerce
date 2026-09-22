@@ -13,11 +13,14 @@ const app = require('../index');
 const stripeUtil = require('../utils/stripe');
 
 const LIMITE = 20;
-const consultar = (ip) => request(app).get('/api/muebles/confirmar-sesion').set('X-Forwarded-For', ip);
+const consultar = (ip) =>
+  request(app).get('/api/muebles/confirmar-sesion').set('X-Forwarded-For', ip);
 
 beforeEach(() => {
   // Con Stripe "configurado" y sin session_id la ruta responde 400 al instante, sin red.
-  mock.method(stripeUtil, 'getStripe', () => ({ checkout: { sessions: { retrieve: async () => ({}) } } }));
+  mock.method(stripeUtil, 'getStripe', () => ({
+    checkout: { sessions: { retrieve: async () => ({}) } }
+  }));
 });
 
 afterEach(() => mock.restoreAll());
@@ -32,7 +35,11 @@ describe('límite de GET /api/muebles/confirmar-sesion', () => {
     const bloqueada = await consultar('203.0.113.50');
     assert.equal(bloqueada.status, 429);
     assert.match(bloqueada.body.error, /Demasiadas comprobaciones/);
-    assert.match(bloqueada.body.error, /no repitas el pago/, 'debe tranquilizar a quien ya ha pagado');
+    assert.match(
+      bloqueada.body.error,
+      /no repitas el pago/,
+      'debe tranquilizar a quien ya ha pagado'
+    );
     assert.ok(bloqueada.headers['retry-after'], 'indica cuándo se puede reintentar');
   });
 

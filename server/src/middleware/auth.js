@@ -23,7 +23,9 @@ const verificarToken = (req, res, next) => {
 const verificarAdmin = (req, res, next) => {
   verificarToken(req, res, () => {
     if (req.usuario?.rol !== 'admin') {
-      return res.status(403).json({ error: 'No tienes permisos de administrador para hacer esto.' });
+      return res
+        .status(403)
+        .json({ error: 'No tienes permisos de administrador para hacer esto.' });
     }
     next();
   });

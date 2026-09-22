@@ -19,7 +19,10 @@ const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').e
 let enviar;
 
 beforeEach(() => {
-  enviar = mock.method(clasePeticiones, 'send', async () => ({ data: { id: 'email_1' }, error: null }));
+  enviar = mock.method(clasePeticiones, 'send', async () => ({
+    data: { id: 'email_1' },
+    error: null
+  }));
   mock.method(console, 'log', () => {});
   mock.method(console, 'error', () => {});
 });
@@ -28,7 +31,10 @@ afterEach(() => mock.restoreAll());
 
 describe('enviarAlertaAdmin', () => {
   test('envía un solo correo al administrador con el asunto marcado como aviso', async () => {
-    await email.enviarAlertaAdmin({ asunto: 'Posible doble venta', detalles: ['Pieza X', 'Sesión cs_1'] });
+    await email.enviarAlertaAdmin({
+      asunto: 'Posible doble venta',
+      detalles: ['Pieza X', 'Sesión cs_1']
+    });
 
     assert.equal(enviar.mock.callCount(), 1);
     const envio = enviar.mock.calls[0].arguments[0];
@@ -53,13 +59,18 @@ describe('enviarAlertaAdmin', () => {
   });
 
   test('no lanza si Resend devuelve un error en la respuesta', async () => {
-    enviar.mock.mockImplementation(async () => ({ data: null, error: { message: 'dominio no verificado' } }));
+    enviar.mock.mockImplementation(async () => ({
+      data: null,
+      error: { message: 'dominio no verificado' }
+    }));
 
     await assert.doesNotReject(email.enviarAlertaAdmin({ asunto: 'Aviso', detalles: ['x'] }));
   });
 
   test('no lanza si Resend lanza una excepción', async () => {
-    enviar.mock.mockImplementation(async () => { throw new Error('sin red'); });
+    enviar.mock.mockImplementation(async () => {
+      throw new Error('sin red');
+    });
 
     await assert.doesNotReject(email.enviarAlertaAdmin({ asunto: 'Aviso', detalles: ['x'] }));
   });

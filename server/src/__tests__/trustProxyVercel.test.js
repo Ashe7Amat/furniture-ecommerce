@@ -33,10 +33,14 @@ describe('trust proxy en Vercel', () => {
 
     // express-rate-limit valida la configuración una sola vez por limitador, en la primera
     // petición con X-Forwarded-For; por eso esta comprobación va aquí y no en un test aparte.
-    const avisos = registroErrores.mock.calls.filter(c =>
-      c.arguments.some(a => String(a?.code ?? a).includes('ERR_ERL_UNEXPECTED_X_FORWARDED_FOR'))
+    const avisos = registroErrores.mock.calls.filter((c) =>
+      c.arguments.some((a) => String(a?.code ?? a).includes('ERR_ERL_UNEXPECTED_X_FORWARDED_FOR'))
     );
-    assert.equal(avisos.length, 0, 'sin trust proxy, express-rate-limit avisa de que no ve la IP real');
+    assert.equal(
+      avisos.length,
+      0,
+      'sin trust proxy, express-rate-limit avisa de que no ve la IP real'
+    );
 
     for (let i = 1; i < 5; i++) {
       const res = await enviarVacio('203.0.113.10');

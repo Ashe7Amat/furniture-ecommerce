@@ -13,7 +13,11 @@ require('./helpers/testEnv');
 
 const app = require('../index');
 
-const mensajeValido = { nombre: 'Ana', email: 'ana@example.com', mensaje: 'Hola, quería preguntar algo.' };
+const mensajeValido = {
+  nombre: 'Ana',
+  email: 'ana@example.com',
+  mensaje: 'Hola, quería preguntar algo.'
+};
 
 describe('POST /api/contacto — honeypot antes que la validación', () => {
   test('con el honeypot relleno, responde 200 SIN validar nada más (payload por lo demás vacío)', async () => {
@@ -25,19 +29,25 @@ describe('POST /api/contacto — honeypot antes que la validación', () => {
 
 describe('POST /api/contacto — validación con Zod', () => {
   test('rechaza con 400 si falta el nombre', async () => {
-    const res = await request(app).post('/api/contacto').send({ ...mensajeValido, nombre: undefined });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({ ...mensajeValido, nombre: undefined });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'Indica tu nombre.');
   });
 
   test('rechaza con 400 un nombre de un solo carácter', async () => {
-    const res = await request(app).post('/api/contacto').send({ ...mensajeValido, nombre: 'A' });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({ ...mensajeValido, nombre: 'A' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'Indica tu nombre.');
   });
 
   test('rechaza con 400 un email con formato inválido', async () => {
-    const res = await request(app).post('/api/contacto').send({ ...mensajeValido, email: 'no-es-un-email' });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({ ...mensajeValido, email: 'no-es-un-email' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'Indica un correo electrónico válido.');
   });

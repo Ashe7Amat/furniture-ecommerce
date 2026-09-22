@@ -6,9 +6,30 @@ const Stripe = require('stripe');
 const SECRETO_WEBHOOK = 'whsec_secreto_de_prueba';
 
 const MUEBLES_DE_PRUEBA = () => [
-  { id: 'mueble-1', nombre: 'Sofá Lumina', precio_venta: 1250, precio_alquiler_dia: null, estado: 'disponible', disponible: true },
-  { id: 'mueble-2', nombre: 'Butaca de cine', precio_venta: null, precio_alquiler_dia: 40, estado: 'disponible', disponible: true },
-  { id: 'mueble-3', nombre: 'Mesa de comedor', precio_venta: 600, precio_alquiler_dia: 25, estado: 'disponible', disponible: true }
+  {
+    id: 'mueble-1',
+    nombre: 'Sofá Lumina',
+    precio_venta: 1250,
+    precio_alquiler_dia: null,
+    estado: 'disponible',
+    disponible: true
+  },
+  {
+    id: 'mueble-2',
+    nombre: 'Butaca de cine',
+    precio_venta: null,
+    precio_alquiler_dia: 40,
+    estado: 'disponible',
+    disponible: true
+  },
+  {
+    id: 'mueble-3',
+    nombre: 'Mesa de comedor',
+    precio_venta: 600,
+    precio_alquiler_dia: 25,
+    estado: 'disponible',
+    disponible: true
+  }
 ];
 
 // Sesión de Checkout ya pagada, con la misma metadata que escribe crearSesionPago.
@@ -40,8 +61,18 @@ const crearEventoCompletado = (session, cambios = {}) => ({
 // la hora actual; se pueden cambiar para probar firmas ajenas o antiguas.
 const firmarEvento = (evento, { secreto = SECRETO_WEBHOOK, timestamp } = {}) => {
   const payload = JSON.stringify(evento);
-  const cabecera = Stripe.webhooks.generateTestHeaderString({ payload, secret: secreto, timestamp });
+  const cabecera = Stripe.webhooks.generateTestHeaderString({
+    payload,
+    secret: secreto,
+    timestamp
+  });
   return { payload, cabecera };
 };
 
-module.exports = { SECRETO_WEBHOOK, MUEBLES_DE_PRUEBA, crearSesion, crearEventoCompletado, firmarEvento };
+module.exports = {
+  SECRETO_WEBHOOK,
+  MUEBLES_DE_PRUEBA,
+  crearSesion,
+  crearEventoCompletado,
+  firmarEvento
+};

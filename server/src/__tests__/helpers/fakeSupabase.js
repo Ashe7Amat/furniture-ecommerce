@@ -22,11 +22,17 @@
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
 //                        añadir y quitar durante el test para simular reintentos. Con función,
 //                        `consulta.usa` es el conjunto de métodos encadenados (p. ej. 'contains')
-const crearFakeSupabase = ({ muebles = [], pedidos = [], categorias = [], indiceUnicoStripe = true, fallos = {} } = {}) => {
+const crearFakeSupabase = ({
+  muebles = [],
+  pedidos = [],
+  categorias = [],
+  indiceUnicoStripe = true,
+  fallos = {}
+} = {}) => {
   const tablas = {
-    muebles: muebles.map(fila => ({ ...fila })),
-    pedidos: pedidos.map(fila => ({ ...fila })),
-    categorias: categorias.map(fila => ({ ...fila }))
+    muebles: muebles.map((fila) => ({ ...fila })),
+    pedidos: pedidos.map((fila) => ({ ...fila })),
+    categorias: categorias.map((fila) => ({ ...fila }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };
@@ -37,7 +43,7 @@ const crearFakeSupabase = ({ muebles = [], pedidos = [], categorias = [], indice
 
   const ejecutar = (nombre, consulta) => {
     const filas = tablas[nombre];
-    const coincide = (fila) => consulta.filtros.every(filtro => filtro(fila));
+    const coincide = (fila) => consulta.filtros.every((filtro) => filtro(fila));
 
     const configurado = fallos[`${nombre}.${consulta.accion}`];
     const fallo = typeof configurado === 'function' ? configurado(consulta) : configurado;
@@ -48,30 +54,41 @@ const crearFakeSupabase = ({ muebles = [], pedidos = [], categorias = [], indice
       // .insert() de supabase-js real acepta un objeto O un array de objetos (varias filas de
       // una vez); aquí se normaliza a array para tratar ambos casos igual.
       const entrada = Array.isArray(consulta.datos) ? consulta.datos : [consulta.datos];
-      const nuevasFilas = entrada.map(datos => ({ id: `${nombre}-${++secuencia}`, ...datos }));
+      const nuevasFilas = entrada.map((datos) => ({ id: `${nombre}-${++secuencia}`, ...datos }));
 
       for (const fila of nuevasFilas) {
-        const duplicaId = filas.some(f => f.id === fila.id);
-        const duplicaSesion = nombre === 'pedidos' && indiceUnicoStripe && fila.stripe_session_id
-          && filas.some(f => f.stripe_session_id === fila.stripe_session_id);
+        const duplicaId = filas.some((f) => f.id === fila.id);
+        const duplicaSesion =
+          nombre === 'pedidos' &&
+          indiceUnicoStripe &&
+          fila.stripe_session_id &&
+          filas.some((f) => f.stripe_session_id === fila.stripe_session_id);
         if (duplicaId || duplicaSesion) {
           estado.unicidadRechazada++;
-          return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+          return {
+            data: null,
+            error: { code: '23505', message: 'duplicate key value violates unique constraint' }
+          };
         }
       }
 
       filas.push(...nuevasFilas);
-      nuevasFilas.forEach(fila => escrituras.push({ tabla: nombre, accion: 'insert', fila }));
+      nuevasFilas.forEach((fila) => escrituras.push({ tabla: nombre, accion: 'insert', fila }));
       return { data: nuevasFilas, error: null };
     }
 
     if (consulta.accion === 'update') {
       const afectadas = filas.filter(coincide);
-      afectadas.forEach(fila => Object.assign(fila, consulta.datos));
+      afectadas.forEach((fila) => Object.assign(fila, consulta.datos));
       if (afectadas.length > 0) {
-        escrituras.push({ tabla: nombre, accion: 'update', datos: consulta.datos, ids: afectadas.map(f => f.id) });
+        escrituras.push({
+          tabla: nombre,
+          accion: 'update',
+          datos: consulta.datos,
+          ids: afectadas.map((f) => f.id)
+        });
       }
-      return { data: afectadas.map(f => ({ ...f })), error: null };
+      return { data: afectadas.map((f) => ({ ...f })), error: null };
     }
 
     let encontradas = filas.filter(coincide);
@@ -79,46 +96,108 @@ const crearFakeSupabase = ({ muebles = [], pedidos = [], categorias = [], indice
     if (consulta.salida === 'single') {
       return encontradas.length === 1
         ? { data: encontradas[0], error: null }
-        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+        : {
+            data: null,
+            error: {
+              code: 'PGRST116',
+              message: 'JSON object requested, multiple (or no) rows returned'
+            }
+          };
     }
     if (consulta.salida === 'maybe') {
       return encontradas.length <= 1
         ? { data: encontradas[0] ?? null, error: null }
-        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+        : {
+            data: null,
+            error: {
+              code: 'PGRST116',
+              message: 'JSON object requested, multiple (or no) rows returned'
+            }
+          };
     }
     return { data: encontradas, error: null };
   };
 
   const from = (nombre) => {
     if (!tablas[nombre]) throw new Error(`Tabla no prevista en el doble de Supabase: ${nombre}`);
-    const consulta = { accion: 'select', filtros: [], datos: null, salida: 'lista', limite: null, usa: new Set(), errorDeFiltro: null };
-    const usar = (metodo) => { consulta.usa.add(metodo); return constructor; };
+    const consulta = {
+      accion: 'select',
+      filtros: [],
+      datos: null,
+      salida: 'lista',
+      limite: null,
+      usa: new Set(),
+      errorDeFiltro: null
+    };
+    const usar = (metodo) => {
+      consulta.usa.add(metodo);
+      return constructor;
+    };
     const constructor = {
       select: () => usar('select'),
-      limit: (n) => { consulta.limite = n; return usar('limit'); },
-      eq: (columna, valor) => { consulta.filtros.push(f => f[columna] === valor); return usar('eq'); },
+      limit: (n) => {
+        consulta.limite = n;
+        return usar('limit');
+      },
+      eq: (columna, valor) => {
+        consulta.filtros.push((f) => f[columna] === valor);
+        return usar('eq');
+      },
       // Como SQL: "columna <> valor" excluye las filas donde la columna es NULL
-      neq: (columna, valor) => { consulta.filtros.push(f => f[columna] != null && f[columna] !== valor); return usar('neq'); },
-      in: (columna, valores) => { consulta.filtros.push(f => valores.includes(f[columna])); return usar('in'); },
+      neq: (columna, valor) => {
+        consulta.filtros.push((f) => f[columna] != null && f[columna] !== valor);
+        return usar('neq');
+      },
+      in: (columna, valores) => {
+        consulta.filtros.push((f) => valores.includes(f[columna]));
+        return usar('in');
+      },
       // jsonb @> : cada elemento del patrón debe estar contenido en algún elemento de la columna.
       // Solo se acepta una CADENA JSON, como el filtro "cs" real de PostgREST: postgrest-js
       // serializa un array de objetos como "{[object Object]}" y la base de datos lo rechaza
       // (22P02). Aceptarlo aquí ocultaría ese fallo (ya pasó una vez: ver queryContract.test.js).
       contains: (columna, patron) => {
-        if (typeof patron !== 'string') consulta.errorDeFiltro = { code: '22P02', message: 'invalid input syntax for type json' };
+        if (typeof patron !== 'string')
+          consulta.errorDeFiltro = { code: '22P02', message: 'invalid input syntax for type json' };
         else {
           let requerido;
-          try { requerido = JSON.parse(patron); } catch { consulta.errorDeFiltro = { code: '22P02', message: 'invalid input syntax for type json' }; }
-          if (requerido) consulta.filtros.push(f => Array.isArray(f[columna]) && requerido.every(p => f[columna].some(e => contiene(e, p))));
+          try {
+            requerido = JSON.parse(patron);
+          } catch {
+            consulta.errorDeFiltro = {
+              code: '22P02',
+              message: 'invalid input syntax for type json'
+            };
+          }
+          if (requerido)
+            consulta.filtros.push(
+              (f) =>
+                Array.isArray(f[columna]) &&
+                requerido.every((p) => f[columna].some((e) => contiene(e, p)))
+            );
         }
         return usar('contains');
       },
-      insert: (datos) => { consulta.accion = 'insert'; consulta.datos = datos; return usar('insert'); },
-      update: (datos) => { consulta.accion = 'update'; consulta.datos = datos; return usar('update'); },
-      single: () => { consulta.salida = 'single'; return usar('single'); },
-      maybeSingle: () => { consulta.salida = 'maybe'; return usar('maybeSingle'); },
+      insert: (datos) => {
+        consulta.accion = 'insert';
+        consulta.datos = datos;
+        return usar('insert');
+      },
+      update: (datos) => {
+        consulta.accion = 'update';
+        consulta.datos = datos;
+        return usar('update');
+      },
+      single: () => {
+        consulta.salida = 'single';
+        return usar('single');
+      },
+      maybeSingle: () => {
+        consulta.salida = 'maybe';
+        return usar('maybeSingle');
+      },
       then: (resolver, rechazar) =>
-        new Promise(r => setImmediate(r))
+        new Promise((r) => setImmediate(r))
           .then(() => ejecutar(nombre, consulta))
           .then(resolver, rechazar)
     };

@@ -11,38 +11,52 @@ const ESTADOS_MUEBLE = ['disponible', 'vendido', 'alquilado'];
 // Una cadena vacía o solo de espacios cuenta como "sin precio": Number('   ') vale 0 en
 // JavaScript (no NaN), así que sin el .trim() de esta comprobación un precio pegado con
 // espacios de más se guardaría como 0 en vez de quedar vacío o rechazarse.
-const esVacio = (valor) => valor === null || valor === undefined || (typeof valor === 'string' && valor.trim() === '');
-const precioOpcional = z.union([z.string(), z.null(), z.undefined()])
+const esVacio = (valor) =>
+  valor === null || valor === undefined || (typeof valor === 'string' && valor.trim() === '');
+const precioOpcional = z
+  .union([z.string(), z.null(), z.undefined()])
   .transform((valor) => (esVacio(valor) ? null : Number(valor)))
-  .refine((valor) => valor === null || Number.isFinite(valor), { message: 'El precio debe ser un número.' })
+  .refine((valor) => valor === null || Number.isFinite(valor), {
+    message: 'El precio debe ser un número.'
+  })
   .refine((valor) => valor === null || valor >= 0, { message: 'El precio no puede ser negativo.' });
 
-const booleanDeFormulario = z.union([z.boolean(), z.string()])
+const booleanDeFormulario = z
+  .union([z.boolean(), z.string()])
   .transform((valor) => valor === true || valor === 'true');
 
 // categoria_id: opcional (migración A, ver docs/tarea3-diseno.md -- doble escritura durante la
 // transición). Igual que precioOpcional, admite vacío/ausente como "no lo mandaron" (el
 // controlador resuelve entonces desde `categoria` por nombre), y rechaza cualquier otra cosa que
 // no sea un entero positivo real -- nunca guardar un id inventado o mal tecleado.
-const categoriaIdOpcional = z.union([z.string(), z.number(), z.null(), z.undefined()])
+const categoriaIdOpcional = z
+  .union([z.string(), z.number(), z.null(), z.undefined()])
   .transform((valor) => (esVacio(valor) ? null : Number(valor)))
-  .refine((valor) => valor === null || Number.isInteger(valor), { message: 'categoria_id debe ser un número entero.' })
-  .refine((valor) => valor === null || valor > 0, { message: 'categoria_id debe ser un entero positivo.' });
+  .refine((valor) => valor === null || Number.isInteger(valor), {
+    message: 'categoria_id debe ser un número entero.'
+  })
+  .refine((valor) => valor === null || valor > 0, {
+    message: 'categoria_id debe ser un entero positivo.'
+  });
 
 // .passthrough(): crearMueble/editarMueble manejan aparte, con su propio parseo, los campos
 // "imagenes"/"imagenes_existentes" (JSON dentro de un string, o varias entradas repetidas) y los
 // archivos subidos (req.files, fuera de req.body). Sin passthrough, Zod los eliminaría de
 // req.body por no estar declarados en este esquema, y esa lógica se rompería.
-const schemaMuebleCrear = z.object({
-  nombre: requerido('El nombre del mueble es obligatorio.'),
-  categoria: requerido('La categoría es obligatoria.'),
-  descripcion: z.string().optional(),
-  precio_venta: precioOpcional.optional(),
-  precio_alquiler: precioOpcional.optional(),
-  disponible: booleanDeFormulario.optional(),
-  estado: z.enum(ESTADOS_MUEBLE, { message: `El estado debe ser uno de: ${ESTADOS_MUEBLE.join(', ')}.` }).optional(),
-  categoria_id: categoriaIdOpcional.optional(),
-}).passthrough();
+const schemaMuebleCrear = z
+  .object({
+    nombre: requerido('El nombre del mueble es obligatorio.'),
+    categoria: requerido('La categoría es obligatoria.'),
+    descripcion: z.string().optional(),
+    precio_venta: precioOpcional.optional(),
+    precio_alquiler: precioOpcional.optional(),
+    disponible: booleanDeFormulario.optional(),
+    estado: z
+      .enum(ESTADOS_MUEBLE, { message: `El estado debe ser uno de: ${ESTADOS_MUEBLE.join(', ')}.` })
+      .optional(),
+    categoria_id: categoriaIdOpcional.optional()
+  })
+  .passthrough();
 
 // Edición: los mismos campos, pero todos opcionales (es una actualización parcial -- solo se
 // valida lo que venga en la petición).
@@ -60,21 +74,27 @@ const schemaMuebleEditar = schemaMuebleCrear.partial();
 // como "compra" -- si aquí se exigiera un enum, se rechazaría un caso que el resto del código
 // tolera a propósito (ver el test "una modalidad desconocida se trata como compra").
 const MENSAJE_CARRITO_VACIO = 'El carrito de compras está vacío.';
-const schemaCarritoPago = z.object({
-  items: z.array(
-    z.object({
-      productId: requerido('Falta el identificador de una pieza del carrito.'),
-      modalidad: z.string().optional(),
-    }),
-    { error: () => MENSAJE_CARRITO_VACIO }
-  ).min(1, MENSAJE_CARRITO_VACIO),
-  clienteInfo: z.object({
-    nombre: z.string().optional(),
-    email: z.string().optional(),
-    telefono: z.string().optional(),
-    direccion: z.string().optional(),
-    notas: z.string().optional(),
-  }).optional(),
-}).passthrough();
+const schemaCarritoPago = z
+  .object({
+    items: z
+      .array(
+        z.object({
+          productId: requerido('Falta el identificador de una pieza del carrito.'),
+          modalidad: z.string().optional()
+        }),
+        { error: () => MENSAJE_CARRITO_VACIO }
+      )
+      .min(1, MENSAJE_CARRITO_VACIO),
+    clienteInfo: z
+      .object({
+        nombre: z.string().optional(),
+        email: z.string().optional(),
+        telefono: z.string().optional(),
+        direccion: z.string().optional(),
+        notas: z.string().optional()
+      })
+      .optional()
+  })
+  .passthrough();
 
 module.exports = { schemaMuebleCrear, schemaMuebleEditar, schemaCarritoPago, ESTADOS_MUEBLE };

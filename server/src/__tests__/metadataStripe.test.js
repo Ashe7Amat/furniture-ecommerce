@@ -6,8 +6,13 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  MAX_CLAVES, MAX_VALOR, MAX_NOMBRE_CLAVE,
-  ErrorMetadata, construirMetadataPago, juntarItems, leerItemsDeMetadata
+  MAX_CLAVES,
+  MAX_VALOR,
+  MAX_NOMBRE_CLAVE,
+  ErrorMetadata,
+  construirMetadataPago,
+  juntarItems,
+  leerItemsDeMetadata
 } = require('../utils/metadataStripe');
 
 // UUID reales tienen 36 caracteres: es el peor caso de tamaño por pieza.
@@ -16,8 +21,12 @@ const carrito = (piezas, modalidad = 'compra') =>
   Array.from({ length: piezas }, (_, i) => ({ productId: uuid(i), modalidad, precio: 999 }));
 
 const comprador = (cambios = {}) => ({
-  nombre: 'Ana Martínez', email: 'ana@ejemplo.com', telefono: '600123456',
-  direccion: 'Calle Mayor 15, 2º B, 08001 Barcelona (Barcelona)', notas: 'Llamar al timbre.', ...cambios
+  nombre: 'Ana Martínez',
+  email: 'ana@ejemplo.com',
+  telefono: '600123456',
+  direccion: 'Calle Mayor 15, 2º B, 08001 Barcelona (Barcelona)',
+  notas: 'Llamar al timbre.',
+  ...cambios
 });
 
 const respetaLosLimitesDeStripe = (metadata) => {
@@ -35,14 +44,19 @@ describe('construirMetadataPago — el carrito', () => {
 
     assert.ok(metadata.items_0 !== undefined);
     assert.equal(metadata.items_1, undefined);
-    assert.deepEqual(leerItemsDeMetadata(metadata),
-      items.map(({ productId, modalidad }) => ({ productId, modalidad })));
+    assert.deepEqual(
+      leerItemsDeMetadata(metadata),
+      items.map(({ productId, modalidad }) => ({ productId, modalidad }))
+    );
   });
 
   test('7 piezas (el caso que antes impedía pagar) se reparten en varias claves y no superan 500', () => {
     const items = carrito(7, 'alquiler');
-    assert.ok(JSON.stringify(items.map(({ productId, modalidad }) => ({ productId, modalidad }))).length > MAX_VALOR,
-      'el caso de prueba debe superar el límite de un solo valor');
+    assert.ok(
+      JSON.stringify(items.map(({ productId, modalidad }) => ({ productId, modalidad }))).length >
+        MAX_VALOR,
+      'el caso de prueba debe superar el límite de un solo valor'
+    );
 
     const metadata = construirMetadataPago({ items, clienteInfo: comprador() });
 
@@ -53,11 +67,17 @@ describe('construirMetadataPago — el carrito', () => {
 
   test('un carrito grande junto con notas de 500 caracteres cabe y se lee completo', () => {
     const items = carrito(100);
-    const metadata = construirMetadataPago({ items, clienteInfo: comprador({ notas: 'n'.repeat(500) }) });
+    const metadata = construirMetadataPago({
+      items,
+      clienteInfo: comprador({ notas: 'n'.repeat(500) })
+    });
 
     respetaLosLimitesDeStripe(metadata);
     assert.equal(metadata.clienteNotas.length, 500);
-    assert.deepEqual(leerItemsDeMetadata(metadata).map(i => i.productId), items.map(i => i.productId));
+    assert.deepEqual(
+      leerItemsDeMetadata(metadata).map((i) => i.productId),
+      items.map((i) => i.productId)
+    );
   });
 
   test('en cualquier tamaño de carrito, escribir y leer devuelve exactamente lo mismo', () => {
@@ -76,7 +96,10 @@ describe('construirMetadataPago — el carrito', () => {
   test('un carrito imposible de repartir en 50 claves se rechaza con un mensaje claro para el comprador', () => {
     assert.throws(
       () => construirMetadataPago({ items: carrito(400), clienteInfo: comprador() }),
-      (error) => error instanceof ErrorMetadata && /demasiado grande/.test(error.message) && /Divide el pedido/.test(error.message)
+      (error) =>
+        error instanceof ErrorMetadata &&
+        /demasiado grande/.test(error.message) &&
+        /Divide el pedido/.test(error.message)
     );
   });
 
@@ -107,21 +130,37 @@ describe('construirMetadataPago — los datos del comprador', () => {
   });
 
   test('unas notas de exactamente 500 caracteres se aceptan; con 501 se rechazan en castellano', () => {
-    assert.doesNotThrow(() => construirMetadataPago({ items: carrito(1), clienteInfo: comprador({ notas: 'n'.repeat(500) }) }));
+    assert.doesNotThrow(() =>
+      construirMetadataPago({
+        items: carrito(1),
+        clienteInfo: comprador({ notas: 'n'.repeat(500) })
+      })
+    );
 
     assert.throws(
-      () => construirMetadataPago({ items: carrito(1), clienteInfo: comprador({ notas: 'n'.repeat(501) }) }),
-      (error) => error instanceof ErrorMetadata
-        && error.message === 'Las notas de entrega son demasiado largas (máximo 500 caracteres).'
+      () =>
+        construirMetadataPago({
+          items: carrito(1),
+          clienteInfo: comprador({ notas: 'n'.repeat(501) })
+        }),
+      (error) =>
+        error instanceof ErrorMetadata &&
+        error.message === 'Las notas de entrega son demasiado largas (máximo 500 caracteres).'
     );
   });
 
   test('cada dato tiene su límite y su mensaje', () => {
     const casos = [
       [{ nombre: 'x'.repeat(101) }, /^El nombre es demasiado largo \(máximo 100 caracteres\)\.$/],
-      [{ email: 'x'.repeat(255) }, /^El correo electrónico es demasiado largo \(máximo 254 caracteres\)\.$/],
+      [
+        { email: 'x'.repeat(255) },
+        /^El correo electrónico es demasiado largo \(máximo 254 caracteres\)\.$/
+      ],
       [{ telefono: '6'.repeat(31) }, /^El teléfono es demasiado largo \(máximo 30 caracteres\)\.$/],
-      [{ direccion: 'x'.repeat(501) }, /^La dirección es demasiado larga \(máximo 500 caracteres\)\.$/]
+      [
+        { direccion: 'x'.repeat(501) },
+        /^La dirección es demasiado larga \(máximo 500 caracteres\)\.$/
+      ]
     ];
     for (const [cambios, mensaje] of casos) {
       assert.throws(
@@ -132,7 +171,10 @@ describe('construirMetadataPago — los datos del comprador', () => {
   });
 
   test('un dato que no es un texto se convierte en texto en vez de romper', () => {
-    const metadata = construirMetadataPago({ items: carrito(1), clienteInfo: comprador({ telefono: 600123456 }) });
+    const metadata = construirMetadataPago({
+      items: carrito(1),
+      clienteInfo: comprador({ telefono: 600123456 })
+    });
     assert.equal(metadata.clienteTelefono, '600123456');
   });
 });
@@ -162,11 +204,22 @@ describe('leerItemsDeMetadata — formatos y datos corruptos', () => {
     const metadata = construirMetadataPago({ items, clienteInfo: comprador() });
     const desordenada = Object.fromEntries(Object.entries(metadata).reverse());
 
-    assert.deepEqual(leerItemsDeMetadata(desordenada).map(i => i.productId), items.map(i => i.productId));
+    assert.deepEqual(
+      leerItemsDeMetadata(desordenada).map((i) => i.productId),
+      items.map((i) => i.productId)
+    );
   });
 
   test('descarta una metadata con elementos que no son piezas', () => {
-    for (const items of ['[null]', '[{}]', '[{"productId":5}]', '["x"]', '{"productId":"x"}', '[]', '{no es json']) {
+    for (const items of [
+      '[null]',
+      '[{}]',
+      '[{"productId":5}]',
+      '["x"]',
+      '{"productId":"x"}',
+      '[]',
+      '{no es json'
+    ]) {
       assert.equal(leerItemsDeMetadata({ items }), null, `debe descartar ${items}`);
     }
   });

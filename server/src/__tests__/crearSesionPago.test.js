@@ -27,15 +27,26 @@ let fake;
 let correos;
 let crearSesionDeStripe;
 
-const catalogo = (piezas) => Array.from({ length: piezas }, (_, i) => ({
-  id: uuid(i), nombre: `Pieza ${i}`, precio_venta: PRECIO, precio_alquiler_dia: null, estado: 'disponible', disponible: true
-}));
+const catalogo = (piezas) =>
+  Array.from({ length: piezas }, (_, i) => ({
+    id: uuid(i),
+    nombre: `Pieza ${i}`,
+    precio_venta: PRECIO,
+    precio_alquiler_dia: null,
+    estado: 'disponible',
+    disponible: true
+  }));
 
-const carrito = (piezas) => Array.from({ length: piezas }, (_, i) => ({ productId: uuid(i), modalidad: 'compra' }));
+const carrito = (piezas) =>
+  Array.from({ length: piezas }, (_, i) => ({ productId: uuid(i), modalidad: 'compra' }));
 
 const comprador = (cambios = {}) => ({
-  nombre: 'Ana Martínez', email: 'ana@ejemplo.com', telefono: '600123456',
-  direccion: 'Calle Mayor 15, 2º B, 08001 Barcelona (Barcelona)', notas: 'Llamar al timbre.', ...cambios
+  nombre: 'Ana Martínez',
+  email: 'ana@ejemplo.com',
+  telefono: '600123456',
+  direccion: 'Calle Mayor 15, 2º B, 08001 Barcelona (Barcelona)',
+  notas: 'Llamar al timbre.',
+  ...cambios
 });
 
 const pedirPago = (cuerpo) => request(app).post('/api/muebles/crear-sesion-pago').send(cuerpo);
@@ -43,8 +54,11 @@ const metadataEnviadaAStripe = () => crearSesionDeStripe.mock.calls[0].arguments
 
 const enviarWebhook = (evento) => {
   const { payload, cabecera } = firmarEvento(evento);
-  return request(app).post('/api/stripe/webhook')
-    .set('Content-Type', 'application/json').set('Stripe-Signature', cabecera).send(payload);
+  return request(app)
+    .post('/api/stripe/webhook')
+    .set('Content-Type', 'application/json')
+    .set('Stripe-Signature', cabecera)
+    .send(payload);
 };
 
 const prepararTienda = (piezas) => {
@@ -58,8 +72,12 @@ beforeEach(() => {
     cliente: mock.method(email, 'enviarConfirmacionCliente', async () => {}),
     alerta: mock.method(email, 'enviarAlertaAdmin', async () => {})
   };
-  crearSesionDeStripe = mock.fn(async () => ({ url: 'https://checkout.stripe.com/c/pay/cs_test_grande' }));
-  mock.method(stripeUtil, 'getStripe', () => ({ checkout: { sessions: { create: crearSesionDeStripe } } }));
+  crearSesionDeStripe = mock.fn(async () => ({
+    url: 'https://checkout.stripe.com/c/pay/cs_test_grande'
+  }));
+  mock.method(stripeUtil, 'getStripe', () => ({
+    checkout: { sessions: { create: crearSesionDeStripe } }
+  }));
   mock.method(console, 'error', () => {});
   mock.method(console, 'warn', () => {});
 });
@@ -84,7 +102,13 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
     }
 
     // Esa misma metadata, tal cual, llega en el evento del webhook y el pedido se registra entero
-    const sesionPagada = { id: 'cs_test_grande', object: 'checkout.session', payment_status: 'paid', amount_total: 12 * PRECIO * 100, metadata };
+    const sesionPagada = {
+      id: 'cs_test_grande',
+      object: 'checkout.session',
+      payment_status: 'paid',
+      amount_total: 12 * PRECIO * 100,
+      metadata
+    };
     const webhook = await enviarWebhook(crearEventoCompletado(sesionPagada));
 
     assert.equal(webhook.status, 200);
@@ -93,7 +117,10 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
     assert.equal(fake.tablas.pedidos[0].items.length, 12);
     assert.equal(fake.tablas.pedidos[0].total, 12 * PRECIO);
     assert.equal(fake.tablas.pedidos[0].cliente_info.notas, nota);
-    assert.ok(fake.tablas.muebles.every(m => m.estado === 'vendido'), 'las 12 piezas quedan vendidas');
+    assert.ok(
+      fake.tablas.muebles.every((m) => m.estado === 'vendido'),
+      'las 12 piezas quedan vendidas'
+    );
     assert.equal(correos.venta.mock.callCount(), 1);
     assert.equal(correos.cliente.mock.callCount(), 1);
   });
@@ -101,23 +128,34 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
   test('30 piezas con notas de 500 caracteres (el máximo que admite el servidor) también se pagan', async () => {
     prepararTienda(30);
 
-    const res = await pedirPago({ items: carrito(30), clienteInfo: comprador({ notas: 'n'.repeat(500) }) });
+    const res = await pedirPago({
+      items: carrito(30),
+      clienteInfo: comprador({ notas: 'n'.repeat(500) })
+    });
 
     assert.equal(res.status, 200);
     const metadata = metadataEnviadaAStripe();
     assert.ok(Object.keys(metadata).length <= MAX_CLAVES);
-    assert.ok(Object.values(metadata).every(v => v.length <= MAX_VALOR));
+    assert.ok(Object.values(metadata).every((v) => v.length <= MAX_VALOR));
 
-    const webhook = await enviarWebhook(crearEventoCompletado(
-      { id: 'cs_test_30', payment_status: 'paid', amount_total: 30 * PRECIO * 100, metadata }
-    ));
+    const webhook = await enviarWebhook(
+      crearEventoCompletado({
+        id: 'cs_test_30',
+        payment_status: 'paid',
+        amount_total: 30 * PRECIO * 100,
+        metadata
+      })
+    );
     assert.equal(webhook.body.estado, 'procesada');
     assert.equal(fake.tablas.pedidos[0].items.length, 30);
   });
 
   test('una sola pieza con una nota larga (el caso más sencillo que fallaba) se paga', async () => {
     prepararTienda(1);
-    const res = await pedirPago({ items: carrito(1), clienteInfo: comprador({ notas: 'x'.repeat(450) }) });
+    const res = await pedirPago({
+      items: carrito(1),
+      clienteInfo: comprador({ notas: 'x'.repeat(450) })
+    });
 
     assert.equal(res.status, 200);
     assert.equal(metadataEnviadaAStripe().clienteNotas.length, 450);
@@ -126,8 +164,14 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
   test('una sesión abierta con el formato antiguo (un solo valor "items") aún se procesa al pagarse', async () => {
     prepararTienda(1);
     const antigua = {
-      id: 'cs_test_antigua', payment_status: 'paid', amount_total: PRECIO * 100,
-      metadata: { items: JSON.stringify(carrito(1)), clienteNombre: 'Ana', clienteEmail: 'ana@ejemplo.com' }
+      id: 'cs_test_antigua',
+      payment_status: 'paid',
+      amount_total: PRECIO * 100,
+      metadata: {
+        items: JSON.stringify(carrito(1)),
+        clienteNombre: 'Ana',
+        clienteEmail: 'ana@ejemplo.com'
+      }
     };
 
     const webhook = await enviarWebhook(crearEventoCompletado(antigua));
@@ -140,16 +184,25 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
 describe('crear-sesion-pago: rechazos con un mensaje claro y sin llegar a Stripe', () => {
   test('unas notas de 501 caracteres se rechazan en castellano, sin llamar a Stripe', async () => {
     prepararTienda(2);
-    const res = await pedirPago({ items: carrito(2), clienteInfo: comprador({ notas: 'n'.repeat(501) }) });
+    const res = await pedirPago({
+      items: carrito(2),
+      clienteInfo: comprador({ notas: 'n'.repeat(501) })
+    });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'Las notas de entrega son demasiado largas (máximo 500 caracteres).');
+    assert.equal(
+      res.body.error,
+      'Las notas de entrega son demasiado largas (máximo 500 caracteres).'
+    );
     assert.equal(crearSesionDeStripe.mock.callCount(), 0);
   });
 
   test('una dirección de más de 500 caracteres se rechaza en castellano', async () => {
     prepararTienda(1);
-    const res = await pedirPago({ items: carrito(1), clienteInfo: comprador({ direccion: 'x'.repeat(501) }) });
+    const res = await pedirPago({
+      items: carrito(1),
+      clienteInfo: comprador({ direccion: 'x'.repeat(501) })
+    });
 
     assert.equal(res.status, 400);
     assert.match(res.body.error, /^La dirección es demasiado larga/);
@@ -170,7 +223,10 @@ describe('crear-sesion-pago: rechazos con un mensaje claro y sin llegar a Stripe
     prepararTienda(1);
     let consultas = 0;
     const original = fake.from;
-    mock.method(supabase, 'from', (tabla) => { consultas++; return original(tabla); });
+    mock.method(supabase, 'from', (tabla) => {
+      consultas++;
+      return original(tabla);
+    });
 
     await pedirPago({ items: carrito(1), clienteInfo: comprador({ nombre: 'x'.repeat(101) }) });
 

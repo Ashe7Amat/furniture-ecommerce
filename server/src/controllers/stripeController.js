@@ -13,7 +13,9 @@ const pagos = require('../utils/pagos');
 const recibirWebhook = async (req, res) => {
   const secreto = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secreto) {
-    console.error('Webhook de Stripe: falta STRIPE_WEBHOOK_SECRET en las variables de entorno del servidor.');
+    console.error(
+      'Webhook de Stripe: falta STRIPE_WEBHOOK_SECRET en las variables de entorno del servidor.'
+    );
     return res.status(503).json({ error: 'El webhook de Stripe no está configurado.' });
   }
 
@@ -25,7 +27,9 @@ const recibirWebhook = async (req, res) => {
   // La ruta usa express.raw(), así que el cuerpo debe ser un Buffer. Si ya llegara
   // parseado (algo lo habría consumido antes) la firma no se podría verificar.
   if (!Buffer.isBuffer(req.body)) {
-    console.error('Webhook de Stripe: el cuerpo no llegó como Buffer, no se puede verificar la firma.');
+    console.error(
+      'Webhook de Stripe: el cuerpo no llegó como Buffer, no se puede verificar la firma.'
+    );
     return res.status(400).json({ error: 'Cuerpo de la petición no válido.' });
   }
 
@@ -44,18 +48,25 @@ const recibirWebhook = async (req, res) => {
   const session = evento.data.object;
   if (session.payment_status !== 'paid') {
     // Solo se cobra con tarjeta, que llega ya pagada; un pago diferido no se da por bueno aún.
-    console.warn(`Webhook de Stripe: la sesión ${session.id} se completó sin pago confirmado (${session.payment_status}).`);
+    console.warn(
+      `Webhook de Stripe: la sesión ${session.id} se completó sin pago confirmado (${session.payment_status}).`
+    );
     return res.status(200).json({ recibido: true, ignorado: true });
   }
 
   try {
     const resultado = await pagos.procesarSesionPagada(session);
     if (resultado.estado === 'ignorada') {
-      console.warn(`Webhook de Stripe: la sesión ${session.id} no trae piezas en su metadata, se ignora.`);
+      console.warn(
+        `Webhook de Stripe: la sesión ${session.id} no trae piezas en su metadata, se ignora.`
+      );
     }
     return res.status(200).json({ recibido: true, estado: resultado.estado });
   } catch (error) {
-    console.error(`Webhook de Stripe: error al procesar la sesión ${session.id}:`, error.message || error);
+    console.error(
+      `Webhook de Stripe: error al procesar la sesión ${session.id}:`,
+      error.message || error
+    );
     return res.status(500).json({ error: 'Error al procesar el evento.' });
   }
 };

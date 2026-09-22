@@ -25,7 +25,10 @@ const sinEtiquetasPeligrosas = (html) => {
 
 let enviar;
 beforeEach(() => {
-  enviar = mock.method(clasePeticiones, 'send', async () => ({ data: { id: 'email_1' }, error: null }));
+  enviar = mock.method(clasePeticiones, 'send', async () => ({
+    data: { id: 'email_1' },
+    error: null
+  }));
   mock.method(console, 'log', () => {});
   mock.method(console, 'error', () => {});
 });
@@ -36,8 +39,12 @@ describe('enviarNotificacionVenta — escapa los datos del comprador y de las pi
     await email.enviarNotificacionVenta({
       items: [{ nombre: 'Sofá normal', modalidad: 'compra', cantidad: 1, precio: 100 }],
       clienteInfo: {
-        nombre: PAYLOAD_XSS, email: PAYLOAD_XSS, telefono: PAYLOAD_XSS,
-        direccion: PAYLOAD_XSS, notas: PAYLOAD_XSS, metodoPago: 'Tarjeta (Stripe)'
+        nombre: PAYLOAD_XSS,
+        email: PAYLOAD_XSS,
+        telefono: PAYLOAD_XSS,
+        direccion: PAYLOAD_XSS,
+        notas: PAYLOAD_XSS,
+        metodoPago: 'Tarjeta (Stripe)'
       },
       total: 100
     });
@@ -61,7 +68,12 @@ describe('enviarConfirmacionCliente — escapa los datos del comprador y de las 
   test('nombre, dirección y notas llegan escapados (incluida la fila condicional de notas)', async () => {
     await email.enviarConfirmacionCliente({
       items: [{ nombre: PAYLOAD_XSS, modalidad: 'compra', cantidad: 1, precio: 100 }],
-      clienteInfo: { nombre: PAYLOAD_XSS, email: 'ana@example.com', direccion: PAYLOAD_XSS, notas: PAYLOAD_XSS },
+      clienteInfo: {
+        nombre: PAYLOAD_XSS,
+        email: 'ana@example.com',
+        direccion: PAYLOAD_XSS,
+        notas: PAYLOAD_XSS
+      },
       total: 100
     });
 
@@ -78,7 +90,11 @@ describe('enviarEmailBienvenida — escapa el nombre del cliente', () => {
 
 describe('enviarMensajeContacto — escapa nombre, email y mensaje', () => {
   test('el nombre, el email y el mensaje del formulario llegan escapados', async () => {
-    await email.enviarMensajeContacto({ nombre: PAYLOAD_XSS, email: PAYLOAD_XSS, mensaje: PAYLOAD_XSS });
+    await email.enviarMensajeContacto({
+      nombre: PAYLOAD_XSS,
+      email: PAYLOAD_XSS,
+      mensaje: PAYLOAD_XSS
+    });
     sinEtiquetasPeligrosas(enviar.mock.calls[0].arguments[0].html);
   });
 });

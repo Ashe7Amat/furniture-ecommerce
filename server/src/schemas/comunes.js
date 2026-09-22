@@ -10,7 +10,11 @@ const { z } = require('zod');
 
 // Cadena de texto obligatoria: mismo mensaje en castellano tanto si el campo falta, como si
 // llega con otro tipo, como si llega vacía o solo con espacios (se recorta con .trim()).
-const requerido = (mensaje) => z.string({ error: () => mensaje }).trim().min(1, mensaje);
+const requerido = (mensaje) =>
+  z
+    .string({ error: () => mensaje })
+    .trim()
+    .min(1, mensaje);
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

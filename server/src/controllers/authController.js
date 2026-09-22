@@ -9,7 +9,9 @@ const { enviarEmailBienvenida } = require('../utils/email');
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
 // (se avisa con un error claro en vez de fallar de forma rara).
-const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+const googleClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+  : null;
 
 // La forma del payload (campos obligatorios, formato de email, longitud de la contraseña) ya la
 // valida el middleware validar() con los esquemas de schemas/auth.js, antes de llegar aquí. Lo
@@ -69,10 +71,13 @@ const registrarCliente = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Cuenta creada con éxito.',
-      user: { nombre: nuevoUsuario[0].nombre, email: nuevoUsuario[0].email, rol: nuevoUsuario[0].rol },
+      user: {
+        nombre: nuevoUsuario[0].nombre,
+        email: nuevoUsuario[0].email,
+        rol: nuevoUsuario[0].rol
+      },
       token
     });
-
   } catch (error) {
     console.error('Error en registro:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al crear la cuenta.' });
@@ -118,7 +123,6 @@ const loginCliente = async (req, res) => {
       },
       token
     });
-
   } catch (error) {
     console.error('Error en login:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al iniciar sesión.' });
@@ -139,7 +143,11 @@ const actualizarPerfil = async (req, res) => {
     // Solo verificar la contraseña si se está intentando cambiar email o contraseña
     if (estaCambiandoEmail || estaCambiandoPassword) {
       if (!passwordActual) {
-        return res.status(400).json({ error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.' });
+        return res
+          .status(400)
+          .json({
+            error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.'
+          });
       }
 
       // 1. Buscar al usuario en la base de datos para comparar contraseñas
@@ -232,13 +240,17 @@ const loginConGoogle = async (req, res) => {
       return res.status(400).json({ error: 'Falta el token de Google.' });
     }
     if (!googleClient) {
-      console.error('Login con Google: falta GOOGLE_CLIENT_ID en las variables de entorno del servidor.');
-      return res.status(500).json({ error: 'El inicio de sesión con Google no está disponible ahora mismo.' });
+      console.error(
+        'Login con Google: falta GOOGLE_CLIENT_ID en las variables de entorno del servidor.'
+      );
+      return res
+        .status(500)
+        .json({ error: 'El inicio de sesión con Google no está disponible ahora mismo.' });
     }
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID
     });
     const payload = ticket.getPayload();
 

@@ -1,6 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { obtenerCategorias, crearCategoria, editarCategoria, eliminarCategoria } = require('../controllers/categoriasController');
+const {
+  obtenerCategorias,
+  crearCategoria,
+  editarCategoria,
+  eliminarCategoria
+} = require('../controllers/categoriasController');
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
 

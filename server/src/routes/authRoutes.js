@@ -1,10 +1,20 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
-const { loginCliente, registrarCliente, actualizarPerfil, loginConGoogle } = require('../controllers/authController');
+const {
+  loginCliente,
+  registrarCliente,
+  actualizarPerfil,
+  loginConGoogle
+} = require('../controllers/authController');
 const { verificarToken } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
-const { schemaRegistro, schemaLogin, schemaGoogle, schemaPerfilUpdate } = require('../schemas/auth');
+const {
+  schemaRegistro,
+  schemaLogin,
+  schemaGoogle,
+  schemaPerfilUpdate
+} = require('../schemas/auth');
 
 // Límite anti fuerza-bruta: máximo 15 intentos de login/registro por IP cada 15 minutos.
 // Solo cuenta los intentos fallidos, para no bloquear a alguien que ya inició sesión bien.
@@ -14,7 +24,7 @@ const limitadorAuth = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.' },
+  message: { error: 'Demasiados intentos. Espera unos minutos antes de volver a intentarlo.' }
 });
 
 router.post('/login', limitadorAuth, validar(schemaLogin), loginCliente);

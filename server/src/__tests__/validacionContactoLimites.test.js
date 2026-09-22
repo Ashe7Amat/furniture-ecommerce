@@ -11,26 +11,40 @@ process.env.RESEND_API_KEY = ''; // por si algún test no llegara a mockear envi
 const email = require('../utils/email');
 const app = require('../index');
 
-const mensajeValido = { nombre: 'Ana', email: 'ana@example.com', mensaje: 'Hola, quería preguntar algo.' };
+const mensajeValido = {
+  nombre: 'Ana',
+  email: 'ana@example.com',
+  mensaje: 'Hola, quería preguntar algo.'
+};
 
 afterEach(() => mock.restoreAll());
 
 describe('POST /api/contacto — límites de longitud', () => {
   test('rechaza con 400 un mensaje demasiado corto', async () => {
-    const res = await request(app).post('/api/contacto').send({ ...mensajeValido, mensaje: 'corto' });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({ ...mensajeValido, mensaje: 'corto' });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'El mensaje debe tener al menos 10 caracteres.');
   });
 
   test('cambio de comportamiento deliberado: un mensaje de más de 5000 caracteres se RECHAZA (antes se recortaba en silencio, sin avisar)', async () => {
-    const res = await request(app).post('/api/contacto').send({ ...mensajeValido, mensaje: 'x'.repeat(5001) });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({ ...mensajeValido, mensaje: 'x'.repeat(5001) });
     assert.equal(res.status, 400);
     assert.equal(res.body.error, 'El mensaje es demasiado largo (máximo 5000 caracteres).');
   });
 
   test('un mensaje válido con espacios de sobra llega recortado al envío de email', async () => {
     const enviar = mock.method(email, 'enviarMensajeContacto', async () => true);
-    const res = await request(app).post('/api/contacto').send({ nombre: '  Ana  ', email: ' ana@example.com ', mensaje: '  Hola, quería preguntar algo.  ' });
+    const res = await request(app)
+      .post('/api/contacto')
+      .send({
+        nombre: '  Ana  ',
+        email: ' ana@example.com ',
+        mensaje: '  Hola, quería preguntar algo.  '
+      });
 
     assert.equal(res.status, 200);
     const enviado = enviar.mock.calls[0].arguments[0];

@@ -11,7 +11,9 @@ const limitadorContacto = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Has enviado demasiados mensajes. Espera unos minutos antes de volver a intentarlo.' },
+  message: {
+    error: 'Has enviado demasiados mensajes. Espera unos minutos antes de volver a intentarlo.'
+  }
 });
 
 // "web" es un honeypot: un campo oculto para humanos (vía CSS) pero visible para bots simples

@@ -6,14 +6,15 @@ const { requerido, email } = require('./comunes');
 const PASSWORD_MIN_LENGTH = 6;
 
 const mensajePassword = `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`;
-const password = () => z.string({ error: () => mensajePassword }).min(PASSWORD_MIN_LENGTH, mensajePassword);
+const password = () =>
+  z.string({ error: () => mensajePassword }).min(PASSWORD_MIN_LENGTH, mensajePassword);
 
 // POST /api/auth/register -- igual que antes: nombre y contraseña solo comprueban que no estén
 // vacíos; el email además debe tener formato de email.
 const schemaRegistro = z.object({
   nombre: requerido('El nombre es obligatorio.'),
   email: email(),
-  password: password(),
+  password: password()
 });
 
 // POST /api/auth/login -- a propósito NO valida el formato del email (nunca lo hizo): solo que
@@ -23,13 +24,16 @@ const schemaRegistro = z.object({
 // están registrados).
 const MENSAJE_LOGIN_INCOMPLETO = 'Email y contraseña requeridos.';
 const schemaLogin = z.object({
-  email: z.string({ error: () => MENSAJE_LOGIN_INCOMPLETO }).trim().min(1, MENSAJE_LOGIN_INCOMPLETO),
-  password: z.string({ error: () => MENSAJE_LOGIN_INCOMPLETO }).min(1, MENSAJE_LOGIN_INCOMPLETO),
+  email: z
+    .string({ error: () => MENSAJE_LOGIN_INCOMPLETO })
+    .trim()
+    .min(1, MENSAJE_LOGIN_INCOMPLETO),
+  password: z.string({ error: () => MENSAJE_LOGIN_INCOMPLETO }).min(1, MENSAJE_LOGIN_INCOMPLETO)
 });
 
 // POST /api/auth/google
 const schemaGoogle = z.object({
-  credential: requerido('Falta el token de Google.'),
+  credential: requerido('Falta el token de Google.')
 });
 
 // POST /api/auth/perfil-update -- todo opcional (es una actualización parcial: se manda solo lo
@@ -43,7 +47,13 @@ const schemaPerfilUpdate = z.object({
   nuevoNombre: requerido('El nombre no puede estar vacío.').optional(),
   nuevoEmail: email('Introduce un email válido.').optional(),
   passwordActual: z.string().optional(),
-  nuevaPassword: password().optional(),
+  nuevaPassword: password().optional()
 });
 
-module.exports = { schemaRegistro, schemaLogin, schemaGoogle, schemaPerfilUpdate, PASSWORD_MIN_LENGTH };
+module.exports = {
+  schemaRegistro,
+  schemaLogin,
+  schemaGoogle,
+  schemaPerfilUpdate,
+  PASSWORD_MIN_LENGTH
+};

@@ -2,8 +2,14 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const {
-  obtenerMuebles, obtenerMueblePorId, crearMueble, editarMueble, eliminarMueble,
-  buscarMuebles, crearSesionPago, confirmarSesion
+  obtenerMuebles,
+  obtenerMueblePorId,
+  crearMueble,
+  editarMueble,
+  eliminarMueble,
+  buscarMuebles,
+  crearSesionPago,
+  confirmarSesion
 } = require('../controllers/mueblesController');
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
@@ -18,7 +24,10 @@ const limitadorConfirmacion = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiadas comprobaciones seguidas. Espera unos minutos y recarga esta página; si ya has pagado, no repitas el pago.' },
+  message: {
+    error:
+      'Demasiadas comprobaciones seguidas. Espera unos minutos y recarga esta página; si ya has pagado, no repitas el pago.'
+  }
 });
 
 // Lectura del catálogo: pública, la ve cualquier visitante
@@ -37,8 +46,20 @@ router.get('/:id', obtenerMueblePorId);
 // validar() va DESPUÉS de upload.array(): multer es quien rellena req.body a partir del
 // multipart/form-data (las fotos van aparte, en req.files); antes de multer, req.body no
 // existiría todavía.
-router.post('/', verificarAdmin, upload.array('imagenes', 5), validar(schemaMuebleCrear), crearMueble);
-router.put('/:id', verificarAdmin, upload.array('imagenes', 5), validar(schemaMuebleEditar), editarMueble);
+router.post(
+  '/',
+  verificarAdmin,
+  upload.array('imagenes', 5),
+  validar(schemaMuebleCrear),
+  crearMueble
+);
+router.put(
+  '/:id',
+  verificarAdmin,
+  upload.array('imagenes', 5),
+  validar(schemaMuebleEditar),
+  editarMueble
+);
 router.delete('/:id', verificarAdmin, eliminarMueble);
 
 module.exports = router;

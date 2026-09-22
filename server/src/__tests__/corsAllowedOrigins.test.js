@@ -8,7 +8,8 @@ const request = require('supertest');
 require('./helpers/testEnv');
 
 process.env.CLIENT_URL = 'https://nave5-demo.vercel.app';
-process.env.ALLOWED_ORIGINS = 'https://nave5-demo-git-mi-rama-mi-equipo.vercel.app, https://otro-dominio.com';
+process.env.ALLOWED_ORIGINS =
+  'https://nave5-demo-git-mi-rama-mi-equipo.vercel.app, https://otro-dominio.com';
 
 const app = require('../index');
 
@@ -23,7 +24,10 @@ describe('CORS con ALLOWED_ORIGINS', () => {
 
   test('cada origen exacto de ALLOWED_ORIGINS recibe la cabecera de acceso (espacios incluidos, se recortan)', async () => {
     const res1 = await conOrigen('https://nave5-demo-git-mi-rama-mi-equipo.vercel.app');
-    assert.equal(res1.headers['access-control-allow-origin'], 'https://nave5-demo-git-mi-rama-mi-equipo.vercel.app');
+    assert.equal(
+      res1.headers['access-control-allow-origin'],
+      'https://nave5-demo-git-mi-rama-mi-equipo.vercel.app'
+    );
 
     const res2 = await conOrigen('https://otro-dominio.com');
     assert.equal(res2.headers['access-control-allow-origin'], 'https://otro-dominio.com');

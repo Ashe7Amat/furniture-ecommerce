@@ -41,10 +41,12 @@ app.use((req, res, next) => {
 // navegador, así que no necesita permitir scripts/estilos/imágenes de ningún sitio -- "default-src
 // 'none'" es lo más restrictivo posible. La CSP que de verdad importa (la que controla qué puede
 // cargar la página web) vive en client/vercel.json, no aquí.
-app.use(helmet({
-  contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
+    crossOriginEmbedderPolicy: false
+  })
+);
 
 // Comprime las respuestas (gzip/brotli) -- reduce el peso de las respuestas de la API,
 // sobre todo la lista de muebles con imágenes y descripciones.
@@ -64,18 +66,20 @@ const origenesPermitidos = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:5174',
-  ...(process.env.ALLOWED_ORIGINS || '').split(',').map(origen => origen.trim()),
+  ...(process.env.ALLOWED_ORIGINS || '').split(',').map((origen) => origen.trim())
 ].filter(Boolean);
 
-app.use(cors({
-  origin(origin, callback) {
-    // Sin cabecera "origin" (curl, apps móviles, health checks) -- se permite.
-    if (!origin || origenesPermitidos.includes(origin)) {
-      return callback(null, true);
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Sin cabecera "origin" (curl, apps móviles, health checks) -- se permite.
+      if (!origin || origenesPermitidos.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error('No autorizado por CORS'));
     }
-    callback(new Error('No autorizado por CORS'));
-  },
-}));
+  })
+);
 
 // Webhook de Stripe: va ANTES de express.json() porque necesita el cuerpo sin parsear para
 // poder verificar la firma (ver routes/stripeRoutes.js).

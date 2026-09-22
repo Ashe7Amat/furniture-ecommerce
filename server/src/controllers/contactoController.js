@@ -13,7 +13,9 @@ const enviarContacto = async (req, res) => {
   const enviado = await email.enviarMensajeContacto({ nombre, email: emailComprador, mensaje });
 
   if (!enviado) {
-    return res.status(502).json({ error: 'No se pudo enviar el mensaje. Inténtalo de nuevo en unos minutos.' });
+    return res
+      .status(502)
+      .json({ error: 'No se pudo enviar el mensaje. Inténtalo de nuevo en unos minutos.' });
   }
 
   res.status(200).json({ success: true });

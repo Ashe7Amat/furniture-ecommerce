@@ -28,7 +28,8 @@ const json = (estado, cuerpo) =>
 // Responde como PostgREST para el flujo feliz de una compra de "mueble-1".
 const fetchFalso = async (url, init = {}) => {
   const u = new URL(url);
-  const cabeceras = init.headers instanceof Headers ? init.headers : new Headers(init.headers || {});
+  const cabeceras =
+    init.headers instanceof Headers ? init.headers : new Headers(init.headers || {});
   const peticion = {
     metodo: (init.method || 'GET').toUpperCase(),
     ruta: u.pathname,
@@ -39,15 +40,20 @@ const fetchFalso = async (url, init = {}) => {
   peticiones.push(peticion);
 
   if (peticion.ruta === '/rest/v1/muebles' && peticion.metodo === 'GET') {
-    return json(200, [{ id: 'mueble-1', nombre: 'Sofá Lumina', precio_venta: 1250, precio_alquiler_dia: null }]);
+    return json(200, [
+      { id: 'mueble-1', nombre: 'Sofá Lumina', precio_venta: 1250, precio_alquiler_dia: null }
+    ]);
   }
-  if (peticion.ruta === '/rest/v1/muebles' && peticion.metodo === 'PATCH') return json(200, [{ id: 'mueble-1' }]);
+  if (peticion.ruta === '/rest/v1/muebles' && peticion.metodo === 'PATCH')
+    return json(200, [{ id: 'mueble-1' }]);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'POST') return json(201);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'GET') return json(200, []);
-  return json(404, { message: `Petición no prevista en el test: ${peticion.metodo} ${peticion.ruta}` });
+  return json(404, {
+    message: `Petición no prevista en el test: ${peticion.metodo} ${peticion.ruta}`
+  });
 };
 
-const de = (metodo, ruta) => peticiones.filter(p => p.metodo === metodo && p.ruta === ruta);
+const de = (metodo, ruta) => peticiones.filter((p) => p.metodo === metodo && p.ruta === ruta);
 
 beforeEach(async () => {
   peticiones = [];
@@ -69,13 +75,13 @@ afterEach(() => mock.restoreAll());
 describe('contrato de las consultas de pagos.js con supabase-js real', () => {
   test('hace exactamente las peticiones esperadas y en este orden', () => {
     assert.deepEqual(
-      peticiones.map(p => `${p.metodo} ${p.ruta}`),
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
       [
-        'GET /rest/v1/pedidos',   // ¿la sesión ya tiene pedido?
-        'GET /rest/v1/muebles',   // cargar las piezas
+        'GET /rest/v1/pedidos', // ¿la sesión ya tiene pedido?
+        'GET /rest/v1/muebles', // cargar las piezas
         'PATCH /rest/v1/muebles', // marcar como vendida (condicional)
-        'POST /rest/v1/pedidos',  // registrar el pedido
-        'GET /rest/v1/pedidos'    // detectar doble venta
+        'POST /rest/v1/pedidos', // registrar el pedido
+        'GET /rest/v1/pedidos' // detectar doble venta
       ]
     );
   });
@@ -91,7 +97,12 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
   test('cargar las piezas: una sola consulta con .in() y solo las columnas necesarias', () => {
     const { params } = de('GET', '/rest/v1/muebles')[0];
 
-    assert.deepEqual(params.select.split(','), ['id', 'nombre', 'precio_venta', 'precio_alquiler_dia']);
+    assert.deepEqual(params.select.split(','), [
+      'id',
+      'nombre',
+      'precio_venta',
+      'precio_alquiler_dia'
+    ]);
     assert.match(params.id, /^in\.\(.*mueble-1.*\)$/);
   });
 
@@ -99,7 +110,11 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
     const patch = de('PATCH', '/rest/v1/muebles')[0];
 
     assert.equal(patch.params.id, 'eq.mueble-1');
-    assert.equal(patch.params.estado, 'eq.disponible', 'la condición viaja en la propia petición: es atómica');
+    assert.equal(
+      patch.params.estado,
+      'eq.disponible',
+      'la condición viaja en la propia petición: es atómica'
+    );
     assert.equal(patch.params.select, 'id');
     assert.match(patch.prefer, /return=representation/);
     assert.deepEqual(patch.cuerpo, { estado: 'vendido', disponible: false });
@@ -115,7 +130,13 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
     assert.equal(cuerpo.metodo_entrega, 'domicilio');
     assert.equal(cuerpo.direccion_envio, 'Calle Falsa 123, Barcelona');
     assert.deepEqual(cuerpo.items, [
-      { productId: 'mueble-1', nombre: 'Sofá Lumina', modalidad: 'compra', cantidad: 1, precio: 1250 }
+      {
+        productId: 'mueble-1',
+        nombre: 'Sofá Lumina',
+        modalidad: 'compra',
+        cantidad: 1,
+        precio: 1250
+      }
     ]);
   });
 

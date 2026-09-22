@@ -50,11 +50,7 @@ const obtenerMuebles = async (req, res) => {
 const obtenerMueblePorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('muebles')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await supabase.from('muebles').select('*').eq('id', id).single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });
@@ -72,7 +68,16 @@ const obtenerMueblePorId = async (req, res) => {
 // schemas/muebles.js -- ver validar() en mueblesRoutes.js.
 const crearMueble = async (req, res) => {
   try {
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado, categoria_id } = req.body;
+    const {
+      nombre,
+      categoria,
+      descripcion,
+      precio_venta,
+      precio_alquiler,
+      disponible,
+      estado,
+      categoria_id
+    } = req.body;
     let imagenes = [];
 
     if (req.files && req.files.length > 0) {
@@ -95,7 +100,7 @@ const crearMueble = async (req, res) => {
     // categoria_id: si lo manda el body (front ya actualizado, ver Admin.jsx), se usa tal cual;
     // si no, se resuelve desde el nombre de categoria -- así un cliente/script que todavía no
     // conozca categoria_id sigue funcionando igual que antes de esta migración.
-    const categoriaIdFinal = categoria_id ?? await resolverCategoriaIdPorNombre(categoria);
+    const categoriaIdFinal = categoria_id ?? (await resolverCategoriaIdPorNombre(categoria));
 
     const { data, error } = await supabase
       .from('muebles')
@@ -127,7 +132,16 @@ const crearMueble = async (req, res) => {
 const editarMueble = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado, categoria_id } = req.body;
+    const {
+      nombre,
+      categoria,
+      descripcion,
+      precio_venta,
+      precio_alquiler,
+      disponible,
+      estado,
+      categoria_id
+    } = req.body;
 
     const updateData = {};
     if (nombre !== undefined) updateData.nombre = nombre;
@@ -156,7 +170,9 @@ const editarMueble = async (req, res) => {
           imagenesFinales = [req.body.imagenes_existentes];
         }
       } else {
-        imagenesFinales = Array.isArray(req.body.imagenes_existentes) ? req.body.imagenes_existentes : [req.body.imagenes_existentes];
+        imagenesFinales = Array.isArray(req.body.imagenes_existentes)
+          ? req.body.imagenes_existentes
+          : [req.body.imagenes_existentes];
       }
     }
 
@@ -175,19 +191,21 @@ const editarMueble = async (req, res) => {
           imagenesFinales = [req.body.imagenes];
         }
       } else {
-        imagenesFinales = Array.isArray(req.body.imagenes) ? req.body.imagenes : [req.body.imagenes];
+        imagenesFinales = Array.isArray(req.body.imagenes)
+          ? req.body.imagenes
+          : [req.body.imagenes];
       }
     }
 
-    if (imagenesFinales.length > 0 || req.body.imagenes_existentes !== undefined || req.body.imagenes !== undefined) {
+    if (
+      imagenesFinales.length > 0 ||
+      req.body.imagenes_existentes !== undefined ||
+      req.body.imagenes !== undefined
+    ) {
       updateData.imagenes = imagenesFinales;
     }
 
-    const { data, error } = await supabase
-      .from('muebles')
-      .update(updateData)
-      .eq('id', id)
-      .select();
+    const { data, error } = await supabase.from('muebles').update(updateData).eq('id', id).select();
 
     if (error) throw error;
     res.status(200).json({ success: true, message: 'Mueble editado con éxito', data });
@@ -203,7 +221,9 @@ const eliminarMueble = async (req, res) => {
     const { id } = req.params;
     const { error } = await supabase.from('muebles').delete().eq('id', id);
     if (error) throw error;
-    res.status(200).json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
+    res
+      .status(200)
+      .json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
   } catch (error) {
     console.error('Error al eliminar mueble:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al intentar borrar el mueble.' });
@@ -241,15 +261,22 @@ const construirLineasDesdeCarrito = async (items) => {
       throw new ErrorValidacion(`La pieza con ID ${item.productId} no existe en catálogo.`);
     }
     if (mueble.estado === 'vendido') {
-      throw new ErrorValidacion(`Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`);
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`
+      );
     }
     if (mueble.estado === 'alquilado' && item.modalidad === 'compra') {
-      throw new ErrorValidacion(`Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`);
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`
+      );
     }
 
-    const precioReal = item.modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta;
+    const precioReal =
+      item.modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta;
     if (!precioReal) {
-      throw new ErrorValidacion(`"${mueble.nombre}" no tiene precio disponible para esa modalidad.`);
+      throw new ErrorValidacion(
+        `"${mueble.nombre}" no tiene precio disponible para esa modalidad.`
+      );
     }
 
     lineas.push({
@@ -274,7 +301,9 @@ const crearSesionPago = async (req, res) => {
   try {
     const stripe = stripeUtil.getStripe();
     if (!stripe) {
-      return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
 
     const { items, clienteInfo } = req.body;
@@ -288,13 +317,15 @@ const crearSesionPago = async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      line_items: lineas.map(l => ({
+      line_items: lineas.map((l) => ({
         price_data: {
           currency: 'eur',
-          product_data: { name: `${l.nombre}${l.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}` },
-          unit_amount: Math.round(l.precio * 100),
+          product_data: {
+            name: `${l.nombre}${l.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}`
+          },
+          unit_amount: Math.round(l.precio * 100)
         },
-        quantity: l.cantidad,
+        quantity: l.cantidad
       })),
       customer_email: clienteInfo?.email || undefined,
       success_url: `${process.env.CLIENT_URL}/checkout/exito?session_id={CHECKOUT_SESSION_ID}`,
@@ -323,7 +354,9 @@ const confirmarSesion = async (req, res) => {
   try {
     const stripe = stripeUtil.getStripe();
     if (!stripe) {
-      return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
 
     const { session_id } = req.query;
@@ -344,7 +377,10 @@ const confirmarSesion = async (req, res) => {
     try {
       await pagos.procesarSesionPagada(session);
     } catch (error) {
-      console.error(`No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`, error.message || error);
+      console.error(
+        `No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`,
+        error.message || error
+      );
       if (!process.env.STRIPE_WEBHOOK_SECRET) {
         await pagos.avisarPagoSinRegistrar(session, error);
       }

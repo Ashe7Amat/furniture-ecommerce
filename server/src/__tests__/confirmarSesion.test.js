@@ -21,7 +21,11 @@ const stripeUtil = require('../utils/stripe');
 const { leerItemsDeMetadata } = require('../utils/metadataStripe');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const {
-  SECRETO_WEBHOOK, MUEBLES_DE_PRUEBA, crearSesion, crearEventoCompletado, firmarEvento
+  SECRETO_WEBHOOK,
+  MUEBLES_DE_PRUEBA,
+  crearSesion,
+  crearEventoCompletado,
+  firmarEvento
 } = require('./helpers/stripeFixtures');
 
 let fake;
@@ -35,7 +39,9 @@ let registroErrores;
 // 200 igualmente), así que un test que solo mire el 200 no notaría que el procesado ha
 // fallado. Los tests de camino feliz llaman a esto para comprobar que no hubo fallo.
 const sinFalloDeRegistro = () => {
-  const fallos = registroErrores.mock.calls.filter(c => String(c.arguments[0]).includes('No se pudo registrar'));
+  const fallos = registroErrores.mock.calls.filter((c) =>
+    String(c.arguments[0]).includes('No se pudo registrar')
+  );
   assert.equal(fallos.length, 0, 'el procesado de la sesión no debe haber fallado en silencio');
 };
 
@@ -66,7 +72,9 @@ beforeEach(() => {
     if (!sesionesDeStripe[id]) throw new Error(`No such checkout.session: ${id}`);
     return sesionesDeStripe[id];
   });
-  crearSesionDeStripe = mock.fn(async () => ({ url: 'https://checkout.stripe.com/c/pay/cs_test_nueva' }));
+  crearSesionDeStripe = mock.fn(async () => ({
+    url: 'https://checkout.stripe.com/c/pay/cs_test_nueva'
+  }));
   mock.method(stripeUtil, 'getStripe', () => ({
     checkout: { sessions: { retrieve, create: crearSesionDeStripe } }
   }));
@@ -94,7 +102,9 @@ describe('GET /api/muebles/confirmar-sesion — validación', () => {
   });
 
   test('responde 400 si session_id viene repetido (no es un texto)', async () => {
-    const res = await request(app).get('/api/muebles/confirmar-sesion?session_id=cs_a&session_id=cs_b');
+    const res = await request(app).get(
+      '/api/muebles/confirmar-sesion?session_id=cs_a&session_id=cs_b'
+    );
 
     assert.equal(res.status, 400);
     assert.equal(retrieve.mock.callCount(), 0);
@@ -127,7 +137,7 @@ describe('GET /api/muebles/confirmar-sesion — como respaldo idempotente', () =
     assert.equal(res.body.total, 1250);
     assert.equal(retrieve.mock.calls[0].arguments[0], 'cs_test_123');
     assert.equal(fake.tablas.pedidos.length, 1);
-    assert.equal(fake.tablas.muebles.find(m => m.id === 'mueble-1').estado, 'vendido');
+    assert.equal(fake.tablas.muebles.find((m) => m.id === 'mueble-1').estado, 'vendido');
     assert.equal(correos.venta.mock.callCount(), 1);
     assert.equal(correos.cliente.mock.callCount(), 1);
     sinFalloDeRegistro();
@@ -185,7 +195,11 @@ describe('GET /api/muebles/confirmar-sesion — como respaldo idempotente', () =
     assert.equal(fake.tablas.pedidos.length, 1);
     assert.equal(correos.venta.mock.callCount(), 1);
     assert.equal(correos.cliente.mock.callCount(), 1);
-    assert.equal(correos.alerta.mock.callCount(), 0, 'el gemelo no debe generar una falsa alerta de doble venta');
+    assert.equal(
+      correos.alerta.mock.callCount(),
+      0,
+      'el gemelo no debe generar una falsa alerta de doble venta'
+    );
     sinFalloDeRegistro();
   });
 
@@ -218,11 +232,20 @@ describe('GET /api/muebles/confirmar-sesion — como respaldo idempotente', () =
 
 describe('POST /api/muebles/crear-sesion-pago', () => {
   const pedirPago = (cuerpo) => request(app).post('/api/muebles/crear-sesion-pago').send(cuerpo);
-  const clienteInfo = { nombre: 'Ana Prueba', email: 'ana@example.com', telefono: '600000000', direccion: 'Calle Falsa 123', notas: '' };
+  const clienteInfo = {
+    nombre: 'Ana Prueba',
+    email: 'ana@example.com',
+    telefono: '600000000',
+    direccion: 'Calle Falsa 123',
+    notas: ''
+  };
 
   test('responde 503 si Stripe no está configurado', async () => {
     mock.method(stripeUtil, 'getStripe', () => null);
-    const res = await pedirPago({ items: [{ productId: 'mueble-1', modalidad: 'compra' }], clienteInfo });
+    const res = await pedirPago({
+      items: [{ productId: 'mueble-1', modalidad: 'compra' }],
+      clienteInfo
+    });
 
     assert.equal(res.status, 503);
   });
@@ -265,14 +288,22 @@ describe('POST /api/muebles/crear-sesion-pago', () => {
     assert.equal(parametros.line_items[0].price_data.currency, 'eur');
     assert.equal(parametros.line_items[0].price_data.unit_amount, 125000);
     assert.equal(parametros.customer_email, 'ana@example.com');
-    assert.match(parametros.success_url, /^https:\/\/tienda\.example\.com\/checkout\/exito\?session_id=\{CHECKOUT_SESSION_ID\}$/);
-    assert.deepEqual(leerItemsDeMetadata(parametros.metadata), [{ productId: 'mueble-1', modalidad: 'compra' }]);
+    assert.match(
+      parametros.success_url,
+      /^https:\/\/tienda\.example\.com\/checkout\/exito\?session_id=\{CHECKOUT_SESSION_ID\}$/
+    );
+    assert.deepEqual(leerItemsDeMetadata(parametros.metadata), [
+      { productId: 'mueble-1', modalidad: 'compra' }
+    ]);
     assert.equal(parametros.metadata.clienteEmail, 'ana@example.com');
   });
 
   test('rechaza con 400 una pieza que ya está vendida, sin llegar a crear la sesión', async () => {
-    fake.tablas.muebles.find(m => m.id === 'mueble-1').estado = 'vendido';
-    const res = await pedirPago({ items: [{ productId: 'mueble-1', modalidad: 'compra' }], clienteInfo });
+    fake.tablas.muebles.find((m) => m.id === 'mueble-1').estado = 'vendido';
+    const res = await pedirPago({
+      items: [{ productId: 'mueble-1', modalidad: 'compra' }],
+      clienteInfo
+    });
 
     assert.equal(res.status, 400);
     assert.match(res.body.error, /vendida/);
@@ -287,7 +318,10 @@ describe('POST /api/muebles/crear-sesion-pago', () => {
       throw new Error('detalle interno de Stripe que no debe llegar al comprador');
     });
 
-    const res = await pedirPago({ items: [{ productId: 'mueble-1', modalidad: 'compra' }], clienteInfo });
+    const res = await pedirPago({
+      items: [{ productId: 'mueble-1', modalidad: 'compra' }],
+      clienteInfo
+    });
 
     assert.equal(res.status, 500);
     assert.equal(res.body.error, 'No se pudo iniciar el proceso de pago.');

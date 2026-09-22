@@ -15,10 +15,16 @@ const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
-const tokenAdmin = jwt.sign({ email: 'admin@test.com', nombre: 'Admin', rol: 'admin' }, process.env.JWT_SECRET);
+const tokenAdmin = jwt.sign(
+  { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
+  process.env.JWT_SECRET
+);
 const conAuth = (req) => req.set('Authorization', `Bearer ${tokenAdmin}`);
 
-const CATEGORIAS = [{ id: 7, nombre: 'Sofás' }, { id: 9, nombre: 'Sillas' }];
+const CATEGORIAS = [
+  { id: 7, nombre: 'Sofás' },
+  { id: 9, nombre: 'Sillas' }
+];
 
 let fake;
 afterEach(() => mock.restoreAll());
@@ -31,25 +37,35 @@ describe('POST /api/muebles — doble escritura de categoria_id', () => {
 
   test('con categoria_id explícito en el body, se guarda tal cual (no se resuelve por nombre)', async () => {
     const res = await conAuth(request(app).post('/api/muebles'))
-      .field('nombre', 'Sofá Lumina').field('categoria', 'Sofás').field('categoria_id', '9'); // deliberadamente distinto del real (7), para comprobar que no se corrige
+      .field('nombre', 'Sofá Lumina')
+      .field('categoria', 'Sofás')
+      .field('categoria_id', '9'); // deliberadamente distinto del real (7), para comprobar que no se corrige
     assert.equal(res.status, 201);
-    const insertado = fake.escrituras.find(e => e.tabla === 'muebles' && e.accion === 'insert').fila;
+    const insertado = fake.escrituras.find(
+      (e) => e.tabla === 'muebles' && e.accion === 'insert'
+    ).fila;
     assert.equal(insertado.categoria_id, 9);
   });
 
   test('con solo categoria (texto), se resuelve a categoria_id vía categorias.nombre', async () => {
     const res = await conAuth(request(app).post('/api/muebles'))
-      .field('nombre', 'Sofá Lumina').field('categoria', 'Sofás');
+      .field('nombre', 'Sofá Lumina')
+      .field('categoria', 'Sofás');
     assert.equal(res.status, 201);
-    const insertado = fake.escrituras.find(e => e.tabla === 'muebles' && e.accion === 'insert').fila;
+    const insertado = fake.escrituras.find(
+      (e) => e.tabla === 'muebles' && e.accion === 'insert'
+    ).fila;
     assert.equal(insertado.categoria_id, 7);
   });
 
   test('con una categoria (texto) que no coincide con ninguna categoría real, categoria_id queda null sin bloquear la creación', async () => {
     const res = await conAuth(request(app).post('/api/muebles'))
-      .field('nombre', 'Pieza rara').field('categoria', 'Categoría que no existe');
+      .field('nombre', 'Pieza rara')
+      .field('categoria', 'Categoría que no existe');
     assert.equal(res.status, 201);
-    const insertado = fake.escrituras.find(e => e.tabla === 'muebles' && e.accion === 'insert').fila;
+    const insertado = fake.escrituras.find(
+      (e) => e.tabla === 'muebles' && e.accion === 'insert'
+    ).fila;
     assert.equal(insertado.categoria_id, null);
     assert.equal(insertado.categoria, 'Categoría que no existe'); // el texto sigue siendo la fuente de verdad
   });
@@ -59,7 +75,15 @@ describe('PUT /api/muebles/:id — doble escritura de categoria_id', () => {
   beforeEach(() => {
     fake = crearFakeSupabase({
       categorias: CATEGORIAS,
-      muebles: [{ id: 'mueble-1', nombre: 'Sofá', categoria: 'Sofás', categoria_id: 7, estado: 'disponible' }]
+      muebles: [
+        {
+          id: 'mueble-1',
+          nombre: 'Sofá',
+          categoria: 'Sofás',
+          categoria_id: 7,
+          estado: 'disponible'
+        }
+      ]
     });
     mock.method(supabase, 'from', fake.from);
   });
@@ -72,7 +96,10 @@ describe('PUT /api/muebles/:id — doble escritura de categoria_id', () => {
   });
 
   test('cambiando solo categoria (texto), se resuelve y actualiza categoria_id también', async () => {
-    const res = await conAuth(request(app).put('/api/muebles/mueble-1')).field('categoria', 'Sillas');
+    const res = await conAuth(request(app).put('/api/muebles/mueble-1')).field(
+      'categoria',
+      'Sillas'
+    );
     assert.equal(res.status, 200);
     assert.equal(fake.tablas.muebles[0].categoria, 'Sillas');
     assert.equal(fake.tablas.muebles[0].categoria_id, 9);
