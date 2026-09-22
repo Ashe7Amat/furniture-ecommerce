@@ -2,7 +2,8 @@ const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
-const { construirMetadataPago, ErrorMetadata } = require('../utils/metadataStripe');
+const { construirMetadataPago } = require('../utils/metadataStripe');
+const { ErrorValidacion } = require('../utils/errores');
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -50,6 +51,9 @@ const obtenerMueblePorId = async (req, res) => {
 };
 
 // 3. Crear un nuevo mueble con soporte de carga física de imágenes
+// nombre/categoria/descripcion/precio_venta/precio_alquiler/disponible/estado ya vienen
+// validados y con su tipo real (precios como number o null, disponible como boolean) por
+// schemas/muebles.js -- ver validar() en mueblesRoutes.js.
 const crearMueble = async (req, res) => {
   try {
     const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
@@ -79,9 +83,9 @@ const crearMueble = async (req, res) => {
           nombre,
           categoria,
           descripcion,
-          precio_venta: (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta),
-          precio_alquiler_dia: (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler),
-          disponible: disponible !== undefined ? (disponible === 'true' || disponible === true) : true,
+          precio_venta: precio_venta ?? null,
+          precio_alquiler_dia: precio_alquiler ?? null,
+          disponible: disponible !== undefined ? disponible : true,
           imagenes,
           estado: estado || 'disponible'
         }
@@ -96,7 +100,8 @@ const crearMueble = async (req, res) => {
   }
 };
 
-// 4. Editar un mueble
+// 4. Editar un mueble (actualización parcial: solo se tocan los campos presentes en el body,
+// ya validados y con su tipo real por schemas/muebles.js)
 const editarMueble = async (req, res) => {
   try {
     const { id } = req.params;
@@ -106,9 +111,9 @@ const editarMueble = async (req, res) => {
     if (nombre !== undefined) updateData.nombre = nombre;
     if (categoria !== undefined) updateData.categoria = categoria;
     if (descripcion !== undefined) updateData.descripcion = descripcion;
-    if (precio_venta !== undefined) updateData.precio_venta = (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta);
-    if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler);
-    if (disponible !== undefined) updateData.disponible = disponible === 'true' || disponible === true;
+    if (precio_venta !== undefined) updateData.precio_venta = precio_venta;
+    if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = precio_alquiler;
+    if (disponible !== undefined) updateData.disponible = disponible;
     if (estado !== undefined) updateData.estado = estado;
 
     let imagenesFinales = [];
@@ -202,18 +207,18 @@ const construirLineasDesdeCarrito = async (items) => {
       .single();
 
     if (error || !mueble) {
-      throw new Error(`La pieza con ID ${item.productId} no existe en catálogo.`);
+      throw new ErrorValidacion(`La pieza con ID ${item.productId} no existe en catálogo.`);
     }
     if (mueble.estado === 'vendido') {
-      throw new Error(`Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`);
+      throw new ErrorValidacion(`Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`);
     }
     if (mueble.estado === 'alquilado' && item.modalidad === 'compra') {
-      throw new Error(`Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`);
+      throw new ErrorValidacion(`Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`);
     }
 
     const precioReal = item.modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta;
     if (!precioReal) {
-      throw new Error(`"${mueble.nombre}" no tiene precio disponible para esa modalidad.`);
+      throw new ErrorValidacion(`"${mueble.nombre}" no tiene precio disponible para esa modalidad.`);
     }
 
     lineas.push({
@@ -228,6 +233,12 @@ const construirLineasDesdeCarrito = async (items) => {
 };
 
 // 7. Crear una sesión de pago real con Stripe (modo test o real según la clave configurada)
+// La forma del carrito y de los datos del comprador (items no vacío, productId de texto...) ya
+// viene validada por schemas/muebles.js (ver validar() en mueblesRoutes.js). Dentro de esta
+// función, construirMetadataPago y construirLineasDesdeCarrito pueden lanzar ErrorValidacion por
+// motivos que SÍ dependen de la base de datos o de reglas de negocio (un carrito que no cabe en
+// la metadata de Stripe, una pieza ya vendida...): el catch de abajo es el único sitio que decide
+// qué error se le puede contar tal cual al comprador y cuál no.
 const crearSesionPago = async (req, res) => {
   try {
     const stripe = stripeUtil.getStripe();
@@ -236,21 +247,11 @@ const crearSesionPago = async (req, res) => {
     }
 
     const { items, clienteInfo } = req.body;
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'El carrito de compras está vacío.' });
-    }
 
     // Se valida antes de tocar la base de datos o Stripe: si un dato del comprador es
     // demasiado largo, o el carrito no cabe en la metadata, se le dice con claridad en lugar de
     // dejar que Stripe rechace la sesión con un error en inglés.
-    let metadata;
-    try {
-      metadata = construirMetadataPago({ items, clienteInfo });
-    } catch (error) {
-      if (error instanceof ErrorMetadata) return res.status(400).json({ error: error.message });
-      throw error;
-    }
-
+    const metadata = construirMetadataPago({ items, clienteInfo });
     const lineas = await construirLineasDesdeCarrito(items);
 
     const session = await stripe.checkout.sessions.create({
@@ -272,8 +273,15 @@ const crearSesionPago = async (req, res) => {
 
     res.status(200).json({ url: session.url });
   } catch (error) {
-    console.error('Error al crear la sesión de pago:', error.message);
-    res.status(400).json({ error: error.message || 'No se pudo iniciar el proceso de pago.' });
+    // ErrorValidacion: su mensaje está escrito para el comprador (400). Cualquier otro error
+    // (Stripe caído, un fallo de red, un bug) no debe filtrar su detalle -- se registra en el
+    // log y se responde un mensaje genérico (500). Antes de esto, CUALQUIER error devolvía 400
+    // con su .message tal cual, incluidos los internos.
+    if (error instanceof ErrorValidacion) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error al crear la sesión de pago:', error.message || error);
+    res.status(500).json({ error: 'No se pudo iniciar el proceso de pago.' });
   }
 };
 

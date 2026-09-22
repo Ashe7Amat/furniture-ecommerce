@@ -8,6 +8,7 @@
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
+require('./helpers/testEnv');
 
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_secreto_de_prueba';
 process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad
@@ -226,10 +227,27 @@ describe('POST /api/muebles/crear-sesion-pago', () => {
     assert.equal(res.status, 503);
   });
 
-  test('responde 400 con el carrito vacío', async () => {
+  test('responde 400 con el carrito vacío (ahora lo valida Zod, antes de llegar al controlador)', async () => {
     const res = await pedirPago({ items: [], clienteInfo });
 
     assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'El carrito de compras está vacío.');
+    assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
+  test('responde 400 si falta "items" por completo', async () => {
+    const res = await pedirPago({ clienteInfo });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'El carrito de compras está vacío.');
+    assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
+  test('responde 400 si una pieza del carrito no trae un identificador de texto', async () => {
+    const res = await pedirPago({ items: [{ productId: 123, modalidad: 'compra' }], clienteInfo });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Falta el identificador de una pieza del carrito.');
     assert.equal(crearSesionDeStripe.mock.callCount(), 0);
   });
 
@@ -259,5 +277,20 @@ describe('POST /api/muebles/crear-sesion-pago', () => {
     assert.equal(res.status, 400);
     assert.match(res.body.error, /vendida/);
     assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
+  test('un fallo inesperado (no de validación) responde 500 genérico, sin filtrar su mensaje interno', async () => {
+    // Hace observable H1-g: antes de introducir ErrorValidacion, el catch de crearSesionPago
+    // devolvía CUALQUIER error como 400 con su .message tal cual -- incluido este, que no tiene
+    // nada que ver con datos del comprador (aquí se simula un fallo real de la API de Stripe).
+    crearSesionDeStripe.mock.mockImplementation(async () => {
+      throw new Error('detalle interno de Stripe que no debe llegar al comprador');
+    });
+
+    const res = await pedirPago({ items: [{ productId: 'mueble-1', modalidad: 'compra' }], clienteInfo });
+
+    assert.equal(res.status, 500);
+    assert.equal(res.body.error, 'No se pudo iniciar el proceso de pago.');
+    assert.ok(!JSON.stringify(res.body).includes('detalle interno de Stripe'));
   });
 });

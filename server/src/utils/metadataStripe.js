@@ -22,9 +22,13 @@ const CAMPOS_COMPRADOR = [
   { campo: 'notas', clave: 'clienteNotas', max: MAX_VALOR, error: 'Las notas de entrega son demasiado largas' }
 ];
 
-// Error de validación que se le puede mostrar tal cual al comprador (a diferencia de un fallo
-// interno, cuyo detalle no debe salir del servidor).
-class ErrorMetadata extends Error {}
+// Subclase de ErrorValidacion (server/src/utils/errores.js): el catch de crearSesionPago
+// distingue con "instanceof ErrorValidacion" qué mensajes se le pueden mostrar tal cual al
+// comprador, y ErrorMetadata es uno de esos casos (carrito o dato del comprador que no cabe en
+// la metadata de Stripe). Se mantiene como clase propia, en vez de usar ErrorValidacion
+// directamente, porque los tests existentes ya comprueban "instanceof ErrorMetadata".
+const { ErrorValidacion } = require('./errores');
+class ErrorMetadata extends ErrorValidacion {}
 
 const trocear = (texto, tamano) => {
   const partes = [];
@@ -53,7 +57,9 @@ const construirMetadataPago = ({ items, clienteInfo }) => {
   }
 
   // Comprobación final: si algo llegara aquí fuera de los límites de Stripe sería un fallo de
-  // este módulo, no del comprador, y es mejor detectarlo antes de llamar a Stripe.
+  // ESTE módulo (un bug propio), no algo que haya hecho mal el comprador -- por eso es un Error
+  // normal y no un ErrorValidacion: el catch de crearSesionPago lo trata como inesperado (500,
+  // mensaje genérico, detalle solo en el log), en vez de mostrárselo tal cual.
   for (const [clave, valor] of Object.entries(metadata)) {
     if (clave.length > MAX_NOMBRE_CLAVE || valor.length > MAX_VALOR) {
       throw new Error(`La metadata de Stripe se sale de los límites en la clave "${clave}".`);

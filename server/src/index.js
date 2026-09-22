@@ -9,6 +9,7 @@ const categoriasRoutes = require('./routes/categoriasRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const contactoRoutes = require('./routes/contactoRoutes');
 const stripeRoutes = require('./routes/stripeRoutes');
+const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
 
@@ -106,6 +107,11 @@ app.use('/api', (req, res) => {
 app.use((err, req, res, next) => {
   if (err.message === 'No autorizado por CORS') {
     return res.status(403).json({ error: 'Origen no autorizado.' });
+  }
+  // Errores de validación (el middleware validar(), o uno lanzado a mano en un controlador):
+  // su mensaje está escrito para poder mostrarse tal cual a quien hizo la petición.
+  if (err instanceof ErrorValidacion) {
+    return res.status(400).json({ error: err.message });
   }
   // Errores de quien llama al leer el cuerpo (no fallos nuestros): no se vuelcan al log, ya
   // que cualquiera podría inundarlo con peticiones mal formadas o demasiado grandes.

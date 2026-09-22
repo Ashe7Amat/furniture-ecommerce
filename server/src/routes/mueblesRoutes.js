@@ -7,6 +7,8 @@ const {
 } = require('../controllers/mueblesController');
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
+const { validar } = require('../middleware/validar');
+const { schemaMuebleCrear, schemaMuebleEditar, schemaCarritoPago } = require('../schemas/muebles');
 
 // Esta ruta es pública y cada llamada consulta a Stripe y a la base de datos. Un comprador
 // la usa una vez (o unas pocas si recarga la página de éxito), así que 20 por IP cada 15
@@ -26,14 +28,17 @@ router.get('/buscar', buscarMuebles);
 // Checkout con Stripe: lo usa cualquier cliente comprando, no requiere ser admin
 // IMPORTANTE: estas rutas deben ir antes de '/:id', si no Express interpreta
 // "confirmar-sesion" o "crear-sesion-pago" como un id y nunca llegan a su controlador.
-router.post('/crear-sesion-pago', crearSesionPago);
+router.post('/crear-sesion-pago', validar(schemaCarritoPago), crearSesionPago);
 router.get('/confirmar-sesion', limitadorConfirmacion, confirmarSesion);
 
 router.get('/:id', obtenerMueblePorId);
 
 // Gestión del catálogo: solo administradores autenticados
-router.post('/', verificarAdmin, upload.array('imagenes', 5), crearMueble);
-router.put('/:id', verificarAdmin, upload.array('imagenes', 5), editarMueble);
+// validar() va DESPUÉS de upload.array(): multer es quien rellena req.body a partir del
+// multipart/form-data (las fotos van aparte, en req.files); antes de multer, req.body no
+// existiría todavía.
+router.post('/', verificarAdmin, upload.array('imagenes', 5), validar(schemaMuebleCrear), crearMueble);
+router.put('/:id', verificarAdmin, upload.array('imagenes', 5), validar(schemaMuebleEditar), editarMueble);
 router.delete('/:id', verificarAdmin, eliminarMueble);
 
 module.exports = router;

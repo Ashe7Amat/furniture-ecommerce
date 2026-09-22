@@ -44,17 +44,24 @@ const crearFakeSupabase = ({ muebles = [], pedidos = [], indiceUnicoStripe = tru
     if (consulta.errorDeFiltro) return { data: null, error: consulta.errorDeFiltro };
 
     if (consulta.accion === 'insert') {
-      const fila = { id: `${nombre}-${++secuencia}`, ...consulta.datos };
-      const duplicaId = filas.some(f => f.id === fila.id);
-      const duplicaSesion = nombre === 'pedidos' && indiceUnicoStripe && fila.stripe_session_id
-        && filas.some(f => f.stripe_session_id === fila.stripe_session_id);
-      if (duplicaId || duplicaSesion) {
-        estado.unicidadRechazada++;
-        return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+      // .insert() de supabase-js real acepta un objeto O un array de objetos (varias filas de
+      // una vez); aquí se normaliza a array para tratar ambos casos igual.
+      const entrada = Array.isArray(consulta.datos) ? consulta.datos : [consulta.datos];
+      const nuevasFilas = entrada.map(datos => ({ id: `${nombre}-${++secuencia}`, ...datos }));
+
+      for (const fila of nuevasFilas) {
+        const duplicaId = filas.some(f => f.id === fila.id);
+        const duplicaSesion = nombre === 'pedidos' && indiceUnicoStripe && fila.stripe_session_id
+          && filas.some(f => f.stripe_session_id === fila.stripe_session_id);
+        if (duplicaId || duplicaSesion) {
+          estado.unicidadRechazada++;
+          return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+        }
       }
-      filas.push(fila);
-      escrituras.push({ tabla: nombre, accion: 'insert', fila });
-      return { data: [fila], error: null };
+
+      filas.push(...nuevasFilas);
+      nuevasFilas.forEach(fila => escrituras.push({ tabla: nombre, accion: 'insert', fila }));
+      return { data: nuevasFilas, error: null };
     }
 
     if (consulta.accion === 'update') {

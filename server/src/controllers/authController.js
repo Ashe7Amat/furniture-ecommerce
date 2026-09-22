@@ -11,11 +11,10 @@ const { enviarEmailBienvenida } = require('../utils/email');
 // (se avisa con un error claro en vez de fallar de forma rara).
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
-// Validación básica de email/contraseña, compartida entre registro y (parcialmente) el
-// cambio de contraseña. No sustituye una verificación de email por link, pero evita
-// altas con datos claramente inválidos.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN_LENGTH = 6;
+// La forma del payload (campos obligatorios, formato de email, longitud de la contraseña) ya la
+// valida el middleware validar() con los esquemas de schemas/auth.js, antes de llegar aquí. Lo
+// que queda en este archivo son las reglas que dependen de la base de datos (email duplicado,
+// contraseña actual correcta...), que Zod no puede comprobar por sí solo.
 
 // Firma un token de sesión (válido 7 días) con los datos mínimos del usuario
 const firmarToken = (usuario) => {
@@ -30,16 +29,6 @@ const firmarToken = (usuario) => {
 const registrarCliente = async (req, res) => {
   try {
     const { nombre, email, password } = req.body;
-
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
-    }
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ error: 'Introduce un email válido.' });
-    }
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      return res.status(400).json({ error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.` });
-    }
 
     // Comprobar si el email ya existe en Supabase
     const { data: usuarioExistente } = await supabase
@@ -94,10 +83,6 @@ const registrarCliente = async (req, res) => {
 const loginCliente = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña requeridos.' });
-    }
 
     // Buscar al usuario por email
     const { data: usuario, error } = await supabase
@@ -194,11 +179,8 @@ const actualizarPerfil = async (req, res) => {
       updateFields.email = nuevoEmail;
     }
 
-    // 4. Si se desea cambiar la contraseña
+    // 4. Si se desea cambiar la contraseña (la longitud mínima ya la valida Zod)
     if (nuevaPassword) {
-      if (nuevaPassword.length < 6) {
-        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
-      }
       const salt = await bcrypt.genSalt(10);
       updateFields.password = await bcrypt.hash(nuevaPassword, salt);
     }
