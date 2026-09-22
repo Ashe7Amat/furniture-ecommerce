@@ -10,12 +10,12 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` | Pendiente. Solo se crean los archivos; no se aplican a la BD real sin permiso |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | Pendiente |
-| 5 | Tests: servidor, cliente y E2E | Pendiente (la tarea 1 ya deja más de 90 tests en el servidor) |
-| 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente |
-| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Pendiente |
-| 8 | Documentación: README raíz y variables de entorno | Pendiente |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). El refactor de `Admin.jsx` por pestañas sigue pendiente |
+| 5 | Tests: servidor, cliente y E2E | Pendiente como tarea propia (los tests nuevos de cada tarea ya suman 182 en el servidor y 30 en el cliente) |
+| 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
+| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
+| 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
 ## Pasos manuales tras desplegar la tarea 1
 
@@ -87,6 +87,65 @@ conversación.
 - **Si `muebles` o `pedidos` llegan a crecer a decenas de miles de filas, revisar este punto:** la
   alternativa sería ejecutar el `CREATE INDEX CONCURRENTLY` a mano desde el SQL Editor de Supabase (esa
   conexión sí ejecuta fuera de una transacción), no algo que se pueda automatizar con `apply_migration`.
+
+## Tarea 8 — Documentación y limpieza de infraestructura
+
+Hecha durante la pausa de despliegue de la tarea 3a (24-48h entre el commit de doble escritura de
+`categoria_id` y el backfill A3): no toca BD, no toca Vercel, no hay push -- solo commits locales
+en `feature/mejoras-tecnicas`, pensada para revisar por commit sin supervisión en el momento.
+
+### Qué se hizo
+
+- **`README.md`** en la raíz: stack, estructura de carpetas, cómo arrancar en local, tabla resumen
+  de variables de entorno, comandos disponibles, cómo se despliega, enlaces al resto de la
+  documentación.
+- **`docs/env-vars.md`**: detalle completo de cada variable (qué hace, formato, dónde se obtiene,
+  obligatoria/opcional, ejemplo enmascarado) de `server/.env.example` y `client/.env.example`.
+- **`docs/architecture.md`**: diagrama de arquitectura (mermaid), flujo de compra completo, flujo
+  de autenticación **actual** (señalando explícitamente que el refresh con rotación es la tarea 3b,
+  todavía no implementada -- no se describió como si ya existiera), y una tabla de decisiones
+  técnicas clave enlazando al detalle en vez de repetirlo.
+- **ESLint + Prettier en `server/`**: `.eslintrc.cjs` (mismo formato legado que `client/.eslintrc.cjs`,
+  `eslint:recommended` + `plugin:n/recommended` de `eslint-plugin-n`) y `.prettierrc.json`. Scripts
+  `lint`/`format`/`format:check` nuevos. `.prettierignore` con los 4 archivos marcados como
+  sensibles (`data/supabase.js`, `utils/email.js`, `utils/pagos.js`, `utils/metadataStripe.js`) --
+  ninguno de los cuatro se ha tocado en ningún commit de esta tarea.
+- **Formato aplicado** a los 43 archivos de `server/src/` que no estaban ya en el estilo de
+  Prettier (2171 líneas, en su propio commit por el tamaño). Solo formato, verificado con los 182
+  tests (sin cambios) tanto antes como después.
+- **Dependencias**: `npm audit fix` (sin `--force`) resolvió las 5 vulnerabilidades que había
+  (3 moderadas, 2 altas: `body-parser`, `brace-expansion`, `multer`, `qs`) sin salir de los rangos
+  ya declarados en `package.json` (`express` y `multer` subieron de versión menor/parche dentro de
+  su propio `^`, el resto son transitivas) -- 0 vulnerabilidades ahora. `engines.node` alineado a
+  `>=22` también en `client/package.json` (el servidor y CI ya lo tenían). `@emnapi/runtime` y
+  `@img/sharp-wasm32` (extraneous, binarios wasm de `sharp` para otra plataforma) limpiados de
+  `node_modules` -- sin efecto en el repo (no está versionado) y no permanente (vuelven a aparecer
+  en cualquier `npm install`/`npm audit` por cómo `sharp` declara sus `optionalDependencies`
+  multiplataforma; no se ha encontrado ni intentado una forma de evitarlo).
+- **CI** (`.github/workflows/ci.yml`): el job del servidor añade `npm run lint` y
+  `npm run format:check` antes de `npm test`. Al probarlo localmente salieron 2 archivos que no
+  habían quedado perfectamente formateados por el commit de formato anterior -- corregidos en el
+  mismo commit que añade el paso que los habría pillado.
+
+### Qué no se hizo, y por qué
+
+- **`npm audit` no se añadió a CI**, tal como se pidió explícitamente: aunque ahora mismo el
+  proyecto está limpio (0 vulnerabilidades), añadirlo al workflow implica antes decidir qué pasa
+  cuando vuelva a encontrar algo -- ¿rompe el build hasta que se resuelva, o solo avisa sin
+  bloquear? Es una decisión de política, no de estilo, así que se deja documentada para decidirla,
+  no decidida aquí.
+- **Ninguna regla de ESLint tuvo que desactivarse por un problema real de lógica en el código.**
+  Lo único que falló en la primera pasada fue `n/no-unpublished-require` (ruido: este servidor
+  nunca se publica en npm, se despliega como función de Vercel, así que la distinción
+  dependencies/devDependencies "publicadas" no aplica) y dos variables sin usar, ambas eliminables
+  sin tocar ningún comportamiento (confirmado con los 182 tests, sin cambios). No hubo ningún caso
+  de "esto necesitaría cambiar lógica, lo anoto en vez de tocarlo".
+- **El refactor de `Admin.jsx` por pestañas (resto de la tarea 4) no se ha tocado.** 1028 líneas,
+  sin tests que lo cubran, diff potencialmente enorme -- exactamente el motivo por el que esta
+  tarea se limitó a documentación e infraestructura y no a ese refactor.
+- **Los tests como tarea propia (tarea 5), el frontend (tarea 6, más allá de la vista de
+  inventario ya hecha) y el umbral de cobertura en CI (resto de la tarea 7) siguen enteros por
+  hacer.**
 
 ## Hallazgos abiertos
 
