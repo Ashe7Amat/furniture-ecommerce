@@ -251,6 +251,43 @@ en `feature/mejoras-tecnicas`, pensada para revisar por commit sin supervisión 
   no usar `display: contents` y duplicar el marcado por breakpoint (dos estructuras, una oculta por CSS según
   el ancho) -- más código, sin la dependencia de cómo cada lector de pantalla trate `display: contents`.
 
+### H11 · DECISIÓN PENDIENTE · Un `categoria` (texto) sin categoría real deja `categoria_id` en NULL para siempre, y eso puede bloquear A4
+
+- **Dónde:** `mueblesController.js`, `resolverCategoriaIdPorNombre` (commit `9079ccf`, migración A). Si el
+  texto de `categoria` no coincide exactamente con ningún `categorias.nombre`, `categoria_id` se guarda como
+  `NULL` sin bloquear la creación/edición -- decisión deliberada, para no romper el guardado por un problema
+  de datos.
+- **Impacto real, detectado durante la verificación manual de multer de esta misma revisión:** un mueble
+  creado con una categoría mal escrita o inexistente queda con `categoria_id` en `NULL` de forma permanente.
+  El backfill A3 (más adelante) usa el mismo criterio de coincidencia exacta, así que tampoco lo resolvería.
+  Cuando llegue A4 (`ALTER COLUMN categoria_id SET NOT NULL`), esa fila bloquearía la migración.
+- **Opciones sobre la mesa, sin decidir todavía:**
+  1. Aceptar el caso y limpiar a mano (`UPDATE`/borrado) antes de aplicar A4.
+  2. **(Recomendada)** En `crearMueble`, si `categoria_id` no se puede resolver, rechazar la creación con 400
+     ("categoría desconocida") en vez de guardar `NULL` -- el admin trabaja siempre con el selector
+     jerárquico (`Admin.jsx`), así que en la práctica el nombre real siempre viene de esa lista; forzarlo no
+     debería tener coste real de uso.
+  3. Auto-crear la categoría que falte -- descartada, llenaría `categorias` de nombres sueltos sin curar.
+- **Cuándo se decide:** tarea 3b, o una tarea 3c corta dedicada solo a esto. No se decide ni se implementa en
+  el commit `9079ccf` -- sería añadir alcance a ese commit fuera de lo pedido.
+- **Apunte adicional 1, detectado en revisión (no bug en producción hoy, caso latente):**
+  `crearMueble` usa `categoria_id ?? await resolverCategoriaIdPorNombre(categoria)` -- si Zod transforma un
+  `categoria_id` vacío a `null`, el `??` cae al lado derecho y resuelve por nombre, correcto. Pero
+  `editarMueble` usa `if (categoria_id !== undefined) { updateData.categoria_id = categoria_id; }` -- si
+  Zod transforma un `categoria_id: ''` a `null`, `null !== undefined` es `true`, así que escribe
+  `categoria_id = null` explícito, **sobrescribiendo** el valor que ya hubiera, en vez de resolver por
+  nombre como hace `crearMueble`. Hoy no es explotable porque `Admin.jsx` nunca manda `categoria_id: ''`
+  (el propio `idDeCategoria` no añade el campo si no encuentra un id), pero cualquier script externo que
+  mandara `categoria_id: ''` + `categoria` válida borraría el id existente por accidente. Solución probable
+  (una línea, sin decidir todavía): unificar el criterio en `editarMueble` para que `null` tras Zod se trate
+  igual que "no lo mandaron" (resolver por nombre si `categoria` viene) y solo `undefined` signifique
+  "no tocar".
+- **Apunte adicional 2, no urgente:** `resolverCategoriaIdPorNombre` usa `.maybeSingle()`, que exige como
+  máximo una fila con ese `nombre`. Hoy es seguro porque `categorias.nombre` tiene una restricción `UNIQUE`
+  en la base real (comprobado). Si esa restricción se relajara alguna vez, la consulta lanzaría un error de
+  "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
+  correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
