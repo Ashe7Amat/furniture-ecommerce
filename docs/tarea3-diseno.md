@@ -68,13 +68,24 @@ diff) sin inventar un segundo mecanismo de tracking que compita con el que ya us
 reversión, escrito a mano (no hay reversión automática en `apply_migration`). Se aplica solo si hace falta,
 con el mismo permiso explícito.
 
-**`CREATE INDEX CONCURRENTLY`:** en Postgres, `CONCURRENTLY` no puede ejecutarse dentro de un bloque de
-transacción — si `apply_migration` envolviera el SQL en una transacción implícita, fallaría con el error de
-Postgres "CREATE INDEX CONCURRENTLY cannot run inside a transaction block". Por eso cada índice
-`CONCURRENTLY` va en su **propio** archivo de migración, de una sola instrucción, nunca junto a un
-`ALTER TABLE` u otro DDL en el mismo archivo. Antes de aplicar el primero, lo probaré contra la base real
-(la creación de un índice no bloquea lecturas/escrituras salvo brevísimos locks de catálogo) y te confirmo
-que pasó sin envolverse en una transacción.
+**`CREATE INDEX CONCURRENTLY`: probado contra la base real, NO se puede usar con `apply_migration`.**
+*(Confirmado, no ya una previsión: antes de aplicar A1/A2 se probó exactamente esto contra la base real, con
+una tabla desechable (`_test_probe_h8`, creada, probada y borrada en el mismo turno, sin dejar rastro ni en
+el esquema ni en `list_migrations` — la transacción fallida deshizo también su propio registro de historial).
+`apply_migration` SÍ envuelve el SQL en una transacción implícita, y Postgres rechazó `CREATE INDEX
+CONCURRENTLY` con exactamente el error esperado: `ERROR: 25001: CREATE INDEX CONCURRENTLY cannot run inside
+a transaction block`.)*
+
+**Decisión (Plan B del propio diseño):** en `muebles` y `pedidos` (114 y unas pocas filas respectivamente),
+un `CREATE INDEX` normal sin `CONCURRENTLY` tarda milisegundos y su lock de escritura es imperceptible —
+`CONCURRENTLY` está pensado para tablas de millones de filas, donde ese lock duraría minutos; aquí sería
+sobre-ingeniería que además no se puede aplicar con la herramienta que ya usa el proyecto. Todos los índices
+de esta tarea (A2, B2) se crean con `CREATE INDEX` normal, dentro del mismo archivo de migración si se quiere
+(ya no hace falta aislarlos en uno propio por la restricción de `CONCURRENTLY`, aunque se mantienen separados
+por claridad). **Si `muebles` o `pedidos` llegaran a crecer a decenas de miles de filas**, este punto hay que
+revisarlo: la alternativa entonces sería ejecutar el `CREATE INDEX CONCURRENTLY` a mano desde el SQL Editor
+de Supabase (que sí ejecuta fuera de una transacción), no con `apply_migration`. Documentado también en
+`docs/mejoras-tecnicas.md`.
 
 ### Migración A — `muebles.categoria_id` (FK a `categorias`)
 
@@ -84,9 +95,9 @@ huérfanos, el backfill será limpio.
 1. **`A1_add_muebles_categoria_id.sql`** (DDL): `ALTER TABLE muebles ADD COLUMN categoria_id integer NULL
    REFERENCES categorias(id) ON DELETE SET NULL;` — nullable, sin tocar código todavía. Reversión: `ALTER
    TABLE muebles DROP COLUMN categoria_id;`
-2. **`A2_index_muebles_categoria_id.sql`** (DDL, su propio archivo): `CREATE INDEX CONCURRENTLY
-   idx_muebles_categoria_id ON muebles(categoria_id);` Reversión: `DROP INDEX CONCURRENTLY
-   idx_muebles_categoria_id;`
+2. **`A2_index_muebles_categoria_id.sql`**: `CREATE INDEX idx_muebles_categoria_id ON muebles(categoria_id);`
+   *(sin `CONCURRENTLY` — ver arriba: probado y confirmado que `apply_migration` no lo admite; con 114 filas
+   el lock es imperceptible)*. Reversión: `DROP INDEX idx_muebles_categoria_id;`
 3. **Commit de código (no DB):** `mueblesController.js`/`categoriasController.js` escriben `categoria_id`
    además de `categoria` (doble escritura) en crear/editar; siguen leyendo `categoria` en todos los sitios
    que ya la leen. `Admin.jsx` ya conoce el `id` de cada categoría (el selector jerárquico se alimenta de
@@ -139,8 +150,9 @@ tests — ver la nota de la Sección 0 sobre por qué.)*
 
 1. **`B1_add_pedidos_cliente_id.sql`**: `ALTER TABLE pedidos ADD COLUMN cliente_id uuid NULL REFERENCES
    clientes(id) ON DELETE SET NULL;` Reversión: `DROP COLUMN cliente_id`.
-2. **`B2_index_pedidos_cliente_id.sql`** (su propio archivo, `CONCURRENTLY`): `CREATE INDEX CONCURRENTLY
-   idx_pedidos_cliente_id ON pedidos(cliente_id);`
+2. **`B2_index_pedidos_cliente_id.sql`**: `CREATE INDEX idx_pedidos_cliente_id ON pedidos(cliente_id);`
+   *(sin `CONCURRENTLY`, mismo motivo que A2: probado y confirmado que `apply_migration` no lo admite)*.
+   Reversión: `DROP INDEX idx_pedidos_cliente_id;`
 3. **Commit de código (ANTES del backfill, mismo orden que la migración A):**
    `procesarSesionPagada`/`registrarPedido` (`utils/pagos.js`) buscan si `clienteInfo.email` coincide con un
    `clientes.email` y rellenan `cliente_id` en el `INSERT` cuando hay coincidencia; si no, lo dejan `NULL`
@@ -584,15 +596,16 @@ el principio, como sugeriste — aunque dijiste que esto no era importante).*
 
 1. `fix(server): exigir https:// en producción en SUPABASE_URL (H8)` — código + test, sin tocar BD
    (condición `NODE_ENV === 'production'`, corregido tras la primera revisión).
-2. `feat(db): añadir muebles.categoria_id (nullable) + índice concurrente` — migración A1+A2 aplicada
-   (con tu permiso), archivos en `server/migrations/`.
+2. `feat(db): añadir muebles.categoria_id (nullable) + índice` — migración A1+A2 aplicada (con tu permiso),
+   archivos en `server/migrations/`. *(Sin `CONCURRENTLY`: probado y confirmado que `apply_migration` no lo
+   admite — ver Sección 1.)*
 3. `feat(server): escribir categoria_id junto a categoria durante la transición` — código, sin tocar BD.
 4. **Pausa de despliegue** (push a `main`, verificar deploy, esperar 24-48h, `SELECT` de verificación —
    detallado en la Sección 1, Migración A).
 5. `feat(db): backfill de muebles.categoria_id` — migración A3 aplicada (con permiso), tras la pausa.
-6. `feat(db): añadir pedidos.cliente_id (nullable) + índice concurrente` — migraciones B1+B2 (sin el
-   backfill todavía). *(Renombrada de `user_id` a `cliente_id` tras tu confirmación — ver la nota en la
-   Sección 0.)*
+6. `feat(db): añadir pedidos.cliente_id (nullable) + índice` — migraciones B1+B2 (sin el backfill todavía).
+   *(Renombrada de `user_id` a `cliente_id` tras tu confirmación — ver la nota en la Sección 0. Índice sin
+   `CONCURRENTLY`, mismo motivo que A2.)*
 7. `feat(server): rellenar pedidos.cliente_id al registrar un pedido nuevo cuando hay cuenta` — código,
    **antes** del backfill (mismo orden que la migración A).
 8. **Pausa de despliegue**, igual que en el paso 4.

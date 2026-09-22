@@ -70,6 +70,24 @@ conversación.
 - **Pendiente al desplegar:** configurar `ALLOWED_ORIGINS` y `SUPABASE_SERVICE_ROLE_KEY` en las variables de
   entorno de Vercel *antes* de desplegar esta rama -- sin la segunda, el servidor no arranca en absoluto.
 
+## Tarea 3: migraciones (detalle)
+
+- **`apply_migration` (la migración nativa de Supabase) envuelve el SQL en una transacción implícita, así
+  que NO admite `CREATE INDEX CONCURRENTLY` / `DROP INDEX CONCURRENTLY`.** El diseño original (ver
+  `docs/tarea3-diseno.md`) daba esto por hecho y preveía probarlo antes de aplicar el primer índice; ya se
+  probó contra la base real -- una tabla desechable (`_test_probe_h8`) creada, usada y borrada en el mismo
+  turno, sin dejar rastro ni en el esquema ni en el historial de migraciones (la transacción fallida
+  deshizo también su propio registro) -- y Postgres rechazó la instrucción con exactamente el error
+  esperado: `ERROR: 25001: CREATE INDEX CONCURRENTLY cannot run inside a transaction block`.
+- **Decisión:** los índices de esta tarea (`muebles.categoria_id`, `pedidos.cliente_id`) se crean con
+  `CREATE INDEX` normal, sin `CONCURRENTLY`. Con 114 filas en `muebles` y unas pocas en `pedidos`, el lock de
+  escritura que impone un `CREATE INDEX` normal dura milisegundos -- `CONCURRENTLY` está pensado para tablas
+  de millones de filas, donde ese lock duraría minutos; aquí sería sobre-ingeniería, y además la herramienta
+  de migraciones del proyecto no lo admite.
+- **Si `muebles` o `pedidos` llegan a crecer a decenas de miles de filas, revisar este punto:** la
+  alternativa sería ejecutar el `CREATE INDEX CONCURRENTLY` a mano desde el SQL Editor de Supabase (esa
+  conexión sí ejecuta fuera de una transacción), no algo que se pueda automatizar con `apply_migration`.
+
 ## Hallazgos abiertos
 
 ### H1 · RESUELTO (commit `1e23a5d`) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
