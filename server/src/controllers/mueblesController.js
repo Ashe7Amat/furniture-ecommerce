@@ -5,6 +5,22 @@ const pagos = require('../utils/pagos');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
 
+// Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
+// (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
+// etc.), se deja en null sin bloquear la creación/edición -- categoria sigue siendo la fuente de
+// verdad hasta que se cierre la migración (A4/A5), así que un fallo de resolución aquí no debe
+// impedir guardar el mueble.
+const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
+  if (!nombreCategoria) return null;
+  const { data, error } = await supabase
+    .from('categorias')
+    .select('id')
+    .eq('nombre', nombreCategoria)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.id;
+};
+
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
 // el catálogo entero de golpe solo para quedarse con los primeros 4).
@@ -56,7 +72,7 @@ const obtenerMueblePorId = async (req, res) => {
 // schemas/muebles.js -- ver validar() en mueblesRoutes.js.
 const crearMueble = async (req, res) => {
   try {
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado, categoria_id } = req.body;
     let imagenes = [];
 
     if (req.files && req.files.length > 0) {
@@ -76,12 +92,18 @@ const crearMueble = async (req, res) => {
       }
     }
 
+    // categoria_id: si lo manda el body (front ya actualizado, ver Admin.jsx), se usa tal cual;
+    // si no, se resuelve desde el nombre de categoria -- así un cliente/script que todavía no
+    // conozca categoria_id sigue funcionando igual que antes de esta migración.
+    const categoriaIdFinal = categoria_id ?? await resolverCategoriaIdPorNombre(categoria);
+
     const { data, error } = await supabase
       .from('muebles')
       .insert([
         {
           nombre,
           categoria,
+          categoria_id: categoriaIdFinal,
           descripcion,
           precio_venta: precio_venta ?? null,
           precio_alquiler_dia: precio_alquiler ?? null,
@@ -105,11 +127,20 @@ const crearMueble = async (req, res) => {
 const editarMueble = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado, categoria_id } = req.body;
 
     const updateData = {};
     if (nombre !== undefined) updateData.nombre = nombre;
     if (categoria !== undefined) updateData.categoria = categoria;
+    // categoria_id explícito en el body manda (p. ej. si algún día se edita solo el id sin
+    // tocar el nombre); si no viene pero sí cambia categoria (texto), se resuelve desde ahí --
+    // igual criterio de doble escritura que en crearMueble. Si no viene ninguno de los dos, no
+    // se toca categoria_id en absoluto (actualización parcial real).
+    if (categoria_id !== undefined) {
+      updateData.categoria_id = categoria_id;
+    } else if (categoria !== undefined) {
+      updateData.categoria_id = await resolverCategoriaIdPorNombre(categoria);
+    }
     if (descripcion !== undefined) updateData.descripcion = descripcion;
     if (precio_venta !== undefined) updateData.precio_venta = precio_venta;
     if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = precio_alquiler;

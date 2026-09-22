@@ -16,16 +16,17 @@
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
-//   muebles, pedidos     filas iniciales
+//   muebles, pedidos, categorias  filas iniciales
 //   indiceUnicoStripe    emula el índice único de pedidos.stripe_session_id (código 23505)
 //   fallos               { 'tabla.accion': error | (consulta) => error|null } hace fallar esa
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
 //                        añadir y quitar durante el test para simular reintentos. Con función,
 //                        `consulta.usa` es el conjunto de métodos encadenados (p. ej. 'contains')
-const crearFakeSupabase = ({ muebles = [], pedidos = [], indiceUnicoStripe = true, fallos = {} } = {}) => {
+const crearFakeSupabase = ({ muebles = [], pedidos = [], categorias = [], indiceUnicoStripe = true, fallos = {} } = {}) => {
   const tablas = {
     muebles: muebles.map(fila => ({ ...fila })),
-    pedidos: pedidos.map(fila => ({ ...fila }))
+    pedidos: pedidos.map(fila => ({ ...fila })),
+    categorias: categorias.map(fila => ({ ...fila }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };
