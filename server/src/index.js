@@ -84,6 +84,14 @@ app.use((err, req, res, next) => {
   if (err.message === 'No autorizado por CORS') {
     return res.status(403).json({ error: 'Origen no autorizado.' });
   }
+  // Errores de quien llama al leer el cuerpo (no fallos nuestros): no se vuelcan al log, ya
+  // que cualquiera podría inundarlo con peticiones mal formadas o demasiado grandes.
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'El cuerpo de la petición es demasiado grande.' });
+  }
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'El cuerpo de la petición no es un JSON válido.' });
+  }
   console.error('Error no controlado:', err);
   res.status(500).json({ error: 'Error interno del servidor.' });
 });
