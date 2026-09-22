@@ -90,6 +90,8 @@ conversación.
   antiguo (un solo valor) falla con 7 piezas —el fallo original, reproducido tal cual—, y el formato nuevo
   funciona con 7, con 100 piezas y con notas de 500 caracteres. Las sesiones de prueba creadas se caducan solas
   al terminar el test, no quedan abiertas en el Dashboard.
+- **Recordatorio pendiente:** rotar `sk_test_...i74t` cuando Stripe permita caducidad configurable o al pasar a
+  modo live, si sigue activa.
 - **Nota de honestidad ya superada:** la distinción `ErrorMetadata`/`ErrorValidacion` no cambiaba nada
   observable hasta que se resolvió H3 (tarea 2). Ahora sí importa: ver H3.
 
@@ -156,6 +158,21 @@ conversación.
 
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
+
+### H10 · BAJA · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
+
+- **Dónde:** `client/src/components/ProductsTable.jsx` / `client/src/styles/Catalog.css`
+  (`.products-table-info`, `.products-table-footer`). En escritorio se usa `display: contents` para que las
+  celdas agrupadas se comporten como columnas directas de la fila -- es lo que permite reflowar la misma fila
+  a tarjeta en móvil sin duplicar el JSX en dos estructuras distintas.
+- **Impacto:** en algunas versiones de NVDA/JAWS, `display: contents` puede sacar al contenedor (y con él los
+  `role="cell"` que agrupa) del árbol de accesibilidad, aunque el texto siga siendo anunciado igual a través
+  de sus hijos en la mayoría de los casos. Es un compromiso conocido de este patrón ("tabla con roles ARIA que
+  se aplana por CSS"), no un descuido. La navegación por teclado (solo el botón "Ver", con su `aria-label`
+  "Ver [nombre]") no depende de esto y funciona igual.
+- **Cuándo se revisa:** tarea 6 (accesibilidad a fondo). Alternativa sin este compromiso, si hiciera falta:
+  no usar `display: contents` y duplicar el marcado por breakpoint (dos estructuras, una oculta por CSS según
+  el ancho) -- más código, sin la dependencia de cómo cada lector de pantalla trate `display: contents`.
 
 ## Decisiones de diseño a recordar
 
