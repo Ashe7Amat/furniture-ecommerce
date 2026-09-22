@@ -68,6 +68,9 @@ export default function Home() {
                             src={slide.src}
                             alt={slide.alt}
                             decoding="async"
+                            // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                            // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                            // eslint-disable-next-line react/no-unknown-property
                             fetchpriority={i === 0 ? 'high' : undefined}
                             loading={i === 0 ? undefined : 'lazy'}
                             className={`hero-slide-img${i === heroSlide ? ' is-active' : ''}`}
