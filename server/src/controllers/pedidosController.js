@@ -1,7 +1,7 @@
 // server/src/controllers/pedidosController.js
 //
 // Panel de administración: consulta y gestión de los pedidos generados por el checkout
-// (ver procesarCompra() en mueblesController.js, que es quien los crea).
+// (ver procesarSesionPagada() en utils/pagos.js, que es quien los crea).
 const supabase = require('../data/supabase');
 
 const ESTADOS_VALIDOS = ['procesando', 'enviado', 'entregado', 'cancelado'];

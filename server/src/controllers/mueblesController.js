@@ -1,9 +1,7 @@
-const Stripe = require('stripe');
 const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
-const { enviarNotificacionVenta, enviarConfirmacionCliente } = require('../utils/email');
-
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const stripeUtil = require('../utils/stripe');
+const pagos = require('../utils/pagos');
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -190,8 +188,9 @@ const buscarMuebles = async (req, res) => {
 };
 
 // Mira en Supabase el precio REAL de cada pieza del carrito (nunca se confía en el
-// precio que manda el navegador) y devuelve las líneas listas para Stripe / para marcar
-// como vendidas. Lanza un error legible si algo ya no está disponible.
+// precio que manda el navegador) y devuelve las líneas listas para Stripe. Lanza un error
+// legible si algo ya no está disponible. Solo se usa ANTES de cobrar (crearSesionPago); una
+// vez pagado, el pedido lo registra utils/pagos.js sin rechazar nada.
 const construirLineasDesdeCarrito = async (items) => {
   const lineas = [];
   for (const item of items) {
@@ -227,76 +226,10 @@ const construirLineasDesdeCarrito = async (items) => {
   return lineas;
 };
 
-// Marca cada pieza como vendida/alquilada en Supabase, guarda el pedido (para el panel
-// de administración) y avisa por email tanto al admin como al propio comprador.
-// Es tolerante a que se llame dos veces con las mismas piezas (p. ej. si el comprador
-// recarga la página de confirmación) para no romper esa pantalla tras haber cobrado ya.
-const procesarCompra = async (lineas, clienteInfo, sessionId) => {
-  for (const linea of lineas) {
-    const nuevoEstado = linea.modalidad === 'compra' ? 'vendido' : 'alquilado';
-
-    const { data: actual } = await supabase
-      .from('muebles')
-      .select('estado')
-      .eq('id', linea.productId)
-      .single();
-
-    if (actual && actual.estado === nuevoEstado) continue; // ya estaba aplicado, no repetir
-
-    const { error } = await supabase
-      .from('muebles')
-      .update({ estado: nuevoEstado, disponible: false })
-      .eq('id', linea.productId);
-
-    if (error) {
-      console.error(`Error al actualizar el mueble ${linea.productId}:`, error.message);
-    }
-  }
-
-  const total = lineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
-  const fecha = new Date();
-
-  // Guardamos el pedido para que aparezca en el panel de administración con toda la
-  // info necesaria para prepararlo y enviarlo (cliente, dirección, productos, total).
-  // Si esta misma sesión de Stripe ya generó un pedido (p. ej. el comprador recargó la
-  // pantalla de confirmación), no lo duplicamos.
-  if (sessionId) {
-    const { data: pedidoExistente } = await supabase
-      .from('pedidos')
-      .select('id')
-      .eq('stripe_session_id', sessionId)
-      .maybeSingle();
-
-    if (!pedidoExistente) {
-      const { error: errorPedido } = await supabase.from('pedidos').insert({
-        items: lineas,
-        cliente_info: clienteInfo || {},
-        total,
-        metodo_entrega: 'domicilio',
-        direccion_envio: clienteInfo?.direccion || null,
-        estado: 'procesando',
-        stripe_session_id: sessionId
-      });
-
-      if (errorPedido) {
-        console.error('Error al guardar el pedido en Supabase:', errorPedido.message);
-      }
-    }
-  }
-
-  const pedidoParaEmail = { items: lineas, clienteInfo: clienteInfo || {}, total, fecha };
-
-  // Notificaciones por email vía Resend. Ninguna de las dos funciones lanza (try/catch
-  // interno): un fallo en el envío del correo jamás debe romper el checkout.
-  enviarNotificacionVenta(pedidoParaEmail);
-  enviarConfirmacionCliente(pedidoParaEmail);
-
-  return total;
-};
-
 // 7. Crear una sesión de pago real con Stripe (modo test o real según la clave configurada)
 const crearSesionPago = async (req, res) => {
   try {
+    const stripe = stripeUtil.getStripe();
     if (!stripe) {
       return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
@@ -339,15 +272,18 @@ const crearSesionPago = async (req, res) => {
   }
 };
 
-// 8. Confirmar una sesión de Stripe al volver del pago y aplicar la venta
+// 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
+// (POST /api/stripe/webhook), que es quien normalmente registra la venta: si el webhook ya
+// la registró, o llega mientras tanto, procesarSesionPagada lo detecta y no repite nada.
 const confirmarSesion = async (req, res) => {
   try {
+    const stripe = stripeUtil.getStripe();
     if (!stripe) {
       return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
 
     const { session_id } = req.query;
-    if (!session_id) {
+    if (!session_id || typeof session_id !== 'string') {
       return res.status(400).json({ error: 'Falta el identificador de la sesión de pago.' });
     }
 
@@ -357,26 +293,23 @@ const confirmarSesion = async (req, res) => {
       return res.status(400).json({ error: 'El pago todavía no se ha completado.' });
     }
 
-    const itemsMeta = JSON.parse(session.metadata.items || '[]');
-    const lineas = await construirLineasDesdeCarrito(itemsMeta).catch(() => null);
-
-    // Si construirLineasDesdeCarrito falla es porque ya se aplicó antes (piezas marcadas
-    // como vendidas/alquiladas en una confirmación previa): no es un error para el cliente.
-    const total = lineas
-      ? await procesarCompra(lineas, {
-          nombre: session.metadata.clienteNombre,
-          email: session.metadata.clienteEmail,
-          telefono: session.metadata.clienteTelefono,
-          direccion: session.metadata.clienteDireccion,
-          notas: session.metadata.clienteNotas,
-          metodoPago: 'Tarjeta (Stripe)'
-        }, session.id)
-      : (session.amount_total || 0) / 100;
+    // El pago ya está verificado con Stripe: aunque no se pueda guardar ahora (p. ej. la
+    // base de datos falla un momento), al comprador no se le dice que su pago ha fallado.
+    // Si hay webhook configurado, Stripe volverá a intentarlo solo; si no lo hay, nadie lo
+    // reintentará, así que se avisa por email al administrador para que lo registre a mano.
+    try {
+      await pagos.procesarSesionPagada(session);
+    } catch (error) {
+      console.error(`No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`, error.message || error);
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        await pagos.avisarPagoSinRegistrar(session, error);
+      }
+    }
 
     res.status(200).json({
       success: true,
       message: 'Pago confirmado. El catálogo ha sido actualizado.',
-      total
+      total: (session.amount_total || 0) / 100
     });
   } catch (error) {
     console.error('Error al confirmar la sesión de pago:', error.message);
