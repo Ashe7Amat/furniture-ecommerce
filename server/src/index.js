@@ -12,6 +12,15 @@ const stripeRoutes = require('./routes/stripeRoutes');
 
 const app = express();
 
+// Detrás del proxy de Vercel la IP real del visitante llega en X-Forwarded-For. Sin este
+// ajuste Express ve siempre la IP del proxy, y los limitadores de peticiones (login,
+// contacto, confirmación de pago) meterían a todos los visitantes en el mismo contador.
+// VERCEL es una variable que define la propia plataforma; en local no se activa, para que
+// nadie pueda falsear su IP con una cabecera.
+if (process.env.VERCEL) {
+  app.set('trust proxy', 1);
+}
+
 // Fuerza HTTPS en producción. Vercel ya sirve todo por HTTPS y redirige el tráfico HTTP
 // automáticamente, pero si este servidor llega a correr detrás de otro proxy (Render,
 // Railway, un VPS propio...) que sí deje pasar HTTP en texto plano, esta cabecera
