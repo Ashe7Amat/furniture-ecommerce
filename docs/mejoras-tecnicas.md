@@ -17,6 +17,29 @@ conversación.
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
+## ⏳ Pausa de despliegue en curso (bloque 3a, antes de A3)
+
+- **Merge a `main` y deploy:** commit `6d6624a` (merge de `feature/mejoras-tecnicas`, incluye H8, A1, A2 y
+  la doble escritura de `categoria_id`), pusheado y desplegado en producción el **22 sep 2026**:
+  - `nave5-api`: `READY`, `2026-09-22T13:47:42.487Z` (deployment `dpl_2xiJDjJVMJn8ArPuAijVw2QbLJ2m`).
+  - `nave5-demo`: `READY`, `2026-09-22T13:47:42.800Z` (deployment `dpl_Beu7cVPggJb6jnusAcBMhkuoUGPL`).
+  - Ambos verificados vía la API de Vercel, no asumidos.
+- **Ventana de espera:** 24-48h desde la hora de arriba antes de aplicar A3 (backfill de
+  `muebles.categoria_id`). Monitorizar errores si hay forma de hacerlo (logs de Vercel; no hay Sentry
+  configurado todavía).
+- **Verificación antes de aplicar A3** (con la hora exacta de arriba):
+  ```sql
+  SELECT count(*) FROM muebles WHERE created_at > '2026-09-22T13:47:42Z' AND categoria_id IS NULL;
+  ```
+  Debe dar `0` -- cualquier mueble creado/editado después del deploy ya debería tener `categoria_id`
+  relleno (o `NULL` solo si su `categoria` no coincide con ninguna real, ver H11). Si da más de 0 por un
+  fallo del código (no por H11), parar y diagnosticar antes de aplicar A3.
+- **Verificación después de aplicar A3:**
+  ```sql
+  SELECT count(*) FROM muebles WHERE categoria IS NOT NULL AND categoria_id IS NULL;
+  ```
+  Debe dar `0`.
+
 ## Pasos manuales tras desplegar la tarea 1
 
 1. **Vercel** (proyecto de la API): añadir `STRIPE_WEBHOOK_SECRET`. Mientras no exista, el webhook responde 503
