@@ -28,6 +28,15 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const REMITENTE = process.env.RESEND_FROM || 'Nave 5 Barcelona <onboarding@resend.dev>';
 const EMAIL_ADMIN = process.env.ADMIN_EMAIL || 'amatashenafi7@gmail.com';
 
+// Escapa un texto para insertarlo en HTML. Los avisos operativos (enviarAlertaAdmin) llevan
+// datos que escribe el comprador (nombre, dirección...), así que nunca se insertan crudos.
+const escaparHtml = (texto) => String(texto ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 // Construye el HTML del correo de aviso de venta. Estilos en línea (inline) porque
 // la mayoría de clientes de correo ignoran o recortan <style> en el <head>.
 const construirHtmlVenta = (pedido) => {
@@ -328,4 +337,51 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
   }
 };
 
-module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto };
+// Aviso operativo al administrador: algo que requiere que una persona intervenga (una
+// doble venta, un pago cobrado que no se pudo registrar...). `detalles` es una lista de
+// frases; todo se escapa antes de ir al HTML. Como los avisos de venta, nunca lanza: un
+// fallo aquí solo se registra en consola.
+const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
+  try {
+    if (!resend) {
+      console.log('\n--- SIMULACIÓN DE ALERTA AL ADMIN (RESEND_API_KEY no configurada) ---');
+      console.log('Para:', EMAIL_ADMIN);
+      console.log('Asunto:', asunto);
+      detalles.forEach(detalle => console.log('-', detalle));
+      console.log('-------------------------------------------------------------\n');
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: EMAIL_ADMIN,
+      subject: `[Aviso] ${asunto}`,
+      html: `
+        <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
+          <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
+            ${escaparHtml(asunto)}
+          </h2>
+          <ul style="padding-left: 20px; line-height: 1.5;">
+            ${detalles.map(detalle => `<li style="margin: 6px 0;">${escaparHtml(detalle)}</li>`).join('')}
+          </ul>
+          <p style="font-size: 0.85rem; color: #857468; margin-top: 24px; border-top: 1px solid #E2DCD0; padding-top: 10px;">
+            Aviso automático de Nave 5 Barcelona.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error al enviar la alerta al administrador (Resend):', error);
+      return;
+    }
+
+    console.log('Alerta al administrador enviada. ID Resend:', data?.id);
+  } catch (error) {
+    console.error('Error al enviar la alerta al administrador (Resend):', error.message || error);
+  }
+};
+
+module.exports = {
+  enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin
+};

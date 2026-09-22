@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const categoriasRoutes = require('./routes/categoriasRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const contactoRoutes = require('./routes/contactoRoutes');
+const stripeRoutes = require('./routes/stripeRoutes');
 
 const app = express();
 
@@ -51,6 +52,10 @@ app.use(cors({
     callback(new Error('No autorizado por CORS'));
   },
 }));
+
+// Webhook de Stripe: va ANTES de express.json() porque necesita el cuerpo sin parsear para
+// poder verificar la firma (ver routes/stripeRoutes.js).
+app.use('/api/stripe', stripeRoutes);
 
 app.use(express.json());
 
