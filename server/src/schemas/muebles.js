@@ -8,8 +8,12 @@ const ESTADOS_MUEBLE = ['disponible', 'vendido', 'alquilado'];
 // Este validador acepta ese string y lo convierte al tipo real, igual que hacía antes el
 // parseFloat()/comparación manual en el controlador -- pero ahora rechaza con un mensaje claro
 // un precio que no sea un número, en vez de guardar NaN en la base de datos.
+// Una cadena vacía o solo de espacios cuenta como "sin precio": Number('   ') vale 0 en
+// JavaScript (no NaN), así que sin el .trim() de esta comprobación un precio pegado con
+// espacios de más se guardaría como 0 en vez de quedar vacío o rechazarse.
+const esVacio = (valor) => valor === null || valor === undefined || (typeof valor === 'string' && valor.trim() === '');
 const precioOpcional = z.union([z.string(), z.null(), z.undefined()])
-  .transform((valor) => (valor === '' || valor === null || valor === undefined ? null : Number(valor)))
+  .transform((valor) => (esVacio(valor) ? null : Number(valor)))
   .refine((valor) => valor === null || Number.isFinite(valor), { message: 'El precio debe ser un número.' })
   .refine((valor) => valor === null || valor >= 0, { message: 'El precio no puede ser negativo.' });
 

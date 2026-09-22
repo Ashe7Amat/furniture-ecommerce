@@ -46,6 +46,15 @@ describe('POST /api/muebles — validación con Zod', () => {
     assert.equal(res.body.error, 'El precio no puede ser negativo.');
   });
 
+  test('un precio de solo espacios cuenta como vacío (null), no como 0 (Number("   ") vale 0 en JS)', async () => {
+    const res = await conAuth(request(app).post('/api/muebles'))
+      .field('nombre', 'Sofá').field('categoria', 'Sofás').field('precio_venta', '   ');
+
+    assert.equal(res.status, 201);
+    const insertado = fake.escrituras.find(e => e.tabla === 'muebles' && e.accion === 'insert').fila;
+    assert.equal(insertado.precio_venta, null);
+  });
+
   test('rechaza con 400 un estado que no es uno de los válidos', async () => {
     const res = await conAuth(request(app).post('/api/muebles'))
       .field('nombre', 'Sofá').field('categoria', 'Sofás').field('estado', 'roto');
