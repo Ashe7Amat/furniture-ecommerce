@@ -9,13 +9,14 @@ const { enviarEmailBienvenida } = require('../utils/email');
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
 // (se avisa con un error claro en vez de fallar de forma rara).
-const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+const googleClient = process.env.GOOGLE_CLIENT_ID
+  ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
+  : null;
 
-// Validación básica de email/contraseña, compartida entre registro y (parcialmente) el
-// cambio de contraseña. No sustituye una verificación de email por link, pero evita
-// altas con datos claramente inválidos.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN_LENGTH = 6;
+// La forma del payload (campos obligatorios, formato de email, longitud de la contraseña) ya la
+// valida el middleware validar() con los esquemas de schemas/auth.js, antes de llegar aquí. Lo
+// que queda en este archivo son las reglas que dependen de la base de datos (email duplicado,
+// contraseña actual correcta...), que Zod no puede comprobar por sí solo.
 
 // Firma un token de sesión (válido 7 días) con los datos mínimos del usuario
 const firmarToken = (usuario) => {
@@ -30,16 +31,6 @@ const firmarToken = (usuario) => {
 const registrarCliente = async (req, res) => {
   try {
     const { nombre, email, password } = req.body;
-
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
-    }
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ error: 'Introduce un email válido.' });
-    }
-    if (password.length < PASSWORD_MIN_LENGTH) {
-      return res.status(400).json({ error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.` });
-    }
 
     // Comprobar si el email ya existe en Supabase
     const { data: usuarioExistente } = await supabase
@@ -80,10 +71,13 @@ const registrarCliente = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Cuenta creada con éxito.',
-      user: { nombre: nuevoUsuario[0].nombre, email: nuevoUsuario[0].email, rol: nuevoUsuario[0].rol },
+      user: {
+        nombre: nuevoUsuario[0].nombre,
+        email: nuevoUsuario[0].email,
+        rol: nuevoUsuario[0].rol
+      },
       token
     });
-
   } catch (error) {
     console.error('Error en registro:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al crear la cuenta.' });
@@ -94,10 +88,6 @@ const registrarCliente = async (req, res) => {
 const loginCliente = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña requeridos.' });
-    }
 
     // Buscar al usuario por email
     const { data: usuario, error } = await supabase
@@ -133,7 +123,6 @@ const loginCliente = async (req, res) => {
       },
       token
     });
-
   } catch (error) {
     console.error('Error en login:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al iniciar sesión.' });
@@ -154,7 +143,9 @@ const actualizarPerfil = async (req, res) => {
     // Solo verificar la contraseña si se está intentando cambiar email o contraseña
     if (estaCambiandoEmail || estaCambiandoPassword) {
       if (!passwordActual) {
-        return res.status(400).json({ error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.' });
+        return res.status(400).json({
+          error: 'Debes proporcionar tu contraseña actual para cambiar tu correo o contraseña.'
+        });
       }
 
       // 1. Buscar al usuario en la base de datos para comparar contraseñas
@@ -194,11 +185,8 @@ const actualizarPerfil = async (req, res) => {
       updateFields.email = nuevoEmail;
     }
 
-    // 4. Si se desea cambiar la contraseña
+    // 4. Si se desea cambiar la contraseña (la longitud mínima ya la valida Zod)
     if (nuevaPassword) {
-      if (nuevaPassword.length < 6) {
-        return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres.' });
-      }
       const salt = await bcrypt.genSalt(10);
       updateFields.password = await bcrypt.hash(nuevaPassword, salt);
     }
@@ -250,13 +238,17 @@ const loginConGoogle = async (req, res) => {
       return res.status(400).json({ error: 'Falta el token de Google.' });
     }
     if (!googleClient) {
-      console.error('Login con Google: falta GOOGLE_CLIENT_ID en las variables de entorno del servidor.');
-      return res.status(500).json({ error: 'El inicio de sesión con Google no está disponible ahora mismo.' });
+      console.error(
+        'Login con Google: falta GOOGLE_CLIENT_ID en las variables de entorno del servidor.'
+      );
+      return res
+        .status(500)
+        .json({ error: 'El inicio de sesión con Google no está disponible ahora mismo.' });
     }
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID
     });
     const payload = ticket.getPayload();
 

@@ -9,7 +9,11 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "test:stripe": "node --test src/__tests__/contract/stripe.contract.js",
+    "lint": "eslint src/",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
@@ -25,10 +29,14 @@
     "multer": "^2.1.1",
     "resend": "^6.25.0",
     "sharp": "^0.35.4",
-    "stripe": "^17.4.0"
+    "stripe": "^17.4.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-plugin-n": "^17.24.0",
     "nodemon": "^3.1.0",
+    "prettier": "^3.9.8",
     "supertest": "^7.2.2"
   }
 }

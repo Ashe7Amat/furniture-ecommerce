@@ -5,6 +5,7 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
+require('./helpers/testEnv');
 const app = require('../index');
 
 describe('GET /', () => {

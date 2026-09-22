@@ -5,33 +5,53 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { createClient } = require('@supabase/supabase-js');
 
 // El servidor es un backend de confianza que ya hace su propia comprobación de permisos
-// (verificarAdmin / verificarToken) antes de tocar la base de datos, así que usa la
-// service_role key: esta clave se salta las políticas de Row Level Security de Supabase,
-// que están pensadas para frenar a quien llame directamente desde el navegador con la
-// clave pública (anon). Si no hay service_role configurada, caemos a la anon key para
-// no romper entornos antiguos, pero eso deja el servidor sujeto a las mismas políticas
-// RLS que el público.
+// (verificarAdmin / verificarToken) antes de tocar la base de datos, así que necesita la clave
+// "service_role": esta clave se salta las políticas de Row Level Security de Supabase, que están
+// pensadas para frenar a quien llame directamente desde el navegador con la clave pública
+// ("anon"). Ya NO hay respaldo a la clave "anon": dejar que el servidor arrancara con ella (como
+// hacía antes si faltaba la service_role) lo sujetaba en silencio a esas mismas políticas RLS
+// pensadas para el navegador, sin que nadie se diera cuenta hasta que algo fallara de forma rara
+// en producción. Mejor fallar aquí mismo, al cargar el módulo, con un mensaje que diga
+// exactamente qué falta.
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Solo se registra el detalle de qué variables se detectaron en desarrollo local -- en
-// producción (Vercel) este log se repetiría en cada arranque en frío y no aporta nada
-// si todo está bien configurado.
-if (process.env.NODE_ENV !== 'production') {
-  console.log(
-    `[Supabase] URL: ${supabaseUrl || 'no detectada'} · Clave: ${
-      supabaseKey ? (process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service_role' : 'anon') : 'no detectada'
-    }`
+if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
+  throw new Error(
+    'Falta SUPABASE_URL (o no es una URL http/https válida) en las variables de entorno del ' +
+    'servidor. Revisa server/.env en local, o las variables de entorno del proyecto en Vercel.'
+  );
+}
+// H8: en producción, SUPABASE_URL debe ser https:// -- si no, la clave service_role (que se
+// salta todas las políticas de seguridad de Supabase) viajaría sin cifrar en cada petición. Un
+// typo de "https://" a "http://" en las variables de entorno de producción (hoy Vercel, pero
+// esto no debe dar por hecho dónde se despliega) no se detectaba antes de este cambio. Se
+// permite http:// fuera de producción para no bloquear un Supabase self-hosted en local.
+if (process.env.NODE_ENV === 'production' && !supabaseUrl.startsWith('https://')) {
+  throw new Error(
+    'SUPABASE_URL debe empezar por "https://" en producción (revisa un posible typo a ' +
+    '"http://" en las variables de entorno de producción): con http:// la clave service_role ' +
+    'viajaría sin cifrar en cada petición.'
+  );
+}
+if (!supabaseKey) {
+  throw new Error(
+    'Falta SUPABASE_SERVICE_ROLE_KEY en las variables de entorno del servidor. Cópiala desde ' +
+    'Supabase (Project Settings > API Keys > service_role) -- la clave "anon" ya no sirve como ' +
+    'respaldo aquí, porque deja al servidor sujeto a las políticas de Row Level Security ' +
+    'pensadas para el navegador. Revisa server/.env en local, o las variables de entorno del ' +
+    'proyecto en Vercel.'
   );
 }
 
-if (!supabaseUrl || !supabaseUrl.startsWith('http') || !supabaseKey) {
-  console.error("❌ ERROR CRÍTICO: Falta SUPABASE_URL o una clave de Supabase válida. Revisa el archivo .env");
-  // Usamos variables de mentira solo para que el servidor no explote y podamos ver el error
-  module.exports = createClient('https://error.supabase.co', 'error');
-} else {
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: { persistSession: false }
-  });
-  module.exports = supabase;
+// Solo se registra en desarrollo local -- en producción (Vercel) este log se repetiría en cada
+// arranque en frío y no aporta nada si todo está bien configurado.
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`[Supabase] URL: ${supabaseUrl} · Clave: service_role`);
 }
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
+
+module.exports = supabase;

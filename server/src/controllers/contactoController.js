@@ -1,36 +1,21 @@
-const { enviarMensajeContacto } = require('../utils/email');
+// Se importa el módulo entero (no desestructurado) para que los tests puedan sustituir
+// email.enviarMensajeContacto con mock.method: una función ya desestructurada aquí arriba
+// quedaría fijada a la versión original y el mock no tendría ningún efecto (mismo patrón que
+// utils/pagos.js).
+const email = require('../utils/email');
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// Recibe el formulario de "Contacto". El campo "web" es un honeypot: un campo oculto
-// para humanos (vía CSS) pero visible para bots simples que rellenan todos los inputs
-// de un formulario. Si llega con contenido, respondemos 200 sin enviar nada, para no
-// darle a un bot ninguna pista de que fue detectado.
+// Recibe el formulario de "Contacto". El honeypot y la forma del payload (nombre/email/mensaje
+// obligatorios, con formato y longitud válidos) ya se comprobaron antes de llegar aquí (ver
+// contactoRoutes.js): validar() ya ha recortado los espacios de nombre/email/mensaje.
 const enviarContacto = async (req, res) => {
-  const { nombre, email, mensaje, web } = req.body;
+  const { nombre, email: emailComprador, mensaje } = req.body;
 
-  if (web) {
-    return res.status(200).json({ success: true });
-  }
-
-  if (!nombre || nombre.trim().length < 2) {
-    return res.status(400).json({ error: 'Indica tu nombre.' });
-  }
-  if (!email || !EMAIL_REGEX.test(email)) {
-    return res.status(400).json({ error: 'Indica un correo electrónico válido.' });
-  }
-  if (!mensaje || mensaje.trim().length < 10) {
-    return res.status(400).json({ error: 'El mensaje debe tener al menos 10 caracteres.' });
-  }
-
-  const enviado = await enviarMensajeContacto({
-    nombre: nombre.trim().slice(0, 200),
-    email: email.trim().slice(0, 200),
-    mensaje: mensaje.trim().slice(0, 5000),
-  });
+  const enviado = await email.enviarMensajeContacto({ nombre, email: emailComprador, mensaje });
 
   if (!enviado) {
-    return res.status(502).json({ error: 'No se pudo enviar el mensaje. Inténtalo de nuevo en unos minutos.' });
+    return res
+      .status(502)
+      .json({ error: 'No se pudo enviar el mensaje. Inténtalo de nuevo en unos minutos.' });
   }
 
   res.status(200).json({ success: true });

@@ -208,6 +208,11 @@ const Admin = () => {
     setFiles(Array.from(e.target.files));
   };
 
+  // Migración A (ver docs/tarea3-diseno.md): el selector de categoría sigue guardando el
+  // nombre en formData/muebleAEditar (no se cambia la UI), pero ya podemos mandar también el id
+  // real -- categorias ya está cargado con getCategorias() para alimentar el propio selector.
+  const idDeCategoria = (nombreCategoria) => categorias.find(c => c.nombre === nombreCategoria)?.id;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('Guardando producto...');
@@ -215,6 +220,8 @@ const Admin = () => {
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', formData.nombre);
     formDataToSend.append('categoria', formData.categoria);
+    const categoriaId = idDeCategoria(formData.categoria);
+    if (categoriaId !== undefined) formDataToSend.append('categoria_id', categoriaId);
     formDataToSend.append('descripcion', formData.descripcion);
     if (formData.precio_venta) formDataToSend.append('precio_venta', formData.precio_venta);
     if (formData.precio_alquiler) formDataToSend.append('precio_alquiler', formData.precio_alquiler);
@@ -248,6 +255,8 @@ const Admin = () => {
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', muebleAEditar.nombre || '');
     formDataToSend.append('categoria', muebleAEditar.categoria || '');
+    const categoriaId = idDeCategoria(muebleAEditar.categoria);
+    if (categoriaId !== undefined) formDataToSend.append('categoria_id', categoriaId);
     formDataToSend.append('descripcion', muebleAEditar.descripcion || '');
     formDataToSend.append('precio_venta', muebleAEditar.precio_venta || '');
     formDataToSend.append('precio_alquiler', muebleAEditar.precio_alquiler ?? muebleAEditar.precio_alquiler_dia ?? '');

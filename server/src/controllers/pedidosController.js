@@ -1,10 +1,8 @@
 // server/src/controllers/pedidosController.js
 //
 // Panel de administración: consulta y gestión de los pedidos generados por el checkout
-// (ver procesarCompra() en mueblesController.js, que es quien los crea).
+// (ver procesarSesionPagada() en utils/pagos.js, que es quien los crea).
 const supabase = require('../data/supabase');
-
-const ESTADOS_VALIDOS = ['procesando', 'enviado', 'entregado', 'cancelado'];
 
 // 0. Listar los pedidos del cliente logueado (para su "Historial de Pedidos" en Mi Cuenta).
 //    El checkout es de invitado y no guarda un user_id, así que se identifican por el email
@@ -47,14 +45,12 @@ const obtenerPedidos = async (req, res) => {
 };
 
 // 2. Cambiar el estado de un pedido (p. ej. al prepararlo o enviarlo). Solo administradores.
+// El valor de "estado" ya viene validado contra la lista de estados válidos (ver
+// schemas/pedidos.js) antes de llegar aquí.
 const actualizarEstadoPedido = async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
-
-    if (!ESTADOS_VALIDOS.includes(estado)) {
-      return res.status(400).json({ error: `Estado no válido. Usa uno de: ${ESTADOS_VALIDOS.join(', ')}.` });
-    }
 
     const { data, error } = await supabase
       .from('pedidos')

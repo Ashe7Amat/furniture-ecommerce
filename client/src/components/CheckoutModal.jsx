@@ -195,6 +195,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 <input
                   type="text"
                   placeholder="Ej. Ana Martínez"
+                  maxLength="100"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   onBlur={() => handleBlur('fullName', fullName, validateFullName)}
@@ -220,6 +221,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
               <input
                 type="email"
                 placeholder="ana@ejemplo.com"
+                maxLength="254"
                 value={email}
                 onChange={handleEmailChange}
                 onBlur={() => handleBlur('email', email, validateEmail)}
@@ -232,6 +234,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
               <input
                 type="text"
                 placeholder="Calle Mayor 15, 2º B"
+                maxLength="200"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 onBlur={() => handleBlur('address', address, validateAddress)}
@@ -245,6 +248,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 <input
                   type="text"
                   placeholder="Ej. Barcelona"
+                  maxLength="80"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   onBlur={() => handleBlur('city', city, validateCity)}
@@ -268,6 +272,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 <input
                   type="text"
                   placeholder="Ej. Barcelona"
+                  maxLength="60"
                   value={provincia}
                   onChange={(e) => setProvincia(e.target.value)}
                   onBlur={() => handleBlur('provincia', provincia, validateProvincia)}
@@ -280,6 +285,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
               <label>Notas de Entrega / Alquiler (Opcional)</label>
               <textarea
                 placeholder="Ej. Horario de entrega preferente, ascensor disponible, etc."
+                maxLength="200"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows="2"

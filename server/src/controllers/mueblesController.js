@@ -1,9 +1,25 @@
-const Stripe = require('stripe');
 const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
-const { enviarNotificacionVenta, enviarConfirmacionCliente } = require('../utils/email');
+const stripeUtil = require('../utils/stripe');
+const pagos = require('../utils/pagos');
+const { construirMetadataPago } = require('../utils/metadataStripe');
+const { ErrorValidacion } = require('../utils/errores');
 
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
+// (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
+// etc.), se deja en null sin bloquear la creación/edición -- categoria sigue siendo la fuente de
+// verdad hasta que se cierre la migración (A4/A5), así que un fallo de resolución aquí no debe
+// impedir guardar el mueble.
+const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
+  if (!nombreCategoria) return null;
+  const { data, error } = await supabase
+    .from('categorias')
+    .select('id')
+    .eq('nombre', nombreCategoria)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data.id;
+};
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -34,11 +50,7 @@ const obtenerMuebles = async (req, res) => {
 const obtenerMueblePorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('muebles')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await supabase.from('muebles').select('*').eq('id', id).single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });
@@ -51,9 +63,21 @@ const obtenerMueblePorId = async (req, res) => {
 };
 
 // 3. Crear un nuevo mueble con soporte de carga física de imágenes
+// nombre/categoria/descripcion/precio_venta/precio_alquiler/disponible/estado ya vienen
+// validados y con su tipo real (precios como number o null, disponible como boolean) por
+// schemas/muebles.js -- ver validar() en mueblesRoutes.js.
 const crearMueble = async (req, res) => {
   try {
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+    const {
+      nombre,
+      categoria,
+      descripcion,
+      precio_venta,
+      precio_alquiler,
+      disponible,
+      estado,
+      categoria_id
+    } = req.body;
     let imagenes = [];
 
     if (req.files && req.files.length > 0) {
@@ -73,16 +97,22 @@ const crearMueble = async (req, res) => {
       }
     }
 
+    // categoria_id: si lo manda el body (front ya actualizado, ver Admin.jsx), se usa tal cual;
+    // si no, se resuelve desde el nombre de categoria -- así un cliente/script que todavía no
+    // conozca categoria_id sigue funcionando igual que antes de esta migración.
+    const categoriaIdFinal = categoria_id ?? (await resolverCategoriaIdPorNombre(categoria));
+
     const { data, error } = await supabase
       .from('muebles')
       .insert([
         {
           nombre,
           categoria,
+          categoria_id: categoriaIdFinal,
           descripcion,
-          precio_venta: (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta),
-          precio_alquiler_dia: (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler),
-          disponible: disponible !== undefined ? (disponible === 'true' || disponible === true) : true,
+          precio_venta: precio_venta ?? null,
+          precio_alquiler_dia: precio_alquiler ?? null,
+          disponible: disponible !== undefined ? disponible : true,
           imagenes,
           estado: estado || 'disponible'
         }
@@ -97,19 +127,38 @@ const crearMueble = async (req, res) => {
   }
 };
 
-// 4. Editar un mueble
+// 4. Editar un mueble (actualización parcial: solo se tocan los campos presentes en el body,
+// ya validados y con su tipo real por schemas/muebles.js)
 const editarMueble = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, disponible, estado } = req.body;
+    const {
+      nombre,
+      categoria,
+      descripcion,
+      precio_venta,
+      precio_alquiler,
+      disponible,
+      estado,
+      categoria_id
+    } = req.body;
 
     const updateData = {};
     if (nombre !== undefined) updateData.nombre = nombre;
     if (categoria !== undefined) updateData.categoria = categoria;
+    // categoria_id explícito en el body manda (p. ej. si algún día se edita solo el id sin
+    // tocar el nombre); si no viene pero sí cambia categoria (texto), se resuelve desde ahí --
+    // igual criterio de doble escritura que en crearMueble. Si no viene ninguno de los dos, no
+    // se toca categoria_id en absoluto (actualización parcial real).
+    if (categoria_id !== undefined) {
+      updateData.categoria_id = categoria_id;
+    } else if (categoria !== undefined) {
+      updateData.categoria_id = await resolverCategoriaIdPorNombre(categoria);
+    }
     if (descripcion !== undefined) updateData.descripcion = descripcion;
-    if (precio_venta !== undefined) updateData.precio_venta = (precio_venta === '' || precio_venta === null || precio_venta === undefined) ? null : parseFloat(precio_venta);
-    if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = (precio_alquiler === '' || precio_alquiler === null || precio_alquiler === undefined) ? null : parseFloat(precio_alquiler);
-    if (disponible !== undefined) updateData.disponible = disponible === 'true' || disponible === true;
+    if (precio_venta !== undefined) updateData.precio_venta = precio_venta;
+    if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = precio_alquiler;
+    if (disponible !== undefined) updateData.disponible = disponible;
     if (estado !== undefined) updateData.estado = estado;
 
     let imagenesFinales = [];
@@ -121,7 +170,9 @@ const editarMueble = async (req, res) => {
           imagenesFinales = [req.body.imagenes_existentes];
         }
       } else {
-        imagenesFinales = Array.isArray(req.body.imagenes_existentes) ? req.body.imagenes_existentes : [req.body.imagenes_existentes];
+        imagenesFinales = Array.isArray(req.body.imagenes_existentes)
+          ? req.body.imagenes_existentes
+          : [req.body.imagenes_existentes];
       }
     }
 
@@ -140,19 +191,21 @@ const editarMueble = async (req, res) => {
           imagenesFinales = [req.body.imagenes];
         }
       } else {
-        imagenesFinales = Array.isArray(req.body.imagenes) ? req.body.imagenes : [req.body.imagenes];
+        imagenesFinales = Array.isArray(req.body.imagenes)
+          ? req.body.imagenes
+          : [req.body.imagenes];
       }
     }
 
-    if (imagenesFinales.length > 0 || req.body.imagenes_existentes !== undefined || req.body.imagenes !== undefined) {
+    if (
+      imagenesFinales.length > 0 ||
+      req.body.imagenes_existentes !== undefined ||
+      req.body.imagenes !== undefined
+    ) {
       updateData.imagenes = imagenesFinales;
     }
 
-    const { data, error } = await supabase
-      .from('muebles')
-      .update(updateData)
-      .eq('id', id)
-      .select();
+    const { data, error } = await supabase.from('muebles').update(updateData).eq('id', id).select();
 
     if (error) throw error;
     res.status(200).json({ success: true, message: 'Mueble editado con éxito', data });
@@ -168,7 +221,9 @@ const eliminarMueble = async (req, res) => {
     const { id } = req.params;
     const { error } = await supabase.from('muebles').delete().eq('id', id);
     if (error) throw error;
-    res.status(200).json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
+    res
+      .status(200)
+      .json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
   } catch (error) {
     console.error('Error al eliminar mueble:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al intentar borrar el mueble.' });
@@ -190,8 +245,9 @@ const buscarMuebles = async (req, res) => {
 };
 
 // Mira en Supabase el precio REAL de cada pieza del carrito (nunca se confía en el
-// precio que manda el navegador) y devuelve las líneas listas para Stripe / para marcar
-// como vendidas. Lanza un error legible si algo ya no está disponible.
+// precio que manda el navegador) y devuelve las líneas listas para Stripe. Lanza un error
+// legible si algo ya no está disponible. Solo se usa ANTES de cobrar (crearSesionPago); una
+// vez pagado, el pedido lo registra utils/pagos.js sin rechazar nada.
 const construirLineasDesdeCarrito = async (items) => {
   const lineas = [];
   for (const item of items) {
@@ -202,18 +258,25 @@ const construirLineasDesdeCarrito = async (items) => {
       .single();
 
     if (error || !mueble) {
-      throw new Error(`La pieza con ID ${item.productId} no existe en catálogo.`);
+      throw new ErrorValidacion(`La pieza con ID ${item.productId} no existe en catálogo.`);
     }
     if (mueble.estado === 'vendido') {
-      throw new Error(`Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`);
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${mueble.nombre}" ya ha sido vendida.`
+      );
     }
     if (mueble.estado === 'alquilado' && item.modalidad === 'compra') {
-      throw new Error(`Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`);
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${mueble.nombre}" está alquilada y no se puede comprar.`
+      );
     }
 
-    const precioReal = item.modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta;
+    const precioReal =
+      item.modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta;
     if (!precioReal) {
-      throw new Error(`"${mueble.nombre}" no tiene precio disponible para esa modalidad.`);
+      throw new ErrorValidacion(
+        `"${mueble.nombre}" no tiene precio disponible para esa modalidad.`
+      );
     }
 
     lineas.push({
@@ -227,127 +290,77 @@ const construirLineasDesdeCarrito = async (items) => {
   return lineas;
 };
 
-// Marca cada pieza como vendida/alquilada en Supabase, guarda el pedido (para el panel
-// de administración) y avisa por email tanto al admin como al propio comprador.
-// Es tolerante a que se llame dos veces con las mismas piezas (p. ej. si el comprador
-// recarga la página de confirmación) para no romper esa pantalla tras haber cobrado ya.
-const procesarCompra = async (lineas, clienteInfo, sessionId) => {
-  for (const linea of lineas) {
-    const nuevoEstado = linea.modalidad === 'compra' ? 'vendido' : 'alquilado';
-
-    const { data: actual } = await supabase
-      .from('muebles')
-      .select('estado')
-      .eq('id', linea.productId)
-      .single();
-
-    if (actual && actual.estado === nuevoEstado) continue; // ya estaba aplicado, no repetir
-
-    const { error } = await supabase
-      .from('muebles')
-      .update({ estado: nuevoEstado, disponible: false })
-      .eq('id', linea.productId);
-
-    if (error) {
-      console.error(`Error al actualizar el mueble ${linea.productId}:`, error.message);
-    }
-  }
-
-  const total = lineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
-  const fecha = new Date();
-
-  // Guardamos el pedido para que aparezca en el panel de administración con toda la
-  // info necesaria para prepararlo y enviarlo (cliente, dirección, productos, total).
-  // Si esta misma sesión de Stripe ya generó un pedido (p. ej. el comprador recargó la
-  // pantalla de confirmación), no lo duplicamos.
-  if (sessionId) {
-    const { data: pedidoExistente } = await supabase
-      .from('pedidos')
-      .select('id')
-      .eq('stripe_session_id', sessionId)
-      .maybeSingle();
-
-    if (!pedidoExistente) {
-      const { error: errorPedido } = await supabase.from('pedidos').insert({
-        items: lineas,
-        cliente_info: clienteInfo || {},
-        total,
-        metodo_entrega: 'domicilio',
-        direccion_envio: clienteInfo?.direccion || null,
-        estado: 'procesando',
-        stripe_session_id: sessionId
-      });
-
-      if (errorPedido) {
-        console.error('Error al guardar el pedido en Supabase:', errorPedido.message);
-      }
-    }
-  }
-
-  const pedidoParaEmail = { items: lineas, clienteInfo: clienteInfo || {}, total, fecha };
-
-  // Notificaciones por email vía Resend. Ninguna de las dos funciones lanza (try/catch
-  // interno): un fallo en el envío del correo jamás debe romper el checkout.
-  enviarNotificacionVenta(pedidoParaEmail);
-  enviarConfirmacionCliente(pedidoParaEmail);
-
-  return total;
-};
-
 // 7. Crear una sesión de pago real con Stripe (modo test o real según la clave configurada)
+// La forma del carrito y de los datos del comprador (items no vacío, productId de texto...) ya
+// viene validada por schemas/muebles.js (ver validar() en mueblesRoutes.js). Dentro de esta
+// función, construirMetadataPago y construirLineasDesdeCarrito pueden lanzar ErrorValidacion por
+// motivos que SÍ dependen de la base de datos o de reglas de negocio (un carrito que no cabe en
+// la metadata de Stripe, una pieza ya vendida...): el catch de abajo es el único sitio que decide
+// qué error se le puede contar tal cual al comprador y cuál no.
 const crearSesionPago = async (req, res) => {
   try {
+    const stripe = stripeUtil.getStripe();
     if (!stripe) {
-      return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
 
     const { items, clienteInfo } = req.body;
-    if (!items || items.length === 0) {
-      return res.status(400).json({ error: 'El carrito de compras está vacío.' });
-    }
 
+    // Se valida antes de tocar la base de datos o Stripe: si un dato del comprador es
+    // demasiado largo, o el carrito no cabe en la metadata, se le dice con claridad en lugar de
+    // dejar que Stripe rechace la sesión con un error en inglés.
+    const metadata = construirMetadataPago({ items, clienteInfo });
     const lineas = await construirLineasDesdeCarrito(items);
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
-      line_items: lineas.map(l => ({
+      line_items: lineas.map((l) => ({
         price_data: {
           currency: 'eur',
-          product_data: { name: `${l.nombre}${l.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}` },
-          unit_amount: Math.round(l.precio * 100),
+          product_data: {
+            name: `${l.nombre}${l.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}`
+          },
+          unit_amount: Math.round(l.precio * 100)
         },
-        quantity: l.cantidad,
+        quantity: l.cantidad
       })),
       customer_email: clienteInfo?.email || undefined,
       success_url: `${process.env.CLIENT_URL}/checkout/exito?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/checkout/cancelado`,
-      metadata: {
-        items: JSON.stringify(items.map(i => ({ productId: i.productId, modalidad: i.modalidad }))),
-        clienteNombre: clienteInfo?.nombre || '',
-        clienteEmail: clienteInfo?.email || '',
-        clienteTelefono: clienteInfo?.telefono || '',
-        clienteDireccion: clienteInfo?.direccion || '',
-        clienteNotas: clienteInfo?.notas || ''
-      }
+      metadata
     });
 
     res.status(200).json({ url: session.url });
   } catch (error) {
-    console.error('Error al crear la sesión de pago:', error.message);
-    res.status(400).json({ error: error.message || 'No se pudo iniciar el proceso de pago.' });
+    // ErrorValidacion: su mensaje está escrito para el comprador (400). Cualquier otro error
+    // (Stripe caído, un fallo de red, un bug) no debe filtrar su detalle -- se registra en el
+    // log y se responde un mensaje genérico (500). Antes de esto, CUALQUIER error devolvía 400
+    // con su .message tal cual, incluidos los internos.
+    if (error instanceof ErrorValidacion) {
+      return res.status(400).json({ error: error.message });
+    }
+    console.error('Error al crear la sesión de pago:', error.message || error);
+    res.status(500).json({ error: 'No se pudo iniciar el proceso de pago.' });
   }
 };
 
-// 8. Confirmar una sesión de Stripe al volver del pago y aplicar la venta
+// 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
+// (POST /api/stripe/webhook), que es quien normalmente registra la venta: si el webhook ya
+// la registró, o llega mientras tanto, procesarSesionPagada lo detecta y no repite nada.
 const confirmarSesion = async (req, res) => {
   try {
+    const stripe = stripeUtil.getStripe();
     if (!stripe) {
-      return res.status(503).json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
     }
 
     const { session_id } = req.query;
-    if (!session_id) {
+    if (!session_id || typeof session_id !== 'string') {
       return res.status(400).json({ error: 'Falta el identificador de la sesión de pago.' });
     }
 
@@ -357,26 +370,26 @@ const confirmarSesion = async (req, res) => {
       return res.status(400).json({ error: 'El pago todavía no se ha completado.' });
     }
 
-    const itemsMeta = JSON.parse(session.metadata.items || '[]');
-    const lineas = await construirLineasDesdeCarrito(itemsMeta).catch(() => null);
-
-    // Si construirLineasDesdeCarrito falla es porque ya se aplicó antes (piezas marcadas
-    // como vendidas/alquiladas en una confirmación previa): no es un error para el cliente.
-    const total = lineas
-      ? await procesarCompra(lineas, {
-          nombre: session.metadata.clienteNombre,
-          email: session.metadata.clienteEmail,
-          telefono: session.metadata.clienteTelefono,
-          direccion: session.metadata.clienteDireccion,
-          notas: session.metadata.clienteNotas,
-          metodoPago: 'Tarjeta (Stripe)'
-        }, session.id)
-      : (session.amount_total || 0) / 100;
+    // El pago ya está verificado con Stripe: aunque no se pueda guardar ahora (p. ej. la
+    // base de datos falla un momento), al comprador no se le dice que su pago ha fallado.
+    // Si hay webhook configurado, Stripe volverá a intentarlo solo; si no lo hay, nadie lo
+    // reintentará, así que se avisa por email al administrador para que lo registre a mano.
+    try {
+      await pagos.procesarSesionPagada(session);
+    } catch (error) {
+      console.error(
+        `No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`,
+        error.message || error
+      );
+      if (!process.env.STRIPE_WEBHOOK_SECRET) {
+        await pagos.avisarPagoSinRegistrar(session, error);
+      }
+    }
 
     res.status(200).json({
       success: true,
       message: 'Pago confirmado. El catálogo ha sido actualizado.',
-      total
+      total: (session.amount_total || 0) / 100
     });
   } catch (error) {
     console.error('Error al confirmar la sesión de pago:', error.message);

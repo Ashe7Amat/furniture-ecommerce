@@ -28,6 +28,15 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const REMITENTE = process.env.RESEND_FROM || 'Nave 5 Barcelona <onboarding@resend.dev>';
 const EMAIL_ADMIN = process.env.ADMIN_EMAIL || 'amatashenafi7@gmail.com';
 
+// Escapa un texto para insertarlo en HTML. Los avisos operativos (enviarAlertaAdmin) llevan
+// datos que escribe el comprador (nombre, dirección...), así que nunca se insertan crudos.
+const escaparHtml = (texto) => String(texto ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
 // Construye el HTML del correo de aviso de venta. Estilos en línea (inline) porque
 // la mayoría de clientes de correo ignoran o recortan <style> en el <head>.
 const construirHtmlVenta = (pedido) => {
@@ -41,7 +50,7 @@ const construirHtmlVenta = (pedido) => {
   const filasProductos = items.map(item => `
     <tr>
       <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #3E322A;">
-        ${item.nombre}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
+        ${escaparHtml(item.nombre)}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
       </td>
       <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #857468; text-align: right;">
         ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
@@ -58,12 +67,12 @@ const construirHtmlVenta = (pedido) => {
       <p style="color: #857468;">Se ha completado una transacción con éxito. Aquí tienes los detalles:</p>
 
       <h3 style="color: #857468; margin-bottom: 6px;">Cliente</h3>
-      <p style="margin: 4px 0;"><strong>Nombre:</strong> ${clienteInfo.nombre || 'No provisto'}</p>
-      <p style="margin: 4px 0;"><strong>Email:</strong> ${clienteInfo.email || 'No provisto'}</p>
-      <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${clienteInfo.telefono || 'No provisto'}</p>
-      <p style="margin: 4px 0;"><strong>Dirección de entrega:</strong> ${clienteInfo.direccion || 'No provista'}</p>
-      <p style="margin: 4px 0;"><strong>Notas:</strong> ${clienteInfo.notas || 'Ninguna'}</p>
-      <p style="margin: 4px 0;"><strong>Método de pago:</strong> ${clienteInfo.metodoPago || 'Tarjeta (Stripe)'}</p>
+      <p style="margin: 4px 0;"><strong>Nombre:</strong> ${escaparHtml(clienteInfo.nombre) || 'No provisto'}</p>
+      <p style="margin: 4px 0;"><strong>Email:</strong> ${escaparHtml(clienteInfo.email) || 'No provisto'}</p>
+      <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${escaparHtml(clienteInfo.telefono) || 'No provisto'}</p>
+      <p style="margin: 4px 0;"><strong>Dirección de entrega:</strong> ${escaparHtml(clienteInfo.direccion) || 'No provista'}</p>
+      <p style="margin: 4px 0;"><strong>Notas:</strong> ${escaparHtml(clienteInfo.notas) || 'Ninguna'}</p>
+      <p style="margin: 4px 0;"><strong>Método de pago:</strong> ${escaparHtml(clienteInfo.metodoPago) || 'Tarjeta (Stripe)'}</p>
 
       <h3 style="color: #857468; margin-top: 24px; margin-bottom: 6px;">Productos</h3>
       <table style="width: 100%; border-collapse: collapse;">
@@ -133,7 +142,7 @@ const construirHtmlConfirmacionCliente = (pedido) => {
   const filasProductos = items.map(item => `
     <tr>
       <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #3E322A;">
-        ${item.nombre}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
+        ${escaparHtml(item.nombre)}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
       </td>
       <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #857468; text-align: right;">
         ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
@@ -144,7 +153,7 @@ const construirHtmlConfirmacionCliente = (pedido) => {
   return `
     <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
       <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
-        ¡Gracias por tu compra, ${clienteInfo.nombre || ''}!
+        ¡Gracias por tu compra, ${escaparHtml(clienteInfo.nombre)}!
       </h2>
 
       <p style="color: #857468;">
@@ -161,8 +170,8 @@ const construirHtmlConfirmacionCliente = (pedido) => {
       </div>
 
       <h3 style="color: #857468; margin-top: 24px; margin-bottom: 6px;">Envío a</h3>
-      <p style="margin: 4px 0;">${clienteInfo.direccion || 'Dirección no provista'}</p>
-      ${clienteInfo.notas && clienteInfo.notas !== 'Ninguna' ? `<p style="margin: 4px 0; color: #857468;"><strong>Notas:</strong> ${clienteInfo.notas}</p>` : ''}
+      <p style="margin: 4px 0;">${escaparHtml(clienteInfo.direccion) || 'Dirección no provista'}</p>
+      ${clienteInfo.notas && clienteInfo.notas !== 'Ninguna' ? `<p style="margin: 4px 0; color: #857468;"><strong>Notas:</strong> ${escaparHtml(clienteInfo.notas)}</p>` : ''}
 
       <p style="color: #857468; margin-top: 24px;">
         Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados
@@ -232,7 +241,7 @@ const construirHtmlBienvenida = (nombreCliente) => `
       <p style="color: #B38A70; font-size: 0.85rem; margin: 0; letter-spacing: 1px; font-style: italic;">Almacén de ideas</p>
     </div>
     <div style="padding: 40px 30px; line-height: 1.6;">
-      <h2 style="font-size: 1.25rem; font-weight: 400; margin-top: 0; color: #3E322A;">¡Hola, ${nombreCliente}!</h2>
+      <h2 style="font-size: 1.25rem; font-weight: 400; margin-top: 0; color: #3E322A;">¡Hola, ${escaparHtml(nombreCliente)}!</h2>
       <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
         Te damos la bienvenida más cálida a <strong>Nave 5 Barcelona</strong>. Nos hace inmensamente felices que te unas a nuestra pequeña gran comunidad dedicada a la recuperación y restauración artesanal de piezas singulares.
       </p>
@@ -308,9 +317,9 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
           <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
             Nuevo mensaje desde el formulario de contacto
           </h2>
-          <p style="color: #857468;"><strong>Nombre:</strong> ${nombre}</p>
-          <p style="color: #857468;"><strong>Email:</strong> ${email}</p>
-          <p style="color: #3E322A; white-space: pre-wrap;">${mensaje}</p>
+          <p style="color: #857468;"><strong>Nombre:</strong> ${escaparHtml(nombre)}</p>
+          <p style="color: #857468;"><strong>Email:</strong> ${escaparHtml(email)}</p>
+          <p style="color: #3E322A; white-space: pre-wrap;">${escaparHtml(mensaje)}</p>
         </div>
       `,
     });
@@ -328,4 +337,51 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
   }
 };
 
-module.exports = { enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto };
+// Aviso operativo al administrador: algo que requiere que una persona intervenga (una
+// doble venta, un pago cobrado que no se pudo registrar...). `detalles` es una lista de
+// frases; todo se escapa antes de ir al HTML. Como los avisos de venta, nunca lanza: un
+// fallo aquí solo se registra en consola.
+const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
+  try {
+    if (!resend) {
+      console.log('\n--- SIMULACIÓN DE ALERTA AL ADMIN (RESEND_API_KEY no configurada) ---');
+      console.log('Para:', EMAIL_ADMIN);
+      console.log('Asunto:', asunto);
+      detalles.forEach(detalle => console.log('-', detalle));
+      console.log('-------------------------------------------------------------\n');
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: EMAIL_ADMIN,
+      subject: `[Aviso] ${asunto}`,
+      html: `
+        <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
+          <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
+            ${escaparHtml(asunto)}
+          </h2>
+          <ul style="padding-left: 20px; line-height: 1.5;">
+            ${detalles.map(detalle => `<li style="margin: 6px 0;">${escaparHtml(detalle)}</li>`).join('')}
+          </ul>
+          <p style="font-size: 0.85rem; color: #857468; margin-top: 24px; border-top: 1px solid #E2DCD0; padding-top: 10px;">
+            Aviso automático de Nave 5 Barcelona.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Error al enviar la alerta al administrador (Resend):', error);
+      return;
+    }
+
+    console.log('Alerta al administrador enviada. ID Resend:', data?.id);
+  } catch (error) {
+    console.error('Error al enviar la alerta al administrador (Resend):', error.message || error);
+  }
+};
+
+module.exports = {
+  enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin
+};

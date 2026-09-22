@@ -47,12 +47,10 @@ const uploadToSupabase = async (file, folder = 'uploads') => {
   const fileName = `${folder}/${Math.random().toString(36).substring(2)}-${Date.now()}.${extension}`;
 
   // Subimos el archivo a Supabase Storage
-  const { data, error } = await supabase.storage
-    .from('imagenes')
-    .upload(fileName, buffer, {
-      contentType,
-      upsert: true
-    });
+  const { error } = await supabase.storage.from('imagenes').upload(fileName, buffer, {
+    contentType,
+    upsert: true
+  });
 
   if (error) {
     console.error('Error al subir a Supabase Storage:', error);
@@ -60,9 +58,7 @@ const uploadToSupabase = async (file, folder = 'uploads') => {
   }
 
   // Obtenemos la URL pública
-  const { data: publicData } = supabase.storage
-    .from('imagenes')
-    .getPublicUrl(fileName);
+  const { data: publicData } = supabase.storage.from('imagenes').getPublicUrl(fileName);
 
   return publicData.publicUrl;
 };

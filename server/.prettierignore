@@ -1,0 +1,8 @@
+# Archivos sensibles que se dejan fuera de cualquier formateo automático a propósito
+# (tarea 8): conexión a la base de datos, envío de emails, y el flujo de pagos/metadata de
+# Stripe. Un cambio de formato ahí, aunque sea puramente de estilo, se revisa siempre a mano,
+# en su propio commit, nunca arrastrado por un "chore: aplicar formato" masivo.
+src/data/supabase.js
+src/utils/email.js
+src/utils/pagos.js
+src/utils/metadataStripe.js
