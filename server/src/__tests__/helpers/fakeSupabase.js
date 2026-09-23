@@ -1,8 +1,8 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / contains / limit / insert / update / single / maybeSingle,
-// y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
+// Soporta: select / eq / neq / in / contains / limit / order / insert / update / delete / single /
+// maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
 // al bucle de eventos antes de ejecutarse, así dos flujos concurrentes se intercalan paso a
 // paso como harían contra una base de datos de verdad, y cada operación es atómica.
 //
@@ -91,7 +91,27 @@ const crearFakeSupabase = ({
       return { data: afectadas.map((f) => ({ ...f })), error: null };
     }
 
+    if (consulta.accion === 'delete') {
+      const aBorrar = filas.filter(coincide);
+      aBorrar.forEach((fila) => {
+        const idx = filas.indexOf(fila);
+        if (idx !== -1) filas.splice(idx, 1);
+      });
+      if (aBorrar.length > 0) {
+        escrituras.push({ tabla: nombre, accion: 'delete', ids: aBorrar.map((f) => f.id) });
+      }
+      return { data: aBorrar.map((f) => ({ ...f })), error: null };
+    }
+
     let encontradas = filas.filter(coincide);
+    if (consulta.orden) {
+      const { columna, ascendente } = consulta.orden;
+      encontradas = [...encontradas].sort((a, b) => {
+        if (a[columna] === b[columna]) return 0;
+        const mayor = a[columna] > b[columna] ? 1 : -1;
+        return ascendente ? mayor : -mayor;
+      });
+    }
     if (consulta.limite !== null) encontradas = encontradas.slice(0, consulta.limite);
     if (consulta.salida === 'single') {
       return encontradas.length === 1
@@ -126,6 +146,7 @@ const crearFakeSupabase = ({
       datos: null,
       salida: 'lista',
       limite: null,
+      orden: null,
       usa: new Set(),
       errorDeFiltro: null
     };
@@ -138,6 +159,10 @@ const crearFakeSupabase = ({
       limit: (n) => {
         consulta.limite = n;
         return usar('limit');
+      },
+      order: (columna, opciones = {}) => {
+        consulta.orden = { columna, ascendente: opciones.ascending !== false };
+        return usar('order');
       },
       eq: (columna, valor) => {
         consulta.filtros.push((f) => f[columna] === valor);
@@ -187,6 +212,10 @@ const crearFakeSupabase = ({
         consulta.accion = 'update';
         consulta.datos = datos;
         return usar('update');
+      },
+      delete: () => {
+        consulta.accion = 'delete';
+        return usar('delete');
       },
       single: () => {
         consulta.salida = 'single';
