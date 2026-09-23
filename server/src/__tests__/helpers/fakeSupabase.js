@@ -1,8 +1,8 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / contains / limit / order / insert / update / delete / single /
-// maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
+// Soporta: select / eq / neq / in / ilike / contains / limit / order / insert / update / delete /
+// single / maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
 // al bucle de eventos antes de ejecutarse, así dos flujos concurrentes se intercalan paso a
 // paso como harían contra una base de datos de verdad, y cada operación es atómica.
 //
@@ -40,6 +40,41 @@ const crearFakeSupabase = ({
 
   const contiene = (elemento, patron) =>
     Object.entries(patron).every(([clave, valor]) => elemento && elemento[clave] === valor);
+
+  // .single()/.maybeSingle() aplican igual detrás de un update()/delete() que detrás de un
+  // select() -- p. ej. `.update({...}).eq('id', id).select().single()` sobre un id que no
+  // existe debe dar el mismo error PGRST116 (0 filas) que daría un select().single() vacío, no
+  // devolver silenciosamente un array vacío. Centralizado aquí para no duplicar esta lógica en
+  // cada rama de `ejecutar`.
+  const aplicarSalida = (lista, salida) => {
+    if (salida === 'single') {
+      return lista.length === 1
+        ? { data: lista[0], error: null }
+        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+    }
+    if (salida === 'maybe') {
+      return lista.length <= 1
+        ? { data: lista[0] ?? null, error: null }
+        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+    }
+    return { data: lista, error: null };
+  };
+
+  // Soporta el atajo de PostgREST "columna->>clave" (extraer texto de un campo jsonb), usado
+  // p. ej. por pedidosController al buscar pedidos por 'cliente_info->>email'. Sin "->>", es
+  // una columna normal.
+  const valorDeColumna = (fila, columna) => {
+    if (!columna.includes('->>')) return fila?.[columna];
+    const [base, clave] = columna.split('->>');
+    return fila?.[base]?.[clave];
+  };
+
+  // Traduce un patrón LIKE/ILIKE ('%' = cualquier cosa, incluido nada) a una regex. ILIKE es
+  // igual pero sin distinguir mayúsculas/minúsculas -- justo lo que hace falta aquí.
+  const comodinARegex = (patron) => {
+    const escapado = String(patron).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`^${escapado.replace(/%/g, '.*')}$`, 'i');
+  };
 
   const ejecutar = (nombre, consulta) => {
     const filas = tablas[nombre];
@@ -88,7 +123,7 @@ const crearFakeSupabase = ({
           ids: afectadas.map((f) => f.id)
         });
       }
-      return { data: afectadas.map((f) => ({ ...f })), error: null };
+      return aplicarSalida(afectadas.map((f) => ({ ...f })), consulta.salida);
     }
 
     if (consulta.accion === 'delete') {
@@ -100,42 +135,22 @@ const crearFakeSupabase = ({
       if (aBorrar.length > 0) {
         escrituras.push({ tabla: nombre, accion: 'delete', ids: aBorrar.map((f) => f.id) });
       }
-      return { data: aBorrar.map((f) => ({ ...f })), error: null };
+      return aplicarSalida(aBorrar.map((f) => ({ ...f })), consulta.salida);
     }
 
     let encontradas = filas.filter(coincide);
     if (consulta.orden) {
       const { columna, ascendente } = consulta.orden;
       encontradas = [...encontradas].sort((a, b) => {
-        if (a[columna] === b[columna]) return 0;
-        const mayor = a[columna] > b[columna] ? 1 : -1;
+        const va = valorDeColumna(a, columna);
+        const vb = valorDeColumna(b, columna);
+        if (va === vb) return 0;
+        const mayor = va > vb ? 1 : -1;
         return ascendente ? mayor : -mayor;
       });
     }
     if (consulta.limite !== null) encontradas = encontradas.slice(0, consulta.limite);
-    if (consulta.salida === 'single') {
-      return encontradas.length === 1
-        ? { data: encontradas[0], error: null }
-        : {
-            data: null,
-            error: {
-              code: 'PGRST116',
-              message: 'JSON object requested, multiple (or no) rows returned'
-            }
-          };
-    }
-    if (consulta.salida === 'maybe') {
-      return encontradas.length <= 1
-        ? { data: encontradas[0] ?? null, error: null }
-        : {
-            data: null,
-            error: {
-              code: 'PGRST116',
-              message: 'JSON object requested, multiple (or no) rows returned'
-            }
-          };
-    }
-    return { data: encontradas, error: null };
+    return aplicarSalida(encontradas, consulta.salida);
   };
 
   const from = (nombre) => {
@@ -165,17 +180,27 @@ const crearFakeSupabase = ({
         return usar('order');
       },
       eq: (columna, valor) => {
-        consulta.filtros.push((f) => f[columna] === valor);
+        consulta.filtros.push((f) => valorDeColumna(f, columna) === valor);
         return usar('eq');
       },
       // Como SQL: "columna <> valor" excluye las filas donde la columna es NULL
       neq: (columna, valor) => {
-        consulta.filtros.push((f) => f[columna] != null && f[columna] !== valor);
+        consulta.filtros.push((f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) !== valor);
         return usar('neq');
       },
       in: (columna, valores) => {
-        consulta.filtros.push((f) => valores.includes(f[columna]));
+        consulta.filtros.push((f) => valores.includes(valorDeColumna(f, columna)));
         return usar('in');
+      },
+      // Comparación de texto sin distinguir mayúsculas/minúsculas, con '%' como comodín
+      // (igual que ILIKE de Postgres). Admite columnas jsonb tipo 'cliente_info->>email'.
+      ilike: (columna, patron) => {
+        const regex = comodinARegex(patron);
+        consulta.filtros.push((f) => {
+          const valor = valorDeColumna(f, columna);
+          return valor != null && regex.test(String(valor));
+        });
+        return usar('ilike');
       },
       // jsonb @> : cada elemento del patrón debe estar contenido en algún elemento de la columna.
       // Solo se acepta una CADENA JSON, como el filtro "cs" real de PostgREST: postgrest-js
