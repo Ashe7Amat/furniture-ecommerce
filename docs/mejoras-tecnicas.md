@@ -215,7 +215,9 @@ como se pidió.
 
 - **`server/utils/format.js`** (mencionado en el plan original) **no existe** en el servidor --
   `format.js` es un archivo del cliente (`client/src/utils/format.js`, ya cubierto antes de esta
-  tarea). Probable error de copia/pega al escribir el plan; no había nada que hacer ahí.
+  tarea). No es un error de copia/pega al escribir *este* prompt: es un fallo del prompt
+  original con el que se diseñó la propia tarea 5, según confirmó quien lo escribió. No había
+  nada que hacer ahí.
 - **`metadataStripe.js`** ya estaba cubierto a fondo por la tarea de H1 (unitarios + contrato
   contra Stripe real), incluido en el estado de tareas más arriba -- no se ha duplicado esfuerzo.
 - **"Crear mueble sin imagen" y "editar sin cambios"** ya estaban cubiertos antes de esta tarea
@@ -225,8 +227,11 @@ como se pidió.
 - **`AuthContext`/`CartContext`/`FavoritesContext` no tienen test dedicado propio.** Se probó su
   *forma* (via `Context.Provider` con valores de mentira) en los componentes que los consumen,
   pero su lógica real -- persistencia en `localStorage`, `validateCart` contra la API, claves de
-  almacenamiento por usuario -- sigue sin un test que la ejercite directamente. Candidato claro
-  para la próxima ronda de tests.
+  almacenamiento por usuario -- sigue sin un test que la ejercite directamente. **A propósito, no
+  pendiente por descuido:** la tarea 3b va a reescribir `AuthContext.jsx` de arriba abajo (access
+  en memoria, refresh en `localStorage`, sincronización entre pestañas, logout con revocación).
+  Escribir esos tests ahora significaría reescribirlos otra vez en cuanto 3b aterrice -- se
+  espera a que 3b esté hecha.
 
 ### Hallazgo (en el doble de Supabase, no en producción)
 
@@ -240,13 +245,50 @@ el doble no reproducía el error que debía dispararla. Corregido con el helper 
 compartido entre las tres ramas; las 240 pruebas del servidor pasan sin regresiones tras el
 cambio.
 
-### Nota sobre `ProductCard` y `alquilado` (comportamiento real, documentado, no corregido)
+**Verificado (revisión posterior) qué código de producción usa realmente esa rama:** de los 4
+sitios que hacen `.update()` en los controladores, solo `pedidosController.actualizarEstadoPedido`
+encadena `.select().single()` -- `authController` y `categoriasController` usan `.select()` sin
+`.single()` (esperan un array, así que el hueco no les afecta). De los 2 sitios que hacen
+`.delete()`, ninguno encadena `.select()` en absoluto, así que el soporte de `.single()`/
+`.maybeSingle()` tras un `delete()` en `aplicarSalida` no lo ejercita ningún controlador todavía
+-- existe por coherencia con `update()`, no porque haga falta hoy.
+
+**¿Algún test de antes de la tarea 5 pasaba en verde por el hueco, y ahora sigue en verde por otra
+razón?** Sí, uno: `validacionPedidos.test.js` → *"un estado válido se acepta y actualiza el
+pedido"* (`pedido-1`, que sí existe). Antes de este arreglo, la rama `update` del doble ignoraba
+`consulta.salida` y devolvía siempre un array (`[{...pedido}]`), aunque el controlador pidiera
+`.single()` -- es decir, el doble le entregaba a `actualizarEstadoPedido` la forma equivocada (un
+array donde Supabase real da un objeto). Ese test seguía en verde solo porque nunca comprueba la
+forma de `res.body` (solo el status 200 y el estado en `fake.tablas.pedidos[0]`), así que la
+discrepancia era invisible para él tanto antes como después del arreglo. Tras el arreglo, el doble
+ya entrega la forma correcta (objeto), y el test sigue en verde -- ahora sí por la razón correcta.
+**No llegó a esconder ningún bug de producción:** ni el controlador (`res.json(data)`, reenvía
+`data` tal cual sin leer ningún campo suyo) ni el cliente
+(`client/src/pages/Admin.jsx:handleCambiarEstadoPedido`, solo comprueba `if (res)` y actualiza el
+estado local con el valor que él mismo mandó, no con el cuerpo de la respuesta) llegan a
+inspeccionar la forma de ese `data` -- así que el hueco era real en el doble, pero inofensivo en
+la práctica. Se confirmó revisando los 4 puntos de `.update()`/`.delete()` de los controladores
+uno por uno, no por inspección superficial.
+
+### Nota sobre `ProductCard` y `alquilado` (comportamiento observado por los tests, sin decisión documentada)
 
 Al escribir el test de `alquilado` se confirmó que ese estado también oculta el botón "Vista
-rápida" -- igual que "vendido" -- algo que no estaba cubierto por ningún test hasta ahora. No es
-un descuido: tiene sentido no ofrecer "añadir a la cesta" rápido para una pieza ya alquilada. Se
-deja como test explícito para que quede documentado y no se "corrija" por error en el futuro
-pensando que es una omisión.
+rápida" -- igual que "vendido" -- algo que no estaba cubierto por ningún test hasta ahora.
+**Corrección a la primera versión de esta nota:** se había descrito como "intencional", pero eso
+no estaba verificado -- era una inferencia mía a partir de la simetría del propio código, no un
+hecho contrastado. Revisado a fondo: no hay ningún comentario en `ProductCard.jsx`, ninguna
+entrada previa en este documento ni ningún mensaje de commit que explique la decisión. El
+commit que introdujo la condición (`31f1e98`, "Add dark mode, refreshed typography, quick view,
+and fix rental price bug", 3 sep 2026) la añade como parte de un commit grande de rediseño visual,
+sin mencionar el motivo. Es decir: **es un comportamiento real del código, descubierto por los
+tests, no una decisión de negocio documentada.** Tiene una lectura plausible (no ofrecer "añadir a
+la cesta" rápido para una pieza ya alquilada, igual que para una vendida), pero eso es una lectura,
+no una confirmación. Queda así, sin tocar el código, hasta que se confirme si es el comportamiento
+que se quiere o si "alquilado" debería seguir permitiendo la vista rápida.
+
+**Pendiente:** ProductCard oculta Vista rápida para muebles en estado `alquilado`. Comportamiento
+del código (commit `31f1e98`, 3 sep), sin justificación documentada. Pendiente de preguntar al
+cliente si es intencional o si debe cambiarse cuando se implementen las reservas por fechas.
 
 ## Hallazgos abiertos
 
