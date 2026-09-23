@@ -1,9 +1,10 @@
 # Reservas por fechas — Diseño
 
 > **Estado: BORRADOR — pendiente de confirmación del cliente** (23 sep 2026). Primera revisión técnica hecha y
-> sus cambios incorporados; queda la revisión en detalle de las secciones 3, 4 y 6. **No se implementa nada hasta
-> tener las tres decisiones bloqueantes del cliente** (10.1: modelo de fianza, sesión obligatoria y alquiler fuera
-> de la cesta, y cómo se cuentan los días) **y hasta cerrar la tarea 3.**
+> sus cambios incorporados, y segunda revisión (secciones 3, 4 y 6) con sus cambios también incorporados. **No se
+> implementa nada hasta tener las cuatro decisiones bloqueantes del cliente** (10.1: modelo de fianza, sesión
+> obligatoria y alquiler fuera de la cesta, cómo se cuentan los días y si hay alquileres de menos de un día)
+> **y hasta cerrar la tarea 3.**
 
 Diseño de la nueva funcionalidad de **alquiler de muebles por rango de fechas** ("como un hotel"). Es un
 documento de diseño: no hay código, no se ha aplicado ninguna migración y no se ha tocado `main`. Vive en la
@@ -61,9 +62,9 @@ patrón que la tarea 3).
    de tarjeta en pagos online **7 días** (30 con autorización ampliada, y solo en casos muy concretos). Un
    alquiler de hasta 180 días no cabe. El cliente tiene que elegir entre cobrar la fianza y devolverla (A,
    recomendada en la revisión), guardar la tarjeta y cobrar solo si hay daños (B) o no pedir fianza (C) (6.6).
-2. **Dos decisiones de experiencia que son del cliente:** si reservar exige iniciar sesión con un flujo propio
-   fuera de la cesta (T8, T9), y si del día 1 al 3 son 2 días o 3 (T3). Junto con la fianza, son las tres
-   **bloqueantes de diseño** (10.1).
+2. **Tres decisiones de experiencia que son del cliente:** si reservar exige iniciar sesión con un flujo propio
+   fuera de la cesta (T8, T9), si del día 1 al 3 son 2 días o 3 (T3), y si hace falta alquilar para menos de un
+   día (el modelo por días no lo permite). Junto con la fianza, son las cuatro **bloqueantes de diseño** (10.1).
 3. **El art. 103.l del TRLGDCU, que según el cliente exime del desistimiento de 14 días, no menciona el
    alquiler de muebles** (menciona alojamiento, transporte de bienes, alquiler de vehículos, comida y ocio). Lo
    confirma su asesor legal; mientras tanto, la política de cancelación es configurable y arranca en "manual,
@@ -94,7 +95,7 @@ cada DEFAULT lleva la marca **"confirmar con el cliente antes de implementar"**.
 | Existe fianza, con supuestos de retención en los T&C | FIRME | — | Decisión del cliente | 6.6 |
 | Existe cláusula penal por retraso | FIRME | — | [Art. 1152 CC](https://www.boe.es/buscar/act.php?id=BOE-A-1889-4763#art1152) y [art. 1255 CC](https://www.boe.es/buscar/act.php?id=BOE-A-1889-4763#art1255) | 8, 6.6 |
 | Mecanismo de la fianza: preautorización durante todo el alquiler | FIRME según el cliente, **no viable** | — | Límites de Stripe (6.6) | **Decisión nueva necesaria del cliente: A, B o C (6.6)** |
-| Duración mínima | DEFAULT — confirmar con el cliente antes de implementar | 1 día (24 h) | Art. 1255 CC | Configuración |
+| Duración mínima | DEFAULT — confirmar con el cliente antes de implementar | 1 día: entrega un día y recogida al siguiente. **Un alquiler de un solo día (misma fecha de entrega y recogida) no cabe en el modelo por días** (10.1, pregunta 4) | Art. 1255 CC | Configuración |
 | Duración máxima | DEFAULT — confirmar con el cliente antes de implementar | 180 días | Art. 1255 CC | Configuración |
 | Antelación mínima | DEFAULT — confirmar con el cliente antes de implementar | 2 días (48 h) | Preparación del envío | Configuración |
 | Antelación máxima | DEFAULT — confirmar con el cliente antes de implementar | 6 meses | — | Configuración |
@@ -104,6 +105,7 @@ cada DEFAULT lleva la marca **"confirmar con el cliente antes de implementar"**.
 | Penalización por retraso | DEFAULT — confirmar con el cliente antes de implementar | Doble tarifa diaria por día de retraso | Arts. 1152 y 1255 CC | Configuración (8.5) |
 | Plazo de liberación de la fianza | DEFAULT — confirmar con el cliente antes de implementar | Hasta 14 días naturales tras la devolución | — | Configuración (6.6) |
 | Entrega y recogida: incluidas o aparte | **SIN DECIDIR** — hay que decidirlo antes de lanzar | Tarifa fija por trayecto, 0 € = incluido | Art. 97 TRLGDCU | Configuración (5.3) |
+| Régimen de IVA del alquiler, del envío y de la fianza retenida | **SIN DECIDIR** — lo confirma el asesor antes de lanzar | Importes con IVA incluido; ningún tipo incrustado en el código | Art. 60.2.c TRLGDCU (precio total con impuestos) | Configuración `ivaPorConcepto` (5.5) |
 
 ### 2.2 Decisiones técnicas que he tomado por defecto
 
@@ -113,7 +115,7 @@ así que conviene revisarlas **antes** de aprobar el diseño.
 | # | Decisión | Por qué | Alternativa descartada |
 |---|---|---|---|
 | T1 ⚑ | **Una sola tabla `reservas` con `tipo` (`alquiler` / `bloqueo` / `venta`)**, en vez de `reservas` + `bloqueos_admin` por separado | Una restricción de exclusión solo actúa dentro de una tabla. Alquileres, bloqueos y ventas tienen que excluirse **entre sí**: con una tabla, Postgres lo garantiza sin una línea de código de bloqueo | Tablas separadas + funciones SQL que bloqueen la fila del mueble (sección 4.5, plan B) |
-| T2 ⚑ | **Granularidad de día** (`date`), zona `Europe/Madrid` para calcular "hoy", nunca UTC (3.6, incluidos los cambios de hora). `fecha_inicio` = día de entrega, `fecha_fin` = día de recogida | El cliente habla de días (24 h, 48 h, 180 días) y de "como un hotel". Las horas complicarían el calendario sin aportar nada | `timestamptz` con franjas horarias |
+| T2 ⚑ | **Granularidad de día** (`date`), zona `Europe/Madrid` para calcular "hoy", nunca UTC (3.6, incluidos los cambios de hora). `fecha_inicio` = día de entrega, `fecha_fin` = día de recogida | El cliente habla de días (24 h, 48 h, 180 días) y de "como un hotel". Las horas complicarían el calendario sin aportar nada | `timestamptz` / `tstzrange` con franjas horarias. **Pendiente del cliente:** si quiere alquileres de menos de un día, es la alternativa correcta (10.1, pregunta 4) |
 | T3 | **Días facturados = `fecha_fin − fecha_inicio`** (como las noches de hotel): entrega el lunes 1 y recogida el miércoles 3 son 2 días | Coherente con el rango `[)` y con "mínimo 24 h" | Contar ambos extremos (3 días). **Bloqueante de diseño, lo decide el cliente** (10.1): es la pregunta clásica del alquiler, y si el cliente espera lo contrario todos los precios salen mal |
 | T4 ⚑ | **Reserva provisional (`pendiente`) al crear la sesión de pago**, que vive lo mismo que la sesión de Stripe más 15 min de gracia (30 + 15 min con los valores por defecto; duración configurable, 6.3), en vez de crear la reserva solo cuando llega el webhook | Sin reserva provisional, dos clientes pueden pagar las mismas fechas y el segundo cobro hay que reembolsarlo después. Con ella, el segundo no llega a pagar. Las abandonadas se limpian sin ningún proceso programado (4.6) | Crear la reserva en el webhook y reembolsar el conflicto (sección 6.4) |
 | T5 ⚑ | `en_curso` y `devuelta` se marcan por **evento** (el administrador confirma entrega y recogida). `retrasada` es una condición **calculada** (en curso y pasada su fecha de fin), no un estado guardado | Un disparador no puede reaccionar al paso del tiempo; guardar estados que dependen del reloj obliga a un proceso programado del que dependería la disponibilidad | Estados por fecha actualizados por un cron |
@@ -177,19 +179,20 @@ encargo llamaba `bloqueos_admin` son las filas `tipo = 'bloqueo'`** (decisión T
 | `conflicto_en` | `timestamptz` | sí | Momento en que se detectó que un pago no se pudo confirmar (6.4). Se marca con `UPDATE ... WHERE conflicto_en IS NULL`, para que solo una llamada envíe los avisos |
 | `confirmacion_enviada_en` | `timestamptz` | sí | Igual que la anterior, para los emails de confirmación (6.4) |
 | `historial` | `jsonb` | no | `DEFAULT '[]'`. Registro de sucesos que solo se amplía, nunca se reescribe (`{fecha, tipo, detalle, por}`): entrega, recogida, ampliaciones de `fin_ocupacion`, avisos de retraso enviados, cancelación, reembolso, resolución de la fianza. Es el rastro con fechas del 8.5 |
-| `importe_alquiler`, `importe_envio`, `importe_total` | `numeric(10,2)` | sí | Resultado del presupuesto, en euros con IVA (redondeo desde céntimos, 5.1) |
-| `precio_desglose` | `jsonb` | sí | Copia completa del presupuesto aceptado (días, precio/día, tramo, descuento, envíos, fianza, versión de las reglas) |
+| `importe_alquiler`, `importe_envio`, `importe_total` | `numeric(10,2)` | sí | Resultado del presupuesto, en euros, IVA incluido (redondeo desde céntimos, 5.1; régimen de IVA pendiente, 5.5) |
+| `precio_desglose` | `jsonb` | sí | Copia completa del presupuesto aceptado (días, precio/día, tramo, descuento, versión de las reglas) con **una entrada por línea** (alquiler, entrega, recogida, fianza), cada una con `{ concepto, importe_total, tipo_iva, cuota_iva }` (5.5) |
 | `condiciones` | `jsonb` | sí | Copia de lo aceptado: versión de los T&C, tabla de cancelación, penalización, mecanismo de fianza, fecha y hora de aceptación |
 | `fianza_importe` | `numeric(10,2)` | sí | 6.6 |
-| `fianza_estado` | `text` | sí | CHECK `pendiente` / `garantizada` / `liberada` / `cobrada_parcial` / `cobrada` / `no_aplica` |
+| `fianza_estado` | `text` | sí | CHECK `pendiente` / `garantizada` / `en_resolucion` / `liberada` / `cobrada_parcial` / `cobrada` / `no_aplica`. `en_resolucion` es la marca que reclama quien resuelve la fianza, para que dos clics no hagan dos operaciones (8.6) |
 | `fianza_stripe_ref` | `text` | sí | PaymentIntent o PaymentMethod según el mecanismo elegido (6.6). Sustituye al `fianza_autorizada_id` del encargo: sin preautorización (6.6) no siempre hay una autorización que guardar |
 | `stripe_customer_id` | `text` | sí | Solo si la fianza necesita guardar la tarjeta (6.6) |
 | `entregada_en`, `devuelta_en` | `timestamptz` | sí | Eventos que marca el administrador |
 | `cancelada_en` | `timestamptz` | sí | |
 | `cancelada_por` | `text` | sí | CHECK `cliente` / `admin` / `sistema` |
 | `motivo_cancelacion` | `text` | sí | |
+| `reembolso_solicitado_en` | `timestamptz` | sí | Marca que reclama quien inicia el reembolso de una cancelación, con `UPDATE ... WHERE reembolso_solicitado_en IS NULL` (8.6) |
 | `reembolso_importe` | `numeric(10,2)` | sí | |
-| `stripe_refund_id` | `text` | sí | |
+| `stripe_refund_id` | `text` | sí | Se rellena cuando Stripe confirma el reembolso |
 | `origen` | `text` | no | `DEFAULT 'web'`. CHECK `web` / `manual` / `legacy`. `web`: reservada y pagada en la web. `manual`: alquiler pactado fuera de la web que el administrador da de alta con sus fechas (8.3), sin pago de Stripe. `legacy`: contrato antiguo sin fecha de fin, con una fecha estimada y "en revisión" hasta que se firme la adenda (9.2). Hoy no hay ninguno, pero el valor queda disponible para cuando haga falta |
 | `motivo` | `text` | sí | Motivo del bloqueo ("mantenimiento", "exposición...") o notas del legado |
 | `created_at`, `updated_at` | `timestamptz` | no | `DEFAULT now()`; `updated_at` lo mantiene un disparador |
@@ -210,6 +213,8 @@ convertiría su rango en abierto, **ocupando el calendario de la pieza para siem
 - Estados válidos por tipo: bloqueo y venta solo usan `confirmada` / `cancelada`.
 - `estado IN ('en_curso','devuelta') ⇒ entregada_en IS NOT NULL`; `estado = 'devuelta' ⇒ devuelta_en IS NOT NULL`
   (de esa fecha sale `fin_ocupacion`, 3.4).
+- `fianza_estado IN ('en_resolucion','liberada','cobrada_parcial','cobrada') ⇒ estado IN ('devuelta','cancelada')`:
+  no se resuelve una fianza antes de la devolución o la cancelación (8.7).
 - Si `fecha_fin < fecha_inicio`, la columna generada falla antes de llegar a las CHECK (error `22000`, "range lower
   bound must be less than or equal to upper bound"). No debería ocurrir porque Zod valida el orden de las fechas
   antes de insertar, pero el manejador lo traduce a 400 igualmente.
@@ -423,12 +428,38 @@ CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
   con un mensaje para el cliente: *"Esas fechas se acaban de reservar. Elige otras."* Hoy `ErrorValidacion` se
   convierte en 400; el 409 permite al calendario recargar la disponibilidad automáticamente.
 - Nunca se devuelve el detalle de Postgres (que incluye el rango en conflicto y el `mueble_id`), solo el mensaje.
-- En el panel (bloqueos, ampliaciones), el 409 incluye qué reserva choca (fecha y número de pedido, **sin datos
-  personales** del otro cliente).
-- El doble de Supabase de los tests (`fakeSupabase.js`) tiene que emular la exclusión (devolver `23P01` si el
-  rango con margen se solapa con una fila activa) — mismo criterio de fidelidad que ya tiene para `23505`. Y un
-  test de contrato contra Postgres de verdad (desechable, con `ROLLBACK`), porque el doble no puede probar la
-  propia restricción: la lección de `queryContract.test.js`.
+- En el panel (bloqueos, alquileres registrados a mano, ampliaciones), el 409 incluye qué reserva choca (fecha y
+  número de pedido, **sin datos personales** del otro cliente). Todas esas acciones pasan por el mismo camino
+  (limpieza, inserción o actualización y traducción del `23P01`), así que el administrador ve el conflicto y decide.
+
+**Cómo se prueba, en tres capas.** Cada capa cubre lo que las otras no pueden:
+
+1. **El doble (`fakeSupabase.js`)** emula la exclusión: devuelve `23P01` si el rango con margen se solapa con una
+   fila activa, con el mismo criterio de fidelidad que ya tiene para `23505`. Es lo que usan los tests de todos los
+   días. No puede probar la restricción de verdad.
+2. **Contrato de la librería, sin red** (mismo patrón que `queryContract.test.js`): el cliente **real** de
+   `supabase-js` con un `fetch` falso que responde como lo hace PostgREST ante una violación de exclusión (HTTP 409
+   con `{"code":"23P01", ...}` en el cuerpo). Comprueba que `supabase-js` lo expone como `error.code === '23P01'` y
+   que el servidor lo traduce a `ErrorConflicto` y 409. Corre en `npm test`, así que si una actualización de
+   `supabase-js` cambia la forma del error, falla en CI.
+3. **Contrato contra la base real**, dos pruebas manuales (no corren en `npm test`, igual que
+   `npm run test:stripe`):
+   - **Postgres** (antes de la primera migración, 4.2): en una transacción con `ROLLBACK`, con tu permiso.
+     Comprueba que la restricción, las CHECK y los disparadores hacen lo que dice este documento.
+   - **PostgREST + supabase-js** (después de aplicar la migración R2): un script que, con el cliente real y la
+     base real, confirma que PostgREST devuelve de verdad el código `23P01` y no otro. Es lo único que las capas 1
+     y 2 dan por supuesto. Como PostgREST no permite transacciones, el script crea un mueble de prueba propio,
+     trabaja solo sobre él y lo borra todo en un `finally` (el mismo protocolo de limpieza que la prueba de
+     concurrencia de la tarea 3), y se ejecuta con tu permiso.
+
+**Casos obligatorios** en las capas 1 y 3:
+- dos alquileres que se solapan (y dos que solo se tocan en el margen);
+- **una venta (rango abierto por arriba) contra un alquiler futuro**, en los dos órdenes (primero la venta y luego
+  el alquiler, y al revés). Es el caso más fácil de romper, porque depende de que `NULL + dias_margen` dé un rango
+  abierto;
+- un bloqueo contra un alquiler;
+- una provisional caducada que, tras `liberarProvisionalesCaducadas`, deja de estorbar;
+- una `devuelta` cuyo margen sigue protegido y cuyo pasado no estorba a una reserva futura.
 
 ### 4.4 Qué pasa en cada carrera
 
@@ -513,8 +544,9 @@ fianza             = según el mecanismo elegido (6.6)      (informativa o cobra
 
 - Todo en **céntimos enteros** (T10). Los importes guardados en `numeric(10,2)` y los que se mandan a Stripe
   salen de esos enteros, nunca de multiplicar euros con decimales.
-- **Los precios incluyen IVA**, como dice hoy la cláusula 3 de los T&C para la compra. El desglose lo indica
-  ("IVA incluido"); el art. 60.2.c exige el precio total con impuestos, no el importe del IVA por separado.
+- **Los precios son totales con IVA incluido**, como dice hoy la cláusula 3 de los T&C para la compra. El desglose
+  lo indica ("IVA incluido"); el art. 60.2.c exige el precio total con impuestos. **El tipo de IVA del alquiler
+  está pendiente del asesor y no se incrusta en el código** (5.5).
 - La misma función la usan el endpoint de presupuesto (7.2), la creación de la sesión de pago (6.3) y el
   cálculo de reembolsos (8.4). **No hay una segunda copia de la lógica en el cliente.**
 - El resultado se guarda completo en `reservas.precio_desglose`, con la versión de las reglas: si mañana cambia
@@ -560,6 +592,35 @@ de descuento en negativo) y `discounts` solo admite **un** cupón o código prom
 - **Fianza:** según la opción elegida (6.6), o no es una línea (solo se informa, con `custom_text` en la página
   de Stripe y en la web) o es una línea separada y reembolsable.
 - `submit_type: 'book'` (el botón de Stripe pone "Reservar" en vez de "Pagar"; opción comprobada en la API).
+
+### 5.5 IVA: régimen pendiente de confirmar con el asesor
+
+**Hoy:** la cláusula 3 de los T&C dice que los precios "incluyen IVA" (para la compra), pero el código no calcula
+IVA en ningún sitio: el precio de la pieza es el total que se cobra, no se usa Stripe Tax y la web no emite
+facturas.
+
+**Para el alquiler hay que confirmarlo con el asesor del cliente antes del lanzamiento (R-f).** El diseño no da
+nada de esto por resuelto:
+1. El **tipo aplicable** al alquiler de muebles a particulares. Lo previsible es el tipo general, pero no se da por
+   hecho y **no se incrusta ningún tipo en el código**.
+2. Si **entrega y recogida**, cobradas aparte, siguen el tipo del alquiler (como servicio accesorio) o tributan por
+   separado.
+3. La **fianza**: un depósito que se devuelve no es el pago de nada, pero la parte que se retiene por daños o por
+   retraso (la cláusula penal) puede tener otro tratamiento. Lo decide el asesor.
+4. **Facturación:** hoy no se emiten facturas. Con alquileres de hasta 180 días, el cliente puede necesitarlas.
+   Queda fuera de este diseño y es una decisión del cliente y su gestor.
+
+**Qué hace el diseño mientras tanto:**
+- Los importes siguen siendo **totales con IVA incluido**, como hoy. Es lo que exige el art. 60.2.c (precio total
+  con impuestos), y no depende del tipo.
+- `precio_desglose` guarda **cada línea por separado**: `{ concepto, importe_total, tipo_iva, cuota_iva }` para
+  alquiler, entrega, recogida y fianza. Tiene que ser por línea porque cada concepto puede tener un tratamiento
+  distinto (la fianza puede no llevar IVA y la penalización puede ir aparte).
+- `tipo_iva` y `cuota_iva` quedan en `null` mientras la configuración `ivaPorConcepto` esté vacía. Cuando el asesor
+  lo confirme, se rellena esa configuración y el desglose, los emails y, si llega a haberlas, las facturas empiezan
+  a mostrar la cuota por línea. **Sin migración**, porque `precio_desglose` es `jsonb`. Las reservas ya hechas
+  conservan su desglose tal como se aceptó.
+- **Bloquea el lanzamiento, no el desarrollo.**
 
 ---
 
@@ -743,7 +804,7 @@ presentar **al cliente** (es una decisión de negocio, no técnica):
 | Opción | Cómo funciona | A favor | En contra |
 |---|---|---|---|
 | **A — Cobrar la fianza y devolverla tras la inspección** | Línea "Fianza (reembolsable)" en el mismo pago del alquiler; tras la inspección, `stripe.refunds.create` total o parcial (Stripe admite varios reembolsos parciales sobre un mismo cargo) | Es lo que hacen las empresas de alquiler de coches, bicis o herramientas, y lo que el cliente ya conoce del alquiler tradicional; garantía real para cualquier duración; no depende de que el usuario confíe en un cobro posterior; sencillo | Es un cobro efectivo (lo contrario de lo que pidió el cliente) y el arrendatario tiene que tener el dinero disponible. **Stripe no devuelve su comisión al reembolsar** (comprobado en su documentación de reembolsos), así que cada fianza cuesta la comisión del cobro aunque se devuelva entera (con la tarifa anotada en Notion, 1,5 % + 0,25 €: unos 4,75 € por una fianza de 300 €). Contablemente es un **pasivo** (dinero ajeno en depósito), no un ingreso: el gestor del cliente tiene que tratarlo así. Los reembolsos salen del saldo disponible en Stripe; si no alcanza, quedan pendientes |
-| **B — Guardar la tarjeta y cobrar solo si hay daños o retraso** | El pago del alquiler guarda la tarjeta (`setup_future_usage: 'off_session'`); tras la inspección, si procede, un cargo nuevo por el importe justificado | Sin cobro ni retención si todo va bien (lo más cercano al "sin cobro efectivo" del cliente); vale para cualquier duración; sin comisiones si no hay incidencias; casi no cambia el flujo de pago | Requiere consentimiento explícito para cobros fuera de sesión; el arrendatario tiene que confiar en que solo se cobrará si toca; más riesgo de disputa; el cargo posterior puede fallar (tarjeta sin fondos o caducada, o el banco pide autenticación) |
+| **B — Guardar la tarjeta y cobrar solo si hay daños o retraso** | El pago del alquiler guarda la tarjeta (`setup_future_usage: 'off_session'`); tras la inspección, si procede, un cargo nuevo por el importe justificado | Sin cobro ni retención si todo va bien (lo más cercano al "sin cobro efectivo" del cliente); vale para cualquier duración; sin comisiones si no hay incidencias; casi no cambia el flujo de pago | Requiere consentimiento explícito para cobros fuera de sesión, con requisitos de autenticación reforzada (SCA) en la UE, ver abajo; el arrendatario tiene que confiar en que solo se cobrará si toca; más riesgo de disputa; el cargo posterior puede fallar (tarjeta sin fondos o caducada, o el banco pide autenticación) |
 | **C — Sin fianza, con el riesgo incluido en la tarifa** | El coste esperado de los daños se reparte en el precio por día | Lo más simple; ningún flujo de Stripe adicional | Se pierde el mecanismo de responsabilidad del arrendatario; encarece a todos por igual |
 
 Descartadas: la **preautorización durante todo el alquiler** (lo pedido), porque es inviable salvo en alquileres de
@@ -758,15 +819,30 @@ presentan A y B al cliente con sus pros y contras**, y C como tercera vía; la d
 porque cambia lo que dicen los T&C sobre la fianza. El modelo de datos vale para cualquiera de las tres
 (`fianza_importe`, `fianza_estado`, `fianza_stripe_ref`), así que R-a a R-d se construyen igual y solo R-e espera.
 
+**Condición de B: el consentimiento para cobros fuera de sesión (SCA).** En la UE no basta con que el
+arrendatario acepte los T&C. La tarjeta se guarda con autenticación reforzada (3DS) en el momento del pago, y eso
+lo gestiona Stripe al usar `setup_future_usage`. Pero el arrendatario tiene que saber **qué** se le puede cobrar
+después, **cuándo** y **en qué casos** (daños, retraso, pérdida, con qué límite), y ese texto de consentimiento es
+responsabilidad del cliente y de su asesor, no del código. Si se elige B, la redacción de ese consentimiento
+(visible antes de pagar, no solo enterrada en los T&C) pasa por el asesor antes de R-e.
+
 **Por confirmar con Stripe si se elige A:** la documentación de reembolsos consultada no pone ningún plazo máximo
 para reembolsar un pago con tarjeta, pero con A una fianza se reembolsaría hasta unos 194 días después del cobro
 (180 días de alquiler más la inspección). No se puede probar en modo test (no se puede simular el paso de seis
-meses), así que conviene preguntarlo a soporte de Stripe antes de lanzar. Stripe también avisa de que un
+meses), así que hay que preguntarlo a soporte de Stripe, y es condición para arrancar R-e (ver abajo). Stripe
+también avisa de que un
 reembolso a una tarjeta caducada o cancelada normalmente lo resuelve el emisor, pero en casos raros falla (evento
 `refund.failed`) y hay que devolver el dinero por otra vía.
 
 **Importe de la fianza:** sin definir. Propuesta: `muebles.fianza_alquiler` por pieza (3.7) y, si está vacía, un
 porcentaje del precio de venta fijado en la configuración. **Confirmar con el cliente antes de implementar.**
+
+**Bloqueantes de R-e (la fianza).** R-a a R-d se construyen igual sea cual sea la opción. **R-e no arranca** hasta
+que se cumplan las tres condiciones que le tocan:
+1. El cliente ha elegido A, B o C (y el importe de la fianza, si hay fianza).
+2. **Si es A:** el soporte de Stripe ha confirmado por escrito que un pago con tarjeta se puede reembolsar 180 días
+   o más después de cobrarlo.
+3. **Si es B:** el asesor ha revisado el texto del consentimiento para cobros fuera de sesión (SCA).
 
 ### 6.7 La compra respeta las reservas
 
@@ -803,8 +879,17 @@ dos, en el lanzamiento (commits 23 y 25), van con la segunda.
   inicio del pago de la compra y su confirmación (hoy las sesiones de compra duran 24 horas). Se trata como la
   doble venta de ahora (`detectarConflictos` / `avisarConflictos`): el pedido se registra, se avisa al
   administrador y este decide entre reembolsar u ofrecer **entrega diferida**, que es la excepción del cliente.
-- **Entrega diferida:** el administrador crea (o corrige) la fila de venta con `fecha_inicio` = día siguiente al
-  fin de la última reserva más su margen. La restricción comprueba que de verdad no se solapa con nada.
+- **Entrega diferida:** el administrador crea (o corrige) la fila de venta con `fecha_inicio` = el límite superior
+  del rango ocupado de la última reserva (`fin_ocupacion + dias_margen`, que ya es exclusivo; es el
+  `comprable_desde` del 7.1, no el día siguiente). La restricción comprueba que de verdad no se solapa con nada.
+- **Tests obligatorios de este cambio** (con el doble y en el contrato contra la base real, 4.3):
+  1. **Pago de compra confirmado cuando la pieza tiene un alquiler futuro confirmado:** tiene que acabar en
+     **conflicto con aviso** (pedido registrado, sin fila de venta, `muebles.estado` sin tocar, un solo aviso al
+     administrador), nunca en una venta silenciosa.
+  2. **El mismo caso con una reserva provisional caducada** en lugar del alquiler confirmado: **tiene que poder
+     venderse**. La limpieza común (4.6) la marca `expirada` antes de insertar la venta, que entra sin conflicto.
+  3. Lo mismo con un bloqueo del administrador (tiene que dar conflicto) y con un reintento del webhook sobre una
+     venta ya registrada (tiene que dar `23505` y seguir sin duplicar nada).
 - **Mejora posible, fuera de la primera versión:** una reserva provisional también para las compras (como la de
   alquiler, pero abierta por arriba) evitaría el conflicto posterior al pago. Cambia la experiencia de compra
   actual (bloquearía la pieza mientras alguien paga) y no es necesaria para la corrección, que ya garantiza la
@@ -912,11 +997,11 @@ legacy en revisión** (`origen = 'legacy'`).
 | Marcar recogida | `en_curso` → `devuelta`, `devuelta_en = now()`; el disparador de sincronización (3.4) pone `fin_ocupacion` = día real de devolución; la pieza vuelve a `disponible` | Abre la resolución de la fianza. Si la devolución es más tarde que la ocupación ya ampliada y choca con la reserva siguiente (`23P01`), el choque es real: aviso urgente |
 | Bloquear fechas | Inserta `tipo = 'bloqueo'` con motivo | 409 si choca con reservas, indicando cuál |
 | Levantar bloqueo | `cancelada` | |
-| Cancelar reserva | `cancelada`, motivo y reembolso (8.4) | Reembolso con la API de Stripe sobre el PaymentIntent del alquiler |
+| Cancelar reserva | `cancelada`, motivo y reembolso (8.4) | Reembolso con la API de Stripe sobre el PaymentIntent del alquiler, idempotente (8.6) |
 | Ampliar un retraso | `fin_ocupacion` = nueva fecha prevista | 409 si alcanza a la reserva siguiente → hay que avisar a ese cliente |
-| Resolver la fianza | Liberar, o cobrar un importe con justificación | Depende del mecanismo (6.6) |
+| Resolver la fianza | Liberar, o cobrar un importe con justificación | Depende del mecanismo (6.6); idempotente (8.6) |
 | Registrar venta fuera de la web | Inserta `tipo = 'venta'` | Sustituye a "marcar vendido" a mano (3.3) |
-| Registrar alquiler fuera de la web | Inserta `tipo = 'alquiler'`, `origen = 'manual'` (o `'legacy'` si no tiene fecha de fin firmada), con fechas, cliente y datos de contacto, sin pago de Stripe | La restricción comprueba los solapes igual que con una reserva web. Sirve para alquileres pactados por teléfono o en tienda y para los contratos antiguos del 9.2 |
+| Registrar alquiler fuera de la web | Inserta `tipo = 'alquiler'`, `origen = 'manual'` (o `'legacy'` si no tiene fecha de fin firmada), con fechas, cliente y datos de contacto, sin pago de Stripe | Mismo camino que el bloqueo (limpieza, inserción, traducción del `23P01`, 4.3): si choca con una reserva web, el 409 muestra con cuál (fechas y número de pedido, sin datos personales) y el administrador decide. Sirve para alquileres pactados por teléfono o en tienda y para los contratos antiguos del 9.2 |
 
 ### 8.4 Cancelaciones y reembolsos
 
@@ -963,6 +1048,62 @@ legacy en revisión** (`origen = 'legacy'`).
 - **Liberación de la fianza:** plazo por defecto de 14 días **naturales** desde la devolución. El cliente habló
   de "7–14 días laborables"; contar días laborables exige un calendario de festivos (nacionales, de Cataluña y de
   Barcelona) que el proyecto no tiene. **Confirmar con el cliente antes de implementar.**
+
+### 8.6 Movimientos de dinero idempotentes (reembolsos y fianza)
+
+Si el administrador pulsa "reembolsar" dos veces, o la red corta la respuesta y se reintenta, no puede salir un
+segundo reembolso. Las dos operaciones que mueven dinero desde el panel (el reembolso de una cancelación y la
+resolución de la fianza) se protegen en tres capas:
+
+1. **Reclamar en la base de datos antes de llamar a Stripe:**
+   - Cancelación: `UPDATE reservas SET reembolso_solicitado_en = now(), reembolso_importe = $x WHERE id = $r AND
+     reembolso_solicitado_en IS NULL`. Si afecta a 0 filas, 409 "ya hay un reembolso en curso o hecho".
+   - Fianza: `UPDATE reservas SET fianza_estado = 'en_resolucion' WHERE id = $r AND fianza_estado =
+     'garantizada'`. Si afecta a 0 filas, 409.
+   - La marca de la reserva no puede ser el propio `stripe_refund_id`, porque ese id no existe hasta que Stripe
+     responde. Por eso se reclama con una columna propia y el id se guarda después.
+2. **`Idempotency-Key` de Stripe** fija por operación (`reserva-<id>-reembolso-cancelacion`,
+   `reserva-<id>-fianza`: sin datos personales y por debajo de los 255 caracteres que admite Stripe), más
+   `metadata: { reserva_id, tipo }` en el reembolso o el cargo. Un reintento con la misma clave devuelve el mismo
+   resultado, no crea otro.
+3. **La clave no basta sola:** Stripe puede borrar las claves pasadas **24 horas**, y una clave reutilizada después
+   genera una petición nueva (comprobado en su documentación de peticiones idempotentes). Si el proceso muere entre
+   reclamar y guardar el `stripe_refund_id`, la reserva queda "a medias" (marca puesta y sin id). El panel lista
+   esas reservas con un botón "Reintentar", que **primero busca** el reembolso en Stripe
+   (`refunds.list({ payment_intent })` filtrando por `metadata.reserva_id` y `metadata.tipo`). Si lo encuentra,
+   guarda su id y termina. Solo si no existe lo crea, con la misma clave.
+- **Última red:** Stripe no deja reembolsar en total más de lo cobrado (comprobado), así que ni en el peor caso
+  se devuelve más dinero del que entró.
+- Al terminar: `stripe_refund_id` (o el nuevo `fianza_estado` final), y una entrada en `historial`.
+- **Tests:** dos peticiones simultáneas de reembolso (una sola llamada a Stripe y un 409); un fallo simulado
+  entre reclamar y guardar, seguido de "Reintentar" (encuentra el reembolso existente y no crea otro); y lo mismo
+  para la fianza.
+
+### 8.7 Estado de la reserva × estado de la fianza
+
+Son dos estados **independientes a propósito**: una reserva puede estar `devuelta` con la fianza todavía
+`garantizada` (pendiente de inspección). El panel no enseña los dos valores en crudo. Enseña una **etiqueta
+legible por combinación**, y solo las acciones que tienen sentido en cada una:
+
+| `estado` | `fianza_estado` | Etiqueta en el panel | Acción disponible |
+|---|---|---|---|
+| `pendiente` | `pendiente` | Esperando pago | — |
+| `expirada` | `pendiente` | No pagada | — |
+| `confirmada` | `garantizada` | Confirmada · fianza garantizada | Marcar entregada, cancelar |
+| `en_curso` | `garantizada` | Entregada · fianza garantizada (o **Retrasada** si `fecha_fin` ya pasó) | Marcar recogida, ampliar |
+| `devuelta` | `garantizada` | Devuelta · **pendiente de inspección** | Resolver la fianza |
+| `devuelta` / `cancelada` | `en_resolucion` | Resolviendo la fianza… (si se queda así: "a medias") | Reintentar (8.6) |
+| `devuelta` | `liberada` | Cerrada · fianza devuelta | — |
+| `devuelta` | `cobrada_parcial` / `cobrada` | Cerrada · fianza retenida en parte / entera (con motivo) | — |
+| `cancelada` | `garantizada` | Cancelada · **devolver la fianza** (con A se cobró al pagar) | Resolver la fianza |
+| `cancelada` | `liberada` | Cancelada · fianza devuelta | — |
+| cualquiera | `no_aplica` | Igual, sin mención a la fianza (opción C, o alquiler manual sin fianza) | Las del `estado` |
+
+- **Combinaciones imposibles**, prohibidas con una CHECK en 3.2: `fianza_estado IN ('en_resolucion','liberada',
+  'cobrada_parcial','cobrada') ⇒ estado IN ('devuelta','cancelada')`. No se puede resolver una fianza antes de la
+  devolución o la cancelación.
+- **Tests:** uno por fila de la tabla (etiqueta y acciones), y las combinaciones imposibles rechazadas por la CHECK
+  (en el contrato contra la base real) y por el doble.
 
 ---
 
@@ -1057,7 +1198,7 @@ ahora, porque tocaría el comportamiento actual fuera del alcance de este diseñ
 
 Ver la sección 11: **R-a** (esquema y lectura, nada escribe) → **R-b** (servidor con escritura, con la primera
 pausa tras el commit de compra) → **R-c**
-(cliente) → **R-d** (panel mínimo) → **R-e** (fianza y tarea diaria, cuando se decida la fianza) → **R-f**
+(cliente) → **R-d** (panel mínimo) → **R-e** (fianza y tarea diaria, cuando se cumplan sus tres condiciones, 6.6) → **R-f**
 (completar la tabla, T&C, disparador de estado, interruptores, segunda pausa y limpieza del flujo antiguo).
 
 ---
@@ -1066,40 +1207,51 @@ pausa tras el commit de compra) → **R-c**
 
 ### 10.1 No se puede decidir sin el cliente (o su asesor legal)
 
-Ordenado por urgencia. **No se empieza a implementar hasta tener respuesta a los tres primeros.**
+Ordenado por urgencia. **No se empieza a implementar hasta tener respuesta a los cuatro primeros.**
 
 **Bloqueantes de diseño**
 1. **Modelo de fianza** (6.6): A (cobro y devolución) o B (tarjeta guardada y cobro solo si hay daños), con C (sin
-   fianza) como tercera vía. Decisión de negocio. Condiciona R-e y los T&C.
+   fianza) como tercera vía. Decisión de negocio. Condiciona R-e y los T&C (los bloqueantes concretos de R-e están
+   al final del 6.6).
 2. **Reservar exige iniciar sesión y el alquiler no pasa por la cesta** (T8 y T9). Es un cambio grande de
    experiencia: si el cliente esperaba "añadir a la cesta y pagar como en la compra", este flujo no le va a gustar.
    Condiciona todo el flujo del 6.
 3. **Días facturados** (T3): ¿del lunes 1 al miércoles 3 son 2 días (`fin − inicio`) o 3 (`fin − inicio + 1`)? Si
    el cliente espera lo contrario de lo que se implementa, todos los precios salen mal.
+4. **Alquileres de menos de un día.** El cliente propuso "mínimo 24 h", pero el modelo trabaja con días de
+   calendario y exige `fecha_fin > fecha_inicio`: **un alquiler con entrega y recogida el mismo día no se puede
+   reservar** (serían 0 días). El mínimo real es "entrega un día y recogida al siguiente". Si el cliente quiere
+   alquilar una pieza **para una tarde** (una sesión de fotos, un evento), el diseño por días no le sirve. El
+   cambio estaría acotado, pero hay que hacerlo antes de implementar: `timestamptz` y `tstzrange` en lugar de
+   `date` y `daterange` (la restricción de exclusión funciona igual), el margen en horas, franjas horarias en el
+   calendario y precio por horas o por medio día. Por eso es una pregunta de diseño y no un valor por defecto.
+   Enlaza con la 3: si la respuesta es "por días", las dos se contestan juntas.
 
 **Bloqueantes de lanzamiento (no de diseño)**
-4. **Art. 103.l TRLGDCU.** El texto del artículo (BOE, consolidado) exime del desistimiento al "suministro de
+5. **Art. 103.l TRLGDCU.** El texto del artículo (BOE, consolidado) exime del desistimiento al "suministro de
    servicios de alojamiento para fines distintos del de servir de vivienda, transporte de bienes, alquiler de
    vehículos, comida o servicios relacionados con actividades de esparcimiento, si los contratos prevén una fecha o
    un periodo de ejecución específicos". **El alquiler de muebles no aparece de forma expresa.** Si la exención no
    aplicara, el arrendatario tendría 14 días de desistimiento (art. 102 y siguientes). No es una conclusión legal
    mía: es un aviso para que lo confirme su asesor. **No bloquea el desarrollo:** la política de cancelación es
    configurable y arranca en `manual` (8.4).
-5. **Plazo de entrega:** la ficha dice hoy "transporte especializado (1-2 semanas aprox)", y la antelación mínima
-   sugerida es 48 h. Se contradicen: ¿cuál vale para los alquileres?
-6. **Coste de entrega y recogida** (5.3): ¿incluido o aparte? Afecta al checkout, al desglose obligatorio
+6. **Régimen de IVA** del alquiler, de la entrega y la recogida, y de la parte retenida de la fianza (5.5). No se
+   incrusta ningún tipo en el código hasta tenerlo.
+7. **Coste de entrega y recogida** (5.3): ¿incluido o aparte? Afecta al checkout, al desglose obligatorio
    (art. 97.1.e) y a la base del IVA.
+8. **Plazo de entrega:** la ficha dice hoy "transporte especializado (1-2 semanas aprox)", y la antelación mínima
+   sugerida es 48 h. Se contradicen: ¿cuál vale para los alquileres?
 
 **A confirmar en algún momento (valores por defecto ya en el diseño)**
-7. Duración mínima y máxima (1–180 días).
-8. Antelación máxima (6 meses).
-9. Descuentos por duración: lineal o escalonado; si es escalonado, la tabla de porcentajes (5.2).
-10. ¿Se alquilan varias piezas a la vez para las mismas fechas? (6.1; afecta a la cesta, no al modelo).
-11. ¿Hay alquileres gestionados fuera de la web? Si los hay, se dan de alta como `manual` o `legacy` (9.2).
-12. **Piezas alquiladas en el catálogo** (3.3): ¿ocultas, marcadas ("Alquilado ahora · reservable desde X") o
+9. Duración mínima y máxima (1–180 días; el mínimo depende también de la respuesta a la 4).
+10. Antelación máxima (6 meses).
+11. Descuentos por duración: lineal o escalonado; si es escalonado, la tabla de porcentajes (5.2).
+12. ¿Se alquilan varias piezas a la vez para las mismas fechas? (6.1; afecta a la cesta, no al modelo).
+13. ¿Hay alquileres gestionados fuera de la web? Si los hay, se dan de alta como `manual` o `legacy` (9.2).
+14. **Piezas alquiladas en el catálogo** (3.3): ¿ocultas, marcadas ("Alquilado ahora · reservable desde X") o
     bloqueadas? Cambia `ProductCard`, `ProductsTable`, `QuickViewModal` y el filtro de `Catalog.jsx`. Resuelve
     también la pregunta pendiente sobre `ProductCard` de `mejoras-tecnicas.md` (rama `feature/mejoras-tecnicas`).
-13. Margen entre reservas (2 días), importe de la fianza (6.6) y días laborables o naturales para liberarla (8.5).
+15. Margen entre reservas (2 días), importe de la fianza (6.6) y días laborables o naturales para liberarla (8.5).
 
 **Textos legales:** los T&C (cláusulas de alquiler por fechas, fianza, penalización, cancelación, desistimiento,
 entrega y recogida, estado de devolución) y la política de privacidad (guardar la tarjeta, si se elige B) los
@@ -1142,6 +1294,8 @@ alquiler fuera de la cesta (T8, T9).
 | Una provisional caducada provoca conflictos falsos en otras escrituras | Limpieza común antes de cada escritura y reintento antes de declarar conflicto (4.6) |
 | Pago confirmado sin poder honrar las fechas | Solo en los tres casos del 4.4; aviso al administrador una sola vez y reembolso (6.4) |
 | Una pieza pagada se queda sin confirmar si el proceso muere a medias | La confirmación no se corta al encontrar el pedido; test con fallos simulados entre pasos (6.4) |
+| Doble reembolso por doble clic, reintento de red o reintento pasadas 24 h | Marca en la base de datos antes de llamar a Stripe, `Idempotency-Key` y búsqueda del reembolso existente antes de reintentar (8.6) |
+| Venta silenciosa de una pieza con un alquiler futuro | Fila de venta antes de marcar vendida, conflicto con aviso; tests obligatorios del 6.7 |
 
 ---
 
@@ -1179,7 +1333,9 @@ desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno
    fallos simulados entre pasos (6.4). Incluye las dos plantillas que necesita este paso (confirmación al
    cliente y aviso de conflicto) en `email.js`, con `escaparHtml` como las actuales: **toca `email.js`**, así que va
    con revisión aparte.
-9. `feat(server): la compra respeta las reservas` — **toca `pagos.js`**: commit propio, revisión aparte.
+9. `feat(server): la compra respeta las reservas` — **toca `pagos.js`**: commit propio, revisión aparte, con los
+   tests obligatorios del 6.7 (compra contra alquiler futuro: conflicto con aviso; contra provisional caducada:
+   se vende).
 10. **Primera pausa de despliegue** (9.1): push a `main`, "Ready" en Vercel, 24–48 h, comprobación SQL por pieza.
 
 ### Bloque R-c — Cliente (≈ 3–4 días)
@@ -1191,15 +1347,20 @@ desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno
 
 ### Bloque R-d — Administración (≈ 4–6 días)
 
-14. `feat(server): endpoints de administración de reservas` (listas, entregar, recoger, bloquear, cancelar con
-    reembolso, ampliar). **No depende de la tarea 4.**
+14. `feat(server): endpoints de administración de reservas` (listas, entregar, recoger, bloquear, registrar alquiler
+    fuera de la web, cancelar con reembolso idempotente, 8.6, ampliar). **No depende de la tarea 4.**
 15. `feat(client): lista y acciones de reservas en el panel` — **mínimo para lanzar**. Si la tarea 4 no ha
     terminado, va en un componente propio (`AdminReservas.jsx`) que `Admin.jsx` monta con una sola línea, para no
     hacer crecer el archivo de 1037 líneas; si ya terminó, es una pestaña más.
 16. `feat(client): calendario por pieza` — **tras la tarea 4**.
 17. `feat(client): vista general de reservas` — **tras la tarea 4**.
 
-### Bloque R-e — Fianza y tarea diaria (≈ 2–4 días; cuando se decida la fianza)
+### Bloque R-e — Fianza y tarea diaria (≈ 2–4 días)
+
+**Bloqueante explícito: R-e no arranca hasta que se cumplan las tres condiciones del final del 6.6.** El cliente
+ha elegido A, B o C (y el importe). Si es A, el soporte de Stripe ha confirmado por escrito que se puede
+reembolsar un pago con tarjeta a 180 días o más. Si es B, el asesor ha revisado el consentimiento para cobros
+fuera de sesión (SCA). R-a a R-d no dependen de nada de esto.
 
 18. `feat(server): fianza de alquiler (<mecanismo elegido>)`.
 19. `feat(server): tarea diaria de retrasos y recordatorios` (Vercel Cron, protegido con secreto).
