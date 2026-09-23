@@ -334,8 +334,11 @@ stateDiagram-v2
   panel o el editor SQL) pueda dejar las dos columnas desincronizadas: `BEFORE UPDATE OF estado, devuelta_en ON
   reservas`. Cuando `NEW.estado = 'devuelta'`, hace `NEW.fin_ocupacion := (NEW.devuelta_en AT TIME ZONE
   'Europe/Madrid')::date`. Solo toca la propia fila (`NEW`), así que no se dispara a sí mismo. La CHECK
-  `estado = 'devuelta' ⇒ devuelta_en IS NOT NULL` impide marcarla devuelta sin fecha. Test: una devolución
-  anticipada, una a tiempo y una tardía, comprobando `fin_ocupacion` y el rango resultante. Se comprueba contra
+  `estado = 'devuelta' ⇒ devuelta_en IS NOT NULL` impide marcarla devuelta sin fecha. Tests, partiendo siempre
+  de una reserva `en_curso` a la que se pone `devuelta` con su `devuelta_en`: (a) devolución a tiempo,
+  (b) devolución anticipada y (c) devolución tardía, comprobando `fin_ocupacion` y el rango resultante; y
+  (d) que el disparador **no se dispara a sí mismo**: una sola ejecución por `UPDATE`, comprobada con un contador
+  en la prueba o con `pg_trigger_depth()`. Se comprueba contra
   Postgres real (prueba desechable con `ROLLBACK`) porque `fakeSupabase.js` no ejecuta disparadores; el doble solo
   imita el resultado. Así queda protegido el margen **pactado en esa reserva** después de la devolución real, pase lo que
   pase con la configuración: si se devuelve antes de tiempo, los días sobrantes se liberan (menos el margen); si se
@@ -1016,6 +1019,12 @@ legacy en revisión** (`origen = 'legacy'`).
     0 %**. Los límites exactos ("exactamente 7 días" cae en el 50 %) hay que escribirlos igual en los T&C. El panel
     propone el importe y el administrador puede **mejorarlo** (nunca empeorarlo sin justificación), dejando el
     motivo.
+    - **El código implementa la tabla tal cual esté escrita en los T&C, con sus límites literales; no la
+      reinterpreta.** Si los T&C dicen "con más de 7 días de antelación", el test usa exactamente esa frontera. Una
+      discrepancia entre el código y el texto legal se resuelve cambiando el código, nunca "interpretando" el T&C.
+    - **La forma de contar los días de antelación sigue el mismo criterio que se decida para los días facturados**
+      (10.1, pregunta 3). Si el cliente elige contar ambos extremos (`fin − inicio + 1`), esta tabla se recalcula
+      con ese mismo criterio.
 - La política vigente al reservar se copia en `condiciones` (3.2): una reserva se cancela con la política que se
   aceptó, aunque la configuración cambie después.
 - Cualquier reembolso se aplica al **importe del alquiler**. Propuesta: los trayectos de entrega/recogida que no se
@@ -1062,8 +1071,10 @@ resolución de la fianza) se protegen en tres capas:
      'garantizada'`. Si afecta a 0 filas, 409.
    - La marca de la reserva no puede ser el propio `stripe_refund_id`, porque ese id no existe hasta que Stripe
      responde. Por eso se reclama con una columna propia y el id se guarda después.
-2. **`Idempotency-Key` de Stripe** fija por operación (`reserva-<id>-reembolso-cancelacion`,
-   `reserva-<id>-fianza`: sin datos personales y por debajo de los 255 caracteres que admite Stripe), más
+2. **`Idempotency-Key` de Stripe** fija por operación: `reserva_<id>_reembolso_cancelacion` y `reserva_<id>_fianza`.
+   Sin datos personales y por debajo de los 255 caracteres que admite Stripe. Con guiones bajos a propósito, por
+   coherencia con el resto de identificadores del proyecto (`stripe_session_id`, `reserva_id`); Stripe acepta
+   ambos. Además,
    `metadata: { reserva_id, tipo }` en el reembolso o el cargo. Un reintento con la misma clave devuelve el mismo
    resultado, no crea otro.
 3. **La clave no basta sola:** Stripe puede borrar las claves pasadas **24 horas**, y una clave reutilizada después
@@ -1273,9 +1284,11 @@ alquiler fuera de la cesta (T8, T9).
   una retención hecha al pagar, con el cliente delante; no se usa en ninguna de las opciones recomendadas. Las
   cifras de este documento se comprobaron el 23 sep 2026 y Stripe avisa de que las reglas de las redes de tarjetas
   "pueden cambiar sin previo aviso": se vuelven a comprobar al implementar R-e.
-- **Resend:** mientras no haya dominio verificado, los emails al cliente solo llegan a la cuenta de Resend
-  (limitación ya anotada en Notion). Con reservas hay más emails (confirmación, recordatorios, retrasos,
-  cancelaciones, fianza), así que el dominio pasa de conveniente a necesario antes de lanzar.
+- **Resend:** mientras no haya un dominio propio verificado, Resend funciona en modo de pruebas (sandbox) y **solo
+  entrega correos a la dirección del propietario de la cuenta de Resend**. Los que van a cualquier otra dirección
+  (la de un cliente que reserva) no llegan. Es la limitación ya anotada en Notion. Con reservas hay más emails
+  (confirmación, recordatorios, retrasos, cancelaciones, fianza), así que verificar el dominio pasa de conveniente
+  a necesario antes de lanzar.
 - **Vercel:** plan del proyecto para la tarea diaria (8.5).
 - **Tarea 3:** empezar a implementar después de cerrarla (A3/A4, B, D1 y 3b). Motivos: la migración B cambia
   `pedidos`, que este diseño también usa; y 3b rehace la autenticación (`AuthContext`, `apiFetch`), que los
@@ -1310,7 +1323,8 @@ commitear, y cada migración con permiso explícito. Tamaños orientativos en d�
 desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno de pagos.
 
 1. *(sin commit)* Prueba desechable de `btree_gist`, de la restricción y de los disparadores de la tabla en una
-   transacción con `ROLLBACK`, con tu permiso (4.2).
+   transacción con `ROLLBACK`, con tu permiso (4.2). Para el disparador de `fin_ocupacion` (3.4) cubre los cuatro
+   casos: devolución a tiempo, anticipada y tardía, y que no se dispara a sí mismo.
 2. `feat(db): activar btree_gist` — migración R1.
 3. `feat(db): tabla reservas con exclusión de solapes` — migración R2 (tabla, CHECK, restricción, índices, RLS sin
    políticas, disparador de `updated_at` y disparador de sincronización de `fin_ocupacion` al devolver, 3.4). Con
