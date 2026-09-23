@@ -12,7 +12,7 @@ conversación.
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). El refactor de `Admin.jsx` por pestañas sigue pendiente |
-| 5 | Tests: servidor, cliente y E2E | Pendiente como tarea propia (los tests nuevos de cada tarea ya suman 182 en el servidor y 30 en el cliente) |
+| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
@@ -169,6 +169,84 @@ en `feature/mejoras-tecnicas`, pensada para revisar por commit sin supervisión 
 - **Los tests como tarea propia (tarea 5), el frontend (tarea 6, más allá de la vista de
   inventario ya hecha) y el umbral de cobertura en CI (resto de la tarea 7) siguen enteros por
   hacer.**
+
+## Tarea 5 — Tests (servidor + cliente)
+
+Solo tests: ningún commit de esta tarea cambia comportamiento de producción. `Admin.jsx` y los tres
+contexts (`AuthContext`, `CartContext`, `FavoritesContext`) quedan explícitamente sin tocar, tal
+como se pidió.
+
+### Qué se cubrió
+
+**Servidor** (182 → 240 tests):
+- `utils/upload.js`: subida con `sharp` real (imagen sintética, no un mock) y su *fallback* al
+  archivo original cuando `sharp` no puede procesarlo -- solo se mockea `supabase.storage`.
+- `utils/email.js`: asunto/destinatario/contenido de las 5 funciones de envío, y el modo
+  simulación completo (sin `RESEND_API_KEY`, ninguna llama a la API real ni lanza).
+- `categoriasController.js`: estadísticas (categoría específica vs. general, con y sin hijos),
+  CRUD completo (401/403, tipos de `categoria_padre_id`, imagen por defecto vs. explícita).
+- `pedidosController.js`: `obtenerMisPedidos` (filtro por email case-insensitive vía
+  `cliente_info->>email`) y `obtenerPedidos` (admin). De paso, `PATCH /estado` con un id
+  inexistente (caso que faltaba en `validacionPedidos.test.js`).
+- `mueblesController.js`: lectura (`?limit`, caché) y búsqueda por nombre, que no tenían ningún
+  test todavía.
+- `fakeSupabase.js` (el doble en memoria de Supabase) se amplió con `.order()`, `.delete()`,
+  `.ilike()` (con soporte del atajo `columna->>clave` de PostgREST) y un helper `aplicarSalida`
+  compartido para que `.single()`/`.maybeSingle()` se comporten igual detrás de un
+  `update()`/`delete()` que detrás de un `select()` -- ver "hallazgo" más abajo.
+
+**Cliente** (30 → 118 tests), ninguno de los siguientes tenía test antes de esta tarea:
+- `useDocumentMeta` (título/descripción/OG/Twitter, `noindex`, cleanup al desmontar).
+- Componentes pequeños: `ToastContext` (éxito/error, auto-cierre a los 3s, cierre manual),
+  `CookieConsent` (banner según consentimiento guardado, los dos botones), `ProductSkeleton`
+  (estructura estática).
+- Componentes medianos: `Header` (sesión, favoritos/cesta, tema claro/oscuro persistente,
+  buscador en vivo), `CartDrawer` (estado vacío, cupón, eliminar artículo, abre `AuthModal` o
+  `CheckoutModal` según haya sesión), `QuickViewModal` (precio/estado/favoritos, accesibilidad:
+  foco, Escape, bloqueo de scroll).
+- `CheckoutModal` (validación de formulario, pestañas, flujo de pago con Stripe mockeado) y una
+  ampliación de `ProductCard` (favoritos, estado alquilado, apertura de `QuickViewModal`).
+  Contra lo que decía el plan original, ambos se pudieron mockear sin demasiado boilerplate
+  (`CartContext`/`FavoritesContext`/`AuthContext`/`ToastContext` falsos vía `Context.Provider`,
+  y `services/api` mockeado en vez de golpear la API real) -- no hizo falta documentar ningún
+  "no se pudo probar".
+
+### Qué se dejó fuera, y por qué
+
+- **`server/utils/format.js`** (mencionado en el plan original) **no existe** en el servidor --
+  `format.js` es un archivo del cliente (`client/src/utils/format.js`, ya cubierto antes de esta
+  tarea). Probable error de copia/pega al escribir el plan; no había nada que hacer ahí.
+- **`metadataStripe.js`** ya estaba cubierto a fondo por la tarea de H1 (unitarios + contrato
+  contra Stripe real), incluido en el estado de tareas más arriba -- no se ha duplicado esfuerzo.
+- **"Crear mueble sin imagen" y "editar sin cambios"** ya estaban cubiertos antes de esta tarea
+  por `validacionMuebles.test.js` (su PUT con body vacío es exactamente ese caso).
+- **E2E** sigue sin empezar: no hay infraestructura (Playwright/Cypress) en el repo todavía: es
+  una decisión de herramienta y de alcance mayor que esta tarea, no una omisión.
+- **`AuthContext`/`CartContext`/`FavoritesContext` no tienen test dedicado propio.** Se probó su
+  *forma* (via `Context.Provider` con valores de mentira) en los componentes que los consumen,
+  pero su lógica real -- persistencia en `localStorage`, `validateCart` contra la API, claves de
+  almacenamiento por usuario -- sigue sin un test que la ejercite directamente. Candidato claro
+  para la próxima ronda de tests.
+
+### Hallazgo (en el doble de Supabase, no en producción)
+
+Al escribir el test de `pedidosController` para "actualizar el estado de un pedido inexistente",
+`.update(...).eq('id', id).select().single()` devolvía `200 []` en vez del error de 0 filas que
+Postgres/PostgREST dan de verdad para `.single()`, sin importar qué verbo precedió la consulta.
+Era un hueco de fidelidad de `fakeSupabase.js` (`.single()`/`.maybeSingle()` solo se aplicaban
+detrás de un `select()`, nunca detrás de un `update()`/`delete()`), **no un bug del controlador**:
+`actualizarEstadoPedido` ya hacía bien su comprobación `if (error || !data) return 404`, solo que
+el doble no reproducía el error que debía dispararla. Corregido con el helper `aplicarSalida`
+compartido entre las tres ramas; las 240 pruebas del servidor pasan sin regresiones tras el
+cambio.
+
+### Nota sobre `ProductCard` y `alquilado` (comportamiento real, documentado, no corregido)
+
+Al escribir el test de `alquilado` se confirmó que ese estado también oculta el botón "Vista
+rápida" -- igual que "vendido" -- algo que no estaba cubierto por ningún test hasta ahora. No es
+un descuido: tiene sentido no ofrecer "añadir a la cesta" rápido para una pieza ya alquilada. Se
+deja como test explícito para que quede documentado y no se "corrija" por error en el futuro
+pensando que es una omisión.
 
 ## Hallazgos abiertos
 
