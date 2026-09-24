@@ -177,7 +177,9 @@ verde, **sin tocarlos**, en cada commit del refactor. Es el invariante que demue
 - **Comprobación por mutación:** antes de commitear cada archivo de caracterización se meten fallos deliberados en
   `Admin.jsx`, de uno en uno, con un script que restaura el archivo al terminar. Después se comprueba que algún test
   detecta cada fallo. Si un fallo no lo detecta ningún test, falta un test o hay uno que no comprueba nada. En el
-  test del resumen se detectaron los 10 fallos. Se repite con cada pestaña.
+  test del resumen se detectaron los 10 fallos. Se repite con cada pestaña. El script es
+  `client/scripts/mutantes-panel.js` (uso y cómo añadir mutantes, en su cabecera), con una lista de fallos por
+  pestaña en `client/scripts/mutantes/`: `node scripts/mutantes-panel.js crear`, desde `client/`.
 - **Durante el refactor** se añaden tests unitarios de las piezas nuevas que tienen lógica: `useInventarioVista`
   (con `renderHook`), `categorias.js` y `SelectorCategoria`.
 - **Comprobación en el navegador al final**, en dos sitios y siempre de solo lectura:
