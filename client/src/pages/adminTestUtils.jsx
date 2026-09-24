@@ -13,6 +13,28 @@ import * as api from '../services/api';
 
 export const ADMIN = { id: 'u-admin', email: 'admin@nave5.test', nombre: 'Admin', rol: 'admin' };
 
+// valorTotalVenta llega ya formateado como texto: el servidor lo calcula así mismo
+// (categoriasController.js), con un espacio duro (U+00A0) entre la cifra y el €.
+const statsVacias = {
+  totalProductos: 0,
+  disponibles: 0,
+  vendidos: 0,
+  alquilados: 0,
+  valorTotalVenta: (0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })
+};
+
+// Categorías como las devuelve getCategorias(): ordenadas por nombre (el servidor pide
+// .order('nombre', { ascending: true })), con sus estadísticas, las generales sin
+// categoria_padre_id y las específicas colgando de ellas. Por el orden alfabético, la primera
+// específica es "Lámparas" (de "Decoración y hogar").
+export const CATEGORIAS = [
+  { id: 2, nombre: 'Decoración y hogar', categoria_padre_id: null, imagen_url: null, stats: statsVacias },
+  { id: 21, nombre: 'Lámparas', categoria_padre_id: 2, imagen_url: null, stats: statsVacias },
+  { id: 12, nombre: 'Mesas', categoria_padre_id: 1, imagen_url: null, stats: statsVacias },
+  { id: 1, nombre: 'Mobiliario', categoria_padre_id: null, imagen_url: null, stats: statsVacias },
+  { id: 11, nombre: 'Sillas', categoria_padre_id: 1, imagen_url: null, stats: statsVacias }
+];
+
 // Monta <Admin /> con sus dos contextos y con las tres cargas iniciales (getMuebles,
 // getCategorias, getPedidos) devolviendo los datos que se pasen. Las cargas son promesas ya
 // resueltas: el act async deja que se asienten antes de comprobar nada.
