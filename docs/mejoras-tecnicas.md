@@ -10,7 +10,7 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) hechos; quedan la migración B (`pedidos.cliente_id`), H9, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos; quedan la migración B (`pedidos.cliente_id`), dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
@@ -643,6 +643,27 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   entrega el email verificado.
 - **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
   "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
+
+### H9 · ALTA · CORREGIDO (24 sep 2026) · Con la clave pública se leían todos los pedidos
+
+- **El fallo:** la política RLS `"Admins pueden ver todos los pedidos"` de `pedidos` era `SELECT` para el rol
+  `public` con `USING (true)`: pese al nombre, no comprobaba nada. Con la clave pública (`anon`), cualquiera
+  podía leer todos los pedidos por la API REST de Supabase: nombre, email, teléfono y dirección. El diseño de
+  la tarea 3 decía que no era explotable porque "nada del código usa la clave anon". El razonamiento no vale:
+  esa clave es pública por diseño. El frontend no la incluye, pero no puede ser la protección.
+- **Comprobado antes de arreglarlo:** el test de contrato nuevo fallaba con `actual: 3`. Con la clave `anon`
+  se leían los 3 pedidos (el test solo pide la columna `id`).
+- **Arreglo:** migración `20260924195451_fix_pedidos_admin_policy`. Reafirma RLS (idempotente) y borra la
+  política, sin política de sustitución, igual que `clientes`, que ya tenía RLS sin políticas. El servidor usa
+  `service_role`, que se salta RLS, así que el panel y "Mis pedidos" no cambian.
+- **Verificado después:** `pedidos` queda con RLS activo, 0 políticas y sus 3 filas intactas. El test de
+  contrato (`npm run test:supabase-rls`, fuera de `npm test`, de solo lectura) pasa 3 de 3:
+  - `anon` ve 0 pedidos y 0 clientes, sin error;
+  - `service_role` sigue viéndolos.
+
+  Con RLS, PostgREST no responde 401 ni 403: responde 200 con una lista vacía, porque filtra filas, no rechaza
+  la petición. Por eso el test comprueba que no hay error y que llegan 0 filas. La copia coincide byte a byte
+  con `schema_migrations`.
 
 ## Decisiones de diseño a recordar
 
