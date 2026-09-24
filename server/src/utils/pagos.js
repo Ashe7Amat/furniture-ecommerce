@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const supabase = require('../data/supabase');
 const email = require('./email');
 const { juntarItems, leerItemsDeMetadata } = require('./metadataStripe');
+const { escaparIlike } = require('./ilike');
 
 const CODIGO_VIOLACION_UNICIDAD = '23505';
 
@@ -128,16 +129,40 @@ const marcarPiezas = async (lineas) => {
   return resultados;
 };
 
+// Migración B (ver docs/tarea3-diseno.md): id de la cuenta cuyo email coincide con el que se
+// usó al comprar, o null. Mismo criterio que "Mis pedidos": email sin distinguir mayúsculas y
+// ESCAPADO, para que un "_" no haga de comodín (H17). Ojo: el email lo escribe el comprador en
+// el checkout de invitado, sin verificar (H18), así que cliente_id dice "se compró con el
+// email de esa cuenta", no "lo compró el titular de esa cuenta".
+// Nunca impide registrar el pedido: sin una coincidencia única (ninguna, o varias cuentas que
+// solo cambian en mayúsculas) o si la consulta falla, devuelve null y el pedido se guarda
+// igual; el backfill B3 puede rellenarlo después.
+const buscarClienteIdPorEmail = async (emailComprador) => {
+  if (!emailComprador) return null;
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('id')
+    .ilike('email', escaparIlike(emailComprador))
+    .limit(2);
+
+  if (error) {
+    console.error('No se pudo buscar la cuenta del comprador; el pedido se guarda sin cliente_id:', error.message);
+    return null;
+  }
+  return data && data.length === 1 ? data[0].id : null;
+};
+
 // Guarda el pedido para el panel de administración. `creado` es true solo para quien lo
 // inserta de verdad. Si otra petición lo registra a la vez, su INSERT choca con el nuestro
 // en la clave primaria (id derivado de la sesión, ver idPedidoDeSesion) o, cuando exista,
 // en el índice único de stripe_session_id: en ambos casos llega un 23505 y `creado` es false.
-const registrarPedido = async ({ lineas, cliente, total, sessionId }) => {
+const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId }) => {
   const id = idPedidoDeSesion(sessionId);
   const { error } = await supabase.from('pedidos').insert({
     id,
     items: lineas,
     cliente_info: cliente,
+    cliente_id: clienteId,
     total,
     metodo_entrega: 'domicilio',
     direccion_envio: cliente.direccion || null,
@@ -259,8 +284,9 @@ const procesarSesionPagada = async (session) => {
   const cliente = leerClienteDeSesion(session);
   const lineas = await cargarLineasPagadas(items);
   const resultados = await marcarPiezas(lineas);
+  const clienteId = await buscarClienteIdPorEmail(cliente.email);
 
-  const { creado, id } = await registrarPedido({ lineas, cliente, total, sessionId: session.id });
+  const { creado, id } = await registrarPedido({ lineas, cliente, clienteId, total, sessionId: session.id });
   if (!creado) return { estado: 'ya_procesada', total, conflictos: [] };
 
   const conflictos = await detectarConflictos(lineas, id, resultados);

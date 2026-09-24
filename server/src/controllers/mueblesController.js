@@ -4,6 +4,7 @@ const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
+const { escaparIlike } = require('../utils/ilike');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -230,12 +231,16 @@ const eliminarMueble = async (req, res) => {
   }
 };
 
-// 6. Buscar muebles por coincidencia de texto
+// 6. Buscar muebles por coincidencia de texto. El término se escapa: lo que escribe el usuario se
+//    busca tal cual, y sus "_", "%" o "*" no hacen de comodín (ver utils/ilike.js).
 const buscarMuebles = async (req, res) => {
   try {
     const { q } = req.query;
     if (!q) return res.status(200).json([]);
-    const { data, error } = await supabase.from('muebles').select('*').ilike('nombre', `%${q}%`);
+    const { data, error } = await supabase
+      .from('muebles')
+      .select('*')
+      .ilike('nombre', `%${escaparIlike(q)}%`);
     if (error) throw error;
     res.status(200).json(data);
   } catch (error) {

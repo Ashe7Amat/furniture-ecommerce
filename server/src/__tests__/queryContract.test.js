@@ -46,6 +46,8 @@ const fetchFalso = async (url, init = {}) => {
   }
   if (peticion.ruta === '/rest/v1/muebles' && peticion.metodo === 'PATCH')
     return json(200, [{ id: 'mueble-1' }]);
+  if (peticion.ruta === '/rest/v1/clientes' && peticion.metodo === 'GET')
+    return json(200, [{ id: 'cliente-1' }]);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'POST') return json(201);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'GET') return json(200, []);
   return json(404, {
@@ -80,6 +82,7 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
         'GET /rest/v1/pedidos', // ¿la sesión ya tiene pedido?
         'GET /rest/v1/muebles', // cargar las piezas
         'PATCH /rest/v1/muebles', // marcar como vendida (condicional)
+        'GET /rest/v1/clientes', // ¿el email del comprador es de una cuenta? (migración B)
         'POST /rest/v1/pedidos', // registrar el pedido
         'GET /rest/v1/pedidos' // detectar doble venta
       ]
@@ -120,9 +123,18 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
     assert.deepEqual(patch.cuerpo, { estado: 'vendido', disponible: false });
   });
 
+  test('buscar la cuenta del comprador: ilike con el email escapado, solo el id y limit 2', () => {
+    const { params } = de('GET', '/rest/v1/clientes')[0];
+
+    assert.equal(params.select, 'id');
+    assert.equal(params.email, 'ilike.ana@example.com');
+    assert.equal(params.limit, '2', 'con 2 se distingue "una cuenta" de "varias" (ambiguo)');
+  });
+
   test('registrar el pedido: INSERT con el id derivado de la sesión y los campos del pedido', () => {
     const { cuerpo } = de('POST', '/rest/v1/pedidos')[0];
 
+    assert.equal(cuerpo.cliente_id, 'cliente-1');
     assert.equal(cuerpo.id, idPedidoDeSesion('cs_test_123'));
     assert.equal(cuerpo.stripe_session_id, 'cs_test_123');
     assert.equal(cuerpo.total, 1250);

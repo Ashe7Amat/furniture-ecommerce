@@ -339,7 +339,7 @@
 .products-table-headrow,
 .products-table-row {
   display: grid;
-  grid-template-columns: 48px minmax(140px, 2fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, 1fr) auto auto;
+  grid-template-columns: 48px minmax(140px, 2fr) minmax(90px, 1fr) minmax(90px, 1fr) minmax(110px, 1fr) 130px 90px;
   align-items: center;
   column-gap: 16px;
   padding: 10px 20px;

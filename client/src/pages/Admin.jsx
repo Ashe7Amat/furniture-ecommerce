@@ -107,8 +107,10 @@ const Admin = () => {
     setPagina(1);
   }, [busqueda, filtroCategoria, filtroEstado, orden]);
 
+  // `fresco`: el panel tiene que ver al momento lo que acaba de guardar, sin las cachés que sí
+  // usa el catálogo público (ver getMuebles en services/api.js).
   const cargarMuebles = async () => {
-    const data = await getMuebles();
+    const data = await getMuebles({ fresco: true });
     setMuebles(data);
   };
 
@@ -128,7 +130,7 @@ const Admin = () => {
   };
 
   const cargarCategorias = async () => {
-    const data = await getCategorias();
+    const data = await getCategorias({ fresco: true });
     setCategorias(data);
     // Un mueble solo puede pertenecer a una categoría específica (con padre), nunca a una general
     const especificas = data.filter(c => c.categoria_padre_id);
