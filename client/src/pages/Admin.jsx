@@ -2,24 +2,22 @@ import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatPrice } from '../utils/format';
 import {
   updateMueble,
-  createCategoria,
-  updateCategoria,
-  deleteCategoria,
-  actualizarEstadoPedido
+  updateCategoria
 } from '../services/api';
 import '../styles/Admin.css';
 import Icon from './admin/Icon';
 import SelectorCategoria from './admin/SelectorCategoria';
-import { generales, especificasDe, idDeCategoria, primeraEspecifica } from './admin/categorias';
+import { generales, idDeCategoria, primeraEspecifica } from './admin/categorias';
 import useAdminDatos from './admin/hooks/useAdminDatos';
 import useInventarioVista from './admin/hooks/useInventarioVista';
 import useConfirmacion from './admin/hooks/useConfirmacion';
 import ResumenTab from './admin/pestanas/ResumenTab';
 import CrearMuebleTab from './admin/pestanas/CrearMuebleTab';
 import InventarioTab from './admin/pestanas/InventarioTab';
+import PedidosTab from './admin/pestanas/PedidosTab';
+import CategoriasTab from './admin/pestanas/CategoriasTab';
 
 // Pestañas de la barra lateral, en orden. Añadir una (p. ej. "Reservas") es una entrada más aquí
 // y su caso en <main> (ver docs/tarea4-diseno.md, sección 7).
@@ -81,55 +79,6 @@ const Admin = () => {
     // preseleccionar justo después de vaciar el formulario al crear un mueble (caso C).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorias]);
-
-  const handleCambiarEstadoPedido = async (id, nuevoEstado) => {
-    const res = await actualizarEstadoPedido(id, nuevoEstado);
-    if (res) {
-      showToast('Estado del pedido actualizado', 'success');
-      setPedidos(prev => prev.map(p => (p.id === id ? { ...p, estado: nuevoEstado } : p)));
-    } else {
-      showToast('Error al actualizar el estado del pedido', 'error');
-    }
-  };
-
-  const handleAddCategoria = async (e) => {
-    e.preventDefault();
-    if (!nuevaCat) return;
-
-    setStatus('Creando categoría...');
-    const formDataToSend = new FormData();
-    formDataToSend.append('nombre', nuevaCat);
-    formDataToSend.append('categoria_padre_id', nuevaCatPadre);
-    if (categoriaFile) {
-      formDataToSend.append('imagen', categoriaFile);
-    }
-
-    const res = await createCategoria(formDataToSend);
-    if (res) {
-      showToast('Categoría creada correctamente', 'success');
-      setNuevaCat('');
-      setNuevaCatPadre('');
-      setCategoriaFile(null);
-      const fileInput = document.getElementById('categoria-file-input');
-      if (fileInput) fileInput.value = '';
-      cargarCategorias();
-    } else {
-      showToast('Error al crear la categoría', 'error');
-    }
-    setStatus('');
-  };
-
-  const handleDeleteCategoria = (id) => {
-    confirmarBorrado(
-      'Eliminar Categoría',
-      '¿Deseas eliminar esta categoría? Si tiene muebles asociados podrían quedarse sin categoría.',
-      async () => {
-        await deleteCategoria(id);
-        showToast('Categoría eliminada', 'success');
-        cargarCategorias();
-      }
-    );
-  };
 
   const handleUpdateMuebleSubmit = async (e) => {
     e.preventDefault();
@@ -197,11 +146,8 @@ const Admin = () => {
     return <div className="admin-msg">Acceso denegado. Inicia sesión primero.</div>;
   }
 
-  // Cálculos para pedidos
+  // Pedidos por procesar: la insignia de la barra lateral y una tarjeta del resumen.
   const pedidosPendientes = pedidos.filter(p => p.estado === 'procesando').length;
-  const pedidosFiltrados = filtroEstadoPedido ? pedidos.filter(p => p.estado === filtroEstadoPedido) : pedidos;
-  const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
-  const ETIQUETA_ESTADO_PEDIDO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
 
   return (
     <div className="admin-layout">
@@ -251,157 +197,29 @@ const Admin = () => {
         )}
 
         {vistaActiva === 'pedidos' && (
-          <div className="admin-view fade-in">
-            <div className="admin-view-head">
-              <h2>Pedidos</h2>
-              <p>{pedidosFiltrados.length} de {pedidos.length} pedidos</p>
-            </div>
-
-            <div className="admin-toolbar">
-              <select value={filtroEstadoPedido} onChange={(e) => setFiltroEstadoPedido(e.target.value)}>
-                <option value="">Todos los estados</option>
-                {ESTADOS_PEDIDO.map(estado => (
-                  <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-                ))}
-              </select>
-              <button className="admin-btn-ghost" onClick={cargarPedidos}>Actualizar</button>
-            </div>
-
-            {pedidosFiltrados.length === 0 ? (
-              <p className="admin-empty-note">
-                {pedidos.length === 0
-                  ? 'Todavía no se ha registrado ningún pedido.'
-                  : 'No hay pedidos que coincidan con este filtro.'}
-              </p>
-            ) : (
-              <div className="pedidos-list">
-                {pedidosFiltrados.map(pedido => {
-                  const cliente = pedido.cliente_info || {};
-                  const items = Array.isArray(pedido.items) ? pedido.items : [];
-                  const fecha = pedido.created_at
-                    ? new Date(pedido.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
-                    : '—';
-
-                  return (
-                    <div key={pedido.id} className="pedido-card">
-                      <div className="pedido-card-header">
-                        <div>
-                          <span className="pedido-fecha">{fecha}</span>
-                          <span className="pedido-id">Ref. {pedido.id.slice(0, 8).toUpperCase()}</span>
-                        </div>
-                        <select
-                          value={pedido.estado}
-                          onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
-                          className={`pedido-estado-select estado-${pedido.estado}`}
-                        >
-                          {ESTADOS_PEDIDO.map(estado => (
-                            <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="pedido-card-body">
-                        <div className="pedido-cliente">
-                          <h4>Cliente</h4>
-                          <p><strong>{cliente.nombre || 'Sin nombre'}</strong></p>
-                          {cliente.email && <p><a href={`mailto:${cliente.email}`}>{cliente.email}</a></p>}
-                          {cliente.telefono && <p><a href={`tel:${cliente.telefono}`}>{cliente.telefono}</a></p>}
-                          <p className="pedido-direccion">{pedido.direccion_envio || cliente.direccion || 'Sin dirección de envío'}</p>
-                          {cliente.notas && cliente.notas !== 'Ninguna' && (
-                            <p className="pedido-notas"><strong>Notas:</strong> {cliente.notas}</p>
-                          )}
-                        </div>
-
-                        <div className="pedido-items">
-                          <h4>Productos</h4>
-                          <ul>
-                            {items.map((item, idx) => (
-                              <li key={idx}>
-                                <span>{item.nombre}{item.modalidad === 'alquiler' ? ' (alquiler/día)' : ''}</span>
-                                <span>{item.cantidad || 1} x {formatPrice(item.precio)} €</span>
-                              </li>
-                            ))}
-                          </ul>
-                          <div className="pedido-total">Total: <strong>{formatPrice(pedido.total)} €</strong></div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <PedidosTab
+            pedidos={pedidos}
+            setPedidos={setPedidos}
+            filtroEstadoPedido={filtroEstadoPedido}
+            setFiltroEstadoPedido={setFiltroEstadoPedido}
+            cargarPedidos={cargarPedidos}
+          />
         )}
 
         {vistaActiva === 'categorias' && (
-          <div className="admin-view fade-in">
-            <div className="admin-view-head"><h2>Gestionar Categorías</h2></div>
-            <div className="admin-cat-manager">
-              <form onSubmit={handleAddCategoria} className="cat-add-form">
-                <input
-                  type="text"
-                  placeholder="Nueva categoría (Ej: Sofás)"
-                  value={nuevaCat}
-                  onChange={(e) => setNuevaCat(e.target.value)}
-                  required
-                />
-                <div className="field-group">
-                  <label className="field-label">Categoría general (opcional):</label>
-                  <select value={nuevaCatPadre} onChange={(e) => setNuevaCatPadre(e.target.value)}>
-                    <option value="">— Es una categoría general —</option>
-                    {generales(categorias).map(general => (
-                      <option key={general.id} value={general.id}>Dentro de: {general.nombre}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="file-input-wrapper">
-                  <label>Imagen de la Categoría:</label>
-                  <input
-                    type="file"
-                    id="categoria-file-input"
-                    accept="image/*"
-                    onChange={(e) => setCategoriaFile(e.target.files[0])}
-                    required
-                  />
-                </div>
-                <button type="submit" className="admin-btn">Crear Categoría</button>
-              </form>
-
-              {generales(categorias).map(general => (
-                <div key={general.id} className="cat-group">
-                  <h3 className="cat-group-title">{general.nombre}</h3>
-                  <div className="cat-grid">
-                    {[general, ...especificasDe(categorias, general)].map(cat => (
-                      <div key={cat.id} className={`cat-card${cat.id === general.id ? ' cat-card--general' : ''}`}>
-                        <div className="cat-card-header">
-                          <h3>{cat.nombre}{cat.id === general.id && ' (general)'}</h3>
-                          <div className="cat-card-actions">
-                            <button onClick={() => setCategoriaAEditar(cat)} className="cat-card-edit-btn" aria-label="Editar">
-                              <Icon name="pencil" />
-                            </button>
-                            <button onClick={() => handleDeleteCategoria(cat.id)} className="cat-card-del-btn" aria-label="Eliminar">
-                              <Icon name="trash" />
-                            </button>
-                          </div>
-                        </div>
-                        {cat.stats ? (
-                          <div className="cat-card-stats">
-                            <p>Productos totales: <strong>{cat.stats.totalProductos}</strong></p>
-                            <p>Stock: {cat.stats.disponibles} disponibles · {cat.stats.vendidos} vendidos · {cat.stats.alquilados} alquilados</p>
-                            <p>Valor del catálogo: <strong>{cat.stats.valorTotalVenta}</strong></p>
-                          </div>
-                        ) : (
-                          <div className="cat-card-stats">
-                            <p>Cargando analíticas...</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <CategoriasTab
+            categorias={categorias}
+            nuevaCat={nuevaCat}
+            setNuevaCat={setNuevaCat}
+            nuevaCatPadre={nuevaCatPadre}
+            setNuevaCatPadre={setNuevaCatPadre}
+            categoriaFile={categoriaFile}
+            setCategoriaFile={setCategoriaFile}
+            setStatus={setStatus}
+            recargarCategorias={cargarCategorias}
+            confirmarBorrado={confirmarBorrado}
+            abrirEditorCategoria={setCategoriaAEditar}
+          />
         )}
 
       </main>
