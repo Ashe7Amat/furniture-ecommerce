@@ -11,7 +11,7 @@ conversación.
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, desplegado el 24 sep a las 20:08 UTC; en pausa antes del backfill B3 (ver abajo). Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14, H15 y H19 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
@@ -697,6 +697,19 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   Con RLS, PostgREST no responde 401 ni 403: responde 200 con una lista vacía, porque filtra filas, no rechaza
   la petición. Por eso el test comprueba que no hay error y que llegan 0 filas. La copia coincide byte a byte
   con `schema_migrations`.
+
+### H19 · BAJA · SIN REPRODUCIR · Un fallo suelto en `npm test` del servidor
+
+- **Qué pasó (25 sep, durante la tarea 4):** en el gate del commit `c358bad`, la suite del servidor dio
+  `tests 256, pass 255, fail 1`. Lo normal es 257 de 257. Justo después, la misma suite, sin ningún cambio, dio
+  257 de 257, y cinco ejecuciones seguidas más, también.
+- **Qué no se sabe:** qué test falló. Aquella salida se filtró para quedarse solo con el resumen, así que el
+  nombre se perdió. Que salgan 256 tests y no 257 apunta a un archivo de test que falló entero (al cargar o por
+  tiempo) en vez de test a test, pero es una suposición.
+- **Qué no es:** `npm test` no incluye los tests de contrato contra Supabase y Stripe (`*.contract.js`), así
+  que no depende de la red. El commit solo tocaba el cliente.
+- **Qué se hace:** el gate guarda ahora la salida completa en un archivo, para que, si vuelve a pasar, se sepa
+  qué test es. Si se repite, se investiga. Durante la tarea 4 no se podía tocar `server/`.
 
 ## Decisiones de diseño a recordar
 
