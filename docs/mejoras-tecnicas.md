@@ -11,7 +11,7 @@ conversación.
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). El refactor de `Admin.jsx` por pestañas sigue pendiente |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño en `docs/tarea4-diseno.md`, pendiente de revisión; tests de caracterización antes de mover código. Hallazgos previos: H12 y H13 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
@@ -430,6 +430,74 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   en la base real (comprobado). Si esa restricción se relajara alguna vez, la consulta lanzaría un error de
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
+
+### H12 · MEDIA · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+
+- **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
+  dentro y devuelven un valor. Pero no siempre el mismo:
+
+  | Contrato | Qué devuelve si falla | Funciones |
+  |---|---|---|
+  | A | `null`. **El mensaje del servidor se pierde** | `createMueble`, `updateMueble`, `deleteMueble`, `createCategoria`, `updateCategoria`, `deleteCategoria`, `actualizarEstadoPedido`, y `getMuebleById` (que devuelve `null` tanto si no existe como si falla) |
+  | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `checkoutCart`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
+  | C | `[]`: **un error no se distingue de "no hay datos"** | `getMuebles`, `getCategorias`, `buscarMuebles`, `getMisPedidos`, `getPedidos` |
+
+- **Sitios afectados** (grep de todas las llamadas a funciones de escritura en `client/src/`, sin contar tests ni
+  el propio `api.js`: 19 llamadas, 10 de ellas en `Admin.jsx`). **4 no comprueban el resultado, y las 4 están en
+  `Admin.jsx`:**
+
+  | Llamada | ¿Comprueba el resultado? | Efecto |
+  |---|---|---|
+  | `Admin.jsx:157` `deleteMueble` (borrar uno) | No | "Mueble eliminado con éxito" aunque falle |
+  | `Admin.jsx:363` `deleteMueble` en lote (`Promise.all`) | No | "N productos eliminados" aunque fallen todos o algunos |
+  | `Admin.jsx:196` `deleteCategoria` | No | "Categoría eliminada" aunque falle |
+  | `Admin.jsx:373` `updateMueble` en lote (`Promise.all`) | No | "Estado actualizado en N productos" aunque falle |
+  | `Admin.jsx:121, 176, 234, 272, 299, 635` | Sí (`if (res)`) | Correcto |
+  | `AuthModal.jsx:36, 46` · `Login.jsx:27, 85, 94` · `Profile.jsx:75` · `Contact.jsx:35` · `CheckoutModal.jsx:131` · `CheckoutExito.jsx:24` | Sí (contrato B) | Correcto |
+
+  `checkoutCart` no tiene ninguna llamada: es el checkout antiguo, anterior a Stripe (código muerto).
+- **Los otros efectos del mismo patrón, en lecturas (contrato C):**
+  - Si `getPedidos` falla (por ejemplo, por un token caducado), el panel dice "Todavía no se ha registrado ningún
+    pedido".
+  - Si falla `getMisPedidos`, "Mis pedidos" sale vacío. Es el mismo síntoma del fallo silencioso ya corregido que
+    recoge Notion.
+  - Si falla `getMuebleById` por red, la ficha dice "Pieza no encontrada".
+- **Por qué importa más adelante:** con las reservas, borrar una pieza que tenga reservas fallará a propósito
+  (`ON DELETE RESTRICT`) y el servidor devolverá un 409 con el motivo. Con el contrato A, ese motivo se pierde.
+- **¿Tests de la tarea 5 en falso verde?** Comprobado, no hay ninguno. Ningún test simula una escritura que
+  devuelva `null`. `CheckoutModal` usa el contrato real de `crearSesionPago` (`{ url }` o `{ error }`) y prueba el
+  error. `Header` simula `getMuebles`/`getCategorias` devolviendo `[]` para decir "sin datos", que es un caso real.
+  Lo que sí hay es un **punto ciego**: con el contrato C, ningún test de componente puede cubrir "falló la carga",
+  porque un error y una lista vacía son lo mismo.
+- **Opciones:**
+  1. **Arreglar los 4 sitios del panel:** comprobar `null`; en los lotes, `Promise.allSettled` y un mensaje que
+     cuente los fallos ("3 de 5 eliminados; 2 no se pudieron eliminar"). Mínimo y local, sin tocar `api.js`. No
+     resuelve el contrato C ni el mensaje perdido.
+  2. **Que `api.js` lance** un error tipado (con el `status` y el mensaje del servidor), y adaptar los 19 sitios
+     con `try/catch`. Uniforme, pero toca todo el cliente y choca con la tarea 3b, que reescribe `api.js` (`apiFetch`).
+  3. **Pasar el contrato A al B** (`{ error }`). Conserva el mensaje, pero **rompe en silencio** los `if (res)`
+     actuales (un objeto `{ error }` es verdadero), así que obligaría a cambiar todos los llamadores a la vez.
+     Peligroso.
+- **Recomendación, en dos pasos:**
+  - **Ahora**, después de la tarea 4 y en su propio commit con tests: la opción 1 en el panel. No toca `api.js`,
+    así que los tests de caracterización de la tarea 4 se escriben con el contrato de hoy (`null`) y siguen
+    valiendo. El arreglo solo cambia los tests marcados como "comportamiento actual incorrecto".
+  - **Después, dentro de la tarea 3b**, que ya introduce `apiFetch` como punto único de todas las llamadas:
+    unificar ahí el contrato de error para lecturas y escrituras, de forma que distinga un error de una lista vacía
+    y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
+    diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
+
+### H13 · DECISIÓN PENDIENTE (UX) · Formularios del panel que sobreviven al cambio de pestaña
+
+- **Hoy**, un formulario a medio rellenar ("Añadir mueble" o "Nueva categoría") se conserva al cambiar de pestaña
+  y volver, porque todo el estado vive en `Admin`. La tarea 4 lo **mantiene a propósito**: el refactor no cambia
+  comportamiento (decisión aprobada). Los filtros y la paginación del inventario también se conservan, y ahí sí
+  tiene sentido: son estado de la vista.
+- **Por qué es discutible para los formularios:** lo más probable es que el cliente prefiera que un formulario se
+  vacíe al salir de su pestaña. Además hay una rareza con las fotos: los archivos elegidos siguen en el estado,
+  pero el selector de archivos se ve vacío al volver, y como es obligatorio el navegador pide elegirlos otra vez.
+- **Cuándo se decide:** con el cliente, sin prisa. Después de la tarea 4, cambiarlo es trivial: se mueve ese estado
+  del contenedor a la pestaña y se vacía al desmontarla.
 
 ## Decisiones de diseño a recordar
 
