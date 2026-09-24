@@ -23,8 +23,17 @@
 //   src/pages/admin/..., y cada mutante tiene que apuntar a su archivo nuevo.
 // - `sobreviveAqui` (opcional): el motivo por el que se espera que el mutante sobreviva con este
 //   archivo de test (por ejemplo, porque lo cubre el test de otra pestaña). No cuenta como fallo.
+// - `control: true`: marca el mutante de control (hay exactamente uno entre todas las listas; ver
+//   COMPROBACIONES PREVIAS). Tiene que ser uno sencillo que un test mate seguro.
 // Buenos mutantes: los cambios que un refactor podría colar sin querer (una condición que se pierde,
 // un orden distinto, un texto cambiado, una llamada de más o de menos), no fallos absurdos.
+//
+// COMPROBACIONES PREVIAS: el script lee el resumen de Vitest ("Tests  1 failed | 16 passed"). Si un
+// día cambia ese formato, podría dar mutantes por supervivientes (o por muertos) sin serlo. Para que
+// eso falle a la vista y no en silencio, antes de empezar:
+// 1. Corre cada archivo de test SIN mutar: tiene que salir todo en verde y el script tiene que
+//    reconocer cuántos tests pasan. Si no, se para (un test ya en rojo "mataría" todos los mutantes).
+// 2. Prueba el mutante de control (`control: true`): tiene que morir. Si sobrevive, se para.
 //
 // SEGURIDAD: el script modifica código fuente, así que:
 // - No arranca si alguno de los archivos que va a mutar tiene cambios sin commitear. Si una ejecución
@@ -32,7 +41,8 @@
 //   por el original.
 // - Restaura el archivo después de cada mutante, si algo falla y con Ctrl+C.
 //
-// Termina con código 1 si algún mutante sobrevive sin `sobreviveAqui` o no se encuentra.
+// Termina con código 1 si falla una comprobación previa, o si algún mutante sobrevive sin
+// `sobreviveAqui` o no se encuentra.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -43,34 +53,48 @@ const DIR_LISTAS = join(CLIENT, 'scripts', 'mutantes');
 const ARCHIVO_POR_DEFECTO = 'src/pages/Admin.jsx';
 const COLORES_ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
 
-const pedidas = process.argv.slice(2);
-const nombresListas = pedidas.length > 0
-  ? pedidas
-  : readdirSync(DIR_LISTAS).filter(f => f.endsWith('.js')).map(f => f.replace(/\.js$/, '')).sort();
-
-const listas = [];
-for (const nombre of nombresListas) {
+const cargarLista = async (nombre) => {
   const { TEST, MUTANTES } = await import(pathToFileURL(join(DIR_LISTAS, `${nombre}.js`)).href);
-  listas.push({ nombre, TEST, MUTANTES });
+  return { nombre, TEST, MUTANTES };
+};
+
+const todasLasListas = readdirSync(DIR_LISTAS).filter(f => f.endsWith('.js')).map(f => f.replace(/\.js$/, '')).sort();
+const pedidas = process.argv.slice(2);
+const listas = [];
+for (const nombre of pedidas.length > 0 ? pedidas : todasLasListas) listas.push(await cargarLista(nombre));
+
+// El mutante de control se busca en todas las listas, aunque solo se hayan pedido algunas.
+const controles = [];
+for (const nombre of todasLasListas) {
+  const { TEST, MUTANTES } = await cargarLista(nombre);
+  for (const m of MUTANTES) if (m.control) controles.push({ ...m, TEST });
 }
+if (controles.length !== 1) {
+  console.error(`Tiene que haber exactamente un mutante con control: true en scripts/mutantes/ (hay ${controles.length}).`);
+  process.exit(1);
+}
+const control = controles[0];
 
 // Originales de todos los archivos que se van a mutar, para restaurarlos pase lo que pase.
 const originales = new Map();
-for (const { MUTANTES } of listas) {
-  for (const m of MUTANTES) {
-    const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
-    if (originales.has(archivo)) continue;
-    const cambios = execSync(`git status --porcelain -- "${archivo}"`, { cwd: CLIENT, encoding: 'utf8' });
-    if (cambios.trim()) {
-      console.error(`${archivo} tiene cambios sin commitear. Commitéalos o guárdalos antes de mutarlo.`);
-      process.exit(1);
-    }
-    originales.set(archivo, readFileSync(archivo, 'utf8'));
+for (const m of [control, ...listas.flatMap(l => l.MUTANTES)]) {
+  const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
+  if (originales.has(archivo)) continue;
+  const cambios = execSync(`git status --porcelain -- "${archivo}"`, { cwd: CLIENT, encoding: 'utf8' });
+  if (cambios.trim()) {
+    console.error(`${archivo} tiene cambios sin commitear. Commitéalos o guárdalos antes de mutarlo.`);
+    process.exit(1);
   }
+  originales.set(archivo, readFileSync(archivo, 'utf8'));
 }
 
 const restaurarTodo = () => {
   for (const [archivo, contenido] of originales) writeFileSync(archivo, contenido);
+};
+const abortar = (mensaje) => {
+  restaurarTodo();
+  console.error(`\n${mensaje}`);
+  process.exit(1);
 };
 process.on('SIGINT', () => {
   restaurarTodo();
@@ -78,8 +102,8 @@ process.on('SIGINT', () => {
   process.exit(130);
 });
 
-// Un mutante está "matado" si falla algún test, o si el archivo de test ni siquiera carga (por
-// ejemplo, porque el mutante rompe la sintaxis).
+// Corre un archivo de test y lee del resumen de Vitest cuántos tests pasan y fallan, y cuántos
+// archivos de test fallan (un archivo que ni siquiera carga cuenta como fallido).
 const correrTest = (test) => {
   let salida;
   try {
@@ -93,39 +117,58 @@ const correrTest = (test) => {
     salida = `${e.stdout ?? ''}${e.stderr ?? ''}`;
   }
   const limpia = salida.replace(COLORES_ANSI, '');
-  const testsFallidos = Number((limpia.match(/Tests\s+(\d+) failed/) ?? [])[1] ?? 0);
-  const archivosFallidos = Number((limpia.match(/Test Files\s+(\d+) failed/) ?? [])[1] ?? 0);
-  return { testsFallidos, archivosFallidos };
+  const lineaTests = (limpia.match(/^\s*Tests\s+(.+)$/m) ?? [])[1] ?? '';
+  const lineaArchivos = (limpia.match(/^\s*Test Files\s+(.+)$/m) ?? [])[1] ?? '';
+  const numero = (linea, palabra) => Number((linea.match(new RegExp(`(\\d+) ${palabra}`)) ?? [])[1] ?? 0);
+  return {
+    pasados: numero(lineaTests, 'passed'),
+    fallidos: numero(lineaTests, 'failed'),
+    archivosFallidos: numero(lineaArchivos, 'failed')
+  };
+};
+
+// Aplica un mutante, corre el test y restaura. Devuelve 'no-encontrado', 'matado' o 'sobrevive'.
+const probarMutante = (m, test) => {
+  const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
+  const texto = originales.get(archivo).replace(/\r\n/g, '\n');
+  if (!texto.includes(m.buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
+  writeFileSync(archivo, texto.replace(m.buscar, m.reemplazo));
+  try {
+    const { fallidos, archivosFallidos } = correrTest(test);
+    if (fallidos > 0) return { resultado: 'matado', detalle: `MATADO (${fallidos})` };
+    if (archivosFallidos > 0) return { resultado: 'matado', detalle: 'MATADO (carga)' };
+    return { resultado: 'sobrevive', detalle: 'SOBREVIVE' };
+  } finally {
+    writeFileSync(archivo, originales.get(archivo));
+  }
 };
 
 let problemas = 0;
 try {
+  console.log('== Comprobaciones previas');
+  for (const { TEST } of listas) {
+    const { pasados, fallidos, archivosFallidos } = correrTest(TEST);
+    if (pasados === 0 || fallidos > 0 || archivosFallidos > 0) {
+      abortar(`Sin mutar, ${TEST} no sale en verde (se leen ${pasados} que pasan y ${fallidos} que fallan), o el script no reconoce la salida de Vitest. Así no se puede medir nada.`);
+    }
+    console.log(`en verde sin mutar (${pasados} tests)  ${TEST}`);
+  }
+  const { resultado, detalle } = probarMutante(control, control.TEST);
+  if (resultado !== 'matado') {
+    abortar(`El mutante de control ("${control.nombre}") da ${detalle}: el script no está detectando fallos. ¿Ha cambiado el formato de salida de Vitest, se ha movido el código que muta, o el mutante de control ya no es válido para el código actual?`);
+  }
+  console.log(`${detalle.padEnd(15)} control: ${control.nombre}`);
+
   for (const { nombre, TEST, MUTANTES } of listas) {
     console.log(`\n== ${nombre} (${TEST})`);
     for (const m of MUTANTES) {
-      const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
-      const texto = originales.get(archivo).replace(/\r\n/g, '\n');
-      if (!texto.includes(m.buscar)) {
-        console.log(`NO ENCONTRADO   ${m.nombre}`);
-        problemas++;
+      const { resultado, detalle } = probarMutante(m, TEST);
+      if (resultado === 'sobrevive' && m.sobreviveAqui) {
+        console.log(`SOBREVIVE (esperado: ${m.sobreviveAqui})  ${m.nombre}`);
         continue;
       }
-      writeFileSync(archivo, texto.replace(m.buscar, m.reemplazo));
-      try {
-        const { testsFallidos, archivosFallidos } = correrTest(TEST);
-        if (testsFallidos > 0) {
-          console.log(`MATADO (${testsFallidos})      ${m.nombre}`);
-        } else if (archivosFallidos > 0) {
-          console.log(`MATADO (carga)  ${m.nombre}`);
-        } else if (m.sobreviveAqui) {
-          console.log(`SOBREVIVE (esperado: ${m.sobreviveAqui})  ${m.nombre}`);
-        } else {
-          console.log(`SOBREVIVE       ${m.nombre}`);
-          problemas++;
-        }
-      } finally {
-        writeFileSync(archivo, originales.get(archivo));
-      }
+      if (resultado !== 'matado') problemas++;
+      console.log(`${detalle.padEnd(15)} ${m.nombre}`);
     }
   }
 } finally {

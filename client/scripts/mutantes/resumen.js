@@ -3,9 +3,12 @@ export const TEST = 'src/pages/Admin.resumen.test.jsx';
 
 export const MUTANTES = [
   {
+    // Mutante de control del script (ver COMPROBACIONES PREVIAS en mutantes-panel.js): sencillo y
+    // con dos tests que lo matan. Si sobrevive, el que falla es el script, no los tests.
     nombre: 'una pieza sin estado deja de contar como disponible',
     buscar: "m.estado === 'disponible' || !m.estado",
-    reemplazo: "m.estado === 'disponible'"
+    reemplazo: "m.estado === 'disponible'",
+    control: true
   },
   {
     nombre: 'la alerta de categoría mira categoria_id en vez del nombre',
