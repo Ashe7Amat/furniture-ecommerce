@@ -11,7 +11,7 @@ conversación.
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13 y H14 |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
@@ -34,6 +34,18 @@ conversación.
   Debe dar `0` -- cualquier mueble creado/editado después del deploy ya debería tener `categoria_id`
   relleno (o `NULL` solo si su `categoria` no coincide con ninguna real, ver H11). Si da más de 0 por un
   fallo del código (no por H11), parar y diagnosticar antes de aplicar A3.
+- **Resultado del 24 sep (~45 h después del deploy): sin movimiento, así que el 0 no demuestra nada.**
+  - `muebles` no tiene `updated_at`, así que las ediciones no se pueden fechar. Se usa otra señal: A1 creó
+    `categoria_id` a NULL en todas las filas y A3 aún no se ha aplicado, así que una fila con `categoria_id`
+    relleno solo puede venir de la doble escritura nueva (al crear o al editar).
+  - Datos: 114 muebles; 0 creados después del deploy (el último, el 3 sep); **0 con `categoria_id`**, así que
+    tampoco hubo ediciones con categoría. La consulta de verificación da 0, pero por falta de datos.
+  - Todos tienen `descripcion` a NULL. Guardar una pieza real desde el modal de edición la cambiaría a `''`,
+    porque el modal reenvía todos los campos. Por eso la prueba manual se hace con una pieza de prueba y no con
+    una real.
+  - **Pendiente, con permiso:** crear desde el panel de producción una pieza de prueba, comprobar su
+    `categoria_id` (camino de alta), cambiarle la categoría desde el modal y volver a comprobar (camino de
+    edición), y borrarla. Después, repetir la consulta de verificación.
 - **Verificación después de aplicar A3:**
   ```sql
   SELECT count(*) FROM muebles WHERE categoria IS NOT NULL AND categoria_id IS NULL;
@@ -532,6 +544,23 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   o a su modal. El botón se desactiva mientras ese envío está en curso, y el mensaje sale junto a su formulario.
   Con las pestañas separadas es un cambio pequeño, pero cambia qué mensaje se ve dónde, así que va con sus tests y
   no dentro del refactor.
+
+### H15 · DECISIÓN PENDIENTE (UX) · Qué categoría sale preseleccionada en "Añadir mueble"
+
+- **Hoy**, al abrir "Añadir mueble" se preselecciona la primera categoría específica en el orden alfabético en que
+  las devuelve la API. Con los datos reales (consultados el 24 sep) es "Baúles y maletas", del grupo "Piezas de
+  colección". Pero la primera opción del desplegable es "Decoración y objetos", del grupo "Decoración y hogar":
+  el desplegable agrupa por categoría general, y "Piezas de colección" es el tercer grupo. El usuario ve
+  preseleccionada una categoría que no es la primera de la lista, y es fácil guardar una pieza en "Baúles y
+  maletas" sin darse cuenta.
+- Es el comportamiento del código actual, no una decisión. La tarea 4 lo conserva: casos A y C de la sección 5
+  del diseño, caracterizados en `Admin.crear.test.jsx`.
+- **A confirmar con el cliente:** ¿preseleccionar la primera del desplegable, o no preseleccionar ninguna? Si no
+  se preselecciona ninguna, el selector ya es obligatorio, así que el navegador obliga a elegir. Recomendación:
+  no preseleccionar ninguna, para que no se clasifique una pieza sin querer.
+- **Cuándo:** con el cliente, sin prisa (está en la checklist del cliente en Notion, junto a H13). Después de
+  la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
+  casos A y C cambiarían a propósito en ese mismo commit.
 
 ## Decisiones de diseño a recordar
 
