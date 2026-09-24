@@ -31,13 +31,19 @@ describe('GET /api/muebles — obtenerMuebles', () => {
   test('sin ?limit, devuelve todos, más recientes primero', async () => {
     const res = await request(app).get('/api/muebles');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.map((m) => m.id), ['m2', 'm3', 'm1']);
+    assert.deepEqual(
+      res.body.map((m) => m.id),
+      ['m2', 'm3', 'm1']
+    );
   });
 
   test('con ?limit=2, devuelve solo los 2 más recientes', async () => {
     const res = await request(app).get('/api/muebles?limit=2');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.map((m) => m.id), ['m2', 'm3']);
+    assert.deepEqual(
+      res.body.map((m) => m.id),
+      ['m2', 'm3']
+    );
   });
 
   test('un ?limit no numérico se ignora (no rompe, devuelve todos)', async () => {

@@ -12,8 +12,14 @@ const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
-const tokenAdmin = jwt.sign({ email: 'admin@test.com', nombre: 'Admin', rol: 'admin' }, process.env.JWT_SECRET);
-const tokenCliente = jwt.sign({ email: 'cliente@test.com', nombre: 'Cliente', rol: 'cliente' }, process.env.JWT_SECRET);
+const tokenAdmin = jwt.sign(
+  { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
+  process.env.JWT_SECRET
+);
+const tokenCliente = jwt.sign(
+  { email: 'cliente@test.com', nombre: 'Cliente', rol: 'cliente' },
+  process.env.JWT_SECRET
+);
 const conAdmin = (req) => req.set('Authorization', `Bearer ${tokenAdmin}`);
 const conCliente = (req) => req.set('Authorization', `Bearer ${tokenCliente}`);
 
@@ -81,11 +87,17 @@ describe('GET /api/categorias — jerarquía y estadísticas', () => {
   test('llegan ordenadas por nombre', async () => {
     const res = await request(app).get('/api/categorias');
     const nombres = res.body.map((c) => c.nombre);
-    assert.deepEqual(nombres, [...nombres].sort((a, b) => a.localeCompare(b)));
+    assert.deepEqual(
+      nombres,
+      [...nombres].sort((a, b) => a.localeCompare(b))
+    );
   });
 
   test('un error de Supabase al leer categorías da 500 con mensaje genérico', async () => {
-    fake = crearFakeSupabase({ categorias: [], fallos: { 'categorias.select': { message: 'caído' } } });
+    fake = crearFakeSupabase({
+      categorias: [],
+      fallos: { 'categorias.select': { message: 'caído' } }
+    });
     mock.method(supabase, 'from', fake.from);
     mock.method(console, 'error', () => {});
 
@@ -147,13 +159,23 @@ describe('PUT /api/categorias/:id — editar (actualización parcial)', () => {
   // El propio controlador tampoco lo convierte a número antes de la consulta.
   beforeEach(() => {
     fake = crearFakeSupabase({
-      categorias: [{ id: '1', nombre: 'Original', imagen_url: 'https://ejemplo.com/vieja.jpg', categoria_padre_id: 5 }]
+      categorias: [
+        {
+          id: '1',
+          nombre: 'Original',
+          imagen_url: 'https://ejemplo.com/vieja.jpg',
+          categoria_padre_id: 5
+        }
+      ]
     });
     mock.method(supabase, 'from', fake.from);
   });
 
   test('cambiar solo el nombre no toca imagen_url ni categoria_padre_id', async () => {
-    const res = await conAdmin(request(app).put('/api/categorias/1')).field('nombre', 'Nuevo nombre');
+    const res = await conAdmin(request(app).put('/api/categorias/1')).field(
+      'nombre',
+      'Nuevo nombre'
+    );
     assert.equal(res.status, 200);
     assert.equal(fake.tablas.categorias[0].nombre, 'Nuevo nombre');
     assert.equal(fake.tablas.categorias[0].imagen_url, 'https://ejemplo.com/vieja.jpg');
@@ -167,7 +189,10 @@ describe('PUT /api/categorias/:id — editar (actualización parcial)', () => {
   });
 
   test('categoria_padre_id vacío convierte la categoría en general (null)', async () => {
-    const res = await conAdmin(request(app).put('/api/categorias/1')).field('categoria_padre_id', '');
+    const res = await conAdmin(request(app).put('/api/categorias/1')).field(
+      'categoria_padre_id',
+      ''
+    );
     assert.equal(res.status, 200);
     assert.equal(fake.tablas.categorias[0].categoria_padre_id, null);
   });

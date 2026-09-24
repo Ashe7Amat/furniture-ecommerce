@@ -50,12 +50,24 @@ const crearFakeSupabase = ({
     if (salida === 'single') {
       return lista.length === 1
         ? { data: lista[0], error: null }
-        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+        : {
+            data: null,
+            error: {
+              code: 'PGRST116',
+              message: 'JSON object requested, multiple (or no) rows returned'
+            }
+          };
     }
     if (salida === 'maybe') {
       return lista.length <= 1
         ? { data: lista[0] ?? null, error: null }
-        : { data: null, error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' } };
+        : {
+            data: null,
+            error: {
+              code: 'PGRST116',
+              message: 'JSON object requested, multiple (or no) rows returned'
+            }
+          };
     }
     return { data: lista, error: null };
   };
@@ -137,7 +149,10 @@ const crearFakeSupabase = ({
           ids: afectadas.map((f) => f.id)
         });
       }
-      return aplicarSalida(afectadas.map((f) => ({ ...f })), consulta.salida);
+      return aplicarSalida(
+        afectadas.map((f) => ({ ...f })),
+        consulta.salida
+      );
     }
 
     if (consulta.accion === 'delete') {
@@ -149,7 +164,10 @@ const crearFakeSupabase = ({
       if (aBorrar.length > 0) {
         escrituras.push({ tabla: nombre, accion: 'delete', ids: aBorrar.map((f) => f.id) });
       }
-      return aplicarSalida(aBorrar.map((f) => ({ ...f })), consulta.salida);
+      return aplicarSalida(
+        aBorrar.map((f) => ({ ...f })),
+        consulta.salida
+      );
     }
 
     let encontradas = filas.filter(coincide);
@@ -199,7 +217,9 @@ const crearFakeSupabase = ({
       },
       // Como SQL: "columna <> valor" excluye las filas donde la columna es NULL
       neq: (columna, valor) => {
-        consulta.filtros.push((f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) !== valor);
+        consulta.filtros.push(
+          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) !== valor
+        );
         return usar('neq');
       },
       in: (columna, valores) => {

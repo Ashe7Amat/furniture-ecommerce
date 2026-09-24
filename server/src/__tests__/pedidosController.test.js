@@ -13,8 +13,12 @@ const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
-const tokenCliente = (email) => jwt.sign({ email, nombre: 'Cliente', rol: 'cliente' }, process.env.JWT_SECRET);
-const tokenAdmin = jwt.sign({ email: 'admin@test.com', nombre: 'Admin', rol: 'admin' }, process.env.JWT_SECRET);
+const tokenCliente = (email) =>
+  jwt.sign({ email, nombre: 'Cliente', rol: 'cliente' }, process.env.JWT_SECRET);
+const tokenAdmin = jwt.sign(
+  { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
+  process.env.JWT_SECRET
+);
 
 let fake;
 afterEach(() => mock.restoreAll());
@@ -23,9 +27,24 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
   beforeEach(() => {
     fake = crearFakeSupabase({
       pedidos: [
-        { id: 'p1', cliente_info: { email: 'ana@example.com' }, estado: 'entregado', created_at: '2026-01-01' },
-        { id: 'p2', cliente_info: { email: 'ANA@EXAMPLE.COM' }, estado: 'procesando', created_at: '2026-02-01' },
-        { id: 'p3', cliente_info: { email: 'otro@example.com' }, estado: 'enviado', created_at: '2026-01-15' }
+        {
+          id: 'p1',
+          cliente_info: { email: 'ana@example.com' },
+          estado: 'entregado',
+          created_at: '2026-01-01'
+        },
+        {
+          id: 'p2',
+          cliente_info: { email: 'ANA@EXAMPLE.COM' },
+          estado: 'procesando',
+          created_at: '2026-02-01'
+        },
+        {
+          id: 'p3',
+          cliente_info: { email: 'otro@example.com' },
+          estado: 'enviado',
+          created_at: '2026-01-15'
+        }
       ]
     });
     mock.method(supabase, 'from', fake.from);
@@ -51,7 +70,10 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
       .get('/api/pedidos/mios')
       .set('Authorization', `Bearer ${tokenCliente('ana@example.com')}`);
 
-    assert.deepEqual(res.body.map((p) => p.id), ['p2', 'p1']);
+    assert.deepEqual(
+      res.body.map((p) => p.id),
+      ['p2', 'p1']
+    );
   });
 
   test('un cliente sin pedidos recibe un array vacío, no un error', async () => {
@@ -139,14 +161,19 @@ describe('GET /api/pedidos — obtenerPedidos (solo admin)', () => {
   });
 
   test('con token de cliente (no admin), 403', async () => {
-    const res = await request(app).get('/api/pedidos').set('Authorization', `Bearer ${tokenCliente('x@example.com')}`);
+    const res = await request(app)
+      .get('/api/pedidos')
+      .set('Authorization', `Bearer ${tokenCliente('x@example.com')}`);
     assert.equal(res.status, 403);
   });
 
   test('con token de admin, devuelve todos los pedidos, más recientes primero', async () => {
     const res = await request(app).get('/api/pedidos').set('Authorization', `Bearer ${tokenAdmin}`);
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body.map((p) => p.id), ['p2', 'p1']);
+    assert.deepEqual(
+      res.body.map((p) => p.id),
+      ['p2', 'p1']
+    );
   });
 });
 

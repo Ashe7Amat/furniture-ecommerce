@@ -16,7 +16,10 @@ const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').e
 
 let enviar;
 beforeEach(() => {
-  enviar = mock.method(clasePeticiones, 'send', async () => ({ data: { id: 'email_1' }, error: null }));
+  enviar = mock.method(clasePeticiones, 'send', async () => ({
+    data: { id: 'email_1' },
+    error: null
+  }));
   mock.method(console, 'log', () => {});
   mock.method(console, 'error', () => {});
   mock.method(console, 'warn', () => {});
@@ -39,7 +42,10 @@ describe('enviarNotificacionVenta', () => {
       clienteInfo: {},
       total: 49.9
     });
-    assert.equal(enviar.mock.calls[0].arguments[0].subject, 'Nueva venta en Nave 5 Barcelona - 49.90 €');
+    assert.equal(
+      enviar.mock.calls[0].arguments[0].subject,
+      'Nueva venta en Nave 5 Barcelona - 49.90 €'
+    );
   });
 
   test('sin total explícito, se calcula sumando precio × cantidad de cada pieza', async () => {
@@ -51,7 +57,10 @@ describe('enviarNotificacionVenta', () => {
       clienteInfo: {}
     });
     // 2*30 + 1*40 = 100
-    assert.equal(enviar.mock.calls[0].arguments[0].subject, 'Nueva venta en Nave 5 Barcelona - 100.00 €');
+    assert.equal(
+      enviar.mock.calls[0].arguments[0].subject,
+      'Nueva venta en Nave 5 Barcelona - 100.00 €'
+    );
   });
 
   test('el HTML menciona el nombre de cada pieza y el total (sin comprobar el HTML entero)', async () => {
@@ -92,7 +101,10 @@ describe('enviarConfirmacionCliente', () => {
       clienteInfo: { email: 'x@example.com' },
       total: 50
     });
-    assert.equal(enviar.mock.calls[0].arguments[0].subject, 'Hemos recibido tu pedido - Nave 5 Barcelona');
+    assert.equal(
+      enviar.mock.calls[0].arguments[0].subject,
+      'Hemos recibido tu pedido - Nave 5 Barcelona'
+    );
   });
 
   test('sin email de cliente, no se envía nada (ni se lanza)', async () => {
@@ -123,7 +135,11 @@ describe('enviarEmailBienvenida', () => {
 
 describe('enviarMensajeContacto', () => {
   test('envía al ADMIN_EMAIL con replyTo puesto al email de quien escribió, y asunto con su nombre', async () => {
-    const resultado = await email.enviarMensajeContacto({ nombre: 'Carlos', email: 'carlos@example.com', mensaje: 'Hola' });
+    const resultado = await email.enviarMensajeContacto({
+      nombre: 'Carlos',
+      email: 'carlos@example.com',
+      mensaje: 'Hola'
+    });
     const envio = enviar.mock.calls[0].arguments[0];
     assert.equal(envio.to, 'admin@example.com');
     assert.equal(envio.replyTo, 'carlos@example.com');
@@ -133,13 +149,23 @@ describe('enviarMensajeContacto', () => {
 
   test('devuelve false (no lanza) si Resend responde con error', async () => {
     enviar.mock.mockImplementation(async () => ({ data: null, error: { message: 'fallo' } }));
-    const resultado = await email.enviarMensajeContacto({ nombre: 'Carlos', email: 'c@example.com', mensaje: 'Hola' });
+    const resultado = await email.enviarMensajeContacto({
+      nombre: 'Carlos',
+      email: 'c@example.com',
+      mensaje: 'Hola'
+    });
     assert.equal(resultado, false);
   });
 
   test('devuelve false (no lanza) si Resend lanza una excepción', async () => {
-    enviar.mock.mockImplementation(async () => { throw new Error('sin red'); });
-    const resultado = await email.enviarMensajeContacto({ nombre: 'Carlos', email: 'c@example.com', mensaje: 'Hola' });
+    enviar.mock.mockImplementation(async () => {
+      throw new Error('sin red');
+    });
+    const resultado = await email.enviarMensajeContacto({
+      nombre: 'Carlos',
+      email: 'c@example.com',
+      mensaje: 'Hola'
+    });
     assert.equal(resultado, false);
   });
 });

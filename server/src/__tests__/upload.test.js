@@ -21,7 +21,9 @@ describe('uploadToSupabase', () => {
   beforeEach(async () => {
     bufferImagenValida = await sharp({
       create: { width: 2, height: 2, channels: 3, background: { r: 200, g: 100, b: 50 } }
-    }).png().toBuffer();
+    })
+      .png()
+      .toBuffer();
     mock.method(console, 'error', () => {});
     mock.method(console, 'log', () => {});
   });
@@ -41,7 +43,9 @@ describe('uploadToSupabase', () => {
   test('camino feliz: optimiza a WebP, sube al bucket "imagenes" y devuelve la URL pública', async () => {
     const upload = mock.fn(async () => ({ data: { path: 'x' }, error: null }));
     const getPublicUrl = mock.fn((fileName) => ({
-      data: { publicUrl: `https://ejemplo.supabase.co/storage/v1/object/public/imagenes/${fileName}` }
+      data: {
+        publicUrl: `https://ejemplo.supabase.co/storage/v1/object/public/imagenes/${fileName}`
+      }
     }));
     const fromSpy = mock.method(supabase.storage, 'from', (bucket) => {
       assert.equal(bucket, 'imagenes');
@@ -70,7 +74,11 @@ describe('uploadToSupabase', () => {
       getPublicUrl: (fileName) => ({ data: { publicUrl: `https://x/${fileName}` } })
     }));
 
-    await uploadToSupabase({ buffer: bufferImagenValida, originalname: 'foto.png', mimetype: 'image/png' });
+    await uploadToSupabase({
+      buffer: bufferImagenValida,
+      originalname: 'foto.png',
+      mimetype: 'image/png'
+    });
 
     const [fileName] = upload.mock.calls[0].arguments;
     assert.match(fileName, /^uploads\//);
@@ -104,7 +112,10 @@ describe('uploadToSupabase', () => {
     }));
 
     await assert.rejects(
-      uploadToSupabase({ buffer: bufferImagenValida, originalname: 'foto.png', mimetype: 'image/png' }, 'muebles'),
+      uploadToSupabase(
+        { buffer: bufferImagenValida, originalname: 'foto.png', mimetype: 'image/png' },
+        'muebles'
+      ),
       (error) => error.message === 'bucket lleno'
     );
     assert.equal(getPublicUrl.mock.callCount(), 0);

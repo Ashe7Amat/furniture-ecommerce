@@ -23,13 +23,19 @@ afterEach(() => mock.restoreAll());
 
 describe('Sin RESEND_API_KEY, cada función solo simula (loguea) y no lanza', () => {
   test('enviarNotificacionVenta', async () => {
-    await assert.doesNotReject(email.enviarNotificacionVenta({ items: [], clienteInfo: {}, total: 10 }));
+    await assert.doesNotReject(
+      email.enviarNotificacionVenta({ items: [], clienteInfo: {}, total: 10 })
+    );
     assert.ok(logs.some((l) => l.includes('SIMULACIÓN')));
   });
 
   test('enviarConfirmacionCliente (con email de cliente, para llegar al bloque de simulación)', async () => {
     await assert.doesNotReject(
-      email.enviarConfirmacionCliente({ items: [], clienteInfo: { email: 'x@example.com' }, total: 10 })
+      email.enviarConfirmacionCliente({
+        items: [],
+        clienteInfo: { email: 'x@example.com' },
+        total: 10
+      })
     );
     assert.ok(logs.some((l) => l.includes('SIMULACIÓN')));
   });
@@ -40,7 +46,11 @@ describe('Sin RESEND_API_KEY, cada función solo simula (loguea) y no lanza', ()
   });
 
   test('enviarMensajeContacto devuelve true (se considera "enviado" en simulación)', async () => {
-    const resultado = await email.enviarMensajeContacto({ nombre: 'Ana', email: 'a@example.com', mensaje: 'Hola' });
+    const resultado = await email.enviarMensajeContacto({
+      nombre: 'Ana',
+      email: 'a@example.com',
+      mensaje: 'Hola'
+    });
     assert.equal(resultado, true);
     assert.ok(logs.some((l) => l.includes('SIMULACIÓN')));
   });
