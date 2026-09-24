@@ -11,7 +11,7 @@ conversación.
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño en `docs/tarea4-diseno.md`, pendiente de revisión; tests de caracterización antes de mover código. Hallazgos previos: H12 y H13 |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13 y H14 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
@@ -456,6 +456,18 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   | `AuthModal.jsx:36, 46` · `Login.jsx:27, 85, 94` · `Profile.jsx:75` · `Contact.jsx:35` · `CheckoutModal.jsx:131` · `CheckoutExito.jsx:24` | Sí (contrato B) | Correcto |
 
   `checkoutCart` no tiene ninguna llamada: es el checkout antiguo, anterior a Stripe (código muerto).
+- **Qué devuelven cuando van bien** (comprobado el 24 sep leyendo `api.js` y los controladores): las 7 escrituras
+  del contrato A devuelven `await response.json()`. El servidor contesta siempre 200 o 201 con un objeto:
+  `{ success, message, data }` en muebles, `{ success, data }` o `{ success, message }` en categorías, y la fila
+  actualizada en pedidos. Ninguna responde 204 sin cuerpo, así que en éxito el valor es siempre un objeto
+  (verdadero) y **`if (!res)` distingue bien el éxito del error**: el arreglo de la opción 1 puede usarlo.
+  Hay que vigilarlo en el `apiFetch` de la 3b: si algún endpoint pasara a 204, `response.json()` fallaría y un
+  éxito volvería como `null`.
+- **Qué hace fallar hoy esas 4 llamadas:** las dos claves foráneas que apuntan a `categorias`
+  (`muebles.categoria_id` y `categorias.categoria_padre_id`) son `ON DELETE SET NULL`, así que borrar una
+  categoría en uso no falla (consultado en la base de datos real). Borrar un id que ya no existe tampoco: Supabase
+  borra 0 filas sin error y el servidor contesta 200. Lo que sí las hace fallar es un token caducado (401/403),
+  un error de red o un 500. Son los casos que deben simular los tests del arreglo.
 - **Los otros efectos del mismo patrón, en lecturas (contrato C):**
   - Si `getPedidos` falla (por ejemplo, por un token caducado), el panel dice "Todavía no se ha registrado ningún
     pedido".
@@ -498,6 +510,28 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   pero el selector de archivos se ve vacío al volver, y como es obligatorio el navegador pide elegirlos otra vez.
 - **Cuándo se decide:** con el cliente, sin prisa. Después de la tarea 4, cambiarlo es trivial: se mueve ese estado
   del contenedor a la pestaña y se vacía al desmontarla.
+
+### H14 · BAJA · UX · Un solo `status` para todos los formularios del panel
+
+- **Hoy:** `Admin` tiene un único estado `status` para el mensaje de progreso o error. Lo escriben cuatro
+  manejadores:
+  - añadir mueble: "Guardando producto..." y "Error al guardar en base de datos.";
+  - crear categoría: "Creando categoría...";
+  - editar mueble y editar categoría: "Actualizando producto/categoría..." y "Error al actualizar.".
+
+  Los pedidos no lo usan: su cambio de estado solo avisa con un toast. El texto **solo se pinta en "Añadir
+  mueble"**, y los botones se desactivan buscando palabras dentro de él.
+- **Efectos que ya se dan hoy** (no los introduce la tarea 4, que conserva un solo `status` a propósito):
+  - **El error viaja de formulario.** Si falla guardar el modal de edición, `status` se queda en "Error al
+    actualizar." (en los fallos no se limpia). Al ir a "Añadir mueble", ese mensaje sale debajo del formulario de
+    alta como si hubiera fallado él.
+  - **"Crear Categoría" nunca se desactiva:** un doble clic manda dos altas antes de que vuelva la primera.
+  - **Condición muerta:** "Guardar Producto" se desactiva si `status` contiene "Subiendo", pero ese texto no se
+    escribe en ningún sitio.
+- **Propuesta, después de la tarea 4 y en su propio commit:** un estado de envío por formulario, local a su pestaña
+  o a su modal. El botón se desactiva mientras ese envío está en curso, y el mensaje sale junto a su formulario.
+  Con las pestañas separadas es un cambio pequeño, pero cambia qué mensaje se ve dónde, así que va con sus tests y
+  no dentro del refactor.
 
 ## Decisiones de diseño a recordar
 

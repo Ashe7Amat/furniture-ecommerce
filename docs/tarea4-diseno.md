@@ -1,7 +1,9 @@
 # Tarea 4 — Diseño: partir `Admin.jsx` por pestañas
 
-> **Estado: propuesta para revisión** (23 sep 2026). Decisiones de enfoque ya aprobadas: conservar el estado al
-> cambiar de pestaña, no llevar las pestañas a la URL y escribir tests de caracterización antes de mover código.
+> **Estado: aprobado** (24 sep 2026), con los cuatro ajustes de la revisión incorporados: valor de retorno en éxito
+> (H12), casos de la categoría preseleccionada (secciones 5 y 6), `status` compartido (H14) y plan de
+> comprobación en el navegador (sección 6). Decisiones de enfoque: conservar el estado al cambiar de pestaña, no
+> llevar las pestañas a la URL y escribir tests de caracterización antes de mover código.
 > Rama `feature/mejoras-tecnicas`. No toca `main`, ni la base de datos, ni el servidor.
 
 ## 1. Punto de partida (comprobado leyendo el código)
@@ -26,6 +28,7 @@
     respuesta (H12). **No se arregla en este refactor**: va después, en su propio commit.
   - El bloque "Avisos / Últimas Ventas" del resumen no lee pedidos: lista las piezas con `estado` vendido o
     alquilado, sin orden. Es un nombre engañoso; se anota, no se toca.
+  - Un solo `status` para todos los formularios, con sus efectos cruzados (H14).
 
 ## 2. Estructura de archivos
 
@@ -79,7 +82,7 @@ client/src/pages/
   escriben el formulario de crear, el de categorías y los dos modales. Solo se pinta en "Añadir mueble", y los
   botones de los modales se desactivan según su texto. Para no cambiar nada, **sigue siendo uno y vive en el
   contenedor**, que pasa `status` y `setStatus` a quien los usa hoy. Separarlo por formulario es razonable, pero
-  cambiaría qué mensaje se ve en qué pestaña: no en este refactor.
+  cambiaría qué mensaje se ve en qué pestaña: no en este refactor. Anotado como H14 en `mejoras-tecnicas.md`.
 - **Barra lateral:** una lista `PESTANAS = [{ id, etiqueta, icono }]` en el contenedor genera los botones, con el
   mismo HTML y las mismas clases que hoy (incluida la insignia de pedidos pendientes). Es lo que hace que añadir
   "Reservas" sea una entrada más (sección 7).
@@ -115,10 +118,33 @@ Criterio aprobado: **lo que hoy sobrevive a un cambio de pestaña sigue en el co
 | Listas derivadas (filtradas, página visible, totales del resumen) | Local: `useMemo` / cálculo en la pestaña | Se recalculan; no son estado |
 | `ESTADOS_PEDIDO`, `ETIQUETA_ESTADO_PEDIDO`, `PAGE_SIZE` | Constantes de módulo | No cambian nunca |
 
-**Detalle que hay que conservar:** hoy `cargarCategorias()` pone la primera categoría específica en
-`formData.categoria` si está vacía. Con `useAdminDatos`, eso pasa a un `useEffect` del contenedor sobre `categorias`.
-En la práctica es equivalente, porque `categorias` solo cambia al recargarlas. Tiene su propio test de
-caracterización ("al abrir Añadir mueble, la categoría preseleccionada es la primera específica").
+**Detalle que hay que conservar:** hoy `cargarCategorias()` pone la primera categoría específica (la primera con
+`categoria_padre_id`, en el orden de la API) en `formData.categoria`, **solo si está vacía**. Se ejecuta al montar
+y cada vez que se recargan las categorías, pero no al crear un mueble. Con `useAdminDatos`, eso pasa a un
+`useEffect` del contenedor que tiene que cumplir dos cosas:
+
+```js
+useEffect(() => {
+  const especificas = categorias.filter(c => c.categoria_padre_id);
+  if (especificas.length > 0 && !formData.categoria) {
+    setFormData(prev => ({ ...prev, categoria: especificas[0].nombre }));
+  }
+  // Solo [categorias], a propósito: ver caso C.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [categorias]);
+```
+
+- **La condición `!formData.categoria`**: sin ella se pisa lo que el usuario ya eligió (caso B).
+- **Depender solo de `categorias`**, no de `formData.categoria`: si dependiera de las dos, el efecto rellenaría la
+  categoría justo después de vaciar el formulario al crear un mueble (caso C), y hoy eso no pasa.
+
+Los tres casos tienen su test de caracterización (sección 6):
+- **Caso A:** al entrar con la categoría vacía, "Añadir mueble" preselecciona la primera específica. Si solo hay
+  categorías generales, no preselecciona nada.
+- **Caso B:** el usuario elige "Mesas" en "Añadir mueble", va a Categorías, crea una categoría nueva (eso recarga
+  las categorías) y vuelve. La categoría sigue siendo "Mesas".
+- **Caso C:** tras crear un mueble con éxito, el formulario se vacía y la categoría queda en "Selecciona una
+  categoría", sin volver a rellenarse hasta la siguiente recarga de categorías.
 
 ## 6. Estrategia de tests
 
@@ -130,16 +156,17 @@ verde, **sin tocarlos**, en cada commit del refactor. Es el invariante que demue
   `Provider`. Es el mismo patrón que los tests de `Header`, `CartDrawer` y `CheckoutModal` de la tarea 5. **No se
   usa `fakeSupabase.js`**: ese doble es del servidor. El cliente solo habla con `api.js`.
 - **Un archivo por pestaña**, no uno monolítico. Todos montan `<Admin />` (antes del refactor no hay pestañas
-  sueltas) y entran por la barra lateral:
+  sueltas) con un ayudante común (`renderAdmin`, en `pages/adminTestUtils.jsx`) y entran por la barra lateral:
   - `Admin.resumen.test.jsx`: contadores, valor en stock, alertas de fotos y categoría, botón "Ver inventario".
   - `Admin.crear.test.jsx`: `FormData` enviado (con `categoria_id`), éxito que limpia y lleva al inventario, error.
+    Casos A y C de la categoría preseleccionada (sección 5).
   - `Admin.inventario.test.jsx`: búsqueda, filtros, orden, paginación de 20 en 20, selección de página, lote
     (estado y borrado), estado en línea, borrado con confirmación.
   - `Admin.pedidos.test.jsx`: filtro por estado, cambio de estado (éxito y error), datos del cliente.
   - `Admin.categorias.test.jsx`: crear (general y dentro de otra), editar, borrar, agrupación por categoría general.
   - `Admin.modales.test.jsx`: editar mueble (fotos existentes y nuevas) y editar categoría.
   - `Admin.navegacion.test.jsx`: cambiar de pestaña y volver **conserva** filtros, página y formularios a medio
-    rellenar.
+    rellenar. Caso B de la categoría preseleccionada (sección 5), que cruza dos pestañas.
 - **Los tests describen lo que hace hoy, aunque esté mal.** Los casos del H12 llevan este comentario y se cambiarán
   en el commit del arreglo, no antes:
   ```js
@@ -147,11 +174,36 @@ verde, **sin tocarlos**, en cada commit del refactor. Es el invariante que demue
   ```
 - **Consultas:** por rol, etiqueta y texto visible. **Nada de instantáneas (snapshots):** romperían con cualquier
   cambio de marcado y no dirían qué comportamiento se ha perdido.
+- **Comprobación por mutación:** antes de commitear cada archivo de caracterización se meten fallos deliberados en
+  `Admin.jsx`, de uno en uno, con un script que restaura el archivo al terminar. Después se comprueba que algún test
+  detecta cada fallo. Si un fallo no lo detecta ningún test, falta un test o hay uno que no comprueba nada. En el
+  test del resumen se detectaron los 10 fallos. Se repite con cada pestaña.
 - **Durante el refactor** se añaden tests unitarios de las piezas nuevas que tienen lógica: `useInventarioVista`
   (con `renderHook`), `categorias.js` y `SelectorCategoria`.
-- **Comprobación en el navegador al final:** servidor y cliente en local contra la API y recorrido de solo lectura
-  por las cinco pestañas: filtros, paginación, abrir y cerrar modales sin guardar. Si hace falta probar guardar o
-  borrar, será con una pieza de prueba creada y borrada con tu permiso, como en la verificación de multer.
+- **Comprobación en el navegador al final**, en dos sitios y siempre de solo lectura:
+  - **El recorrido:** navegar por las cinco pestañas; en el inventario, búsqueda, filtros, orden y paginación;
+    filtro de pedidos; abrir y cerrar sin guardar los dos modales de edición; y cambiar de pestaña y volver para
+    ver que se conservan filtros y formularios. Si hace falta probar guardar o borrar, será con una pieza de
+    prueba creada y borrada con tu permiso, como en la verificación de multer.
+  - **En local** (`npm run dev` en `client/`), contra el servidor local o contra la API de producción. Las dos
+    opciones funcionan sin tocar nada: `http://localhost:5173` ya está en la lista de CORS del servidor. Las dos
+    leen la base de datos real, por eso el recorrido es de solo lectura. El inicio de sesión como administrador lo
+    haces tú: yo no escribo contraseñas.
+  - **En el despliegue de vista previa de Vercel, antes del merge a `main`.** Así, si el refactor rompe algo, se ve
+    sin tocar producción. Tiene tres requisitos, y los dos primeros necesitan tu permiso:
+    1. Subir la rama (`git push`). El 24 sep, `origin/feature/mejoras-tecnicas` iba 14 commits por detrás.
+    2. Añadir la URL de vista previa **de la rama** (la estable, `…-git-feature-mejoras-tecnicas-….vercel.app`,
+       no la de cada despliegue) a `ALLOWED_ORIGINS` en el servidor de producción. Desde la tarea 2, CORS solo
+       admite orígenes exactos.
+    3. Comprobar que `VITE_API_URL` está definida para el entorno Preview del cliente. Si no, la vista previa
+       apunta a `localhost:5000`.
+
+    **Sin el punto 2 el panel sale vacío y parece un fallo del refactor:** la llamada falla por CORS, y con el
+    contrato C (H12) un fallo de carga se ve igual que una lista vacía. Si no se quiere tocar `ALLOWED_ORIGINS`,
+    la comprobación en local basta.
+  - **Si algo falla:** `git bisect` sobre los commits del refactor (6 a 11), con el commit 5 marcado como bueno: los
+    commits de tests 1 a 5 no cambian la aplicación. Cada commit pasa el gate, así que cualquiera se puede arrancar
+    y recorrer.
 
 ## 7. Encaje de `AdminReservas` (bloque R-d de reservas)
 
@@ -184,11 +236,13 @@ Cada commit con su gate (`npm run lint` + `npm test` en `client/` y `server/`) y
 commitear. **Desde el commit 6, los tests de caracterización no se tocan**: si alguno falla, el refactor ha cambiado
 algo y se corrige el refactor, no el test.
 
-1. `test(client): caracterización del panel — navegación y resumen`
+1. `test(client): caracterización del panel — resumen`, con el ayudante `renderAdmin`
 2. `test(client): caracterización del panel — añadir mueble`
 3. `test(client): caracterización del panel — inventario`
 4. `test(client): caracterización del panel — pedidos y categorías`
-5. `test(client): caracterización del panel — modales de edición`
+5. `test(client): caracterización del panel — modales de edición y navegación`. La navegación va aquí y no en el
+   commit 1 porque comprueba que se conserva el estado de "Añadir mueble", del inventario y de categorías: tiene
+   más sentido cuando esas pestañas ya están caracterizadas.
 6. `refactor(client): extraer Icon, SelectorCategoria y utilidades de categorías del panel`
 7. `refactor(client): hooks del panel (datos, vista de inventario, confirmación)`, con tests unitarios
 8. `refactor(client): pestañas Resumen y Añadir mueble`
@@ -211,3 +265,5 @@ que cambia a propósito los tests marcados con el comentario de caracterización
 | Cambiar el HTML y romper `Admin.css` | Mismas clases y misma posición de los modales; se revisa en el navegador |
 | Conflictos con la tarea 3 | Se toca `categoria_id` solo para moverlo. La migración A5 (quitar `categoria`) será más fácil después: el selector estará en un solo sitio. 3b cambia `api.js` y `AuthContext`, no el panel |
 | Que el arreglo de H12 cambie cómo se escriben estos tests | H12 se decide antes de empezar (ver `mejoras-tecnicas.md`): el arreglo no cambia el contrato de `api.js` en esta fase, así que los mocks de hoy siguen valiendo |
+| Que el `useEffect` de la categoría preseleccionada pise la elección del usuario o rellene el formulario recién vaciado | La condición y las dependencias exactas de la sección 5, y los tests de los casos A, B y C |
+| Que la vista previa de Vercel salga vacía por CORS y se tome por un fallo del refactor | Los requisitos de la sección 6. Si no se cumplen, basta la comprobación en local |
