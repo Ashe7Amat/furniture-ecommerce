@@ -88,8 +88,34 @@ for (const m of [control, ...listas.flatMap(l => l.MUTANTES)]) {
   originales.set(archivo, readFileSync(archivo, 'utf8'));
 }
 
+// En Windows, otro proceso (el antivirus, el indexador, un editor) puede tener el archivo abierto
+// un instante y la escritura falla con EBUSY, EPERM o UNKNOWN. Pasó una vez (24 sep 2026) justo al
+// restaurar, y Admin.jsx se quedó con un mutante dentro. Así que cada escritura se reintenta.
+const ERRORES_PASAJEROS = new Set(['EBUSY', 'EPERM', 'EACCES', 'UNKNOWN']);
+const escribir = (archivo, contenido) => {
+  for (let intento = 1; ; intento++) {
+    try {
+      writeFileSync(archivo, contenido);
+      return;
+    } catch (e) {
+      if (!ERRORES_PASAJEROS.has(e.code) || intento === 20) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250); // espera 250 ms
+    }
+  }
+};
+
 const restaurarTodo = () => {
-  for (const [archivo, contenido] of originales) writeFileSync(archivo, contenido);
+  for (const [archivo, contenido] of originales) {
+    try {
+      escribir(archivo, contenido);
+    } catch (e) {
+      console.error(
+        `\n¡NO SE HA PODIDO RESTAURAR ${archivo}! (${e.code}). Puede haberse quedado con un mutante dentro.` +
+          ` Restáuralo con: git checkout -- "${archivo}"`
+      );
+      process.exitCode = 1;
+    }
+  }
 };
 const abortar = (mensaje) => {
   restaurarTodo();
@@ -132,14 +158,14 @@ const probarMutante = (m, test) => {
   const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
   const texto = originales.get(archivo).replace(/\r\n/g, '\n');
   if (!texto.includes(m.buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
-  writeFileSync(archivo, texto.replace(m.buscar, m.reemplazo));
+  escribir(archivo, texto.replace(m.buscar, m.reemplazo));
   try {
     const { fallidos, archivosFallidos } = correrTest(test);
     if (fallidos > 0) return { resultado: 'matado', detalle: `MATADO (${fallidos})` };
     if (archivosFallidos > 0) return { resultado: 'matado', detalle: 'MATADO (carga)' };
     return { resultado: 'sobrevive', detalle: 'SOBREVIVE' };
   } finally {
-    writeFileSync(archivo, originales.get(archivo));
+    escribir(archivo, originales.get(archivo));
   }
 };
 
