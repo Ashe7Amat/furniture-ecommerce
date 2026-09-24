@@ -69,11 +69,25 @@ const crearFakeSupabase = ({
     return fila?.[base]?.[clave];
   };
 
-  // Traduce un patrón LIKE/ILIKE ('%' = cualquier cosa, incluido nada) a una regex. ILIKE es
-  // igual pero sin distinguir mayúsculas/minúsculas -- justo lo que hace falta aquí.
+  // Traduce un patrón LIKE/ILIKE a una regex, con la semántica de PostgREST + Postgres
+  // (comprobada contra el PostgREST real, ver utils/ilike.js):
+  //   '%' y '*' (alias de PostgREST) = cualquier secuencia, incluida la vacía
+  //   '_' = exactamente un carácter
+  //   '\' = el carácter siguiente se toma literal
+  // ILIKE además no distingue mayúsculas. Antes solo entendía '%': tomaba '_' y '\' como
+  // literales, y eso ocultaba H17 (un '_' en el email de la cuenta coincidía con otro email).
+  const escaparRegex = (caracter) => caracter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const comodinARegex = (patron) => {
-    const escapado = String(patron).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`^${escapado.replace(/%/g, '.*')}$`, 'i');
+    const texto = String(patron);
+    let regex = '';
+    for (let i = 0; i < texto.length; i++) {
+      const caracter = texto[i];
+      if (caracter === '\\' && i + 1 < texto.length) regex += escaparRegex(texto[++i]);
+      else if (caracter === '%' || caracter === '*') regex += '[\\s\\S]*';
+      else if (caracter === '_') regex += '[\\s\\S]';
+      else regex += escaparRegex(caracter);
+    }
+    return new RegExp(`^${regex}$`, 'i');
   };
 
   const ejecutar = (nombre, consulta) => {
@@ -192,8 +206,8 @@ const crearFakeSupabase = ({
         consulta.filtros.push((f) => valores.includes(valorDeColumna(f, columna)));
         return usar('in');
       },
-      // Comparación de texto sin distinguir mayúsculas/minúsculas, con '%' como comodín
-      // (igual que ILIKE de Postgres). Admite columnas jsonb tipo 'cliente_info->>email'.
+      // Comparación de texto sin distinguir mayúsculas/minúsculas, con los comodines de ILIKE
+      // (ver comodinARegex). Admite columnas jsonb tipo 'cliente_info->>email'.
       ilike: (columna, patron) => {
         const regex = comodinARegex(patron);
         consulta.filtros.push((f) => {

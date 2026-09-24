@@ -100,4 +100,13 @@ describe('GET /api/muebles/buscar — buscarMuebles', () => {
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, []);
   });
+
+  test('los "_", "%" y "*" del término se buscan literales, no como comodines', async () => {
+    // Sin escapar, "sill_" y "s%a" coincidían con "Silla de madera" y con "SILLÓN vintage".
+    for (const termino of ['sill_', 's%a', 's*a']) {
+      const res = await request(app).get(`/api/muebles/buscar?q=${encodeURIComponent(termino)}`);
+      assert.equal(res.status, 200);
+      assert.deepEqual(res.body, [], `"${termino}" no debería coincidir con nada`);
+    }
+  });
 });

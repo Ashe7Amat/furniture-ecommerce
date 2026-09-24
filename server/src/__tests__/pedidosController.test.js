@@ -64,6 +64,64 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
   });
 });
 
+describe('GET /api/pedidos/mios — H17: el email de la cuenta no hace de patrón', () => {
+  // El registro acepta emails con '_' y no verifica que el email sea de quien se registra (H18).
+  // Sin escapar, "juan_perez@example.com" coincidía por ILIKE con "juan.perez@example.com".
+  beforeEach(() => {
+    fake = crearFakeSupabase({
+      pedidos: [
+        {
+          id: 'ajeno',
+          cliente_info: { email: 'juan.perez@example.com' },
+          estado: 'entregado',
+          created_at: '2026-01-01'
+        },
+        {
+          id: 'propio',
+          cliente_info: { email: 'juan_perez@example.com' },
+          estado: 'procesando',
+          created_at: '2026-02-01'
+        }
+      ]
+    });
+    mock.method(supabase, 'from', fake.from);
+  });
+
+  test('una cuenta con "_" en el email NO ve el pedido de otro email que solo cambia en ese carácter', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('juan_perez@example.com')}`);
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      res.body.map((p) => p.id),
+      ['propio']
+    );
+  });
+
+  test('la cuenta del otro email tampoco ve el pedido de la del "_"', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('juan.perez@example.com')}`);
+
+    assert.deepEqual(
+      res.body.map((p) => p.id),
+      ['ajeno']
+    );
+  });
+
+  test('con el email en otras mayúsculas, sigue viendo solo los suyos', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('JUAN_PEREZ@EXAMPLE.COM')}`);
+
+    assert.deepEqual(
+      res.body.map((p) => p.id),
+      ['propio']
+    );
+  });
+});
+
 describe('GET /api/pedidos — obtenerPedidos (solo admin)', () => {
   beforeEach(() => {
     fake = crearFakeSupabase({

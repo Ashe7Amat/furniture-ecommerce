@@ -3,10 +3,13 @@
 // Panel de administración: consulta y gestión de los pedidos generados por el checkout
 // (ver procesarSesionPagada() en utils/pagos.js, que es quien los crea).
 const supabase = require('../data/supabase');
+const { escaparIlike } = require('../utils/ilike');
 
 // 0. Listar los pedidos del cliente logueado (para su "Historial de Pedidos" en Mi Cuenta).
 //    El checkout es de invitado y no guarda un user_id, así que se identifican por el email
-//    con el que compró, comparado con el email de la cuenta logueada.
+//    con el que compró, comparado con el email de la cuenta logueada. ILIKE para no distinguir
+//    mayúsculas, pero con el email ESCAPADO: sin escapar, un "_" del email hacía de comodín y una
+//    cuenta "j_an@x.com" veía los pedidos de "juan@x.com" (H17).
 const obtenerMisPedidos = async (req, res) => {
   try {
     const email = req.usuario?.email;
@@ -17,7 +20,7 @@ const obtenerMisPedidos = async (req, res) => {
     const { data, error } = await supabase
       .from('pedidos')
       .select('*')
-      .ilike('cliente_info->>email', email)
+      .ilike('cliente_info->>email', escaparIlike(email))
       .order('created_at', { ascending: false });
 
     if (error) throw error;

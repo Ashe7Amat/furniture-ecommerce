@@ -600,7 +600,49 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   `services/api.test.js`, los tests del panel y dos mutantes nuevos.
 - **Queda por decidir:** el público sigue viendo los cambios con retraso, normalmente de 1 a 3 minutos y algo
   más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
-  cambio de más consultas a Supabase.
+  cambio de más consultas a Supabase. Recomendación del revisor: no tocarlo mientras el cliente no lo note.
+
+### H17 · ALTA · CORREGIDO (pendiente de desplegar) · "Mis pedidos" enseñaba pedidos de otras personas
+
+- **El fallo:** `obtenerMisPedidos` buscaba con `.ilike('cliente_info->>email', email)`, usando el email de la
+  cuenta como patrón. En ILIKE, `_` es "un carácter cualquiera", y `supabase-js` pasa el patrón sin escapar.
+  El registro acepta emails con `_` y no verifica que el email sea de quien se registra (H18). Así, una cuenta
+  "j_an.perez@gmail.com" veía en "Mis pedidos" los de "juan.perez@gmail.com": nombre, email, teléfono,
+  dirección y productos.
+- **Comprobado (24 sep, solo lectura):**
+  - En la base de datos, un patrón hecho con el email de un pedido real, cambiando una letra por `_`,
+    devolvía ese pedido.
+  - En el PostgREST real, con `supabase-js`, la misma consulta de H17 devolvía 1 pedido ajeno sin escapar y 0
+    escapando. El dueño seguía viendo el suyo, también con el email en mayúsculas.
+  - PostgREST trata además `*` como alias de `%`.
+- **Arreglo:** `utils/ilike.js` → `escaparIlike`, que antepone `\` a `\`, `%`, `_` y `*`. Se usa en los dos
+  únicos `.ilike()` del servidor (`grep` de `.ilike`/`.like`/`.or`): "Mis pedidos" y `buscarMuebles`. En la
+  búsqueda del catálogo no había riesgo, pero así lo que escribe el usuario se busca tal cual.
+- **El doble en memoria ocultaba el fallo:** `fakeSupabase` solo entendía `%`, y tomaba `_` y `\` como
+  literales. Ahora sigue la semántica de Postgres y PostgREST. Tiene tests propios que repiten los casos
+  comprobados contra el PostgREST real.
+- **Tests:**
+  - `ilike.test.js`: la función y la fidelidad del doble.
+  - `pedidosController.test.js`: "j_an" no ve lo de "juan", ni al revés.
+  - `mueblesLecturaYBusqueda.test.js`: la búsqueda es literal.
+  - Contrato contra el PostgREST real, fuera de `npm test`: `npm run test:supabase-ilike`. Es de solo lectura
+    y solo consulta `categorias`, que es pública.
+  - Deshaciendo el arreglo pieza a pieza, algún test falla en los 4 casos.
+- **No cierra el problema de fondo:** sin escapar, cualquier comodín dejaba ver pedidos ajenos. Pero aunque no
+  haya comodines, quien registre el email exacto de otra persona sigue viendo sus pedidos de invitado. Eso es
+  H18. La migración B (`cliente_id`) ayudará con los pedidos de clientes con cuenta, pero los de invitado
+  seguirán cruzándose por email.
+
+### H18 · ALTA · PENDIENTE (tarea futura, con el cliente) · El registro no verifica el email
+
+- **Hoy** cualquiera puede crear una cuenta con el email de otra persona: no se envía confirmación. Combinado
+  con H17, permitía ver pedidos ajenos con un email parecido. Aun con H17 corregido, quien registre el email
+  exacto de otra persona (si todavía no tiene cuenta) ve sus pedidos de invitado.
+- **Arreglo:** enviar un email de verificación con Resend, que ya está integrado, y no activar la cuenta, o no
+  dar acceso a "Mis pedidos", hasta que se confirme. El login con Google no tiene este problema: Google ya
+  entrega el email verificado.
+- **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
+  "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
 
 ## Decisiones de diseño a recordar
 
