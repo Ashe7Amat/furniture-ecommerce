@@ -19,6 +19,10 @@
 //   ];
 // - `buscar` tiene que aparecer tal cual en el archivo (saltos de línea como \n, sin \r). Se cambia
 //   solo la primera aparición. Si no aparece, el mutante sale como NO ENCONTRADO.
+// - `cambios: [{ buscar, reemplazo }, ...]` (en vez de `buscar` y `reemplazo`): para un fallo que
+//   necesita tocar varios sitios del mismo archivo (p. ej. un estado nuevo, quien lo cambia y quien
+//   lo lee). Se aplican en orden, cada uno sobre el resultado del anterior. Si alguno no aparece, el
+//   mutante sale como NO ENCONTRADO.
 // - `archivo` (opcional, por defecto src/pages/Admin.jsx): después del refactor, el código vive en
 //   src/pages/admin/..., y cada mutante tiene que apuntar a su archivo nuevo.
 // - `sobreviveAqui` (opcional): el motivo por el que se espera que el mutante sobreviva con este
@@ -156,9 +160,12 @@ const correrTest = (test) => {
 // Aplica un mutante, corre el test y restaura. Devuelve 'no-encontrado', 'matado' o 'sobrevive'.
 const probarMutante = (m, test) => {
   const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
-  const texto = originales.get(archivo).replace(/\r\n/g, '\n');
-  if (!texto.includes(m.buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
-  escribir(archivo, texto.replace(m.buscar, m.reemplazo));
+  let texto = originales.get(archivo).replace(/\r\n/g, '\n');
+  for (const { buscar, reemplazo } of m.cambios ?? [m]) {
+    if (!texto.includes(buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
+    texto = texto.replace(buscar, reemplazo);
+  }
+  escribir(archivo, texto);
   try {
     const { fallidos, archivosFallidos } = correrTest(test);
     if (fallidos > 0) return { resultado: 'matado', detalle: `MATADO (${fallidos})` };
