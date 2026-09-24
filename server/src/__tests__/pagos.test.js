@@ -147,6 +147,88 @@ describe('procesarSesionPagada — compra normal', () => {
   });
 });
 
+describe('procesarSesionPagada — cliente_id (migración B)', () => {
+  const sesionConEmail = (clienteEmail) => {
+    const base = crearSesion();
+    return { ...base, metadata: { ...base.metadata, clienteEmail } };
+  };
+  const pedidoGuardado = () => fake.tablas.pedidos[0];
+
+  test('si el email del comprador es el de una cuenta, el pedido guarda su id (sin distinguir mayúsculas)', async () => {
+    instalarDobles({ clientes: [{ id: 'cliente-ana', email: 'ANA@example.com' }] });
+
+    await procesarSesionPagada(crearSesion()); // compra con "ana@example.com"
+
+    assert.equal(pedidoGuardado().cliente_id, 'cliente-ana');
+  });
+
+  test('compra de invitado (el email no es de ninguna cuenta): cliente_id queda a null', async () => {
+    instalarDobles({ clientes: [{ id: 'cliente-otro', email: 'otro@example.com' }] });
+
+    const resultado = await procesarSesionPagada(crearSesion());
+
+    assert.equal(resultado.estado, 'procesada');
+    assert.equal(pedidoGuardado().cliente_id, null);
+  });
+
+  test('un "_" en el email del comprador no hace de comodín (H17): no se asigna a otra cuenta', async () => {
+    instalarDobles({ clientes: [{ id: 'cliente-juan', email: 'juan.perez@example.com' }] });
+
+    await procesarSesionPagada(sesionConEmail('juan_perez@example.com'));
+
+    assert.equal(pedidoGuardado().cliente_id, null);
+  });
+
+  test('si varias cuentas coinciden (solo cambian en mayúsculas), es ambiguo: cliente_id a null', async () => {
+    instalarDobles({
+      clientes: [
+        { id: 'cliente-1', email: 'Ana@example.com' },
+        { id: 'cliente-2', email: 'ana@EXAMPLE.com' }
+      ]
+    });
+
+    await procesarSesionPagada(crearSesion());
+
+    assert.equal(pedidoGuardado().cliente_id, null);
+  });
+
+  test('si falla la búsqueda de la cuenta, el pedido se guarda igual (sin cliente_id) y se registra el error', async () => {
+    instalarDobles({
+      clientes: [{ id: 'cliente-ana', email: 'ana@example.com' }],
+      fallos: { 'clientes.select': { message: 'conexión perdida' } }
+    });
+
+    const resultado = await procesarSesionPagada(crearSesion());
+
+    assert.equal(resultado.estado, 'procesada');
+    assert.equal(fake.tablas.pedidos.length, 1);
+    assert.equal(pedidoGuardado().cliente_id, null);
+    assert.equal(correos.cliente.mock.callCount(), 1, 'los emails se envían igual');
+    assert.ok(
+      registroErrores.mock.calls.some((c) =>
+        String(c.arguments[0]).includes('cuenta del comprador')
+      )
+    );
+  });
+
+  test('sin email en la sesión, ni siquiera se consulta la tabla de clientes', async () => {
+    let consultada = false;
+    instalarDobles({
+      fallos: {
+        'clientes.select': () => {
+          consultada = true;
+          return null;
+        }
+      }
+    });
+
+    await procesarSesionPagada(sesionConEmail(undefined));
+
+    assert.equal(consultada, false);
+    assert.equal(pedidoGuardado().cliente_id, null);
+  });
+});
+
 describe('procesarSesionPagada — id del pedido derivado de la sesión', () => {
   test('es un UUID válido, estable para la misma sesión y distinto entre sesiones', () => {
     const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
