@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, useMemo } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -6,22 +6,20 @@ import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import {
   createMueble,
-  getMuebles,
   updateMueble,
   deleteMueble,
-  getCategorias,
   createCategoria,
   updateCategoria,
   deleteCategoria,
-  getPedidos,
   actualizarEstadoPedido
 } from '../services/api';
 import '../styles/Admin.css';
 import Icon from './admin/Icon';
 import SelectorCategoria from './admin/SelectorCategoria';
-import { generales, especificasDe, idDeCategoria } from './admin/categorias';
-
-const PAGE_SIZE = 20;
+import { generales, especificasDe, idDeCategoria, primeraEspecifica } from './admin/categorias';
+import useAdminDatos from './admin/hooks/useAdminDatos';
+import useInventarioVista from './admin/hooks/useInventarioVista';
+import useConfirmacion from './admin/hooks/useConfirmacion';
 
 const Admin = () => {
   const { user } = useContext(AuthContext);
@@ -29,9 +27,7 @@ const Admin = () => {
 
   const [vistaActiva, setVistaActiva] = useState('resumen');
 
-  const [muebles, setMuebles] = useState([]);
-  const [categorias, setCategorias] = useState([]);
-  const [pedidos, setPedidos] = useState([]);
+  const { muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos } = useAdminDatos(user);
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
 
   // Estados para creación de categorías
@@ -58,49 +54,37 @@ const Admin = () => {
   const [files, setFiles] = useState([]);
   const [status, setStatus] = useState('');
 
-  // Inventario: búsqueda, filtros, orden, paginación y selección
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroCategoria, setFiltroCategoria] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState('');
-  const [orden, setOrden] = useState('recientes');
-  const [pagina, setPagina] = useState(1);
-  const [seleccionados, setSeleccionados] = useState([]);
-  const [bulkEstado, setBulkEstado] = useState('disponible');
+  // Inventario: búsqueda, filtros, orden, paginación y selección (se conservan al cambiar de pestaña)
+  const vista = useInventarioVista(muebles);
+  const {
+    busqueda, setBusqueda,
+    filtroCategoria, setFiltroCategoria,
+    filtroEstado, setFiltroEstado,
+    orden, setOrden,
+    setPagina,
+    seleccionados, setSeleccionados,
+    bulkEstado, setBulkEstado,
+    muebleFiltrados, muebleVisibles,
+    totalPaginas, paginaSegura,
+    todosVisiblesSeleccionados,
+    toggleSeleccionado, toggleSeleccionarPagina,
+    limpiarFiltros: limpiarFiltrosInventario
+  } = vista;
 
-  // Configuración del Modal de Confirmación
-  const [confirmConfig, setConfirmConfig] = useState({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: null
-  });
+  const { confirmConfig, confirmarBorrado, cerrarConfirmacion } = useConfirmacion();
 
-  // Solo debe recargarse cuando cambia el usuario (login/logout), no en cada render --
-  // las tres funciones se redefinen en cada render pero no son las que queremos vigilar.
+  // Casos A, B y C del diseño (docs/tarea4-diseno.md, sección 5): al cargar o recargar las
+  // categorías, "Añadir mueble" preselecciona la primera específica, solo si no hay ninguna elegida.
+  // Un mueble solo puede pertenecer a una categoría específica (con padre), nunca a una general.
   useEffect(() => {
-    if (user) {
-      cargarCategorias();
-      cargarMuebles();
-      cargarPedidos();
+    const especifica = primeraEspecifica(categorias);
+    if (especifica && !formData.categoria) {
+      setFormData(prev => ({ ...prev, categoria: especifica.nombre }));
     }
+    // Solo [categorias], a propósito: con formData.categoria en las dependencias, se volvería a
+    // preseleccionar justo después de vaciar el formulario al crear un mueble (caso C).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  useEffect(() => {
-    setPagina(1);
-  }, [busqueda, filtroCategoria, filtroEstado, orden]);
-
-  // `fresco`: el panel tiene que ver al momento lo que acaba de guardar, sin las cachés que sí
-  // usa el catálogo público (ver getMuebles en services/api.js).
-  const cargarMuebles = async () => {
-    const data = await getMuebles({ fresco: true });
-    setMuebles(data);
-  };
-
-  const cargarPedidos = async () => {
-    const data = await getPedidos();
-    setPedidos(Array.isArray(data) ? data : []);
-  };
+  }, [categorias]);
 
   const handleCambiarEstadoPedido = async (id, nuevoEstado) => {
     const res = await actualizarEstadoPedido(id, nuevoEstado);
@@ -110,28 +94,6 @@ const Admin = () => {
     } else {
       showToast('Error al actualizar el estado del pedido', 'error');
     }
-  };
-
-  const cargarCategorias = async () => {
-    const data = await getCategorias({ fresco: true });
-    setCategorias(data);
-    // Un mueble solo puede pertenecer a una categoría específica (con padre), nunca a una general
-    const especificas = data.filter(c => c.categoria_padre_id);
-    if (especificas.length > 0 && !formData.categoria) {
-      setFormData(prev => ({ ...prev, categoria: especificas[0].nombre }));
-    }
-  };
-
-  const confirmarBorrado = (title, message, action) => {
-    setConfirmConfig({
-      isOpen: true,
-      title,
-      message,
-      onConfirm: async () => {
-        await action();
-        setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-      }
-    });
   };
 
   const handleDeleteMueble = (id) => {
@@ -287,51 +249,6 @@ const Admin = () => {
       setStatus('Error al actualizar.');
       showToast('Error al actualizar la categoría', 'error');
     }
-  };
-
-  // ─── Inventario: filtrado, orden y paginación (memoizados: con 157+ productos no
-  // tiene sentido recalcular esto en cada render que no afecte a estos valores) ───
-  const muebleFiltrados = useMemo(() => {
-    const term = busqueda.trim().toLowerCase();
-    const muebleCoincide = (m) => {
-      const matchTexto = !term || m.nombre?.toLowerCase().includes(term);
-      const matchCategoria = !filtroCategoria || m.categoria === filtroCategoria;
-      const matchEstado = !filtroEstado || (m.estado || 'disponible') === filtroEstado;
-      return matchTexto && matchCategoria && matchEstado;
-    };
-
-    return muebles.filter(muebleCoincide).sort((a, b) => {
-      if (orden === 'nombre') return (a.nombre || '').localeCompare(b.nombre || '');
-      if (orden === 'precio_asc') return (a.precio_venta || 0) - (b.precio_venta || 0);
-      if (orden === 'precio_desc') return (b.precio_venta || 0) - (a.precio_venta || 0);
-      return 0; // 'recientes' = orden original (más nuevo primero, ya viene así de la API)
-    });
-  }, [muebles, busqueda, filtroCategoria, filtroEstado, orden]);
-
-  const totalPaginas = Math.max(1, Math.ceil(muebleFiltrados.length / PAGE_SIZE));
-  const paginaSegura = Math.min(pagina, totalPaginas);
-  const muebleVisibles = muebleFiltrados.slice((paginaSegura - 1) * PAGE_SIZE, paginaSegura * PAGE_SIZE);
-
-  const idsVisiblesSeleccionados = muebleVisibles.filter(m => seleccionados.includes(m.id));
-  const todosVisiblesSeleccionados = muebleVisibles.length > 0 && idsVisiblesSeleccionados.length === muebleVisibles.length;
-
-  const toggleSeleccionado = (id) => {
-    setSeleccionados(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const toggleSeleccionarPagina = () => {
-    if (todosVisiblesSeleccionados) {
-      setSeleccionados(prev => prev.filter(id => !muebleVisibles.some(m => m.id === id)));
-    } else {
-      setSeleccionados(prev => [...new Set([...prev, ...muebleVisibles.map(m => m.id)])]);
-    }
-  };
-
-  const limpiarFiltrosInventario = () => {
-    setBusqueda('');
-    setFiltroCategoria('');
-    setFiltroEstado('');
-    setOrden('recientes');
   };
 
   const handleBulkDelete = () => {
@@ -990,7 +907,7 @@ const Admin = () => {
         title={confirmConfig.title}
         message={confirmConfig.message}
         onConfirm={confirmConfig.onConfirm}
-        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        onCancel={cerrarConfirmacion}
       />
     </div>
   );
