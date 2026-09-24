@@ -5,7 +5,6 @@ import ConfirmModal from '../components/ConfirmModal';
 import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import {
-  createMueble,
   updateMueble,
   deleteMueble,
   createCategoria,
@@ -20,6 +19,18 @@ import { generales, especificasDe, idDeCategoria, primeraEspecifica } from './ad
 import useAdminDatos from './admin/hooks/useAdminDatos';
 import useInventarioVista from './admin/hooks/useInventarioVista';
 import useConfirmacion from './admin/hooks/useConfirmacion';
+import ResumenTab from './admin/pestanas/ResumenTab';
+import CrearMuebleTab from './admin/pestanas/CrearMuebleTab';
+
+// Pestañas de la barra lateral, en orden. Añadir una (p. ej. "Reservas") es una entrada más aquí
+// y su caso en <main> (ver docs/tarea4-diseno.md, sección 7).
+const PESTANAS = [
+  { id: 'resumen', etiqueta: 'Resumen', icono: 'dashboard' },
+  { id: 'crear', etiqueta: 'Añadir Mueble', icono: 'add' },
+  { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },
+  { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },
+  { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' }
+];
 
 const Admin = () => {
   const { user } = useContext(AuthContext);
@@ -147,48 +158,6 @@ const Admin = () => {
     );
   };
 
-  const handleInputChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e) => {
-    setFiles(Array.from(e.target.files));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setStatus('Guardando producto...');
-
-    const formDataToSend = new FormData();
-    formDataToSend.append('nombre', formData.nombre);
-    formDataToSend.append('categoria', formData.categoria);
-    const categoriaId = idDeCategoria(categorias, formData.categoria);
-    if (categoriaId !== undefined) formDataToSend.append('categoria_id', categoriaId);
-    formDataToSend.append('descripcion', formData.descripcion);
-    if (formData.precio_venta) formDataToSend.append('precio_venta', formData.precio_venta);
-    if (formData.precio_alquiler) formDataToSend.append('precio_alquiler', formData.precio_alquiler);
-    formDataToSend.append('estado', formData.estado);
-
-    for (const file of files) {
-      formDataToSend.append('imagenes', file);
-    }
-
-    const res = await createMueble(formDataToSend);
-    if (res) {
-      setStatus('');
-      showToast('Producto añadido con éxito al catálogo', 'success');
-      setFormData({ nombre: '', categoria: '', descripcion: '', precio_venta: '', precio_alquiler: '', estado: 'disponible' });
-      setFiles([]);
-      const fileInput = document.getElementById('mueble-file-input');
-      if (fileInput) fileInput.value = '';
-      cargarMuebles();
-      setVistaActiva('inventario');
-    } else {
-      setStatus('Error al guardar en base de datos.');
-      showToast('Error al guardar producto', 'error');
-    }
-  };
-
   const handleUpdateMuebleSubmit = async (e) => {
     e.preventDefault();
     if (!muebleAEditar) return;
@@ -277,14 +246,7 @@ const Admin = () => {
     return <div className="admin-msg">Acceso denegado. Inicia sesión primero.</div>;
   }
 
-  // Cálculos para el resumen
   const totalMuebles = muebles.length;
-  const disponibles = muebles.filter(m => m.estado === 'disponible' || !m.estado);
-  const vendidos = muebles.filter(m => m.estado === 'vendido').length;
-  const alquilados = muebles.filter(m => m.estado === 'alquilado').length;
-  const valorDisponible = disponibles.reduce((acc, m) => acc + (Number(m.precio_venta) || 0), 0);
-  const sinImagen = muebles.filter(m => !m.imagenes || m.imagenes.length === 0).length;
-  const sinCategoria = muebles.filter(m => !m.categoria).length;
 
   // Cálculos para pedidos
   const pedidosPendientes = pedidos.filter(p => p.estado === 'procesando').length;
@@ -298,22 +260,12 @@ const Admin = () => {
       <aside className="admin-sidebar">
         <h3 className="sidebar-title">Gestión</h3>
         <nav className="sidebar-menu">
-          <button className={`sidebar-btn ${vistaActiva === 'resumen' ? 'active' : ''}`} onClick={() => setVistaActiva('resumen')}>
-            <Icon name="dashboard" /> Resumen
-          </button>
-          <button className={`sidebar-btn ${vistaActiva === 'crear' ? 'active' : ''}`} onClick={() => setVistaActiva('crear')}>
-            <Icon name="add" /> Añadir Mueble
-          </button>
-          <button className={`sidebar-btn ${vistaActiva === 'inventario' ? 'active' : ''}`} onClick={() => setVistaActiva('inventario')}>
-            <Icon name="inventory" /> Gestionar Inventario
-          </button>
-          <button className={`sidebar-btn ${vistaActiva === 'pedidos' ? 'active' : ''}`} onClick={() => setVistaActiva('pedidos')}>
-            <Icon name="box" /> Pedidos
-            {pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
-          </button>
-          <button className={`sidebar-btn ${vistaActiva === 'categorias' ? 'active' : ''}`} onClick={() => setVistaActiva('categorias')}>
-            <Icon name="tag" /> Gestionar Categorías
-          </button>
+          {PESTANAS.map(pestana => (
+            <button key={pestana.id} className={`sidebar-btn ${vistaActiva === pestana.id ? 'active' : ''}`} onClick={() => setVistaActiva(pestana.id)}>
+              <Icon name={pestana.icono} /> {pestana.etiqueta}
+              {pestana.id === 'pedidos' && pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
+            </button>
+          ))}
         </nav>
       </aside>
 
@@ -321,114 +273,21 @@ const Admin = () => {
       <main className="admin-content">
 
         {vistaActiva === 'resumen' && (
-          <div className="admin-view fade-in">
-            <div className="admin-view-head">
-              <h2>Dashboard</h2>
-            </div>
-            <div className="resumen-cards">
-              <div className="resumen-card accent-brand">
-                <h3>{totalMuebles}</h3>
-                <p>Total Catálogo</p>
-              </div>
-              <div className="resumen-card accent-success">
-                <h3>{disponibles.length}</h3>
-                <p>Disponibles</p>
-              </div>
-              <div className="resumen-card accent-danger">
-                <h3>{vendidos}</h3>
-                <p>Vendidos</p>
-              </div>
-              <div className="resumen-card accent-warning">
-                <h3>{alquilados}</h3>
-                <p>Alquilados</p>
-              </div>
-              <div className="resumen-card">
-                <h3>{formatPrice(valorDisponible)} €</h3>
-                <p>Valor en stock</p>
-              </div>
-              <div className="resumen-card accent-warning">
-                <h3>{pedidosPendientes}</h3>
-                <p>Pedidos por procesar</p>
-              </div>
-            </div>
-
-            {(sinImagen > 0 || sinCategoria > 0) && (
-              <div className="admin-alerts">
-                {sinImagen > 0 && (
-                  <div className="admin-alert">
-                    <Icon name="warning" />
-                    {sinImagen} producto{sinImagen === 1 ? '' : 's'} sin ninguna foto cargada
-                    <button onClick={() => setVistaActiva('inventario')}>Ver inventario</button>
-                  </div>
-                )}
-                {sinCategoria > 0 && (
-                  <div className="admin-alert">
-                    <Icon name="warning" />
-                    {sinCategoria} producto{sinCategoria === 1 ? '' : 's'} sin categoría asignada
-                    <button onClick={() => setVistaActiva('inventario')}>Ver inventario</button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{ marginTop: '40px' }}>
-              <h3 className="admin-section-title"><Icon name="bell" /> Avisos / Últimas Ventas</h3>
-              {muebles.filter(m => m.estado === 'vendido' || m.estado === 'alquilado').length === 0 ? (
-                <p className="admin-empty-note">No se han registrado transacciones aún.</p>
-              ) : (
-                <div className="sales-list">
-                  {muebles.filter(m => m.estado === 'vendido' || m.estado === 'alquilado').map(m => (
-                    <div key={m.id} className="sale-row">
-                      <div className="sale-row-info">
-                        <div className="sale-thumb">
-                          <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
-                        </div>
-                        <div>
-                          <h4 className="sale-name">{m.nombre}</h4>
-                          <span className="sale-cat">{m.categoria}</span>
-                        </div>
-                      </div>
-                      <div className="sale-row-meta">
-                        <span className={`status-pill ${m.estado}`}>{m.estado}</span>
-                        <p className="sale-price">
-                          {m.precio_venta ? `${formatPrice(m.precio_venta)} €` : `${formatPrice(m.precio_alquiler_dia)} €/día`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          <ResumenTab muebles={muebles} pedidosPendientes={pedidosPendientes} irA={setVistaActiva} />
         )}
 
         {vistaActiva === 'crear' && (
-          <div className="admin-view fade-in">
-            <div className="admin-view-head"><h2>Añadir Nuevo Producto</h2></div>
-            <form onSubmit={handleSubmit} className="admin-form">
-              <input name="nombre" placeholder="Nombre del mueble" value={formData.nombre} onChange={handleInputChange} required />
-              <SelectorCategoria categorias={categorias} name="categoria" value={formData.categoria} onChange={handleInputChange} />
-              <textarea name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
-              <div className="admin-form-row">
-                <input name="precio_venta" type="number" placeholder="Precio Venta (€)" value={formData.precio_venta} onChange={handleInputChange} />
-                <input name="precio_alquiler" type="number" placeholder="Precio Alquiler (€/día)" value={formData.precio_alquiler} onChange={handleInputChange} />
-              </div>
-
-              <select name="estado" value={formData.estado} onChange={handleInputChange}>
-                <option value="disponible">Disponible</option>
-                <option value="vendido">Vendido</option>
-                <option value="alquilado">Alquilado</option>
-              </select>
-
-              <div className="file-input-wrapper">
-                <label>Imágenes (Selecciona varias):</label>
-                <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} required />
-              </div>
-
-              <button type="submit" className="admin-btn" disabled={status.includes('Subiendo') || status.includes('Guardando')}>Guardar Producto</button>
-            </form>
-            {status && <p className="admin-status">{status}</p>}
-          </div>
+          <CrearMuebleTab
+            categorias={categorias}
+            formData={formData}
+            setFormData={setFormData}
+            files={files}
+            setFiles={setFiles}
+            status={status}
+            setStatus={setStatus}
+            recargarMuebles={cargarMuebles}
+            irA={setVistaActiva}
+          />
         )}
 
         {vistaActiva === 'inventario' && (
