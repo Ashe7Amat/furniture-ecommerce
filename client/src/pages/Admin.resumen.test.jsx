@@ -49,6 +49,13 @@ describe('Panel — acceso y carga inicial', () => {
     expect(getPedidos).toHaveBeenCalledTimes(1);
   });
 
+  it('pide el catálogo y las categorías sin caché ({ fresco: true }), para ver al momento lo que guarda', async () => {
+    await renderAdmin({ muebles: CATALOGO });
+
+    expect(getMuebles).toHaveBeenCalledWith({ fresco: true });
+    expect(getCategorias).toHaveBeenCalledWith({ fresco: true });
+  });
+
   it('arranca en el Resumen, con su botón marcado como activo en la barra lateral', async () => {
     await renderAdmin();
 

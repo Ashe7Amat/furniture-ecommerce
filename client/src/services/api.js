@@ -6,13 +6,22 @@ const authHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// El servidor deja cachear el catálogo y las categorías: el navegador los guarda hasta 1 minuto y
+// la CDN de Vercel unos minutos más. Para el público va bien, pero el panel tiene que ver al
+// momento lo que acaba de guardar. Con `fresco`, la lectura se salta las dos cachés:
+// `cache: 'no-store'` evita la del navegador, y la cabecera Authorization, la de la CDN (Vercel no
+// guarda respuestas a peticiones que la llevan). El servidor no la pide en estas rutas: solo sirve
+// para eso.
+const lecturaFresca = () => ({ cache: 'no-store', headers: authHeaders() });
+
 export const getMuebles = async (opciones = {}) => {
   try {
     const params = new URLSearchParams();
     if (opciones.limit) params.set('limit', opciones.limit);
     const query = params.toString() ? `?${params.toString()}` : '';
 
-    const response = await fetch(`${API_URL}/muebles${query}`);
+    const url = `${API_URL}/muebles${query}`;
+    const response = opciones.fresco ? await fetch(url, lecturaFresca()) : await fetch(url);
     if (!response.ok) {
       throw new Error('Error al obtener los muebles');
     }
@@ -121,9 +130,11 @@ export const deleteMueble = async (id) => {
   }
 };
 
-export const getCategorias = async () => {
+// `fresco`: igual que en getMuebles (ver lecturaFresca).
+export const getCategorias = async (opciones = {}) => {
   try {
-    const response = await fetch(`${API_URL}/categorias`);
+    const url = `${API_URL}/categorias`;
+    const response = opciones.fresco ? await fetch(url, lecturaFresca()) : await fetch(url);
     if (!response.ok) return [];
     return await response.json();
   } catch (error) {

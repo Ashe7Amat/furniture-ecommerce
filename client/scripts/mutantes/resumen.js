@@ -51,6 +51,16 @@ export const MUTANTES = [
     reemplazo: 'm.imagenes?.[0]'
   },
   {
+    nombre: 'el panel pide el catálogo con caché (vería una lista vieja tras guardar)',
+    buscar: 'getMuebles({ fresco: true })',
+    reemplazo: 'getMuebles()'
+  },
+  {
+    nombre: 'el panel pide las categorías con caché',
+    buscar: 'getCategorias({ fresco: true })',
+    reemplazo: 'getCategorias()'
+  },
+  {
     nombre: 'carga los datos sin comprobar que hay usuario',
     buscar: '    if (user) {\n      cargarCategorias();',
     reemplazo: '    {\n      cargarCategorias();'

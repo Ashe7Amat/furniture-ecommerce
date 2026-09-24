@@ -201,6 +201,8 @@ describe('Añadir mueble — envío', () => {
 
     expect(showToast).toHaveBeenCalledWith('Producto añadido con éxito al catálogo', 'success');
     expect(getMuebles).toHaveBeenCalledTimes(2);
+    // Sin caché: si no, la lista recargada podría ser la de antes de guardar.
+    expect(getMuebles).toHaveBeenLastCalledWith({ fresco: true });
     expect(screen.getByRole('heading', { level: 2, name: 'Gestionar Inventario' })).toBeInTheDocument();
   });
 

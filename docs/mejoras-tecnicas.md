@@ -562,6 +562,29 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
   casos A y C cambiarían a propósito en ese mismo commit.
 
+### H16 · MEDIA · CORREGIDO (pendiente de desplegar) · El panel no veía sus propios cambios hasta recargar
+
+- **Síntoma** (24 sep, durante la prueba de A3 en producción): después de crear una pieza, el inventario del panel
+  no la mostraba hasta recargar la página. Después de editarla, seguía saliendo con la categoría de antes.
+- **Causa:** el servidor deja cachear las dos listas. `GET /api/muebles` responde con
+  `Cache-Control: public, max-age=60, s-maxage=120, stale-while-revalidate=300`, y `GET /api/categorias`, con
+  30/60/120. El navegador guarda la lista 1 minuto y la CDN de Vercel 2, y además puede servir la copia vieja
+  hasta 5 minutos más mientras la refresca. Después de guardar, el panel vuelve a pedir la lista, y le llega la
+  copia de antes.
+- **Comprobado**, no supuesto:
+  - Con `curl`, la segunda petición da `X-Vercel-Cache: HIT`. Una petición con `Cache-Control: no-cache`
+    sigue dando `HIT`, porque la CDN lo ignora. Con `Authorization` da `BYPASS`: la documentación de Vercel
+    ("Cacheable response criteria") dice que no se cachean las peticiones que llevan esa cabecera.
+  - En el navegador, con la pieza de prueba recién editada: la petición normal devolvía la categoría vieja, y
+    la petición con `cache: 'no-store'` y `Authorization`, la nueva.
+- **Arreglo:** `getMuebles` y `getCategorias` aceptan `{ fresco: true }`, que llama a `fetch` con
+  `cache: 'no-store'` (salta la caché del navegador) y con la cabecera `Authorization` (salta la de la CDN). El
+  panel lee siempre así. El catálogo público no cambia y sigue cacheado. Cubierto por
+  `services/api.test.js`, los tests del panel y dos mutantes nuevos.
+- **Queda por decidir:** el público sigue viendo los cambios con retraso, normalmente de 1 a 3 minutos y algo
+  más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
+  cambio de más consultas a Supabase.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
