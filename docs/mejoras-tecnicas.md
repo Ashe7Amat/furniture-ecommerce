@@ -10,12 +10,45 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, hecho (pendiente de desplegar); quedan la pausa de despliegue y el backfill B3. Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, desplegado el 24 sep a las 20:08 UTC; en pausa antes del backfill B3 (ver abajo). Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
+
+## ⏳ Pausa de despliegue en curso (migración B, antes de B3)
+
+- **Merge a `main` y deploy:** `a1a7dfe` (merge `--no-ff` de `feature/mejoras-tecnicas`, sin conflictos:
+  `main` solo tenía el merge anterior). Push el **24 sep 2026 a las 20:07:36 UTC**. Verificado vía la API de
+  Vercel:
+  - `nave5-api`: `READY` a las **20:08:03 UTC** (deployment `dpl_EZeXWxDf8ro8hziSxhbqbUfrsrja`);
+  - `nave5-demo`: `READY` a las 20:08:13 UTC (deployment `dpl_3TEg8ySCnuVcnKoR44fTn28LwH2t`);
+  - CI de `main` en verde.
+- **Qué llevaba:** H16 (caché del panel), H17 (escape de ILIKE), el formato del servidor, los tests de la
+  tarea 4 hechos hasta entonces y el código de la migración B. También las copias de A3, H9, B1 y B2, que ya
+  estaban aplicadas en la base de datos.
+- **Comprobado en producción justo después**, en solo lectura: el catálogo responde 200; la búsqueda "sill"
+  devuelve 14 piezas, y "si_la" 0 (antes de H17 el `_` hacía de comodín).
+- **Pausa:** 24-48 h desde las 20:08:03 UTC del 24 sep, antes de aplicar B3. No se toca `main` mientras tanto.
+- **Verificación antes de B3** (con la hora del deploy de la API):
+  ```sql
+  SELECT count(*) FROM pedidos
+  WHERE created_at > '2026-09-24T20:08:03Z' AND cliente_id IS NULL
+    AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
+  ```
+  Debe dar 0: un pedido nuevo de alguien con cuenta ya tiene que traer `cliente_id` del código. Igual que
+  con A3, si no ha habido pedidos nuevos, el 0 no demuestra nada y hará falta una compra de prueba en modo test.
+- **B3** (con permiso), con la misma regla que el código: solo se asigna la cuenta si el email coincide con
+  exactamente una.
+  ```sql
+  UPDATE public.pedidos p SET cliente_id = c.id
+  FROM public.clientes c
+  WHERE p.cliente_id IS NULL
+    AND lower(p.cliente_info->>'email') = lower(c.email)
+    AND (SELECT count(*) FROM public.clientes c2 WHERE lower(c2.email) = lower(c.email)) = 1;
+  ```
+  El 24 sep rellenaría 2 filas; la tercera es de un invitado y se queda a NULL.
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
@@ -53,7 +86,7 @@ conversación.
   - **Limpieza:** Ashe borró la pieza desde el panel y su foto en Storage
     (`imagenes/muebles/dqhvp59jjl6-1790255381596.webp`). Se comprobó por SQL que no queda ninguna de las dos.
   - De paso apareció H16: el panel no veía sus propios cambios sin recargar, por las cachés. Corregido en
-    `63f1324`, pendiente de desplegar.
+    `63f1324`, desplegado con el merge `a1a7dfe` del 24 sep.
 - **A3 aplicada** (24 sep, con permiso) como migración `20260924133146_backfill_muebles_categoria_id`:
   - Comprobado antes, sin aplicar nada: se rellenarían 114 filas, sin nombres de categoría huérfanos ni
     duplicados y sin ninguna pieza en una categoría general. El trigger `trg_sync_disponible_desde_estado`
@@ -579,7 +612,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
   casos A y C cambiarían a propósito en ese mismo commit.
 
-### H16 · MEDIA · CORREGIDO (pendiente de desplegar) · El panel no veía sus propios cambios hasta recargar
+### H16 · MEDIA · CORREGIDO (desplegado el 24 sep 2026) · El panel no veía sus propios cambios hasta recargar
 
 - **Síntoma** (24 sep, durante la prueba de A3 en producción): después de crear una pieza, el inventario del panel
   no la mostraba hasta recargar la página. Después de editarla, seguía saliendo con la categoría de antes.
@@ -602,7 +635,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
   cambio de más consultas a Supabase. Recomendación del revisor: no tocarlo mientras el cliente no lo note.
 
-### H17 · ALTA · CORREGIDO (pendiente de desplegar) · "Mis pedidos" enseñaba pedidos de otras personas
+### H17 · ALTA · CORREGIDO (desplegado el 24 sep 2026) · "Mis pedidos" enseñaba pedidos de otras personas
 
 - **El fallo:** `obtenerMisPedidos` buscaba con `.ilike('cliente_info->>email', email)`, usando el email de la
   cuenta como patrón. En ILIKE, `_` es "un carácter cualquiera", y `supabase-js` pasa el patrón sin escapar.
