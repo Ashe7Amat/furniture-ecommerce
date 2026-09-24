@@ -10,14 +10,14 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a (H8, `muebles.categoria_id` + índice + doble escritura) hecho, en pausa de despliegue antes de A3 (backfill). Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) hechos; quedan la migración B (`pedidos.cliente_id`), H9, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
-## ⏳ Pausa de despliegue en curso (bloque 3a, antes de A3)
+## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
 - **Merge a `main` y deploy:** commit `6d6624a` (merge de `feature/mejoras-tecnicas`, incluye H8, A1, A2 y
   la doble escritura de `categoria_id`), pusheado y desplegado en producción el **22 sep 2026**:
@@ -43,14 +43,31 @@ conversación.
   - Todos tienen `descripcion` a NULL. Guardar una pieza real desde el modal de edición la cambiaría a `''`,
     porque el modal reenvía todos los campos. Por eso la prueba manual se hace con una pieza de prueba y no con
     una real.
-  - **Pendiente, con permiso:** crear desde el panel de producción una pieza de prueba, comprobar su
-    `categoria_id` (camino de alta), cambiarle la categoría desde el modal y volver a comprobar (camino de
-    edición), y borrarla. Después, repetir la consulta de verificación.
-- **Verificación después de aplicar A3:**
-  ```sql
-  SELECT count(*) FROM muebles WHERE categoria IS NOT NULL AND categoria_id IS NULL;
-  ```
-  Debe dar `0`.
+- **Prueba manual en producción (24 sep, con permiso), con una pieza de prueba y sin tocar ninguna real:**
+  - **Alta:** creada desde el panel "PRUEBA A3 — borrar", en "Sillas y asientos". La fila quedó con
+    `categoria_id = 20`, que es el id de esa categoría. El camino de alta funciona.
+  - **Edición:** cambiada a "Iluminación" desde el modal, quedó con `categoria_id = 7`. El camino de edición
+    funciona.
+  - Con la pieza aún creada, las consultas dieron: movimiento 1, verificación 0 y ninguna fila con el id y el
+    nombre de categoría que no cuadren.
+  - **Limpieza:** Ashe borró la pieza desde el panel y su foto en Storage
+    (`imagenes/muebles/dqhvp59jjl6-1790255381596.webp`). Se comprobó por SQL que no queda ninguna de las dos.
+  - De paso apareció H16: el panel no veía sus propios cambios sin recargar, por las cachés. Corregido en
+    `63f1324`, pendiente de desplegar.
+- **A3 aplicada** (24 sep, con permiso) como migración `20260924133146_backfill_muebles_categoria_id`:
+  - Comprobado antes, sin aplicar nada: se rellenarían 114 filas, sin nombres de categoría huérfanos ni
+    duplicados y sin ninguna pieza en una categoría general. El trigger `trg_sync_disponible_desde_estado`
+    salta en cada `UPDATE`, pero no cambia nada porque `disponible` ya estaba sincronizado en las 114.
+  - **Verificación después de aplicarla:**
+    ```sql
+    SELECT count(*) FROM muebles WHERE categoria IS NOT NULL AND categoria_id IS NULL;  -- 0
+    SELECT count(*) FROM muebles WHERE categoria_id IS NOT NULL
+      AND categoria IS DISTINCT FROM (SELECT nombre FROM categorias WHERE id = categoria_id);  -- 0
+    ```
+    Las 114 filas tienen `categoria_id`, y `disponible` sigue sincronizado.
+  - La copia en `server/migrations/` coincide byte a byte con lo que registra `schema_migrations`: el mismo
+    MD5 sin el salto de línea final, como en A1 y A2. El `.down.sql` avisa de que, en producción, la reversión
+    correcta es volver a ejecutar A3 hacia delante, porque es idempotente.
 
 ## Pasos manuales tras desplegar la tarea 1
 
