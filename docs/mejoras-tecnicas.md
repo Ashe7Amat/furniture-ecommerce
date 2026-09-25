@@ -49,6 +49,70 @@ conversación.
     AND (SELECT count(*) FROM public.clientes c2 WHERE lower(c2.email) = lower(c.email)) = 1;
   ```
   El 24 sep rellenaría 2 filas; la tercera es de un invitado y se queda a NULL.
+- **Estado el 25 sep a las 13:10 UTC**, en la fase 1 de la tarea larga de la revisión (cerrar 3a, merge, 3b):
+  - Hecho: los tres commits de la revisión del cierre de la tarea 4 y `chore(server): dejar de fijar
+    disponible a mano`. Este último va **antes de B3** y no después, porque no depende de B (sección 3 del
+    diseño, paso 11). Ver las decisiones de ese commit más abajo.
+  - **Parada en B3, por dos motivos:**
+    - La pausa no acaba hasta las **20:08:03 UTC del 25 sep** (22:08 en España).
+    - **No ha habido ningún pedido desde el deploy** (el último es del 5 sep), así que la verificación de
+      arriba da 0 sin demostrar nada. Hace falta **una compra de prueba en modo test**, hecha por el usuario
+      con la sesión iniciada en una cuenta que esté en `clientes`. Se puede hacer ya: basta con que el
+      código esté desplegado.
+  - B3 sigue rellenando 2 filas (comprobado a las 13:03 UTC).
+- **Decisiones del commit de `disponible` (`db5a6ce`):**
+  - **El trigger está comprobado en producción, en solo lectura:** `trg_sync_disponible_desde_estado`,
+    `BEFORE INSERT OR UPDATE`, activo, con `NEW.disponible := (COALESCE(NEW.estado, 'disponible') =
+    'disponible')`. Las 114 piezas son coherentes. Como el trigger pisa siempre el valor, dejar de mandarlo
+    no cambia lo que se guarda. Por eso no se ha hecho la prueba de escritura contra la base real que
+    pedía el diseño "con permiso": la definición del trigger ya lo demuestra.
+  - **También se ha quitado de `seed.js`.** El diseño solo nombraba el controlador y `pagos.js`, pero es la
+    misma limpieza.
+  - **El esquema sigue aceptando `disponible` y se ignora.** Quitarlo no cambiaría nada, porque con
+    `.passthrough()` pasaría igual. Lleva un comentario.
+  - **Caso límite:** una edición que solo mande `disponible` llega ahora a Supabase como `update({})`, igual
+    que ya pasaba con una edición vacía. El panel siempre manda el resto de campos.
+
+## Bloque 3b: lo que hay que decidir antes de empezar (25 sep)
+
+Leído el diseño aprobado (`docs/tarea3-diseno.md`, secciones 2 y 3) y comprobado contra el código y el
+esquema actuales, en solo lectura. **Las siete decisiones siguen en pie:**
+- access token de 1 h en memoria y refresh de 7 días en `localStorage` (`kaveRefreshToken`);
+- el refresh rota en cada uso;
+- detección de reuso por `family_id`;
+- margen de gracia de 60 s y sincronización entre pestañas;
+- `POST /api/auth/refresh` y `POST /api/auth/logout`;
+- HMAC-SHA256 con `REFRESH_TOKEN_HASH_SECRET`;
+- los JWT de 7 días ya firmados se dejan caducar.
+
+Encaja con lo que hay: `clientes.id` es `uuid`, los administradores son filas de `clientes` con
+`rol = 'admin'`, los JWT se firman en un solo sitio (`expiresIn: '7d'`) y `refresh_tokens` no existe todavía.
+
+Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la revisión:
+1. **La regla de las 48 h.** El diseño dice: "no se empieza 3b hasta que estos commits lleven 48h en
+   producción sin incidentes". El plan de la revisión aplica C1 en producción justo después del merge de 3a.
+   Escribir el código en local no despliega nada, pero **aplicar C1 sí es una migración en producción durante
+   la ventana de estabilidad de 3a**. Hay que decidir si se espera o si se hace una excepción.
+2. **H16 y el access token en memoria.** El diseño es del 22 sep, y H16 es del 24. Desde H16, el panel lee
+   las listas con la cabecera `Authorization` para saltarse la caché de la CDN (`lecturaFresca()` en
+   `api.js`). Con el access token en memoria, al recargar la página hay un momento, hasta que termina el
+   refresh silencioso, en que `kaveUser` ya dice que hay sesión pero todavía no hay token:
+   - el panel se pintaría y pediría las listas sin `Authorization`, y la CDN podría devolver una copia vieja
+     (volvería H16);
+   - las llamadas de administrador darían 401 y se reintentarían.
+
+   Propuesta, que es una decisión de diseño: que `loading` de `AuthContext` siga en `true` hasta que termine
+   el refresh silencioso. `ProtectedRoute` ya espera a `loading` antes de pintar nada, y el diseño ya prevé
+   un estado de "sesión sin confirmar todavía".
+3. **`POST /api/auth/perfil-update` vuelve a firmar un token** (el nombre y el email van dentro), y el diseño
+   no lo menciona. La lectura literal: devuelve un access token nuevo de 1 h y el refresh no cambia, porque
+   cada rotación ya vuelve a leer `clientes`.
+4. **El secreto nuevo.** El diseño dice que `REFRESH_TOKEN_HASH_SECRET` lo genera y lo pone el usuario, en
+   Vercel y en `server/.env`, antes del deploy de 3b. La comprobación en el navegador en local (fase 5 del
+   plan) también lo necesita en `server/.env`. Además, ese servidor local usa la base de datos real, así que
+   el recorrido dejaría filas en `refresh_tokens` de producción (revocadas al cerrar sesión).
+5. **La comprobación única de concurrencia contra la base real** (sección 2 del diseño) necesita permiso y un
+   `clientes.id` real. El plan de la revisión no la nombra.
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
