@@ -120,7 +120,7 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
     );
     assert.equal(patch.params.select, 'id');
     assert.match(patch.prefer, /return=representation/);
-    assert.deepEqual(patch.cuerpo, { estado: 'vendido', disponible: false });
+    assert.deepEqual(patch.cuerpo, { estado: 'vendido' }, 'disponible lo calcula el trigger');
   });
 
   test('buscar la cuenta del comprador: ilike con el email escapado, solo el id y limit 2', () => {

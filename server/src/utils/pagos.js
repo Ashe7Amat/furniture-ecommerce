@@ -96,6 +96,8 @@ const cargarLineasPagadas = async (items) => {
 // (otro comprador, o el admin desde el panel) y repetirla no cambia nada.
 // Devuelve, por línea, el estado que se buscaba (`deseado`) y en el que ha quedado la pieza
 // (`actual`, null si ya no existe). Si no eran el mismo, la pieza era de otro: es un conflicto.
+// Solo se cambia `estado`: la base de datos recalcula `disponible` a partir de él (trigger
+// trg_sync_disponible_desde_estado).
 const marcarPiezas = async (lineas) => {
   const resultados = [];
   for (const linea of lineas) {
@@ -103,7 +105,7 @@ const marcarPiezas = async (lineas) => {
 
     const { data: actualizadas, error } = await supabase
       .from('muebles')
-      .update({ estado: deseado, disponible: false })
+      .update({ estado: deseado })
       .eq('id', linea.productId)
       .eq('estado', 'disponible')
       .select('id');

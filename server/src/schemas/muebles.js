@@ -50,6 +50,8 @@ const schemaMuebleCrear = z
     descripcion: z.string().optional(),
     precio_venta: precioOpcional.optional(),
     precio_alquiler: precioOpcional.optional(),
+    // Se sigue aceptando por compatibilidad, pero los controladores ya no lo escriben: la base de
+    // datos calcula `disponible` a partir de `estado` (trigger trg_sync_disponible_desde_estado).
     disponible: booleanDeFormulario.optional(),
     estado: z
       .enum(ESTADOS_MUEBLE, { message: `El estado debe ser uno de: ${ESTADOS_MUEBLE.join(', ')}.` })
