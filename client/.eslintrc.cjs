@@ -1,3 +1,18 @@
+// Globales del navegador que se confunden con una variable propia. Es la lista del paquete
+// confusing-browser-globals, la que usa Create React App; va copiada para no añadir una dependencia.
+// Si falta la variable `status` o `name`, el código lee window.status o window.name sin ningún
+// error: pasó con un mutante en la tarea 4 (docs/tarea4-diseno.md, sección 11). Para usar uno de
+// verdad, se escribe window.<nombre>.
+const GLOBALES_CONFUSOS = [
+  'addEventListener', 'blur', 'close', 'closed', 'confirm', 'defaultStatus', 'defaultstatus', 'event',
+  'external', 'find', 'focus', 'frameElement', 'frames', 'history', 'innerHeight', 'innerWidth',
+  'length', 'location', 'locationbar', 'menubar', 'moveBy', 'moveTo', 'name', 'onblur', 'onerror',
+  'onfocus', 'onload', 'onresize', 'onunload', 'open', 'opener', 'opera', 'outerHeight', 'outerWidth',
+  'pageXOffset', 'pageYOffset', 'parent', 'print', 'removeEventListener', 'resizeBy', 'resizeTo',
+  'screen', 'screenLeft', 'screenTop', 'screenX', 'screenY', 'scroll', 'scrollbars', 'scrollBy',
+  'scrollTo', 'scrollX', 'scrollY', 'self', 'status', 'statusbar', 'stop', 'toolbar', 'top',
+];
+
 module.exports = {
   root: true,
   env: { browser: true, es2020: true, node: true },
@@ -20,6 +35,7 @@ module.exports = {
     // con avisos que nadie va a arreglar.
     'react/prop-types': 'off',
     'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'no-restricted-globals': ['error', ...GLOBALES_CONFUSOS],
   },
   overrides: [
     {
