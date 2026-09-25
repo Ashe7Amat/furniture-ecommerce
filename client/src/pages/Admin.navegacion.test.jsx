@@ -70,6 +70,14 @@ describe('Navegación — barra lateral', () => {
       expect(activos[0]).toBe(barraLateral().getByRole('button', { name: boton }));
     }
   });
+
+  // Añadido el 25 sep, después del refactor: desde entonces el orden sale de la lista PESTANAS y
+  // ningún test lo fijaba. Comprobado también contra el Admin.jsx de antes del refactor (c9c6988).
+  it('los botones salen en este orden', async () => {
+    await renderAdmin({ muebles: CATALOGO, categorias: CATEGORIAS, pedidos: [] }); // sin pedidos: sin insignia
+    const botones = barraLateral().getAllByRole('button').map((b) => b.textContent.trim());
+    expect(botones).toEqual(['Resumen', 'Añadir Mueble', 'Gestionar Inventario', 'Pedidos', 'Gestionar Categorías']);
+  });
 });
 
 describe('Navegación — lo que se conserva al cambiar de pestaña y volver', () => {

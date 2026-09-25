@@ -75,8 +75,7 @@ export const MUTANTES = [
     nombre: '"Pedidos" y "Gestionar Inventario" cambian de sitio en la barra lateral',
     archivo: 'src/pages/Admin.jsx',
     buscar: "  { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },\n  { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },",
-    reemplazo: "  { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },\n  { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },",
-    sobreviveAqui: 'ningún test de caracterización fija el orden de la barra lateral, y desde el refactor están congelados: queda anotado en el cierre de la tarea 4'
+    reemplazo: "  { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },\n  { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },"
   },
   {
     nombre: 'H14: un fallo del modal limpia el mensaje de estado',
