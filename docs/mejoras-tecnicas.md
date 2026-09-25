@@ -11,7 +11,7 @@ conversación.
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, desplegado el 24 sep a las 20:08 UTC; en pausa antes del backfill B3 (ver abajo). Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14, H15 y H19 |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
@@ -698,18 +698,46 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la petición. Por eso el test comprueba que no hay error y que llegan 0 filas. La copia coincide byte a byte
   con `schema_migrations`.
 
-### H19 · BAJA · SIN REPRODUCIR · Un fallo suelto en `npm test` del servidor
+### H19 · BAJA · CERRADO: no reproducible en 20 ejecuciones (246 en total) · Un fallo suelto en `npm test` del servidor
 
-- **Qué pasó (25 sep, durante la tarea 4):** en el gate del commit `c358bad`, la suite del servidor dio
-  `tests 256, pass 255, fail 1`. Lo normal es 257 de 257. Justo después, la misma suite, sin ningún cambio, dio
-  257 de 257, y cinco ejecuciones seguidas más, también.
-- **Qué no se sabe:** qué test falló. Aquella salida se filtró para quedarse solo con el resumen, así que el
-  nombre se perdió. Que salgan 256 tests y no 257 apunta a un archivo de test que falló entero (al cargar o por
-  tiempo) en vez de test a test, pero es una suposición.
-- **Qué no es:** `npm test` no incluye los tests de contrato contra Supabase y Stripe (`*.contract.js`), así
-  que no depende de la red. El commit solo tocaba el cliente.
-- **Qué se hace:** el gate guarda ahora la salida completa en un archivo, para que, si vuelve a pasar, se sepa
-  qué test es. Si se repite, se investiga. Durante la tarea 4 no se podía tocar `server/`.
+- **Qué pasó:** en el gate del commit `c358bad` (24 sep, 22:50 UTC, en plena tarea 4), la suite del servidor
+  dio `tests 256, pass 255, fail 1`. Lo normal es 257 de 257. El commit se hizo igual, porque iba encadenado
+  al gate (ver la regla del gate en `docs/tarea4-diseno.md`, sección 11).
+- **El nombre del test se perdió.** El gate filtraba la salida con `grep` y solo dejaba el resumen. En la
+  transcripción de la sesión tampoco está: solo esas tres líneas.
+- **Qué fue, deducido del recuento.** Se ha medido cómo cuenta `node:test` (Node 24) cada tipo de fallo, con
+  una suite mínima aparte:
+  - Una aserción que falla, o una promesa rechazada dentro de un test: el total no cambia (257, 1 fallo).
+  - Un test que agota su tiempo: sale como `cancelled`, no como `fail`.
+  - Una excepción después de que acaben los tests: el total sube en 1.
+  - Un archivo cuyo proceso muere o no llega a cargar: todos sus tests desaparecen del recuento, también los
+    que ya habían pasado, y el archivo cuenta como 1 test fallido.
+
+  Solo el último caso da 256/255/1, y solo si el archivo tiene exactamente 2 tests. Hay dos:
+  `errores.test.js` y `confirmarSesionLimite.test.js`. Así que no falló una aserción: **el proceso de uno de
+  esos dos archivos falló entero.**
+- **Intentos de reproducirlo: 0 fallos en 246 ejecuciones.** Todas guardan un log completo (`spec`) y un XML
+  `junit`:
+  - 6 seguidas, justo después del fallo;
+  - **20 seguidas de la suite completa**: 257 de 257 en todas, unos 2 s cada una, nada en stderr;
+  - 100 de cada archivo candidato, por separado;
+  - 20 de la suite completa bajo carga (4 suites a la vez más la del cliente), entre 3 y 5 veces más lentas.
+- **Causas descartadas leyendo el código**, con dos revisiones independientes:
+  - el servidor no llama a `process.exit` ni instala manejadores globales de errores;
+  - las ventanas de los límites de peticiones son de 15 minutos y no caducan durante un test;
+  - los temporizadores falsos son deterministas;
+  - todos los mocks se restauran;
+  - ningún test sale a la red ni escribe en disco;
+  - cada archivo corre en su propio proceso.
+- **Hipótesis que queda, sin demostrar:** un fallo transitorio de Windows al arrancar o cargar el proceso de
+  ese archivo. Los dos candidatos cargan `../index`, que arrastra el módulo nativo de `sharp` (una DLL), y en el
+  gate arrancan 29 procesos a la vez. Esta máquina ya ha dado errores transitorios de acceso a archivos: el
+  `UNKNOWN errno -4094` que obligó a hacer que el script de mutación reintente (`860ae11`).
+- **Si vuelve a pasar:** el gate guarda ahora la salida completa. Un fallo de archivo sale ahí con el nombre del
+  `.test.js`, el error y el código de salida. Con eso se reabre H19 con datos.
+- **De paso, ajeno a H19:** `supabaseFailFast.test.js`, líneas 57-59, restaura `NODE_ENV` asignándole
+  `undefined`, y eso deja la cadena `"undefined"` en vez de borrar la variable. Es inofensivo, porque cada
+  archivo corre en su propio proceso. Se arregla con una línea cuando se toque ese archivo.
 
 ## Decisiones de diseño a recordar
 
