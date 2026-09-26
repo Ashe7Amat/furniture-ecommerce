@@ -165,6 +165,23 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
    **Decisión (26 sep):** sigue necesitando un permiso aparte, que se pedirá cuando toque (en C2 o en la
    comprobación final).
 
+### Estado del bloque 3b (rama `feature/jwt-refresh`, desde `main` en `5d1723b`, sin subir)
+
+- **C1 aplicada** el 26 sep a las 19:37 UTC (versión `20260926193731`, commit `cf64bf1`):
+  - es la tabla `refresh_tokens` del diseño, con sus 3 índices y RLS sin políticas;
+  - está vacía, y ningún código la usa todavía;
+  - la copia coincide byte a byte con `schema_migrations`.
+- **El marcador de `REFRESH_TOKEN_HASH_SECRET` en `server/.env.example`** va en C2, que es el primero que lo
+  usa. El diseño lo ponía en el commit de C1, y el plan de la revisión, en C2.
+- **Antes de empezar C2:**
+  1. El usuario genera `REFRESH_TOKEN_HASH_SECRET` (`openssl rand -hex 32`) y lo pone en `server/.env` y en
+     las variables de producción de `nave5-api` en Vercel.
+  2. Que C1 lleve 48 h en producción sin incidentes: a partir del 28 sep a las 19:37 UTC (recomendado por el
+     diseño).
+  3. Decidir si cambiar la contraseña o el email en `perfil-update` revoca las demás sesiones (punto 3 de
+     arriba).
+  4. El permiso para la comprobación de concurrencia contra la base real (punto 5), cuando toque.
+
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
 - **Merge a `main` y deploy:** commit `6d6624a` (merge de `feature/mejoras-tecnicas`, incluye H8, A1, A2 y
