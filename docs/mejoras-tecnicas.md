@@ -17,6 +17,33 @@ conversación.
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
+## ✅ Merge a `main` del 26 sep 2026: cierre de 3a y tarea 4
+
+- **Merge:** `5d1723b` (`--no-ff`; padres `a1a7dfe` y `6e9cc9c`, sin conflictos). Gate completo en `main`
+  antes del push, en verde: servidor 264/264 y cliente 272/272. Antes del merge se subió
+  `feature/mejoras-tecnicas` como copia de seguridad (`6e9cc9c`).
+- **Push de `main`:** 26 sep a las **19:33:06 UTC**. CI de `main` en verde (36 s).
+- **Deploy, comprobado con la API de Vercel:**
+  - `nave5-demo`: `READY` a las **19:33:19 UTC** (`dpl_7UKAqRPrLmw5mwPvppkFaQC4Xb3T`);
+  - `nave5-api`: `READY` a las **19:33:46 UTC** (`dpl_7fviWVHzWW747xhSKUrzrFptktQL`).
+- **Qué llevaba:**
+  - el refactor del panel de la tarea 4, con su revisión (test del orden de la barra lateral y
+    `no-restricted-globals`);
+  - H19;
+  - dejar de fijar `disponible` a mano;
+  - la copia de B3 y los documentos de cierre de 3a.
+- **Smoke test en producción**, con el navegador integrado y sin iniciar sesión:
+  - la portada carga con datos de la API: las 3 categorías y 4 piezas destacadas;
+  - el catálogo muestra las 114 piezas (las mismas que hay en la base de datos), y todas las llamadas a
+    `nave5-api.vercel.app` (`/api/muebles`, `/api/categorias`) responden 200;
+  - `/admin` sin sesión redirige a `/login`, que es lo correcto. Las pestañas no se pueden ver sin
+    iniciar sesión, pero el trozo del panel del build (`Admin-DOiCm_Me.js`) se sirve con 200 y contiene las
+    5 pestañas y los 2 modales;
+  - la consola no tiene errores. Solo sale un aviso de la CSP (report-only) en `/login`, que ya estaba con
+    la misma CSP antes de este merge: ver "CSP cliente" en la tarea 2.
+- **Queda sin comprobar:** el panel por dentro con sesión iniciada. Es la comprobación en el navegador
+  pendiente de la tarea 4, que necesita que el usuario inicie sesión.
+
 ## ✅ Pausa de despliegue cerrada (migración B): B3 aplicada el 26 sep 2026
 
 - **Merge a `main` y deploy:** `a1a7dfe` (merge `--no-ff` de `feature/mejoras-tecnicas`, sin conflictos:
@@ -248,6 +275,10 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
     embebido -- comprobado, no hay ningún `loadStripe`/`@stripe/stripe-js` en el cliente). Quedan preparados
     para cuando las pestañas "Apple Pay"/"Bizum" del checkout tengan una implementación real; si eso no llega a
     pasar, se pueden quitar sin que nada se rompa.
+  - **Antes de pasar a enforcing** (visto en el smoke test del 26 sep): el botón de Google de `/login` carga
+    la hoja de estilos `https://accounts.google.com/gsi/style`, y `style-src` no la permite. Hoy solo sale un
+    aviso en la consola, porque la política es report-only. En enforcing, el botón se quedaría sin estilos.
+    Hay que añadir ese origen a `style-src`.
 - **CORS:** `CLIENT_URL` + `ALLOWED_ORIGINS` (lista separada por comas, orígenes exactos), sin comodín.
 - **`data/supabase.js` falla al arrancar** sin `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`; ya no hay respaldo a
   la clave `anon`. `.github/workflows/ci.yml` define ambas como variables de prueba para el job del servidor.
