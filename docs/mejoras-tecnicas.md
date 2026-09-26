@@ -10,14 +10,14 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, desplegado el 24 sep a las 20:08 UTC; en pausa antes del backfill B3 (ver abajo). Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación): decisiones tomadas (ver "Bloque 3b" más abajo). C1 va justo después del merge de 3a; C2 y C3, a las 48 h y con `REFRESH_TOKEN_HASH_SECRET` ya puesta. Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
-## ⏳ Pausa de despliegue en curso (migración B, antes de B3)
+## ✅ Pausa de despliegue cerrada (migración B): B3 aplicada el 26 sep 2026
 
 - **Merge a `main` y deploy:** `a1a7dfe` (merge `--no-ff` de `feature/mejoras-tecnicas`, sin conflictos:
   `main` solo tenía el merge anterior). Push el **24 sep 2026 a las 20:07:36 UTC**. Verificado vía la API de
@@ -60,6 +60,18 @@ conversación.
       con la sesión iniciada en una cuenta que esté en `clientes`. Se puede hacer ya: basta con que el
       código esté desplegado.
   - B3 sigue rellenando 2 filas (comprobado a las 13:03 UTC).
+- **Cómo se cerró, el 26 sep, por decisión del usuario:**
+  - **Sin compra de prueba**, así que el código de B no se ha comprobado de extremo a extremo en producción.
+    La confianza está en sus tests unitarios y en el test de contrato (`queryContract`). Queda como deuda
+    aceptada: H20.
+  - **Sin esperar a que acabara la ventana**, que era una recomendación y no un requisito. De hecho, cuando se
+    aplicó B3, el deploy llevaba 47 h sin incidencias ni pedidos nuevos.
+- **B3 aplicada** el 26 sep a las 19:26 UTC (versión `20260926192617`, commit `db6e676`):
+  - antes: 3 pedidos, ninguno con `cliente_id`, y 2 que cumplían la condición;
+  - después: 2 con `cliente_id` (los mismos dos ids, con el email coincidente) y 1 sin él, el de un invitado;
+    ningún pedido de alguien con cuenta ha quedado sin rellenar;
+  - la copia coincide byte a byte con `schema_migrations` (MD5 `9d37d74a…`);
+  - el `.down.sql` solo devuelve a NULL esos dos pedidos, por id.
 - **Decisiones del commit de `disponible` (`db5a6ce`):**
   - **El trigger está comprobado en producción, en solo lectura:** `trg_sync_disponible_desde_estado`,
     `BEFORE INSERT OR UPDATE`, activo, con `NEW.disponible := (COALESCE(NEW.estado, 'disponible') =
@@ -73,7 +85,7 @@ conversación.
   - **Caso límite:** una edición que solo mande `disponible` llega ahora a Supabase como `update({})`, igual
     que ya pasaba con una edición vacía. El panel siempre manda el resto de campos.
 
-## Bloque 3b: lo que hay que decidir antes de empezar (25 sep)
+## Bloque 3b: decisiones antes de empezar (25-26 sep)
 
 Leído el diseño aprobado (`docs/tarea3-diseno.md`, secciones 2 y 3) y comprobado contra el código y el
 esquema actuales, en solo lectura. **Las siete decisiones siguen en pie:**
@@ -93,6 +105,14 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
    producción sin incidentes". El plan de la revisión aplica C1 en producción justo después del merge de 3a.
    Escribir el código en local no despliega nada, pero **aplicar C1 sí es una migración en producción durante
    la ventana de estabilidad de 3a**. Hay que decidir si se espera o si se hace una excepción.
+
+   **Decisión (26 sep):** C1 se aplica justo después del merge de 3a, y C2 (servidor) y C3 (cliente) esperan
+   48 h. Motivo:
+   - la tabla sola no hace nada: ningún código la usa hasta C2;
+   - lleva RLS sin políticas, así que falla cerrada;
+   - no rompe nada de lo que existe.
+
+   Riesgo aceptado: si en esas 48 h aparece un problema en el esquema, habrá que hacer un `ALTER` pequeño.
 2. **H16 y el access token en memoria.** El diseño es del 22 sep, y H16 es del 24. Desde H16, el panel lee
    las listas con la cabecera `Authorization` para saltarse la caché de la CDN (`lecturaFresca()` en
    `api.js`). Con el access token en memoria, al recargar la página hay un momento, hasta que termina el
@@ -104,15 +124,46 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
    Propuesta, que es una decisión de diseño: que `loading` de `AuthContext` siga en `true` hasta que termine
    el refresh silencioso. `ProtectedRoute` ya espera a `loading` antes de pintar nada, y el diseño ya prevé
    un estado de "sesión sin confirmar todavía".
+
+   **Decisión (26 sep): aprobada, con un caso más, que entra en el diseño de C3.** Si el refresh silencioso
+   falla por la red (no por un 401), la aplicación no puede quedarse en `loading` para siempre, ni cerrar la
+   sesión. Pasa a un estado de "reconectando", con un botón para reintentar. No pinta contenido mientras
+   tanto, para no hacer lecturas sin `Authorization`. El usuario puede reintentar o cerrar sesión a mano.
 3. **`POST /api/auth/perfil-update` vuelve a firmar un token** (el nombre y el email van dentro), y el diseño
    no lo menciona. La lectura literal: devuelve un access token nuevo de 1 h y el refresh no cambia, porque
    cada rotación ya vuelve a leer `clientes`.
+
+   **Decisión (26 sep): la lectura literal.** El cliente guarda ese access token en memoria, no en
+   `localStorage`, y el refresh no se toca. Va con un comentario en el código de C2.
+
+   **Corrección:** la revisión suponía que el usuario no podía cambiar su email, y sí puede: `perfil-update`
+   acepta `nuevoEmail` y `nuevaPassword`.
+   - Para que la sesión siga funcionando no hace falta nada: el refresh va por `user_id`, no por email, y
+     cada rotación vuelve a leer la cuenta, así que el access token siguiente ya lleva el email nuevo.
+   - **Queda abierto, para decidir en C2:** si cambiar la contraseña o el email debe revocar las demás
+     sesiones (los refresh de otras pestañas o dispositivos). Lo habitual es revocarlas al cambiar la
+     contraseña.
 4. **El secreto nuevo.** El diseño dice que `REFRESH_TOKEN_HASH_SECRET` lo genera y lo pone el usuario, en
    Vercel y en `server/.env`, antes del deploy de 3b. La comprobación en el navegador en local (fase 5 del
    plan) también lo necesita en `server/.env`. Además, ese servidor local usa la base de datos real, así que
    el recorrido dejaría filas en `refresh_tokens` de producción (revocadas al cerrar sesión).
+
+   **Decisión (26 sep):**
+   - El usuario genera el secreto con `openssl rand -hex 32` y lo pone él mismo en `server/.env` y en las
+     variables de `nave5-api` en Vercel. No pasa por la conversación.
+   - Hace falta para C2, no para C1.
+   - Si algún día se sospecha que se ha filtrado, se rota, y eso obliga a todo el mundo a volver a iniciar
+     sesión.
+
+   Las filas que deje la comprobación en local se aceptan. Después, el usuario las borra con:
+   ```sql
+   DELETE FROM refresh_tokens WHERE user_id = (SELECT id FROM clientes WHERE email = '<email del admin>');
+   ```
 5. **La comprobación única de concurrencia contra la base real** (sección 2 del diseño) necesita permiso y un
    `clientes.id` real. El plan de la revisión no la nombra.
+
+   **Decisión (26 sep):** sigue necesitando un permiso aparte, que se pedirá cuando toque (en C2 o en la
+   comprobación final).
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
@@ -803,12 +854,36 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   `undefined`, y eso deja la cadena `"undefined"` en vez de borrar la variable. Es inofensivo, porque cada
   archivo corre en su propio proceso. Se arregla con una línea cuando se toque ese archivo.
 
+### H20 · BAJA · DEUDA ACEPTADA (26 sep 2026) · El código de B no se ha comprobado de extremo a extremo en producción
+
+- **Qué es:** el código que rellena `pedidos.cliente_id` al registrar un pedido (migración B) no se ha visto
+  funcionar en producción con un pedido real. Desde el deploy del 24 sep no ha entrado ningún pedido, y el
+  usuario decidió no hacer la compra de prueba en modo test.
+- **En qué se confía:**
+  - los tests unitarios de ese código: el bloque `procesarSesionPagada — cliente_id (migración B)` de
+    `pagos.test.js`, que cubre una cuenta, un invitado, un `_` en el email (H17), un email ambiguo, un fallo
+    al buscar la cuenta y una sesión sin email;
+  - el test de contrato de la consulta (`queryContract.test.js`, con el cliente real de Supabase);
+  - que lleva desplegado desde el 24 sep sin incidencias.
+- **B3 sí está comprobada:** rellenó los 2 pedidos antiguos que tocaba, y eso se ve directamente en la
+  base de datos, sin necesidad de un pedido nuevo.
+- **Cuándo se reabre:** si entra un pedido real de alguien con cuenta y `cliente_id` queda a NULL. Consulta
+  para comprobarlo en cualquier momento:
+  ```sql
+  SELECT id, created_at FROM pedidos
+  WHERE created_at > '2026-09-24T20:08:03Z' AND cliente_id IS NULL
+    AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
+  ```
+  Tiene que salir vacía.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
   idempotencia (webhook y página de éxito a la vez chocan en la clave primaria) sin depender de un índice.
-  Se puede revertir a un UUID aleatorio cuando el índice único de `pedidos.stripe_session_id` esté aplicado en
-  producción; el manejo del error `23505` sigue valiendo.
+  El índice único de `pedidos.stripe_session_id` **ya está aplicado en producción**
+  (`pedidos_stripe_session_id_key`, parcial: `WHERE stripe_session_id IS NOT NULL`; comprobado el 26 sep, y
+  existía desde antes de la tarea 1). Así que se podría volver a un UUID aleatorio, y el manejo del error
+  `23505` seguiría valiendo. Mientras no haga falta, se deja el v5: las dos protecciones son compatibles.
 - **El webhook responde 500 ante fallos transitorios de base de datos.** Es deliberado: Stripe reintenta
   (hasta tres días en modo real) y el procesado es idempotente, así que un reintento es seguro. Responder 200
   perdería el pedido en silencio. Los casos permanentes (sesión ajena, metadata ilegible, evento no relevante)
