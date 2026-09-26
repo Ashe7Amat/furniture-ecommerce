@@ -12,7 +12,6 @@ const productosDeEjemplo = [
       'Sofá de tres plazas con tapizado en lino natural antimanchas. Estructura de madera maciza de fresno y cojines de alta densidad. Diseño escandinavo puro.',
     precio_venta: 1250.0,
     precio_alquiler_dia: 45.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?q=80&w=1000&auto=format&fit=crop'
@@ -25,7 +24,6 @@ const productosDeEjemplo = [
       'Butaca fabricada en madera de teca maciza resistente a la intemperie. Respaldo trenzado a mano y cojín repelente al agua.',
     precio_venta: 340.0,
     precio_alquiler_dia: 15.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1592078615290-033ee584e267?q=80&w=1000&auto=format&fit=crop'
@@ -38,7 +36,6 @@ const productosDeEjemplo = [
       'Mesa auxiliar esculpida en bloque de microcemento pulido. Acabado poroso natural que aporta textura a cualquier salón minimalista.',
     precio_venta: 289.0,
     precio_alquiler_dia: 12.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?q=80&w=1000&auto=format&fit=crop'
@@ -51,7 +48,6 @@ const productosDeEjemplo = [
       'Estructura de madera de roble tintado en negro con asiento de cuerda de papel kraft trenzada. Un clásico del diseño danés.',
     precio_venta: 175.0,
     precio_alquiler_dia: 8.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1506898667547-42e22a46e125?q=80&w=1000&auto=format&fit=crop'
@@ -64,7 +60,6 @@ const productosDeEjemplo = [
       'Lámpara de pie con base de mármol blanco y estructura de acero inoxidable cepillado. Iluminación cálida e indirecta.',
     precio_venta: 450.0,
     precio_alquiler_dia: 20.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?q=80&w=1000&auto=format&fit=crop'
@@ -77,7 +72,6 @@ const productosDeEjemplo = [
       'Estructura de cama tapizada en algodón orgánico con cabecero mullido integrado. Somier de lamas de madera de pino incluido.',
     precio_venta: 890.0,
     precio_alquiler_dia: 35.0,
-    disponible: true,
     estado: 'disponible',
     imagenes: [
       'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?q=80&w=1000&auto=format&fit=crop'

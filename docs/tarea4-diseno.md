@@ -1,6 +1,9 @@
 # Tarea 4 — Diseño: partir `Admin.jsx` por pestañas
 
-> **Estado: aprobado** (24 sep 2026), con los cuatro ajustes de la revisión incorporados: valor de retorno en éxito
+> **Estado: hecha** (25 sep 2026), salvo la comprobación en el navegador. Cierre, resultados y diferencias con el
+> diseño en la sección 11.
+>
+> **Diseño aprobado** el 24 sep 2026, con los cuatro ajustes de la revisión incorporados: valor de retorno en éxito
 > (H12), casos de la categoría preseleccionada (secciones 5 y 6), `status` compartido (H14) y plan de
 > comprobación en el navegador (sección 6). Decisiones de enfoque: conservar el estado al cambiar de pestaña, no
 > llevar las pestañas a la URL y escribir tests de caracterización antes de mover código.
@@ -269,3 +272,117 @@ que cambia a propósito los tests marcados con el comentario de caracterización
 | Que el arreglo de H12 cambie cómo se escriben estos tests | H12 se decide antes de empezar (ver `mejoras-tecnicas.md`): el arreglo no cambia el contrato de `api.js` en esta fase, así que los mocks de hoy siguen valiendo |
 | Que el `useEffect` de la categoría preseleccionada pise la elección del usuario o rellene el formulario recién vaciado | La condición y las dependencias exactas de la sección 5, y los tests de los casos A, B y C |
 | Que la vista previa de Vercel salga vacía por CORS y se tome por un fallo del refactor | Los requisitos de la sección 6. Si no se cumplen, basta la comprobación en local |
+
+## 11. Cierre (25 sep 2026)
+
+**Commits**, en la rama `feature/mejoras-tecnicas`, sin subir:
+
+| Paso (sección 9) | Commit |
+|---|---|
+| 1. Caracterización: resumen | `ac98deb` |
+| 2. Caracterización: añadir mueble | `7e55ff6`, con el script de mutación en `b732df4` y sus comprobaciones previas en `99e2a56` |
+| 3. Caracterización: inventario | `2c1ad8b` |
+| 4. Caracterización: pedidos y categorías | `b504e9b`, y `860ae11` (el script de mutación reintenta las escrituras que Windows bloquea) |
+| 5. Caracterización: modales y navegación | `c9c6988`, **el último commit que toca los tests de caracterización** |
+| 6. Icon, SelectorCategoria y `categorias.js` | `27f9ed1` |
+| 7. Hooks del panel | `6a42ff6` |
+| 8. Resumen y Añadir mueble | `058c0c9` |
+| 9. Inventario | `cef6185` |
+| 10. Pedidos y Categorías | `c358bad` (ver la incidencia más abajo) |
+| 11. Modales de edición | `a987ef4` |
+| Listas de mutantes sobre el código nuevo | `8c9ffdc` (no estaba en la sección 9) |
+| 12. Cierre | `aadd001` |
+| Revisión del cierre (25 sep) | Tres commits después de `aadd001`: el test del orden de la barra lateral, `no-restricted-globals` en ESLint y estos documentos, con H19 investigado |
+
+Para un `git bisect`: `c9c6988` es el último commit bueno conocido, y el refactor va de `27f9ed1` a `a987ef4`.
+
+**Resultado:**
+- `Admin.jsx` pasa de 1 039 a 201 líneas. Se queda con el estado compartido de la sección 5, la barra lateral
+  (generada desde `PESTANAS`), el `useEffect` de la categoría preseleccionada y el reparto de pestañas y modales.
+- Las piezas están donde decía la sección 2. `App.jsx`, `Admin.css`, `api.js`, el servidor y la base de datos
+  no se han tocado.
+- **Tests de caracterización: 125, en 7 archivos, sin cambios desde `c9c6988` durante todo el refactor.** Con
+  `git log --follow` sobre cada `Admin.*.test.jsx` y sobre `adminTestUtils.jsx`, ningún commit del refactor
+  aparece. Han pasado en verde, sin tocarlos, en los seis commits.
+- **Después del refactor** se ha añadido un test, a petición de la revisión: el orden de los botones de la
+  barra lateral, en `Admin.navegacion.test.jsx`. No cambia ninguno de los 125. Se ha comprobado que también
+  pasa con el `Admin.jsx` de antes del refactor, en una copia de `c9c6988`: describe un comportamiento que ya
+  existía, no el del código nuevo.
+- 19 tests unitarios de las piezas nuevas: `categorias.js`, `SelectorCategoria` y los tres hooks. En total, 272
+  tests en el cliente y 257 en el servidor.
+- **Mutación sobre el código refactorizado** (`node scripts/mutantes-panel.js`, desde `client/`): 119 mutantes,
+  **118 detectados** y 1 superviviente esperado, con su motivo en `sobreviveAqui`. El mutante de control
+  muere.
+
+  | Lista | Detectados | Supervivientes esperados |
+  |---|---|---|
+  | resumen | 13 de 13 | — |
+  | crear | 15 de 16 | Caso B: cruza dos pestañas y lo cubre `Admin.navegacion.test.jsx`, donde muere |
+  | inventario | 23 de 23 | — |
+  | pedidos | 18 de 18 | — |
+  | categorias | 16 de 16 | — |
+  | modales | 20 de 20 | — |
+  | navegacion | 13 de 13 | — |
+
+  La primera ejecución completa dio dos supervivientes sin `sobreviveAqui`, y de ellos salen dos cambios:
+  - **El mutante del arreglo de H14 en "Crear Categoría"**, que antes del refactor moría, ahora no
+    cambiaba nada. Leía `status`, que `CategoriasTab` no recibe, y en el navegador eso es `window.status`: el
+    botón nunca se desactivaba. Ahora simula el arreglo que propone H14, un estado de envío local a la pestaña,
+    y muere. Para eso el script acepta `cambios`, varios `buscar`/`reemplazo` en el mismo archivo.
+  - **El orden de la barra lateral:** es un mutante nuevo y al principio ningún test lo fijaba. Con el test
+    añadido después del refactor (ver arriba), muere.
+
+  Las listas de categorías y navegación se volvieron a pasar después de estos cambios.
+
+**Diferencias con el diseño**, todas sin cambio de comportamiento:
+- El `useEffect` de la sección 5 usa `primeraEspecifica(categorias)`, que está en `categorias.js` y tiene su test
+  unitario, en vez de filtrar dentro del efecto. La condición (`!formData.categoria`) y las dependencias
+  (`[categorias]`) son las del diseño.
+- `useAdminDatos` también devuelve `setPedidos`: al cambiar el estado de un pedido, `PedidosTab` lo actualiza en
+  pantalla sin recargar la lista, como antes.
+- Además de lo que lista la sección 4, cada modal recibe la entidad que edita y sus archivos nuevos, con sus
+  setters. El estado sigue en el contenedor.
+- Las listas de mutantes se han repuntado al código nuevo en un commit que la sección 9 no preveía. Ambigüedad
+  resuelta con la lectura más literal: el plan pedía repetir la mutación al terminar, y sin repuntar las listas
+  no se puede.
+  - De 116 mutantes, 75 solo necesitaban el campo `archivo`.
+  - 39 ya no coincidían tal cual: ha cambiado la sangría, los nombres del modal y las llamadas que ahora son
+    props. Se han reescrito con la misma intención.
+  - Los 2 restantes seguían coincidiendo, pero su `reemplazo` usaba nombres que ya no existen en su archivo
+    nuevo (`cargarMuebles`, `setMuebleAEditar`). Habrían "muerto" por un `ReferenceError`, no por lo que
+    simulan. Salieron al pasar ESLint a cada archivo mutado y están corregidos.
+  - ESLint no marcó el de `status` porque es un global válido del navegador. La revisión de mutantes busca
+    ahora también los globales que se confunden con variables propias (la lista `confusing-browser-globals`),
+    y ningún otro mutante los usa.
+  - Hay 3 mutantes nuevos para `PESTANAS`, que es código nuevo: un id cambiado, la insignia en otra pestaña y
+    dos pestañas cambiadas de orden.
+
+**Incidencia de proceso: `c358bad` se commiteó con el gate en rojo.**
+- En aquel gate, la suite del servidor dio 256 tests con 1 fallo, y el commit se hizo igual. Causa: el
+  `git commit` iba encadenado al gate en la misma orden y no esperó a leer el resultado.
+- El commit solo toca el cliente. El fallo se ha investigado como H19 en `mejoras-tecnicas.md`: por el
+  recuento, falló entero el proceso de uno de los dos archivos de 2 tests del servidor. No se ha reproducido
+  en 246 ejecuciones, 20 de ellas bajo carga, y está cerrado como fallo de entorno no reproducible.
+- **Regla del gate, desde el 25 sep 2026:**
+
+  > El gate siempre en su propio comando, nunca encadenado con `&&` (ni con `;`) a otro paso. Se lee la salida
+  > completa antes de commitear, y esa salida se guarda entera en un archivo. Si el gate falla, no se commitea,
+  > aunque el fallo parezca no relacionado.
+
+  Lo de `;` va a propósito: en `c358bad` las partes del gate iban encadenadas con `;` y el commit con `&&`
+  detrás. Un fallo en medio no paraba nada.
+
+**Pendiente:**
+- **La comprobación en el navegador** (sección 6). Como el inicio de sesión como administrador lo hace el
+  usuario, se hace cuando vuelva.
+- Después, fuera de la tarea 4: el arreglo de H12, y decidir con el cliente H13, H14 y H15.
+
+**Hecho en la revisión del cierre (25 sep):**
+- El test del orden de la barra lateral (ver "Resultado").
+- **`no-restricted-globals` en el ESLint del cliente**, con los 58 nombres de `confusing-browser-globals`, el
+  paquete que usa Create React App. Van copiados en `.eslintrc.cjs` para no añadir una dependencia, y se han
+  comparado con el código fuente del paquete. Con el análisis de ámbitos de ESLint:
+  - antes de activarla, ninguna referencia del cliente caía en esos globales;
+  - en el panel, los únicos globales que se usan son `document` y `FormData`, los dos a propósito;
+  - con la configuración del proyecto, la regla detecta la lectura de `status` del mutante antiguo, tanto en
+    el código como en los tests.

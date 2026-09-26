@@ -359,7 +359,8 @@ describe('procesarSesionPagada — marcado de piezas', () => {
 
     const actualizaciones = fake.escrituras.filter((e) => e.tabla === 'muebles');
     assert.equal(actualizaciones.length, 1);
-    assert.deepEqual(actualizaciones[0].datos, { estado: 'vendido', disponible: false });
+    // Solo `estado`: `disponible` lo recalcula la base de datos (trigger; ver fakeSupabase).
+    assert.deepEqual(actualizaciones[0].datos, { estado: 'vendido' });
   });
 });
 

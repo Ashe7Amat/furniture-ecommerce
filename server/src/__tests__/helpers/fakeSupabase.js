@@ -12,6 +12,10 @@
 //   - update() devuelve las filas afectadas para poder encadenar .select()
 //   - contains() solo acepta una cadena JSON (un array de objetos falla con 22P02) y neq()
 //     excluye las filas NULL, como SQL
+//   - en `muebles`, cada fila insertada o actualizada pasa por el equivalente del trigger
+//     trg_sync_disponible_desde_estado (BEFORE INSERT OR UPDATE): `disponible` se recalcula
+//     siempre desde `estado`, pisando lo que se haya mandado. Las filas iniciales no pasan por
+//     él, igual que las que ya están en la base de datos.
 // Lo que NO comprueba: nombres de columnas ni tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
@@ -104,6 +108,16 @@ const crearFakeSupabase = ({
     return new RegExp(`^${regex}$`, 'i');
   };
 
+  // Triggers BEFORE INSERT OR UPDATE de la base de datos real, por tabla. Copia de
+  // sync_disponible_desde_estado():
+  //   NEW.disponible := (COALESCE(NEW.estado, 'disponible') = 'disponible');
+  const triggers = {
+    muebles: (fila) => {
+      fila.disponible = (fila.estado ?? 'disponible') === 'disponible';
+    }
+  };
+  const aplicarTriggers = (nombre, fila) => triggers[nombre]?.(fila);
+
   const ejecutar = (nombre, consulta) => {
     const filas = tablas[nombre];
     const coincide = (fila) => consulta.filtros.every((filtro) => filtro(fila));
@@ -118,6 +132,7 @@ const crearFakeSupabase = ({
       // una vez); aquí se normaliza a array para tratar ambos casos igual.
       const entrada = Array.isArray(consulta.datos) ? consulta.datos : [consulta.datos];
       const nuevasFilas = entrada.map((datos) => ({ id: `${nombre}-${++secuencia}`, ...datos }));
+      nuevasFilas.forEach((fila) => aplicarTriggers(nombre, fila));
 
       for (const fila of nuevasFilas) {
         const duplicaId = filas.some((f) => f.id === fila.id);
@@ -136,13 +151,20 @@ const crearFakeSupabase = ({
       }
 
       filas.push(...nuevasFilas);
-      nuevasFilas.forEach((fila) => escrituras.push({ tabla: nombre, accion: 'insert', fila }));
+      // `fila` es la fila tal como queda guardada (con los triggers aplicados); `enviado`, lo
+      // que mandó la aplicación, para poder comprobar qué columnas escribe de verdad.
+      nuevasFilas.forEach((fila, i) =>
+        escrituras.push({ tabla: nombre, accion: 'insert', fila, enviado: entrada[i] })
+      );
       return { data: nuevasFilas, error: null };
     }
 
     if (consulta.accion === 'update') {
       const afectadas = filas.filter(coincide);
-      afectadas.forEach((fila) => Object.assign(fila, consulta.datos));
+      afectadas.forEach((fila) => {
+        Object.assign(fila, consulta.datos);
+        aplicarTriggers(nombre, fila);
+      });
       if (afectadas.length > 0) {
         escrituras.push({
           tabla: nombre,

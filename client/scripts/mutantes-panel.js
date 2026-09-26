@@ -19,6 +19,10 @@
 //   ];
 // - `buscar` tiene que aparecer tal cual en el archivo (saltos de línea como \n, sin \r). Se cambia
 //   solo la primera aparición. Si no aparece, el mutante sale como NO ENCONTRADO.
+// - `cambios: [{ buscar, reemplazo }, ...]` (en vez de `buscar` y `reemplazo`): para un fallo que
+//   necesita tocar varios sitios del mismo archivo (p. ej. un estado nuevo, quien lo cambia y quien
+//   lo lee). Se aplican en orden, cada uno sobre el resultado del anterior. Si alguno no aparece, el
+//   mutante sale como NO ENCONTRADO.
 // - `archivo` (opcional, por defecto src/pages/Admin.jsx): después del refactor, el código vive en
 //   src/pages/admin/..., y cada mutante tiene que apuntar a su archivo nuevo.
 // - `sobreviveAqui` (opcional): el motivo por el que se espera que el mutante sobreviva con este
@@ -88,8 +92,34 @@ for (const m of [control, ...listas.flatMap(l => l.MUTANTES)]) {
   originales.set(archivo, readFileSync(archivo, 'utf8'));
 }
 
+// En Windows, otro proceso (el antivirus, el indexador, un editor) puede tener el archivo abierto
+// un instante y la escritura falla con EBUSY, EPERM o UNKNOWN. Pasó una vez (24 sep 2026) justo al
+// restaurar, y Admin.jsx se quedó con un mutante dentro. Así que cada escritura se reintenta.
+const ERRORES_PASAJEROS = new Set(['EBUSY', 'EPERM', 'EACCES', 'UNKNOWN']);
+const escribir = (archivo, contenido) => {
+  for (let intento = 1; ; intento++) {
+    try {
+      writeFileSync(archivo, contenido);
+      return;
+    } catch (e) {
+      if (!ERRORES_PASAJEROS.has(e.code) || intento === 20) throw e;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250); // espera 250 ms
+    }
+  }
+};
+
 const restaurarTodo = () => {
-  for (const [archivo, contenido] of originales) writeFileSync(archivo, contenido);
+  for (const [archivo, contenido] of originales) {
+    try {
+      escribir(archivo, contenido);
+    } catch (e) {
+      console.error(
+        `\n¡NO SE HA PODIDO RESTAURAR ${archivo}! (${e.code}). Puede haberse quedado con un mutante dentro.` +
+          ` Restáuralo con: git checkout -- "${archivo}"`
+      );
+      process.exitCode = 1;
+    }
+  }
 };
 const abortar = (mensaje) => {
   restaurarTodo();
@@ -130,16 +160,19 @@ const correrTest = (test) => {
 // Aplica un mutante, corre el test y restaura. Devuelve 'no-encontrado', 'matado' o 'sobrevive'.
 const probarMutante = (m, test) => {
   const archivo = resolve(CLIENT, m.archivo ?? ARCHIVO_POR_DEFECTO);
-  const texto = originales.get(archivo).replace(/\r\n/g, '\n');
-  if (!texto.includes(m.buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
-  writeFileSync(archivo, texto.replace(m.buscar, m.reemplazo));
+  let texto = originales.get(archivo).replace(/\r\n/g, '\n');
+  for (const { buscar, reemplazo } of m.cambios ?? [m]) {
+    if (!texto.includes(buscar)) return { resultado: 'no-encontrado', detalle: 'NO ENCONTRADO' };
+    texto = texto.replace(buscar, reemplazo);
+  }
+  escribir(archivo, texto);
   try {
     const { fallidos, archivosFallidos } = correrTest(test);
     if (fallidos > 0) return { resultado: 'matado', detalle: `MATADO (${fallidos})` };
     if (archivosFallidos > 0) return { resultado: 'matado', detalle: 'MATADO (carga)' };
     return { resultado: 'sobrevive', detalle: 'SOBREVIVE' };
   } finally {
-    writeFileSync(archivo, originales.get(archivo));
+    escribir(archivo, originales.get(archivo));
   }
 };
 

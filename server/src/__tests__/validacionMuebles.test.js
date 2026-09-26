@@ -75,20 +75,21 @@ describe('POST /api/muebles — validación con Zod', () => {
     assert.equal(res.body.error, 'El estado debe ser uno de: disponible, vendido, alquilado.');
   });
 
-  test('un payload válido (con precio y disponible como texto, típico de un formulario) se crea con los tipos ya convertidos', async () => {
+  test('un payload válido (con el precio como texto, típico de un formulario) se crea con los tipos ya convertidos', async () => {
     const res = await conAuth(request(app).post('/api/muebles'))
       .field('nombre', 'Sofá Lumina')
       .field('categoria', 'Sofás')
       .field('precio_venta', '1250.5')
-      .field('disponible', 'true');
+      .field('disponible', 'true'); // se acepta, pero se ignora: lo calcula la base de datos
 
     assert.equal(res.status, 201);
-    const insertado = fake.escrituras.find(
+    const { fila: insertado, enviado } = fake.escrituras.find(
       (e) => e.tabla === 'muebles' && e.accion === 'insert'
-    ).fila;
+    );
     assert.equal(insertado.precio_venta, 1250.5);
-    assert.equal(insertado.disponible, true);
     assert.equal(insertado.estado, 'disponible'); // valor por defecto cuando no se manda
+    assert.equal('disponible' in enviado, false);
+    assert.equal(insertado.disponible, true); // derivado de estado por el trigger
   });
 
   test('sin token de admin, corta en 401 antes de llegar a la validación', async () => {

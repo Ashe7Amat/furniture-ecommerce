@@ -10,12 +10,160 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | En curso. Bloque 3a: H8, A1, A2, doble escritura de `categoria_id` y A3 (backfill, 24 sep) y H9 (RLS de `pedidos`, 24 sep) hechos. Migración B (`pedidos.cliente_id`): B1 y B2 (columna e índice) aplicadas el 24 sep, y el código que la rellena al registrar cada pedido, hecho (pendiente de desplegar); quedan la pausa de despliegue y el backfill B3. Después, dejar de fijar `disponible` a mano y el cierre. Bloque 3b (JWT refresh/rotación) no empezado. Diseño completo en `docs/tarea3-diseno.md` |
-| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: diseño aprobado en `docs/tarea4-diseno.md`; en curso los tests de caracterización, que van antes de mover código. Hallazgos previos: H12, H13, H14 y H15 |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación): decisiones tomadas (ver "Bloque 3b" más abajo). C1 va justo después del merge de 3a; C2 y C3, a las 48 h y con `REFRESH_TOKEN_HASH_SECRET` ya puesta. Diseño completo en `docs/tarea3-diseno.md` |
+| 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
+
+## ✅ Pausa de despliegue cerrada (migración B): B3 aplicada el 26 sep 2026
+
+- **Merge a `main` y deploy:** `a1a7dfe` (merge `--no-ff` de `feature/mejoras-tecnicas`, sin conflictos:
+  `main` solo tenía el merge anterior). Push el **24 sep 2026 a las 20:07:36 UTC**. Verificado vía la API de
+  Vercel:
+  - `nave5-api`: `READY` a las **20:08:03 UTC** (deployment `dpl_EZeXWxDf8ro8hziSxhbqbUfrsrja`);
+  - `nave5-demo`: `READY` a las 20:08:13 UTC (deployment `dpl_3TEg8ySCnuVcnKoR44fTn28LwH2t`);
+  - CI de `main` en verde.
+- **Qué llevaba:** H16 (caché del panel), H17 (escape de ILIKE), el formato del servidor, los tests de la
+  tarea 4 hechos hasta entonces y el código de la migración B. También las copias de A3, H9, B1 y B2, que ya
+  estaban aplicadas en la base de datos.
+- **Comprobado en producción justo después**, en solo lectura: el catálogo responde 200; la búsqueda "sill"
+  devuelve 14 piezas, y "si_la" 0 (antes de H17 el `_` hacía de comodín).
+- **Pausa:** 24-48 h desde las 20:08:03 UTC del 24 sep, antes de aplicar B3. No se toca `main` mientras tanto.
+- **Verificación antes de B3** (con la hora del deploy de la API):
+  ```sql
+  SELECT count(*) FROM pedidos
+  WHERE created_at > '2026-09-24T20:08:03Z' AND cliente_id IS NULL
+    AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
+  ```
+  Debe dar 0: un pedido nuevo de alguien con cuenta ya tiene que traer `cliente_id` del código. Igual que
+  con A3, si no ha habido pedidos nuevos, el 0 no demuestra nada y hará falta una compra de prueba en modo test.
+- **B3** (con permiso), con la misma regla que el código: solo se asigna la cuenta si el email coincide con
+  exactamente una.
+  ```sql
+  UPDATE public.pedidos p SET cliente_id = c.id
+  FROM public.clientes c
+  WHERE p.cliente_id IS NULL
+    AND lower(p.cliente_info->>'email') = lower(c.email)
+    AND (SELECT count(*) FROM public.clientes c2 WHERE lower(c2.email) = lower(c.email)) = 1;
+  ```
+  El 24 sep rellenaría 2 filas; la tercera es de un invitado y se queda a NULL.
+- **Estado el 25 sep a las 13:10 UTC**, en la fase 1 de la tarea larga de la revisión (cerrar 3a, merge, 3b):
+  - Hecho: los tres commits de la revisión del cierre de la tarea 4 y `chore(server): dejar de fijar
+    disponible a mano`. Este último va **antes de B3** y no después, porque no depende de B (sección 3 del
+    diseño, paso 11). Ver las decisiones de ese commit más abajo.
+  - **Parada en B3, por dos motivos:**
+    - La pausa no acaba hasta las **20:08:03 UTC del 25 sep** (22:08 en España).
+    - **No ha habido ningún pedido desde el deploy** (el último es del 5 sep), así que la verificación de
+      arriba da 0 sin demostrar nada. Hace falta **una compra de prueba en modo test**, hecha por el usuario
+      con la sesión iniciada en una cuenta que esté en `clientes`. Se puede hacer ya: basta con que el
+      código esté desplegado.
+  - B3 sigue rellenando 2 filas (comprobado a las 13:03 UTC).
+- **Cómo se cerró, el 26 sep, por decisión del usuario:**
+  - **Sin compra de prueba**, así que el código de B no se ha comprobado de extremo a extremo en producción.
+    La confianza está en sus tests unitarios y en el test de contrato (`queryContract`). Queda como deuda
+    aceptada: H20.
+  - **Sin esperar a que acabara la ventana**, que era una recomendación y no un requisito. De hecho, cuando se
+    aplicó B3, el deploy llevaba 47 h sin incidencias ni pedidos nuevos.
+- **B3 aplicada** el 26 sep a las 19:26 UTC (versión `20260926192617`, commit `db6e676`):
+  - antes: 3 pedidos, ninguno con `cliente_id`, y 2 que cumplían la condición;
+  - después: 2 con `cliente_id` (los mismos dos ids, con el email coincidente) y 1 sin él, el de un invitado;
+    ningún pedido de alguien con cuenta ha quedado sin rellenar;
+  - la copia coincide byte a byte con `schema_migrations` (MD5 `9d37d74a…`);
+  - el `.down.sql` solo devuelve a NULL esos dos pedidos, por id.
+- **Decisiones del commit de `disponible` (`db5a6ce`):**
+  - **El trigger está comprobado en producción, en solo lectura:** `trg_sync_disponible_desde_estado`,
+    `BEFORE INSERT OR UPDATE`, activo, con `NEW.disponible := (COALESCE(NEW.estado, 'disponible') =
+    'disponible')`. Las 114 piezas son coherentes. Como el trigger pisa siempre el valor, dejar de mandarlo
+    no cambia lo que se guarda. Por eso no se ha hecho la prueba de escritura contra la base real que
+    pedía el diseño "con permiso": la definición del trigger ya lo demuestra.
+  - **También se ha quitado de `seed.js`.** El diseño solo nombraba el controlador y `pagos.js`, pero es la
+    misma limpieza.
+  - **El esquema sigue aceptando `disponible` y se ignora.** Quitarlo no cambiaría nada, porque con
+    `.passthrough()` pasaría igual. Lleva un comentario.
+  - **Caso límite:** una edición que solo mande `disponible` llega ahora a Supabase como `update({})`, igual
+    que ya pasaba con una edición vacía. El panel siempre manda el resto de campos.
+
+## Bloque 3b: decisiones antes de empezar (25-26 sep)
+
+Leído el diseño aprobado (`docs/tarea3-diseno.md`, secciones 2 y 3) y comprobado contra el código y el
+esquema actuales, en solo lectura. **Las siete decisiones siguen en pie:**
+- access token de 1 h en memoria y refresh de 7 días en `localStorage` (`kaveRefreshToken`);
+- el refresh rota en cada uso;
+- detección de reuso por `family_id`;
+- margen de gracia de 60 s y sincronización entre pestañas;
+- `POST /api/auth/refresh` y `POST /api/auth/logout`;
+- HMAC-SHA256 con `REFRESH_TOKEN_HASH_SECRET`;
+- los JWT de 7 días ya firmados se dejan caducar.
+
+Encaja con lo que hay: `clientes.id` es `uuid`, los administradores son filas de `clientes` con
+`rol = 'admin'`, los JWT se firman en un solo sitio (`expiresIn: '7d'`) y `refresh_tokens` no existe todavía.
+
+Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la revisión:
+1. **La regla de las 48 h.** El diseño dice: "no se empieza 3b hasta que estos commits lleven 48h en
+   producción sin incidentes". El plan de la revisión aplica C1 en producción justo después del merge de 3a.
+   Escribir el código en local no despliega nada, pero **aplicar C1 sí es una migración en producción durante
+   la ventana de estabilidad de 3a**. Hay que decidir si se espera o si se hace una excepción.
+
+   **Decisión (26 sep):** C1 se aplica justo después del merge de 3a, y C2 (servidor) y C3 (cliente) esperan
+   48 h. Motivo:
+   - la tabla sola no hace nada: ningún código la usa hasta C2;
+   - lleva RLS sin políticas, así que falla cerrada;
+   - no rompe nada de lo que existe.
+
+   Riesgo aceptado: si en esas 48 h aparece un problema en el esquema, habrá que hacer un `ALTER` pequeño.
+2. **H16 y el access token en memoria.** El diseño es del 22 sep, y H16 es del 24. Desde H16, el panel lee
+   las listas con la cabecera `Authorization` para saltarse la caché de la CDN (`lecturaFresca()` en
+   `api.js`). Con el access token en memoria, al recargar la página hay un momento, hasta que termina el
+   refresh silencioso, en que `kaveUser` ya dice que hay sesión pero todavía no hay token:
+   - el panel se pintaría y pediría las listas sin `Authorization`, y la CDN podría devolver una copia vieja
+     (volvería H16);
+   - las llamadas de administrador darían 401 y se reintentarían.
+
+   Propuesta, que es una decisión de diseño: que `loading` de `AuthContext` siga en `true` hasta que termine
+   el refresh silencioso. `ProtectedRoute` ya espera a `loading` antes de pintar nada, y el diseño ya prevé
+   un estado de "sesión sin confirmar todavía".
+
+   **Decisión (26 sep): aprobada, con un caso más, que entra en el diseño de C3.** Si el refresh silencioso
+   falla por la red (no por un 401), la aplicación no puede quedarse en `loading` para siempre, ni cerrar la
+   sesión. Pasa a un estado de "reconectando", con un botón para reintentar. No pinta contenido mientras
+   tanto, para no hacer lecturas sin `Authorization`. El usuario puede reintentar o cerrar sesión a mano.
+3. **`POST /api/auth/perfil-update` vuelve a firmar un token** (el nombre y el email van dentro), y el diseño
+   no lo menciona. La lectura literal: devuelve un access token nuevo de 1 h y el refresh no cambia, porque
+   cada rotación ya vuelve a leer `clientes`.
+
+   **Decisión (26 sep): la lectura literal.** El cliente guarda ese access token en memoria, no en
+   `localStorage`, y el refresh no se toca. Va con un comentario en el código de C2.
+
+   **Corrección:** la revisión suponía que el usuario no podía cambiar su email, y sí puede: `perfil-update`
+   acepta `nuevoEmail` y `nuevaPassword`.
+   - Para que la sesión siga funcionando no hace falta nada: el refresh va por `user_id`, no por email, y
+     cada rotación vuelve a leer la cuenta, así que el access token siguiente ya lleva el email nuevo.
+   - **Queda abierto, para decidir en C2:** si cambiar la contraseña o el email debe revocar las demás
+     sesiones (los refresh de otras pestañas o dispositivos). Lo habitual es revocarlas al cambiar la
+     contraseña.
+4. **El secreto nuevo.** El diseño dice que `REFRESH_TOKEN_HASH_SECRET` lo genera y lo pone el usuario, en
+   Vercel y en `server/.env`, antes del deploy de 3b. La comprobación en el navegador en local (fase 5 del
+   plan) también lo necesita en `server/.env`. Además, ese servidor local usa la base de datos real, así que
+   el recorrido dejaría filas en `refresh_tokens` de producción (revocadas al cerrar sesión).
+
+   **Decisión (26 sep):**
+   - El usuario genera el secreto con `openssl rand -hex 32` y lo pone él mismo en `server/.env` y en las
+     variables de `nave5-api` en Vercel. No pasa por la conversación.
+   - Hace falta para C2, no para C1.
+   - Si algún día se sospecha que se ha filtrado, se rota, y eso obliga a todo el mundo a volver a iniciar
+     sesión.
+
+   Las filas que deje la comprobación en local se aceptan. Después, el usuario las borra con:
+   ```sql
+   DELETE FROM refresh_tokens WHERE user_id = (SELECT id FROM clientes WHERE email = '<email del admin>');
+   ```
+5. **La comprobación única de concurrencia contra la base real** (sección 2 del diseño) necesita permiso y un
+   `clientes.id` real. El plan de la revisión no la nombra.
+
+   **Decisión (26 sep):** sigue necesitando un permiso aparte, que se pedirá cuando toque (en C2 o en la
+   comprobación final).
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
@@ -53,7 +201,7 @@ conversación.
   - **Limpieza:** Ashe borró la pieza desde el panel y su foto en Storage
     (`imagenes/muebles/dqhvp59jjl6-1790255381596.webp`). Se comprobó por SQL que no queda ninguna de las dos.
   - De paso apareció H16: el panel no veía sus propios cambios sin recargar, por las cachés. Corregido en
-    `63f1324`, pendiente de desplegar.
+    `63f1324`, desplegado con el merge `a1a7dfe` del 24 sep.
 - **A3 aplicada** (24 sep, con permiso) como migración `20260924133146_backfill_muebles_categoria_id`:
   - Comprobado antes, sin aplicar nada: se rellenarían 114 filas, sin nombres de categoría huérfanos ni
     duplicados y sin ninguna pieza en una categoría general. El trigger `trg_sync_disponible_desde_estado`
@@ -579,7 +727,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
   casos A y C cambiarían a propósito en ese mismo commit.
 
-### H16 · MEDIA · CORREGIDO (pendiente de desplegar) · El panel no veía sus propios cambios hasta recargar
+### H16 · MEDIA · CORREGIDO (desplegado el 24 sep 2026) · El panel no veía sus propios cambios hasta recargar
 
 - **Síntoma** (24 sep, durante la prueba de A3 en producción): después de crear una pieza, el inventario del panel
   no la mostraba hasta recargar la página. Después de editarla, seguía saliendo con la categoría de antes.
@@ -602,7 +750,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
   cambio de más consultas a Supabase. Recomendación del revisor: no tocarlo mientras el cliente no lo note.
 
-### H17 · ALTA · CORREGIDO (pendiente de desplegar) · "Mis pedidos" enseñaba pedidos de otras personas
+### H17 · ALTA · CORREGIDO (desplegado el 24 sep 2026) · "Mis pedidos" enseñaba pedidos de otras personas
 
 - **El fallo:** `obtenerMisPedidos` buscaba con `.ilike('cliente_info->>email', email)`, usando el email de la
   cuenta como patrón. En ILIKE, `_` es "un carácter cualquiera", y `supabase-js` pasa el patrón sin escapar.
@@ -665,12 +813,77 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la petición. Por eso el test comprueba que no hay error y que llegan 0 filas. La copia coincide byte a byte
   con `schema_migrations`.
 
+### H19 · BAJA · CERRADO: no reproducible en 20 ejecuciones (246 en total) · Un fallo suelto en `npm test` del servidor
+
+- **Qué pasó:** en el gate del commit `c358bad` (24 sep, 22:50 UTC, en plena tarea 4), la suite del servidor
+  dio `tests 256, pass 255, fail 1`. Lo normal es 257 de 257. El commit se hizo igual, porque iba encadenado
+  al gate (ver la regla del gate en `docs/tarea4-diseno.md`, sección 11).
+- **El nombre del test se perdió.** El gate filtraba la salida con `grep` y solo dejaba el resumen. En la
+  transcripción de la sesión tampoco está: solo esas tres líneas.
+- **Qué fue, deducido del recuento.** Se ha medido cómo cuenta `node:test` (Node 24) cada tipo de fallo, con
+  una suite mínima aparte:
+  - Una aserción que falla, o una promesa rechazada dentro de un test: el total no cambia (257, 1 fallo).
+  - Un test que agota su tiempo: sale como `cancelled`, no como `fail`.
+  - Una excepción después de que acaben los tests: el total sube en 1.
+  - Un archivo cuyo proceso muere o no llega a cargar: todos sus tests desaparecen del recuento, también los
+    que ya habían pasado, y el archivo cuenta como 1 test fallido.
+
+  Solo el último caso da 256/255/1, y solo si el archivo tiene exactamente 2 tests. Hay dos:
+  `errores.test.js` y `confirmarSesionLimite.test.js`. Así que no falló una aserción: **el proceso de uno de
+  esos dos archivos falló entero.**
+- **Intentos de reproducirlo: 0 fallos en 246 ejecuciones.** Todas guardan un log completo (`spec`) y un XML
+  `junit`:
+  - 6 seguidas, justo después del fallo;
+  - **20 seguidas de la suite completa**: 257 de 257 en todas, unos 2 s cada una, nada en stderr;
+  - 100 de cada archivo candidato, por separado;
+  - 20 de la suite completa bajo carga (4 suites a la vez más la del cliente), entre 3 y 5 veces más lentas.
+- **Causas descartadas leyendo el código**, con dos revisiones independientes:
+  - el servidor no llama a `process.exit` ni instala manejadores globales de errores;
+  - las ventanas de los límites de peticiones son de 15 minutos y no caducan durante un test;
+  - los temporizadores falsos son deterministas;
+  - todos los mocks se restauran;
+  - ningún test sale a la red ni escribe en disco;
+  - cada archivo corre en su propio proceso.
+- **Hipótesis que queda, sin demostrar:** un fallo transitorio de Windows al arrancar o cargar el proceso de
+  ese archivo. Los dos candidatos cargan `../index`, que arrastra el módulo nativo de `sharp` (una DLL), y en el
+  gate arrancan 29 procesos a la vez. Esta máquina ya ha dado errores transitorios de acceso a archivos: el
+  `UNKNOWN errno -4094` que obligó a hacer que el script de mutación reintente (`860ae11`).
+- **Si vuelve a pasar:** el gate guarda ahora la salida completa. Un fallo de archivo sale ahí con el nombre del
+  `.test.js`, el error y el código de salida. Con eso se reabre H19 con datos.
+- **De paso, ajeno a H19:** `supabaseFailFast.test.js`, líneas 57-59, restaura `NODE_ENV` asignándole
+  `undefined`, y eso deja la cadena `"undefined"` en vez de borrar la variable. Es inofensivo, porque cada
+  archivo corre en su propio proceso. Se arregla con una línea cuando se toque ese archivo.
+
+### H20 · BAJA · DEUDA ACEPTADA (26 sep 2026) · El código de B no se ha comprobado de extremo a extremo en producción
+
+- **Qué es:** el código que rellena `pedidos.cliente_id` al registrar un pedido (migración B) no se ha visto
+  funcionar en producción con un pedido real. Desde el deploy del 24 sep no ha entrado ningún pedido, y el
+  usuario decidió no hacer la compra de prueba en modo test.
+- **En qué se confía:**
+  - los tests unitarios de ese código: el bloque `procesarSesionPagada — cliente_id (migración B)` de
+    `pagos.test.js`, que cubre una cuenta, un invitado, un `_` en el email (H17), un email ambiguo, un fallo
+    al buscar la cuenta y una sesión sin email;
+  - el test de contrato de la consulta (`queryContract.test.js`, con el cliente real de Supabase);
+  - que lleva desplegado desde el 24 sep sin incidencias.
+- **B3 sí está comprobada:** rellenó los 2 pedidos antiguos que tocaba, y eso se ve directamente en la
+  base de datos, sin necesidad de un pedido nuevo.
+- **Cuándo se reabre:** si entra un pedido real de alguien con cuenta y `cliente_id` queda a NULL. Consulta
+  para comprobarlo en cualquier momento:
+  ```sql
+  SELECT id, created_at FROM pedidos
+  WHERE created_at > '2026-09-24T20:08:03Z' AND cliente_id IS NULL
+    AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
+  ```
+  Tiene que salir vacía.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
   idempotencia (webhook y página de éxito a la vez chocan en la clave primaria) sin depender de un índice.
-  Se puede revertir a un UUID aleatorio cuando el índice único de `pedidos.stripe_session_id` esté aplicado en
-  producción; el manejo del error `23505` sigue valiendo.
+  El índice único de `pedidos.stripe_session_id` **ya está aplicado en producción**
+  (`pedidos_stripe_session_id_key`, parcial: `WHERE stripe_session_id IS NOT NULL`; comprobado el 26 sep, y
+  existía desde antes de la tarea 1). Así que se podría volver a un UUID aleatorio, y el manejo del error
+  `23505` seguiría valiendo. Mientras no haga falta, se deja el v5: las dos protecciones son compatibles.
 - **El webhook responde 500 ante fallos transitorios de base de datos.** Es deliberado: Stripe reintenta
   (hasta tres días en modo real) y el procesado es idempotente, así que un reintento es seguro. Responder 200
   perdería el pedido en silencio. Los casos permanentes (sesión ajena, metadata ilegible, evento no relevante)

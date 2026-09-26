@@ -64,21 +64,15 @@ const obtenerMueblePorId = async (req, res) => {
 };
 
 // 3. Crear un nuevo mueble con soporte de carga física de imágenes
-// nombre/categoria/descripcion/precio_venta/precio_alquiler/disponible/estado ya vienen
-// validados y con su tipo real (precios como number o null, disponible como boolean) por
-// schemas/muebles.js -- ver validar() en mueblesRoutes.js.
+// nombre/categoria/descripcion/precio_venta/precio_alquiler/estado ya vienen validados y con su
+// tipo real (precios como number o null) por schemas/muebles.js -- ver validar() en
+// mueblesRoutes.js. `disponible` no se escribe nunca desde aquí: lo calcula la base de datos a
+// partir de `estado` (trigger trg_sync_disponible_desde_estado, BEFORE INSERT OR UPDATE), que
+// además pisa cualquier valor que se le mande. Si llega en el body, se ignora.
 const crearMueble = async (req, res) => {
   try {
-    const {
-      nombre,
-      categoria,
-      descripcion,
-      precio_venta,
-      precio_alquiler,
-      disponible,
-      estado,
-      categoria_id
-    } = req.body;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, estado, categoria_id } =
+      req.body;
     let imagenes = [];
 
     if (req.files && req.files.length > 0) {
@@ -113,7 +107,6 @@ const crearMueble = async (req, res) => {
           descripcion,
           precio_venta: precio_venta ?? null,
           precio_alquiler_dia: precio_alquiler ?? null,
-          disponible: disponible !== undefined ? disponible : true,
           imagenes,
           estado: estado || 'disponible'
         }
@@ -129,20 +122,13 @@ const crearMueble = async (req, res) => {
 };
 
 // 4. Editar un mueble (actualización parcial: solo se tocan los campos presentes en el body,
-// ya validados y con su tipo real por schemas/muebles.js)
+// ya validados y con su tipo real por schemas/muebles.js). `disponible` tampoco se escribe aquí:
+// la base de datos lo recalcula desde `estado` en cada actualización (ver crearMueble).
 const editarMueble = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      nombre,
-      categoria,
-      descripcion,
-      precio_venta,
-      precio_alquiler,
-      disponible,
-      estado,
-      categoria_id
-    } = req.body;
+    const { nombre, categoria, descripcion, precio_venta, precio_alquiler, estado, categoria_id } =
+      req.body;
 
     const updateData = {};
     if (nombre !== undefined) updateData.nombre = nombre;
@@ -159,7 +145,6 @@ const editarMueble = async (req, res) => {
     if (descripcion !== undefined) updateData.descripcion = descripcion;
     if (precio_venta !== undefined) updateData.precio_venta = precio_venta;
     if (precio_alquiler !== undefined) updateData.precio_alquiler_dia = precio_alquiler;
-    if (disponible !== undefined) updateData.disponible = disponible;
     if (estado !== undefined) updateData.estado = estado;
 
     let imagenesFinales = [];
