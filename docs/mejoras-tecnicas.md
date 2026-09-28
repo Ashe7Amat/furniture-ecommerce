@@ -719,9 +719,28 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **Cuándo se decide:** con el cliente, sin prisa. Después de la tarea 4, cambiarlo es trivial: se mueve ese estado
   del contenedor a la pestaña y se vacía al desmontarla.
 
-### H14 · BAJA · UX · Un solo `status` para todos los formularios del panel
+### H14 · BAJA · UX · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · Un solo `status` para todos los formularios del panel
 
-- **Hoy:** `Admin` tiene un único estado `status` para el mensaje de progreso o error. Lo escriben cuatro
+- **Arreglo (28 sep, en `feature/mejoras-tecnicas`):**
+  - cada formulario tiene su propio estado de envío con `pages/admin/hooks/useEstadoEnvio.js`: "Añadir
+    mueble", "Crear Categoría" y los dos modales de edición;
+  - el botón se desactiva mientras ESE envío está en curso, y el manejador también ignora un segundo envío
+    (doble clic, Intro);
+  - el mensaje sale junto a su formulario: el de los modales, dentro del modal;
+  - se quita la condición muerta de "Subiendo".
+- **Qué cambia a la vista:**
+  - el error del modal ya no aparece bajo "Añadir mueble";
+  - "Crear Categoría" se desactiva, y enseña "Creando categoría..." mientras crea;
+  - el mensaje de "Añadir mueble" ya no se conserva al cambiar de pestaña;
+  - "Crear Categoría" no enseña ningún mensaje si falla: solo el aviso, como antes.
+- **Tests:**
+  - se han cambiado a propósito los dos tests de caracterización que fijaban el comportamiento viejo, marcados
+    con "CAMBIADO A PROPÓSITO CON EL ARREGLO DE H14": el de "Crear Categoría" en
+    `Admin.categorias.test.jsx`, y el del error que viajaba en `Admin.navegacion.test.jsx`;
+  - ningún otro test de caracterización se ha tocado, y todos siguen en verde;
+  - son nuevos `useEstadoEnvio.test.js` (5) y `Admin.envio.test.jsx` (4), con su lista de mutantes
+    `scripts/mutantes/envio.js`, y se han repuntado los 6 mutantes que usaban el `status` compartido.
+- **Antes del arreglo:** `Admin` tenía un único estado `status` para el mensaje de progreso o error. Lo escribían cuatro
   manejadores:
   - añadir mueble: "Guardando producto..." y "Error al guardar en base de datos.";
   - crear categoría: "Creando categoría...";

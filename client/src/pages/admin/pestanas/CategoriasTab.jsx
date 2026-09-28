@@ -3,27 +3,30 @@ import { ToastContext } from '../../../context/ToastContext';
 import { createCategoria, deleteCategoria } from '../../../services/api';
 import Icon from '../Icon';
 import { generales, especificasDe } from '../categorias';
+import useEstadoEnvio from '../hooks/useEstadoEnvio';
 
 // Pestaña "Gestionar Categorías". El formulario de alta vive en el contenedor, así que lo escrito
-// se conserva al cambiar de pestaña (H13), y usa el `status` compartido del panel (H14).
+// se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14): el
+// botón se desactiva mientras se crea, así que un doble clic ya no crea dos categorías.
 // Ojo (H12): borrar avisa de éxito sin mirar la respuesta. Se conserva a propósito en el refactor.
 const CategoriasTab = ({
   categorias,
   nuevaCat, setNuevaCat,
   nuevaCatPadre, setNuevaCatPadre,
   categoriaFile, setCategoriaFile,
-  setStatus,
   recargarCategorias,
   confirmarBorrado,
   abrirEditorCategoria
 }) => {
   const { showToast } = useContext(ToastContext);
+  const envio = useEstadoEnvio();
 
   const handleAddCategoria = async (e) => {
     e.preventDefault();
     if (!nuevaCat) return;
+    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
 
-    setStatus('Creando categoría...');
+    envio.empezar('Creando categoría...');
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', nuevaCat);
     formDataToSend.append('categoria_padre_id', nuevaCatPadre);
@@ -40,10 +43,11 @@ const CategoriasTab = ({
       const fileInput = document.getElementById('categoria-file-input');
       if (fileInput) fileInput.value = '';
       recargarCategorias();
+      envio.acabarBien();
     } else {
       showToast('Error al crear la categoría', 'error');
+      envio.acabarMal();
     }
-    setStatus('');
   };
 
   const handleDeleteCategoria = (id) => {
@@ -89,8 +93,9 @@ const CategoriasTab = ({
               required
             />
           </div>
-          <button type="submit" className="admin-btn">Crear Categoría</button>
+          <button type="submit" className="admin-btn" disabled={envio.enviando}>Crear Categoría</button>
         </form>
+        {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
 
         {generales(categorias).map(general => (
           <div key={general.id} className="cat-group">

@@ -71,7 +71,7 @@ export const MUTANTES = [
   {
     nombre: '"Guardar Cambios" del mueble no se desactiva mientras guarda',
     archivo: 'src/pages/admin/modales/EditarMuebleModal.jsx',
-    buscar: "<button type=\"submit\" className=\"admin-btn\" disabled={status.includes('Actualizando')}>",
+    buscar: "<button type=\"submit\" className=\"admin-btn\" disabled={envio.enviando}>",
     reemplazo: '<button type="submit" className="admin-btn" disabled={false}>'
   },
   {

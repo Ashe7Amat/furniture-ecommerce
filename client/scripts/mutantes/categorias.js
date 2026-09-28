@@ -59,8 +59,8 @@ export const MUTANTES = [
   {
     nombre: 'al crear no se recargan las categorías',
     archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
-    buscar: "      recargarCategorias();\n    } else {\n      showToast('Error al crear la categoría', 'error');",
-    reemplazo: "    } else {\n      showToast('Error al crear la categoría', 'error');"
+    buscar: "      recargarCategorias();\n      envio.acabarBien();",
+    reemplazo: "      envio.acabarBien();"
   },
   {
     nombre: 'si falla al crear, se vacía el formulario',
@@ -69,24 +69,16 @@ export const MUTANTES = [
     reemplazo: "showToast('Error al crear la categoría', 'error'); setNuevaCat('');"
   },
   {
-    nombre: '"Crear Categoría" se desactiva mientras crea (arreglo de H14 colado en el refactor)',
+    nombre: '"Crear Categoría" no se desactiva mientras crea (vuelve H14)',
     archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
-    // Tras el refactor, la pestaña no recibe `status`: el arreglo que se colaría es el que propone
-    // H14, un estado de envío local. (Con la versión de una línea, `status.includes('Creando')`,
-    // `status` sería `window.status` y el botón no se desactivaría: el mutante no cambiaba nada.)
-    cambios: [
-      { buscar: "import { useContext } from 'react';", reemplazo: "import { useContext, useState } from 'react';" },
-      {
-        buscar: '  const { showToast } = useContext(ToastContext);',
-        reemplazo: '  const { showToast } = useContext(ToastContext);\n  const [creando, setCreando] = useState(false);'
-      },
-      { buscar: "    setStatus('Creando categoría...');", reemplazo: "    setStatus('Creando categoría...');\n    setCreando(true);" },
-      { buscar: "    setStatus('');\n  };", reemplazo: "    setStatus('');\n    setCreando(false);\n  };" },
-      {
-        buscar: '<button type="submit" className="admin-btn">Crear Categoría</button>',
-        reemplazo: '<button type="submit" className="admin-btn" disabled={creando}>Crear Categoría</button>'
-      }
-    ]
+    buscar: "<button type=\"submit\" className=\"admin-btn\" disabled={envio.enviando}>Crear Categoría</button>",
+    reemplazo: "<button type=\"submit\" className=\"admin-btn\">Crear Categoría</button>"
+  },
+  {
+    nombre: 'sin la guarda del manejador, un segundo envío mientras crea hace otra alta (vuelve H14)',
+    archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
+    buscar: "    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)\n",
+    reemplazo: ''
   },
   {
     nombre: 'borrar manda el id de la general del grupo',

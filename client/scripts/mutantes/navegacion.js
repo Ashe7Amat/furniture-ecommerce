@@ -78,9 +78,9 @@ export const MUTANTES = [
     reemplazo: "  { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },\n  { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },"
   },
   {
-    nombre: 'H14: un fallo del modal limpia el mensaje de estado',
+    nombre: 'H14: el error de guardar el modal no se enseña en el modal',
     archivo: 'src/pages/admin/modales/EditarMuebleModal.jsx',
-    buscar: "      setStatus('Error al actualizar.');\n      showToast('Error al actualizar el producto', 'error');",
-    reemplazo: "      setStatus('');\n      showToast('Error al actualizar el producto', 'error');"
+    buscar: "      envio.acabarMal('Error al actualizar.');\n      showToast('Error al actualizar el producto', 'error');",
+    reemplazo: "      envio.acabarMal();\n      showToast('Error al actualizar el producto', 'error');"
   }
 ];

@@ -59,20 +59,20 @@ export const MUTANTES = [
   {
     nombre: 'si falla, no enseña el mensaje de error',
     archivo: 'src/pages/admin/pestanas/CrearMuebleTab.jsx',
-    buscar: "setStatus('Error al guardar en base de datos.');",
-    reemplazo: "setStatus('');"
+    buscar: "envio.acabarMal('Error al guardar en base de datos.');",
+    reemplazo: "envio.acabarMal();"
   },
   {
     nombre: 'si falla, vacía el formulario',
     archivo: 'src/pages/admin/pestanas/CrearMuebleTab.jsx',
-    buscar: "      setStatus('Error al guardar en base de datos.');",
-    reemplazo: "      setStatus('Error al guardar en base de datos.');\n      setFormData({ nombre: '', categoria: '', descripcion: '', precio_venta: '', precio_alquiler: '', estado: 'disponible' });"
+    buscar: "      envio.acabarMal('Error al guardar en base de datos.');",
+    reemplazo: "      envio.acabarMal('Error al guardar en base de datos.');\n      setFormData({ nombre: '', categoria: '', descripcion: '', precio_venta: '', precio_alquiler: '', estado: 'disponible' });"
   },
   {
     nombre: 'el botón no se desactiva mientras guarda',
     archivo: 'src/pages/admin/pestanas/CrearMuebleTab.jsx',
-    buscar: "disabled={status.includes('Subiendo') || status.includes('Guardando')}",
-    reemplazo: "disabled={status.includes('Subiendo')}"
+    buscar: "disabled={envio.enviando}>Guardar Producto",
+    reemplazo: "disabled={false}>Guardar Producto"
   },
   {
     nombre: 'las fotos dejan de ser obligatorias',
