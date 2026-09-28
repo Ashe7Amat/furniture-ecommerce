@@ -26,10 +26,13 @@ No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...):
 ```
 .
 ├── client/                  Frontend (React + Vite)
+│   ├── scripts/             Comprobación por mutación de los tests del panel (mutantes-panel.js)
 │   └── src/
 │       ├── components/      Piezas de UI reutilizables (tarjetas, modales, cabecera...)
 │       ├── context/         Estado global vía Context API (auth, carrito, favoritos, toasts)
 │       ├── pages/           Una página por ruta (Catálogo, Detalle, Admin, Perfil...)
+│       │   └── admin/       Piezas del panel de administración (tarea 4): pestanas/, modales/,
+│       │                    hooks/ y utilidades; Admin.jsx es solo el contenedor
 │       ├── services/        api.js -- único punto de entrada a la API del servidor
 │       ├── styles/          Un .css por página/componente, variables de diseño en index.css
 │       └── utils/           Funciones puras sin estado (formato, imágenes, hooks pequeños)
@@ -89,7 +92,7 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `SUPABASE_SERVICE_ROLE_KEY` | server | **Sí** |
 | `SUPABASE_ANON_KEY` | server | No (solo la usa `server/src/seed.js`) |
 | `JWT_SECRET` | server | **Sí** (sin ella, cualquier JWT firmado con el valor por defecto sería inseguro) |
-| `REFRESH_TOKEN_HASH_SECRET` | server | No -- pendiente de usar, tarea 3b (JWT con refresh) |
+| `REFRESH_TOKEN_HASH_SECRET` | server | No en esta rama. La usa el bloque 3b (JWT con refresh), en la rama `feature/jwt-refresh`, sin mergear |
 | `CLIENT_URL` | server | Recomendada (URL de retorno de Stripe) |
 | `ALLOWED_ORIGINS` | server | No (orígenes extra permitidos por CORS) |
 | `STRIPE_SECRET_KEY` | server | Solo si se quieren cobrar pagos reales |
@@ -117,6 +120,9 @@ diseño y el porqué de cada una están en **[docs/tarea3-diseno.md](docs/tarea3
 | Arrancar en desarrollo | `npm run dev` | `npm run dev` |
 | Compilar para producción | `npm run build` | -- (no aplica, es una función serverless) |
 | Tests | `npm test` | `npm test` |
+| Tests con umbral de cobertura (el que usa el CI) | -- | `npm run test:coverage` |
+| Tests de contrato contra Stripe/Supabase reales (fuera de `npm test`) | -- | `npm run test:stripe`, `test:supabase-ilike`, `test:supabase-rls` |
+| Comprobación por mutación del panel | `node scripts/mutantes-panel.js [pestaña]` | -- |
 | Lint | `npm run lint` | `npm run lint` |
 | Formato (comprobar) | -- | `npm run format:check` |
 | Formato (aplicar) | -- | `npm run format` |
@@ -130,7 +136,8 @@ variables de entorno de producción se configuran en el panel de cada proyecto d
 este repositorio.
 
 CI (`.github/workflows/ci.yml`) corre en cada push y cada Pull Request contra `main`: lint, tests
-y build del cliente; tests (y, desde la tarea 8, lint/formato) del servidor. Un fallo en CI no
+y build del cliente; lint, formato y tests con un umbral mínimo de cobertura del servidor. En los dos
+hay además un `npm audit` informativo, que enseña vulnerabilidades sin romper el build (tarea 7). Un fallo en CI no
 bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), pero si CI falla en
 `main`, algo se ha desplegado roto.
 
@@ -141,6 +148,9 @@ bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), per
   y flujo de autenticación.
 - **[docs/tarea3-diseno.md](docs/tarea3-diseno.md)** -- diseño de las migraciones de BD y del JWT
   con refresh y rotación (tarea 3).
+- **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
+  administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
+  mutación.
 - **[docs/mejoras-tecnicas.md](docs/mejoras-tecnicas.md)** -- registro de trabajo de la rama
   `feature/mejoras-tecnicas`: estado de cada tarea, hallazgos de seguridad y pasos manuales
   pendientes al desplegar.

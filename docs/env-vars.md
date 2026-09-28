@@ -167,6 +167,26 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Obligatoria:** no -- si se deja en blanco, no se carga GA4.
 - **Ejemplo:** `VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX`
 
+## Variables que pone la plataforma (no se rellenan)
+
+El servidor lee dos variables que no están en la plantilla porque las define Vercel. Se documentan
+aquí porque cambian cómo se comporta:
+
+### `NODE_ENV`
+- **Quién la pone:** Vercel, con el valor `production`. En local no hace falta.
+- **Qué cambia en producción:**
+  - el servidor exige que `SUPABASE_URL` empiece por `https://` (H8), y si no, no arranca;
+  - redirige a HTTPS las peticiones que lleguen por HTTP (según `x-forwarded-proto`);
+  - no escribe en el log la URL de Supabase en cada arranque.
+
+### `VERCEL`
+- **Quién la pone:** Vercel, con el valor `1`.
+- **Qué cambia:** activa `trust proxy`, para que Express lea la IP real del visitante en
+  `X-Forwarded-For`. Sin esto, los límites de peticiones (login, contacto, confirmación de pago)
+  meterían a todo el mundo en el mismo contador.
+- **No se pone en local:** sin el proxy de Vercel delante, cualquiera podría falsear su IP con esa
+  cabecera.
+
 ## Nota, no una variable a rellenar: `client/.env` real tiene dos claves sin plantilla
 
 *(Observación de esta misma tarea, no una acción -- se documenta, no se decide por cuenta

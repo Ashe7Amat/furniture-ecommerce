@@ -375,7 +375,9 @@ Para un `git bisect`: `c9c6988` es el último commit bueno conocido, y el refact
 **Pendiente:**
 - **La comprobación en el navegador** (sección 6). Como el inicio de sesión como administrador lo hace el
   usuario, se hace cuando vuelva.
-- Después, fuera de la tarea 4: el arreglo de H12, y decidir con el cliente H13, H14 y H15.
+- Después, fuera de la tarea 4: el arreglo de H12, y decidir con el cliente H13 y H15. H14 se arregló el 28
+  sep (`f1bc11d`): cada formulario tiene su estado de envío, y se cambiaron a propósito los dos tests de
+  caracterización que lo fijaban.
 
 **Hecho en la revisión del cierre (25 sep):**
 - El test del orden de la barra lateral (ver "Resultado").

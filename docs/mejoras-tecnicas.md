@@ -524,9 +524,38 @@ que se quiere o si "alquilado" debería seguir permitiendo la vista rápida.
 del código (commit `31f1e98`, 3 sep), sin justificación documentada. Pendiente de preguntar al
 cliente si es intencional o si debe cambiarse cuando se implementen las reservas por fechas.
 
-## Hallazgos abiertos
+## Hallazgos
 
-### H1 · RESUELTO (commit `1e23a5d`) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
+Resumen a 28 sep 2026. El detalle de cada uno va debajo, excepto H21 y H22, que están en la rama
+`feature/jwt-refresh`.
+
+| Hallazgo | Estado |
+|---|---|
+| H1 · metadata de Stripe | Cerrado, 22 sep (en producción) |
+| H2 · emails sin escapar | Cerrado, 22 sep (en producción) |
+| H3 · errores sin filtrar | Resuelto en `crear-sesion-pago`; falta auditar el resto de controladores |
+| H4 · límites de peticiones en memoria | Abierto (baja) |
+| H5 · límite de la detección de doble venta | Abierto (baja) |
+| H6 · la confirmación va al email tecleado | Abierto (baja) |
+| H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
+| H8 · `SUPABASE_URL` con `http://` | Cerrado, 22 sep (en producción) |
+| H9 · RLS de `pedidos` | Cerrado, 24 sep (en la base de datos) |
+| H10 · roles ARIA de la tabla del catálogo | Abierto (baja) |
+| H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
+| H12 · contratos de error de `api.js` | Abierto (media) |
+| H13 · formularios que sobreviven al cambio de pestaña | Decisión pendiente (UX) |
+| H14 · un solo `status` en el panel | Corregido en la rama, sin desplegar |
+| H15 · categoría preseleccionada | Decisión pendiente (UX) |
+| H16 · caché del panel | Cerrado, 24 sep (en producción) |
+| H17 · ILIKE en "Mis pedidos" | Cerrado, 24 sep (en producción) |
+| H18 · el registro no verifica el email | Pendiente (alta), con el cliente |
+| H19 · fallo suelto de `npm test` | Cerrado el 25 sep: no reproducible |
+| H20 · código de B sin comprobar de extremo a extremo | Deuda aceptada, 26 sep |
+| H21 · cambiar la contraseña no cerraba sesiones | Corregido en `feature/jwt-refresh`, sin desplegar |
+| H22 · CSP de Google Sign-In | Corregido en `feature/jwt-refresh`, sin desplegar |
+| H23 · vulnerabilidades del cliente | Pendiente (media), con permiso para actualizar paquetes |
+
+### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
 - **Qué se hizo:** `server/src/utils/metadataStripe.js` reparte el carrito en varias claves (`items_0`,
   `items_1`...) y valida cada dato del comprador contra el límite de 500 caracteres antes de llamar a Stripe,
@@ -549,7 +578,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **Nota de honestidad ya superada:** la distinción `ErrorMetadata`/`ErrorValidacion` no cambiaba nada
   observable hasta que se resolvió H3 (tarea 2). Ahora sí importa: ver H3.
 
-### H2 · RESUELTO (tarea 2) · Plantillas de email antiguas sin escapar HTML
+### H2 · CERRADO (22 sep 2026, tarea 2, commit `15305d9`; en producción) · Plantillas de email antiguas sin escapar HTML
 
 - **Qué se hizo:** `escaparHtml` (ya existía para `enviarAlertaAdmin`, de la tarea 1) se aplicó también en
   `construirHtmlVenta`, `construirHtmlConfirmacionCliente`, `construirHtmlBienvenida` y en la plantilla inline
@@ -573,8 +602,14 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   controladores (p. ej. errores de Supabase que se re-lanzan tal cual en algún otro sitio) en busca del mismo
   patrón -- no estaba en el alcance de esta tarea.
 
-### H8 · MEDIA · `data/supabase.js` acepta una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
+### H8 · MEDIA · CERRADO (22 sep 2026, commit `1202ef0`; en producción desde ese día) · `data/supabase.js` aceptaba una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
 
+- **Cierre:** corregido en `1202ef0` (tarea 3, bloque 3a, paso 1) y desplegado el 22 sep con el merge
+  `6d6624a`.
+  - Con `NODE_ENV === 'production'`, el servidor no arranca si `SUPABASE_URL` no empieza por `https://`.
+  - En vez de la excepción para `development` que proponía esta nota, la regla se aplica solo en producción,
+    tras la revisión del diseño de la tarea 3.
+  - Lo cubren los tests de `supabaseFailFast.test.js`.
 - **Dónde:** `server/src/data/supabase.js`, la comprobación `!supabaseUrl.startsWith('http')` acepta tanto
   `http://` como `https://`. Es un comportamiento heredado (idéntico antes y después de la tarea 2, comprobado
   con `git show HEAD`): no lo introdujo esta tarea, pero una revisión de la tarea 2 lo detectó al comprobar el
@@ -803,7 +838,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
   casos A y C cambiarían a propósito en ese mismo commit.
 
-### H16 · MEDIA · CORREGIDO (desplegado el 24 sep 2026) · El panel no veía sus propios cambios hasta recargar
+### H16 · MEDIA · CERRADO (24 sep 2026, commit `63f1324`; en producción) · El panel no veía sus propios cambios hasta recargar
 
 - **Síntoma** (24 sep, durante la prueba de A3 en producción): después de crear una pieza, el inventario del panel
   no la mostraba hasta recargar la página. Después de editarla, seguía saliendo con la categoría de antes.
@@ -826,7 +861,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
   cambio de más consultas a Supabase. Recomendación del revisor: no tocarlo mientras el cliente no lo note.
 
-### H17 · ALTA · CORREGIDO (desplegado el 24 sep 2026) · "Mis pedidos" enseñaba pedidos de otras personas
+### H17 · ALTA · CERRADO (24 sep 2026, commit `9cf2043`; en producción) · "Mis pedidos" enseñaba pedidos de otras personas
 
 - **El fallo:** `obtenerMisPedidos` buscaba con `.ilike('cliente_info->>email', email)`, usando el email de la
   cuenta como patrón. En ILIKE, `_` es "un carácter cualquiera", y `supabase-js` pasa el patrón sin escapar.
@@ -868,7 +903,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
   "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
 
-### H9 · ALTA · CORREGIDO (24 sep 2026) · Con la clave pública se leían todos los pedidos
+### H9 · ALTA · CERRADO (24 sep 2026, commit `50b03d5`; aplicado en la base de datos ese día) · Con la clave pública se leían todos los pedidos
 
 - **El fallo:** la política RLS `"Admins pueden ver todos los pedidos"` de `pedidos` era `SELECT` para el rol
   `public` con `USING (true)`: pese al nombre, no comprobaba nada. Con la clave pública (`anon`), cualquiera
