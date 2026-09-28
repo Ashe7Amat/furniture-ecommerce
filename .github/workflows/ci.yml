@@ -29,9 +29,10 @@ jobs:
         run: npm audit --audit-level=low
         continue-on-error: true
       - run: npm run lint
-      # Sin umbral de cobertura todavía: hace falta el paquete @vitest/coverage-v8, que no está
-      # instalado (ver la tarea 7 en docs/mejoras-tecnicas.md).
-      - run: npm test
+      # Los tests con cobertura (@vitest/coverage-v8) y sus umbrales, definidos en vite.config.js:
+      # 60% en ramas y funciones, 50% en líneas. Si una cifra baja de ahí, falla. El 28 sep estaba
+      # en 57,9 / 89,3 / 72,1% (líneas / ramas / funciones). Se sube en próximas iteraciones.
+      - run: npm run test:coverage
       - run: npm run build
 
   server:

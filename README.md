@@ -120,7 +120,7 @@ diseño y el porqué de cada una están en **[docs/tarea3-diseno.md](docs/tarea3
 | Arrancar en desarrollo | `npm run dev` | `npm run dev` |
 | Compilar para producción | `npm run build` | -- (no aplica, es una función serverless) |
 | Tests | `npm test` | `npm test` |
-| Tests con umbral de cobertura (el que usa el CI) | -- | `npm run test:coverage` |
+| Tests con umbral de cobertura (el que usa el CI) | `npm run test:coverage` | `npm run test:coverage` |
 | Tests de contrato contra Stripe/Supabase reales (fuera de `npm test`) | -- | `npm run test:stripe`, `test:supabase-ilike`, `test:supabase-rls` |
 | Comprobación por mutación del panel | `node scripts/mutantes-panel.js [pestaña]` | -- |
 | Lint | `npm run lint` | `npm run lint` |
@@ -136,7 +136,8 @@ variables de entorno de producción se configuran en el panel de cada proyecto d
 este repositorio.
 
 CI (`.github/workflows/ci.yml`) corre en cada push y cada Pull Request contra `main`: lint, tests
-y build del cliente; lint, formato y tests con un umbral mínimo de cobertura del servidor. En los dos
+con un umbral mínimo de cobertura y build del cliente; lint, formato y tests con un umbral mínimo de
+cobertura del servidor. En los dos
 hay además un `npm audit` informativo, que enseña vulnerabilidades sin romper el build (tarea 7). Un fallo en CI no
 bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), pero si CI falla en
 `main`, algo se ha desplegado roto.

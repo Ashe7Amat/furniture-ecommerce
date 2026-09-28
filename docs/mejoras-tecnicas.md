@@ -14,7 +14,7 @@ conversación.
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
-| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama, salvo la cobertura del cliente (ver "Tarea 7" más abajo). Lint y formato del servidor ya estaban (tarea 8). `npm audit` informativo en los dos jobs, umbral de cobertura del 50% en el servidor (hoy 85,7% de líneas) y `.gitattributes` con `eol=lf`. La cobertura del cliente necesita instalar `@vitest/coverage-v8`: pendiente, con permiso. Hallazgo nuevo: H23 |
+| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama (ver "Tarea 7" más abajo). Lint y formato del servidor ya estaban (tarea 8). `npm audit` informativo en los dos jobs, umbral de cobertura del 50% en el servidor (hoy 85,7% de líneas), `.gitattributes` con `eol=lf` y, con permiso, la cobertura del cliente con `@vitest/coverage-v8` (60% en ramas y funciones, 50% en líneas: hoy 57,9% de líneas). Hallazgo nuevo: H23 |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
 ## ✅ Merge a `main` del 26 sep 2026: cierre de 3a y tarea 4
@@ -443,11 +443,24 @@ DELETE FROM refresh_tokens WHERE expires_at < now() - interval '30 days';
     cambiar el contenido.
   - Los binarios (imágenes) siguen siendo binarios.
 
+- **Umbral de cobertura en el cliente** (28 sep, con permiso para instalar `@vitest/coverage-v8`):
+  - `@vitest/coverage-v8` 2.1.9, la misma versión que vitest, como dependencia de desarrollo;
+  - `npm run test:coverage` (`vitest run --coverage`), con la configuración y los umbrales en
+    `vite.config.js`: cuenta el código de `src/`, sin los tests ni sus ayudas;
+  - en el CI del cliente, `npm test` pasa a ser `npm run test:coverage`. El gate local sigue con `npm test`.
+  - **Umbrales: 60% en ramas y funciones, 50% en líneas y sentencias.** El plan pedía 60% suponiendo que la
+    cobertura del cliente rondaba el 85%, pero esa cifra era la del servidor. **La del cliente, medida el
+    28 sep: 57,9% de líneas, 89,3% de ramas y 72,1% de funciones.** Un 60% en líneas habría roto el CI desde
+    la primera ejecución (comprobado: sale con código 1 y "Coverage for lines (57.92%) does not meet global
+    threshold (60%)"). Se deja el 50% en líneas, con el mismo margen que el servidor.
+  - **Lo que baja la cifra de líneas:** las páginas sin tests (`Profile`, `Catalog`, `ProductDetail`,
+    `Login`, `Home`, `Contact` y las legales), `CartContext` y la mitad de `api.js`. Cuando se suba de
+    ~70%, el umbral de líneas puede pasar al 60%.
+  - `npm audit` cuenta `@vitest/coverage-v8` 2.1.9 como crítica, pero no por un fallo propio: depende de
+    vitest 2 (H23). Se arregla al subir los dos a vitest 5.
+
 ### Qué no se hizo, y por qué
-- **El umbral de cobertura del cliente.** Vitest necesita el paquete `@vitest/coverage-v8`, que no está
-  instalado, e instalarlo es descargarlo: hace falta permiso. Además, vitest tiene una vulnerabilidad crítica
-  (H23) cuyo arreglo es vitest 5. Lo sensato es hacer las dos cosas juntas: vitest 5 con su
-  `@vitest/coverage-v8`, y el umbral, en la misma tarea.
+- **vitest 5, vite 8 y react-router 7** (lo que queda de H23): son saltos de versión mayor, con su propia tarea.
 
 ## Tarea 8 — Documentación y limpieza de infraestructura
 
