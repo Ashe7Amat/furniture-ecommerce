@@ -658,7 +658,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H9 · RLS de `pedidos` | Cerrado, 24 sep (en la base de datos) |
 | H10 · roles ARIA de la tabla del catálogo | Abierto (baja) |
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
-| H12 · contratos de error de `api.js` | Abierto (media) |
+| H12 · contratos de error de `api.js` | Abierto (media); propuesta de arreglo del 28 sep, pendiente de revisión |
 | H13 · formularios que sobreviven al cambio de pestaña | Decisión pendiente (UX) |
 | H14 · un solo `status` en el panel | Corregido en la rama, sin desplegar |
 | H15 · categoría preseleccionada | Decisión pendiente (UX) |
@@ -816,7 +816,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
 
-### H12 · MEDIA · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+### H12 · MEDIA · ABIERTO, con propuesta pendiente de revisión (28 sep 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
 
 - **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
   dentro y devuelven un valor. Pero no siempre el mismo:
@@ -883,6 +883,94 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
     unificar ahí el contrato de error para lecturas y escrituras, de forma que distinga un error de una lista vacía
     y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
     diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
+
+#### Propuesta de unificación (fase D, 28 sep 2026) · PENDIENTE DE REVISIÓN, sin ejecutar
+
+**Por qué se para aquí.** El plan decía: "si el diseño se hace grande, para tras la propuesta". Lo es:
+- 21 funciones de `api.js` y 33 llamadas en 19 archivos. Son más que las 19 escrituras de arriba, porque las
+  lecturas (contrato C) también cambian.
+- 9 de esos archivos no tienen tests hoy: `Login`, `Profile`, `Contact`, `CheckoutExito`, `Catalog`, `Home`,
+  `ProductDetail`, `CategorySlider` y `CartContext`. `AuthModal` está cubierto a medias.
+- Hay tres decisiones que no son técnicas (abajo).
+
+**Hechos comprobados el 28 sep:**
+- **El servidor ya es uniforme:** todo error sale como `{ error: "mensaje" }`. Son 45 respuestas en los
+  controladores, el 404 de `/api`, el manejador global y los 3 límites de peticiones. Ninguna ruta responde 204.
+- **Lo que no es del servidor no es JSON.** Vercel responde con su propia página a un timeout (504) o a una subida
+  de más de 4,5 MB (413). Además, está el fallo de red.
+- **Dos fallos del contrato B que se ven hoy** (encontrados al preparar esto):
+  - sin conexión, `fetch` lanza, y quien llama enseña el mensaje técnico del navegador en inglés ("Failed to
+    fetch"). Pasa en el login, el registro, Google, el perfil, el contacto y el pago;
+  - si llega una página de Vercel en vez de JSON, se enseña el error de `response.json()`, también en inglés
+    ("Unexpected token '<'...").
+- **Los tests de caracterización del panel simulan `api.js` con las formas de hoy.** `renderAdmin` hace que
+  `getMuebles`, `getCategorias` y `getPedidos` devuelvan listas, y hay unas 50 llamadas `mockResolvedValue`
+  con `null` o `{ success: true }`. **Pasar el panel al contrato nuevo obliga a cambiar cómo se preparan esos
+  tests, aunque no cambie nada de lo que ve el usuario.**
+
+**Diseño propuesto:**
+1. **Un núcleo, `peticion()`, que nunca lanza y siempre devuelve `{ data, error, status }`:**
+   - **éxito (2xx):** `data` es el cuerpo JSON y `error` es `null`;
+   - **error con `{ error }`:** el mensaje del servidor, tal cual;
+   - **error sin JSON** (una página de Vercel): un mensaje en castellano que da cada función ("No se pudo guardar
+     el mueble.");
+   - **fallo de red:** `status: 0` y "No se pudo conectar con el servidor. Revisa tu conexión.";
+   - **2xx sin cuerpo** (un futuro 204): `data: null`, `error: null`. Es un éxito, no un error; es el aviso que
+     ya hacía este hallazgo.
+2. **`apiFetch` se queda como transporte y sigue devolviendo la `Response`.** Hay que decidirlo, porque la
+   revisión proponía que fuera `apiFetch` quien devolviera `{ data, error, status }`. Motivos para dejarlo:
+   - las 11 funciones públicas no pasan por `apiFetch`, y deben seguir sin hacerlo por la caché de la CDN (H16) y
+     por el 401 de una contraseña incorrecta, que no debe intentar renovar la sesión. El formato en `apiFetch`
+     no las cubriría;
+   - los 12 tests del reintento y de la de-duplicación siguen valiendo tal cual.
+
+   `peticion()` usa `apiFetch` cuando la llamada lleva sesión, y `fetch` cuando no.
+3. **El adaptador para migrar por tandas:**
+   - las funciones nuevas (mismos nombres, formato nuevo) viven en un módulo nuevo, por ejemplo
+     `services/peticiones.js`;
+   - `api.js` conserva los nombres de hoy como envoltorios finos, con tres adaptadores de una línea
+     (`comoContratoA`, `comoContratoB` y `comoContratoC`) que devuelven exactamente lo de siempre;
+   - así, lo que no se ha migrado, y los tests que simulan `../services/api`, siguen igual;
+   - migrar una llamada es cambiar el `import` y leer `{ data, error }`.
+4. **Tandas, un commit cada una, con sus tests:**
+   0. **Núcleo y envoltorios.** Sin cambios de comportamiento: la prueba es que `api.test.js`, `apiFetch.test.js`
+      y todos los demás siguen verdes sin tocarlos.
+   1. **Auth:** `AuthModal` y `Login`, con tests nuevos para las dos pantallas.
+   2. **Perfil:** `updateProfile`, `getMisPedidos` y los favoritos. "Mis pedidos" distingue "no tienes pedidos"
+      de "no se han podido cargar".
+   3. **Contacto.**
+   4. **Pago:** `CheckoutModal`, que ya tiene tests, y `CheckoutExito`, con tests nuevos.
+   5. **Catálogo público:** `Header`, `CategorySlider`, `Catalog`, `Home`, `ProductDetail` y `CartContext`. La
+      ficha distingue "no existe" (404) de "no se ha podido cargar".
+   6. **Panel:**
+      - los borrados y el cambio de estado en lote con `Promise.allSettled`, y un mensaje que cuenta los fallos;
+      - los 4 tests marcados H12 y el del contrato C de `Admin.pedidos.test.jsx`, "CAMBIADO A PROPÓSITO";
+      - la preparación de los demás tests del panel, pasada al formato nuevo (necesita permiso, ver D-a);
+      - las listas de mutantes, reapuntadas y relanzadas.
+   7. **Limpieza:** se quitan los envoltorios y el código muerto (`checkoutCart` y `buscarMuebles`, que no tienen
+      ninguna llamada), y H12 queda cerrado.
+
+   Cada tanda deja la app funcionando. Si se para a medias, lo no migrado sigue con su contrato de siempre.
+
+**Decisiones que necesita (no técnicas):**
+- **D-a · Tests congelados.** Permiso para cambiar, en los 8 `Admin.*.test.jsx` y en `adminTestUtils.jsx`, solo
+  la preparación de los mocks, que es un cambio mecánico: `mockResolvedValue(lista)` pasa a
+  `mockResolvedValue(ok(lista))`, y `null` pasa a `fallo('...')`. Ninguna aserción cambia, salvo las 5 marcadas.
+  La prueba de que no se pierde nada es relanzar la mutación del panel (hoy 72/72 más el superviviente
+  esperado) y que mate los mismos mutantes. Sin este permiso, el panel no se puede migrar, y H12 se quedaría
+  arreglado solo fuera del panel.
+- **D-b · Dónde vive el formato:** en `apiFetch`, como proponía la revisión, o en una capa encima, como se
+  propone aquí (punto 2).
+- **D-c · Textos:**
+  - el aviso de "no se ha podido cargar" en cada pantalla. Propuesta: el mismo en todas, con un botón
+    "Reintentar";
+  - el de un lote a medias. Propuesta: "3 de 5 eliminados; 2 no se pudieron eliminar";
+  - qué hace la cesta si falla la comprobación de sus piezas. Propuesta: dejarla como está, sin borrar nada.
+- **D-d · Código muerto:** quitar `checkoutCart` y `buscarMuebles` del cliente. La ruta `/muebles/comprar` del
+  servidor queda fuera; sería otro cambio.
+
+**Tamaño estimado:** 8 commits y unos 25 archivos. La mayor parte son tests nuevos de pantallas que hoy no tienen
+ninguno.
 
 ### H13 · DECISIÓN PENDIENTE (UX) · Formularios del panel que sobreviven al cambio de pestaña
 
