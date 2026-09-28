@@ -10,7 +10,7 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación): decisiones tomadas (ver "Bloque 3b" más abajo). C1 va justo después del merge de 3a; C2 y C3, a las 48 h y con `REFRESH_TOKEN_HASH_SECRET` ya puesta. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación), hecho en la rama `feature/jwt-refresh` y mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir: C1 (tabla `refresh_tokens`) aplicada en producción el 26 sep; C2 (servidor) y C3 (cliente) hechos el 28 sep, sin desplegar. Antes del merge falta `REFRESH_TOKEN_HASH_SECRET` en Vercel y la comprobación en el navegador (ver "Bloque 3b" más abajo). Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
@@ -191,6 +191,110 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
 
    **Decisión (26 sep):** sigue necesitando un permiso aparte, que se pedirá cuando toque (en C2 o en la
    comprobación final).
+
+### Estado del bloque 3b (hecho en la rama `feature/jwt-refresh`, desde `main` en `5d1723b`; mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir)
+
+- **C1 aplicada** el 26 sep a las 19:37 UTC (versión `20260926193731`, commit `cf64bf1`):
+  - es la tabla `refresh_tokens` del diseño, con sus 3 índices y RLS sin políticas;
+  - está vacía, y ningún código la usa todavía;
+  - la copia coincide byte a byte con `schema_migrations`.
+- **El marcador de `REFRESH_TOKEN_HASH_SECRET` en `server/.env.example`** va en C2, que es el primero que lo
+  usa. El diseño lo ponía en el commit de C1, y el plan de la revisión, en C2.
+- **C2 (servidor) hecho el 28 sep, commit `870d031`:**
+  - access token de 1 hora;
+  - `POST /api/auth/refresh` y `POST /api/auth/logout`;
+  - rotación, reuso por `family_id`, margen de gracia de 60 s y el mismo 401 genérico en los tres casos;
+  - H21.
+- **C3 (cliente) hecho el mismo día, commit `e3ec2b3`:**
+  - access token en memoria y refresh en `localStorage`;
+  - `apiFetch` con un solo reintento y renovación de-duplicada;
+  - sincronización entre pestañas;
+  - refresh silencioso con `loading`, y el estado `reconectando`.
+- **Sin desplegar:** el 28 sep se mergeó en `feature/mejoras-tecnicas` (las dos ramas juntas), pero nada de
+  eso está subido ni en `main`. El código se escribió antes de que C1 cumpliera
+  sus 48 h (el 28 sep a las 19:37 UTC). Las 48 h del diseño son de producción, y en producción no ha entrado
+  nada.
+- **Tests:**
+  - servidor: 27 en `refreshTokens.test.js` y 3 de contrato con el cliente real de supabase-js;
+  - cliente: 37 (`authToken`, `apiFetch`, `AuthContext` y `ProtectedRoute`).
+  - Aparte, se plantaron a mano 15 fallos en el servidor y 15 en el cliente, y los tests los detectaron
+    todos. Entre ellos: quitar la condición `revoked_at IS NULL`, quitar el flag de un solo reintento,
+    quitar la de-duplicación y tratar un fallo de red como un 401.
+
+#### Decisiones tomadas por defecto en C2 y C3 (el diseño no las cubría, o se desvía por un motivo)
+
+1. **Orden de la rotación.** El diseño dice reclamar el token viejo y después insertar el sucesor y rellenar
+   `replaced_by`. Así, la segunda de dos peticiones simultáneas veía el token revocado con `replaced_by` a
+   NULL, lo tomaba por reuso y revocaba la familia, incluido el token recién entregado a la primera.
+   - **Se hace así:** el sucesor se inserta antes, y `revoked_at` y `replaced_by` van en el mismo `UPDATE
+     ... WHERE id = $id AND revoked_at IS NULL`, que sigue siendo la única puerta.
+   - Si ese `UPDATE` no afecta a ninguna fila, el sucesor huérfano se borra y se sigue por el margen de gracia.
+   - **Comprobado:** con el orden literal fallan justo los dos tests de concurrencia (a través de Express y
+     en el módulo), y con este pasan.
+   - **Aprobado por la revisión el 28 sep:** conserva la atomicidad (el `UPDATE` condicional sigue siendo la
+     única puerta) y elimina el falso positivo de reuso.
+2. **Sin `REFRESH_TOKEN_HASH_SECRET`**, el servidor no se cae:
+   - el inicio de sesión funciona sin refresh token (una sesión de 1 hora) y queda un error en el log;
+   - `refresh` y `logout` responden 503, no 401, para que el cliente no cierre la sesión (pasa a
+     `reconectando`).
+3. **Nombres de la respuesta.** Login, registro y Google mantienen `token` (el access token, con el mismo
+   nombre de siempre) y añaden `refreshToken`. `refresh` devuelve `{ accessToken, refreshToken }`, como dice
+   el diseño.
+4. **H21:**
+   - la revocación de todas las sesiones va **antes** de guardar el cambio de contraseña o email: si fallara,
+     no se cambia nada;
+   - la sesión que hace el cambio recibe un refresh token nuevo, para no quedarse fuera;
+   - cambiar solo el nombre no revoca nada, y la respuesta no trae `refreshToken`.
+   - **Interpretación definitiva, aprobada el 28 sep:** se revocan todas las sesiones menos la que hace el
+     cambio (la revisión había pedido "todas, incluida la actual"). Esa sesión acaba de demostrar la
+     contraseña, así que es legítima; es lo que hacen GitHub y Slack.
+5. **`apiFetch` solo para las peticiones con sesión** (las diez que llevaban `authHeaders()`). El diseño dice
+   "todas", pero también que el comportamiento del camino feliz no cambie. Si las públicas llevaran
+   `Authorization`:
+   - se saltarían la caché de la CDN para todo el que haya iniciado sesión (H16);
+   - el 401 de una contraseña incorrecta intentaría renovar la sesión.
+6. **`reconectando` vive en `ProtectedRoute`**, que es donde importa no leer sin token. Las páginas públicas
+   no esperan a nada.
+7. **`logout` espera al servidor un máximo de 5 s** y después cierra la sesión local igual. El diseño dice
+   "después de que la llamada responda, o de todos modos si falla por red"; sin tope, un servidor colgado
+   retrasaría el cierre.
+8. **Sesiones de antes del bloque 3b** (solo `kaveToken`, sin refresh): se sigue usando ese token hasta que
+   caduque (opción 1). No se renueva al cargar. Cuando dé 401, se cierra la sesión.
+9. **`user_agent` e `ip`:** la ip solo se guarda si es una dirección válida. La columna es `inet`, y un valor
+   raro haría fallar el `INSERT` y con él el inicio de sesión.
+10. **Un cuerpo sin refresh token es un 400** (petición mal formada), distinto del 401 genérico de un token
+    que no vale.
+11. **`limpiarExpirados()` existe** (con test), pero no lo llama nada. Es la consulta de mantenimiento de abajo,
+    para cuando la tarea 7 monte algo programado.
+
+#### Rotar `REFRESH_TOKEN_HASH_SECRET`
+
+Invalida de golpe todos los refresh tokens emitidos, porque su HMAC deja de coincidir con el guardado, y
+obliga a todo el mundo a volver a iniciar sesión. Es la mitigación de emergencia si se sospecha que se ha
+filtrado. Cambiar solo `JWT_SECRET` ya no basta para cerrar las sesiones: el cliente pide otro access token
+con su refresh.
+
+#### Mantenimiento de `refresh_tokens`
+
+Para lanzarla a mano de vez en cuando (se guardan 30 días más allá de la caducidad por si hay que investigar
+un reuso):
+```sql
+DELETE FROM refresh_tokens WHERE expires_at < now() - interval '30 days';
+```
+
+#### Antes de desplegar el bloque 3b (merge a `main`)
+
+1. **El usuario** genera `REFRESH_TOKEN_HASH_SECRET` (`openssl rand -hex 32`) y lo pone en las variables de
+   producción de `nave5-api` en Vercel y en su `server/.env`. No pasa por la conversación.
+2. **Comprobación en el navegador en local:**
+   - iniciar sesión;
+   - recargar la página (recupera la sesión sin pedir la contraseña);
+   - cerrar sesión (la familia queda revocada; se comprueba por SQL);
+   - simular un 401 (el reintento funciona).
+
+   Las filas que deje en `refresh_tokens` de producción las borra el usuario después (punto 5 de arriba).
+3. **La comprobación de concurrencia contra la base real** (sección 2 del diseño), con permiso aparte.
+4. **Permiso para el merge.**
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
@@ -526,8 +630,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 
 ## Hallazgos
 
-Resumen a 28 sep 2026. El detalle de cada uno va debajo, excepto H21 y H22, que están en la rama
-`feature/jwt-refresh`.
+Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 
 | Hallazgo | Estado |
 |---|---|
@@ -551,8 +654,8 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo, excepto H21 y H22, que 
 | H18 · el registro no verifica el email | Pendiente (alta), con el cliente |
 | H19 · fallo suelto de `npm test` | Cerrado el 25 sep: no reproducible |
 | H20 · código de B sin comprobar de extremo a extremo | Deuda aceptada, 26 sep |
-| H21 · cambiar la contraseña no cerraba sesiones | Corregido en `feature/jwt-refresh`, sin desplegar |
-| H22 · CSP de Google Sign-In | Corregido en `feature/jwt-refresh`, sin desplegar |
+| H21 · cambiar la contraseña no cerraba sesiones | Corregido en la rama, sin desplegar |
+| H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
 | H23 · vulnerabilidades del cliente | Pendiente (media), con permiso para actualizar paquetes |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
@@ -987,8 +1090,38 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo, excepto H21 y H22, que 
   ```
   Tiene que salir vacía.
 
-*(H21 y H22 están documentados en la rama `feature/jwt-refresh`, todavía sin mergear: sesiones al cambiar la
-contraseña, y la CSP de Google Sign-In.)*
+### H21 · MEDIA · CORREGIDO EN LA RAMA (28 sep 2026, `870d031`; sin desplegar) · Cambiar la contraseña no cerraba las demás sesiones
+
+- **El fallo:** `perfil-update` permite cambiar el email y la contraseña (la revisión suponía que el email no).
+  Con las sesiones largas del bloque 3b, alguien que cambiara la contraseña porque sospecha que se la han
+  robado dejaría abiertas las sesiones de quien la robó: su refresh token seguiría rotando siete días más.
+- **Arreglo:**
+  - al cambiar la contraseña o el email se revocan todos los refresh tokens de la cuenta, antes de guardar
+    el cambio;
+  - la sesión que hace el cambio recibe un refresh token nuevo, en una familia nueva;
+  - cambiar solo el nombre no revoca nada.
+- **Tests:** 4 en `refreshTokens.test.js`: contraseña, email, solo el nombre, y contraseña actual incorrecta.
+  Las sesiones de otras cuentas no se tocan.
+- **Queda un hueco hasta 1 hora:** el access token que ya tuviera quien robó la contraseña sigue valiendo
+  hasta que caduque, porque `verificarToken` no consulta la base de datos. Es el riesgo aceptado del diseño
+  (sección 2, "Migración a los tokens de 7 días"), ahora acotado a 1 hora en vez de 7 días.
+
+### H22 · BAJA · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · La CSP no permitía la hoja de estilos de Google Sign-In
+
+- **Síntoma** (visto en el smoke test del 26 sep y vuelto a leer el 28 en producción): en `/login`, la consola
+  dice que cargar la hoja de estilos `https://accounts.google.com/gsi/style` viola `style-src 'self'
+  'unsafe-inline' https://fonts.googleapis.com`. Hoy la política es report-only y solo sale el aviso. En
+  enforcing, el botón "Continuar con Google" se quedaría sin estilos.
+- **No es un estilo inline**, como suponía la revisión: es una hoja de estilos externa (un `<link>` que añade
+  la librería de Google), y `style-src` ya tenía `'unsafe-inline'`. Un nonce autoriza bloques inline, no
+  archivos de otro origen, así que no arreglaría nada.
+- **Arreglo:** añadir a `style-src` la URL exacta que documenta Google para su botón (`/gsi/style`), no todo
+  `accounts.google.com`. Las otras tres directivas que pide Google (`script-src`, `frame-src` y `connect-src`)
+  ya estaban cubiertas, porque permiten el origen entero.
+- **Test:** `client/src/cspVercel.test.js` lee `vercel.json` y comprueba las cuatro URLs de Google. Antes del
+  arreglo fallaba justo el de `style-src`.
+- **Queda por ver en producción:** la CSP solo la aplica Vercel, así que no hay forma de comprobarla en local.
+  Tras el deploy, `/login` no debería tener ningún aviso de CSP en la consola.
 
 ### H23 · MEDIA · PENDIENTE (con permiso para actualizar paquetes) · Vulnerabilidades conocidas en las dependencias del cliente
 

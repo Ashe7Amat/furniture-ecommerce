@@ -83,11 +83,13 @@ export default function Profile() {
       if (data.error) {
         showToast(data.error, 'error');
       } else {
-        // Importante: hay que pasar también el token nuevo que devuelve el servidor.
-        // Si se llama a login() solo con el usuario, login() borra el token de sesión
-        // guardado (kaveToken) y las peticiones autenticadas posteriores (Mis Pedidos,
-        // futuras ediciones del perfil...) dejan de funcionar sin ningún aviso visible.
-        login(data.user, data.token);
+        // Importante: hay que pasar también el access token nuevo que devuelve el servidor
+        // (lleva dentro el nombre y el email). Sin él, las peticiones autenticadas
+        // posteriores (Mis Pedidos, futuras ediciones del perfil...) irían sin sesión.
+        // `data.refreshToken` solo viene si ha cambiado el email o la contraseña: esas
+        // sesiones se han cerrado todas (H21) y esta recibe una nueva. Si no viene
+        // (undefined), login() conserva el refresh token que había.
+        login(data.user, data.token, data.refreshToken);
         setPasswordActual('');
         setNuevaPassword('');
         setConfirmarNuevaPassword('');

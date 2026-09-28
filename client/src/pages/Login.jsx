@@ -28,7 +28,7 @@ const Login = () => {
     setGoogleLoading(false);
 
     if (res?.success) {
-      login(res.user, res.token);
+      login(res.user, res.token, res.refreshToken);
       showToast(`¡Hola, ${res.user.nombre}!`, 'success');
       navigate('/');
     } else {
@@ -84,7 +84,7 @@ const Login = () => {
       if (!nombre) return setError('El nombre es obligatorio para registrarse.');
       const res = await registerUser({ nombre, email, password });
       if (res.success) {
-        login(res.user, res.token);
+        login(res.user, res.token, res.refreshToken);
         showToast(`¡Cuenta creada con éxito! Bienvenido, ${res.user.nombre}`, 'success');
         navigate('/');
       } else {
@@ -93,7 +93,7 @@ const Login = () => {
     } else {
       const res = await loginUser(email, password);
       if (res.success) {
-        login(res.user, res.token);
+        login(res.user, res.token, res.refreshToken);
         showToast(`¡Hola de nuevo, ${res.user.nombre}!`, 'success');
         navigate('/');
       } else {

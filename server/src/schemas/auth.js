@@ -50,10 +50,22 @@ const schemaPerfilUpdate = z.object({
   nuevaPassword: password().optional()
 });
 
+// POST /api/auth/refresh y /api/auth/logout. El refresh token son 32 bytes en base64url (43
+// caracteres): el tope de longitud solo evita hashear textos enormes. Un cuerpo sin token es una
+// petición mal formada (400), distinta de un token que no vale (el 401 genérico del controlador).
+const MENSAJE_SIN_REFRESH = 'Falta el refresh token.';
+const schemaRefresh = z.object({
+  refreshToken: z
+    .string({ error: () => MENSAJE_SIN_REFRESH })
+    .min(1, MENSAJE_SIN_REFRESH)
+    .max(200, MENSAJE_SIN_REFRESH)
+});
+
 module.exports = {
   schemaRegistro,
   schemaLogin,
   schemaGoogle,
   schemaPerfilUpdate,
+  schemaRefresh,
   PASSWORD_MIN_LENGTH
 };

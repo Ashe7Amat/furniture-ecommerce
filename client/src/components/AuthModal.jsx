@@ -35,7 +35,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
         }
         const res = await registerUser({ nombre, email, password });
         if (res.success) {
-          login(res.user, res.token);
+          login(res.user, res.token, res.refreshToken);
           showToast(`¡Bienvenido a la comunidad, ${res.user.nombre}!`, 'success');
           onSuccess();
           handleClose();
@@ -45,7 +45,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
       } else {
         const res = await loginUser(email, password);
         if (res.success) {
-          login(res.user, res.token);
+          login(res.user, res.token, res.refreshToken);
           showToast(`¡Hola de nuevo, ${res.user.nombre}!`, 'success');
           onSuccess();
           handleClose();

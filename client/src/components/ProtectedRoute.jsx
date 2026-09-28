@@ -3,11 +3,28 @@ import { Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, adminOnly = false }) {
-  const { user, loading } = useContext(AuthContext);
+  const { user, loading, reconectando, reintentarSesion, logout } = useContext(AuthContext);
 
-  // Mientras comprueba si hay sesión activa, mostramos una transición limpia
+  // Mientras se confirma la sesión (el refresh silencioso al cargar), no se pinta nada: sin access
+  // token, las lecturas del panel saldrían sin la cabecera Authorization (ver AuthContext).
   if (loading) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Cargando...</div>;
+  }
+
+  // No se ha podido confirmar la sesión por un fallo de red o del servidor. No se cierra (puede ser
+  // una sesión válida): se ofrece reintentar, y mientras tanto tampoco se pinta el contenido.
+  if (reconectando) {
+    return (
+      <div role="alert" style={{ padding: '40px', textAlign: 'center' }}>
+        <p>No hemos podido comprobar tu sesión. Revisa tu conexión e inténtalo de nuevo.</p>
+        <button type="button" onClick={reintentarSesion}>
+          Reintentar
+        </button>{' '}
+        <button type="button" onClick={logout}>
+          Cerrar sesión
+        </button>
+      </div>
+    );
   }
 
   // REGLA 1: Si no está logueado nadie, todos van al Login
