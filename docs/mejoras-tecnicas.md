@@ -650,7 +650,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H1 · metadata de Stripe | Cerrado, 22 sep (en producción) |
 | H2 · emails sin escapar | Cerrado, 22 sep (en producción) |
 | H3 · errores sin filtrar | Resuelto en `crear-sesion-pago`; falta auditar el resto de controladores |
-| H4 · límites de peticiones en memoria | Abierto (baja) |
+| H4 · límites de peticiones en memoria | Documentado y aceptado, 28 sep: el límite es por instancia, no un total |
 | H5 · límite de la detección de doble venta | Abierto (baja) |
 | H6 · la confirmación va al email tecleado | Abierto (baja) |
 | H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
@@ -742,11 +742,43 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   porque no estaba en el alcance de la tarea 2 y toda edición de un archivo de seguridad en esta rama pasa por
   su propio commit y su propio diff revisado — no se cuela como añadido de última hora en otro commit.
 
-### H4 · BAJA · Los límites de peticiones viven en memoria
+### H4 · BAJA · DOCUMENTADO, DEUDA ACEPTADA (28 sep 2026) · Los límites de peticiones viven en memoria
 
-- **Dónde:** login, contacto y `confirmar-sesion` (`express-rate-limit` con el almacén por defecto).
-- **Impacto:** en Vercel cada instancia tiene su propio contador y se pierde en cada arranque en frío: frena
-  el abuso casual, no es un tope global. Para un límite estricto haría falta un almacén externo.
+- **Dónde:** `express-rate-limit` 8.7 con el almacén por defecto, que guarda un contador por IP en la memoria del
+  proceso. Hay tres limitadores:
+
+  | Limitador | Rutas | Límite configurado | Qué cuenta |
+  |---|---|---|---|
+  | `limitadorAuth` (`authRoutes.js`) | `/api/auth/login`, `/register` y `/google` | 15 cada 15 min por IP | Solo los intentos fallidos (`skipSuccessfulRequests`). **Un único contador para las tres rutas**: es el mismo limitador |
+  | `limitadorContacto` (`contactoRoutes.js`) | `POST /api/contacto` | 5 cada 15 min por IP | Todos los envíos |
+  | `limitadorConfirmacion` (`mueblesRoutes.js`) | `GET /api/muebles/confirmar-sesion` | 20 cada 15 min por IP | Todas las comprobaciones |
+
+  `/api/auth/refresh` y `/logout` no tienen límite. No hace falta: el refresh token son 32 bytes aleatorios, y
+  adivinar uno por fuerza bruta no es viable.
+- **Cómo corre la API en Vercel:** `nave5-api` se creó el 3 sep 2026, y desde el 23 abr 2025 los proyectos nuevos
+  llevan Fluid compute activado por defecto. La API del proyecto no devuelve ese ajuste, así que se da por
+  activo sin haberlo visto. Con Fluid:
+  - varias peticiones comparten la misma instancia (el mismo proceso), y por tanto el mismo contador;
+  - Vercel usa primero las instancias que ya tiene libres, y solo arranca más cuando no le bastan;
+  - todo corre en una sola región (no hay `regions` en `vercel.json`).
+- **El límite real, por IP y ventana de 15 minutos,** es el configurado multiplicado por las instancias que
+  atienden a esa IP en esa ventana:
+  - **Tráfico normal (este proyecto hoy):** hay una instancia, o muy pocas. El límite real es prácticamente el
+    configurado: 15 fallos de login, 5 mensajes y 20 comprobaciones.
+  - **Ráfaga concurrente desde una IP** (varias peticiones a la vez, que es lo que hace un ataque): Vercel puede
+    repartirlas entre N instancias, cada una con su contador. El tope sube a N × 15, N × 5 y N × 20. N no se
+    puede fijar desde el código ni ver desde el proyecto, así que lo único garantizado es el límite dentro de
+    cada instancia, no un total.
+  - **Los contadores se pierden** al reciclar la instancia: cada deploy, y cuando Vercel la para por estar
+    inactiva (no documenta cuánto tarda). Tras un reciclado, la IP vuelve a empezar de cero.
+- **En resumen:** frena el abuso casual (alguien probando contraseñas a mano, un formulario de contacto
+  enviado en bucle) y hace falta más para uno distribuido o muy concurrente. Contra una contraseña concreta
+  también protege el hash de las contraseñas (bcryptjs, coste 10), que hace lento cada intento.
+- **Si algún día hiciera falta un tope global:** un almacén compartido para `express-rate-limit` (por ejemplo,
+  Redis de Upstash desde el Marketplace de Vercel, con `rate-limit-redis`), o una regla de límite de peticiones
+  en el Firewall de Vercel, delante de la función. Hoy no hay urgencia: no se ha visto abuso, y los tres
+  endpoints ya tienen otras defensas (validación con Zod, el honeypot del contacto, y la idempotencia de la
+  confirmación).
 
 ### H5 · BAJA · Límite conocido de la detección de doble venta
 
