@@ -651,7 +651,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H2 · emails sin escapar | Cerrado, 22 sep (en producción) |
 | H3 · errores sin filtrar | Resuelto en `crear-sesion-pago`; falta auditar el resto de controladores |
 | H4 · límites de peticiones en memoria | Documentado y aceptado, 28 sep: el límite es por instancia, no un total |
-| H5 · límite de la detección de doble venta | Abierto (baja) |
+| H5 · límite de la detección de doble venta | Deuda aceptada, 28 sep: se cierra con el diseño de reservas |
 | H6 · la confirmación va al email tecleado | Abierto (baja) |
 | H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
 | H8 · `SUPABASE_URL` con `http://` | Cerrado, 22 sep (en producción) |
@@ -780,11 +780,30 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   endpoints ya tienen otras defensas (validación con Zod, el honeypot del contacto, y la idempotencia de la
   confirmación).
 
-### H5 · BAJA · Límite conocido de la detección de doble venta
+### H5 · BAJA · DEUDA ACEPTADA (28 sep 2026; se cierra con las reservas) · Límite conocido de la detección de doble venta
 
-- Una pieza marcada "vendido" a mano, sin ningún otro pedido de compra, no se detecta como conflicto: es
-  indistinguible de un reintento o del webhook y el respaldo procesando a la vez, y avisar produciría falsas
-  alertas. Está fijado en `pagos.test.js` ("límite conocido").
+- **El límite:** una pieza marcada "vendido" a mano, sin ningún pedido de compra, no se detecta como conflicto si
+  alguien la paga después en la web.
+- **Por qué no se puede distinguir hoy:** quien registra el pedido puede encontrarse la pieza ya en "vendido"
+  por dos motivos legítimos:
+  - **un reintento de la misma sesión:** un intento anterior marcó la pieza y falló antes de guardar el pedido;
+  - **el gemelo webhook/respaldo:** uno marca la pieza y el otro gana la inserción del pedido.
+
+  En los dos casos, la pieza está en el estado buscado y no hay otro pedido, igual que con una venta a mano.
+  Avisar ahí daría falsas alertas en compras normales.
+- **Ya cubierto por tests** (`server/src/__tests__/pagos.test.js`):
+  - el reintento tras un fallo parcial no da una falsa alerta ("tras un fallo parcial de la propia sesión...");
+  - dos procesados simultáneos dejan un pedido y ninguna alerta;
+  - el propio límite ("límite conocido: una pieza ya 'vendida'...").
+
+  No hace falta ningún test más.
+- **Qué haría falta para cerrarlo:** saber quién puso la pieza en "vendido". Por ejemplo, una columna con la
+  sesión de Stripe que la vendió, rellenada en el mismo `UPDATE` condicional de `marcarPiezas`, y que el panel
+  vaciara al cambiar el estado a mano. Es una migración más un cambio en el panel: un rediseño, no un arreglo
+  pequeño.
+- **Se cierra con el diseño de reservas** (`docs/reservas-diseno.md`, en la rama `feature/reservas-diseno`):
+  "marcar vendido a mano" pasa a ser "registrar una venta fuera de la web", que inserta una fila de venta. Una
+  pieza vendida a mano tendrá su fila, y el conflicto se verá. No merece la pena una columna provisional antes.
 
 ### H6 · BAJA · La confirmación va a la dirección que teclea el comprador
 
