@@ -652,7 +652,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H3 · errores sin filtrar | Resuelto en `crear-sesion-pago`; falta auditar el resto de controladores |
 | H4 · límites de peticiones en memoria | Documentado y aceptado, 28 sep: el límite es por instancia, no un total |
 | H5 · límite de la detección de doble venta | Deuda aceptada, 28 sep: se cierra con el diseño de reservas |
-| H6 · la confirmación va al email tecleado | Abierto (baja) |
+| H6 · la confirmación va al email tecleado | Depende de H18 (y de usar el email de la cuenta en el checkout) |
 | H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
 | H8 · `SUPABASE_URL` con `http://` | Cerrado, 22 sep (en producción) |
 | H9 · RLS de `pedidos` | Cerrado, 24 sep (en la base de datos) |
@@ -805,10 +805,18 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   "marcar vendido a mano" pasa a ser "registrar una venta fuera de la web", que inserta una fila de venta. Una
   pieza vendida a mano tendrá su fila, y el conflicto se verá. No merece la pena una columna provisional antes.
 
-### H6 · BAJA · La confirmación va a la dirección que teclea el comprador
+### H6 · BAJA · DEPENDE DE H18 (28 sep 2026) · La confirmación va a la dirección que teclea el comprador
 
-- El email de confirmación sale desde el remitente de Nave 5 a un correo que nadie verifica. Requiere un pago
-  real por cada envío y, con H2 corregido, el contenido queda escapado.
+- El email de confirmación sale desde el remitente de Nave 5 hacia un correo que nadie verifica. Para abusar de
+  ello hace falta un pago real por cada envío, y con H2 corregido el contenido va escapado.
+- **Depende de H18** (el registro no verifica el email). Hoy no hay ninguna dirección verificada que usar: ni
+  siquiera la de una cuenta.
+- **Cerrar H18 no basta por sí solo.** El checkout siempre empieza con el campo de email vacío, también con la
+  sesión iniciada (`CheckoutModal.jsx`, `useState('')`), y el pedido usa lo que se teclee. Cuando H18 esté
+  resuelto, **H6 se cierra con un cambio pequeño en el checkout:** con sesión, usar el email (ya verificado)
+  de la cuenta, sin dejar cambiarlo.
+- **Lo que quedará para siempre:** en una compra de invitado, el email lo teclea quien paga y no se verifica.
+  Es un riesgo aceptado: cada envío cuesta un pago real, y verificar antes de pagar añadiría un paso a la compra.
 
 ### H7 · NEGOCIO · Alquilar un día bloquea la pieza
 
@@ -1157,6 +1165,8 @@ ninguno.
   entrega el email verificado.
 - **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
   "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
+- **Al cerrarlo, cerrar también H6:** con sesión, el checkout debe usar el email verificado de la cuenta en
+  vez del que se teclee.
 
 ### H9 · ALTA · CERRADO (24 sep 2026, commit `50b03d5`; aplicado en la base de datos ese día) · Con la clave pública se leían todos los pedidos
 
