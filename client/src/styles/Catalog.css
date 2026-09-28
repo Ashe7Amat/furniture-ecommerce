@@ -323,10 +323,10 @@
 }
 
 /* ─── VISTA DE TABLA (inventario compacto para clientes) — ProductsTable.jsx ───
-   Misma fila en escritorio y móvil: en escritorio .products-table-info y
-   .products-table-footer se "aplanan" (display:contents) y sus celdas pasan a ser
-   columnas de la fila; en móvil (media query al final de este bloque) dejan de
-   aplanarse y stackean su contenido como una tarjeta horizontal. */
+   Misma fila en escritorio y móvil, y todas las celdas son hijas directas de la fila
+   (sin display:contents, H10): en escritorio cada celda es una columna de la rejilla; en
+   móvil (media query al final de este bloque) se colocan con grid-row / grid-column
+   para formar una tarjeta horizontal. */
 .products-table {
   display: flex;
   flex-direction: column;
@@ -372,9 +372,18 @@
   background: var(--surface-alt);
 }
 
-.products-table-info,
-.products-table-footer {
-  display: contents;
+/* Texto solo para lectores de pantalla: nombra las columnas de la foto y del botón "Ver",
+   que no llevan título visible (H10). */
+.products-table-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .products-table-col-thumb img {
@@ -455,10 +464,13 @@
     display: none; /* las cabeceras de columna no aportan nada en la tarjeta apilada */
   }
 
+  /* Tarjeta: la foto a la izquierda, ocupando las tres filas; a su derecha, el nombre, el
+     precio y, en la última fila, el estado a la izquierda y "Ver" a la derecha. */
   .products-table-row {
-    grid-template-columns: 60px 1fr;
+    grid-template-columns: 60px 1fr auto;
     align-items: flex-start;
-    gap: 12px;
+    column-gap: 12px;
+    row-gap: 4px;
     padding: 12px 16px;
   }
 
@@ -467,18 +479,36 @@
     height: 60px;
   }
 
-  .products-table-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0; /* permite que products-table-col-nombre trunque con ellipsis */
+  .products-table-row .products-table-col-thumb {
+    grid-column: 1;
+    grid-row: 1 / span 3;
   }
 
-  .products-table-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  .products-table-row .products-table-col-nombre {
+    grid-column: 2 / span 2;
+    grid-row: 1;
+    min-width: 0; /* permite que el nombre trunque con ellipsis */
+  }
+
+  .products-table-row .products-table-col-precio-movil {
+    grid-column: 2 / span 2;
+    grid-row: 2;
+  }
+
+  .products-table-row .products-table-col-estado,
+  .products-table-row .products-table-col-accion {
+    grid-row: 3;
+    align-self: center;
     margin-top: 4px;
+  }
+
+  .products-table-row .products-table-col-estado {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .products-table-row .products-table-col-accion {
+    grid-column: 3;
   }
 
   .products-table-col-categoria,

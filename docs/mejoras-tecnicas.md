@@ -656,7 +656,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
 | H8 · `SUPABASE_URL` con `http://` | Cerrado, 22 sep (en producción) |
 | H9 · RLS de `pedidos` | Cerrado, 24 sep (en la base de datos) |
-| H10 · roles ARIA de la tabla del catálogo | Abierto (baja) |
+| H10 · roles ARIA de la tabla del catálogo | Corregido en la rama, sin desplegar |
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
 | H12 · contratos de error de `api.js` | Abierto (media); propuesta de arreglo del 28 sep, pendiente de revisión |
 | H13 · formularios que sobreviven al cambio de pestaña | Decisión pendiente (UX) |
@@ -823,20 +823,37 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
 
-### H10 · BAJA · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
+### H10 · BAJA · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 
-- **Dónde:** `client/src/components/ProductsTable.jsx` / `client/src/styles/Catalog.css`
-  (`.products-table-info`, `.products-table-footer`). En escritorio se usa `display: contents` para que las
-  celdas agrupadas se comporten como columnas directas de la fila -- es lo que permite reflowar la misma fila
-  a tarjeta en móvil sin duplicar el JSX en dos estructuras distintas.
-- **Impacto:** en algunas versiones de NVDA/JAWS, `display: contents` puede sacar al contenedor (y con él los
-  `role="cell"` que agrupa) del árbol de accesibilidad, aunque el texto siga siendo anunciado igual a través
-  de sus hijos en la mayoría de los casos. Es un compromiso conocido de este patrón ("tabla con roles ARIA que
-  se aplana por CSS"), no un descuido. La navegación por teclado (solo el botón "Ver", con su `aria-label`
-  "Ver [nombre]") no depende de esto y funciona igual.
-- **Cuándo se revisa:** tarea 6 (accesibilidad a fondo). Alternativa sin este compromiso, si hiciera falta:
-  no usar `display: contents` y duplicar el marcado por breakpoint (dos estructuras, una oculta por CSS según
-  el ancho) -- más código, sin la dependencia de cómo cada lector de pantalla trate `display: contents`.
+- **Dónde:** `client/src/components/ProductsTable.jsx` y `client/src/styles/Catalog.css`, la vista de lista del
+  catálogo.
+- **Lo que había:**
+  - en escritorio, dos contenedores sin rol (`.products-table-info` y `.products-table-footer`) se "aplanaban"
+    con `display: contents` para que sus celdas fueran columnas de la fila. Así, varias celdas no colgaban
+    directamente de su `role="row"`, y algunos lectores de pantalla tratan mal `display: contents`;
+  - **un fallo más claro, encontrado al revisarlo:** las cabeceras de la columna de la foto y la del botón
+    "Ver" llevaban `aria-hidden="true"`. Un lector de pantalla veía 5 cabeceras para 7 celdas por fila, así
+    que anunciaba cada celda con la cabecera de la columna siguiente: la foto como "Nombre", el nombre como
+    "Categoría", y así hasta el final.
+- **Arreglo:**
+  - **sin contenedores ni `display: contents`:** todas las celdas son hijas directas de su fila. La tarjeta móvil
+    se hace colocando cada celda en la rejilla de la fila (`grid-row` y `grid-column`), no agrupándolas;
+  - **las dos cabeceras sin título tienen nombre** ("Foto" y "Acción"), con un texto que solo lee el lector de
+    pantalla (`.products-table-sr-only`).
+- **Comprobado en el navegador** (servidor y cliente locales, catálogo real, vista de lista): se midió la caja de
+  cada celda, relativa a su fila, en las 3 primeras filas, antes y después, a 1280 y a 375 px de ancho. **Es
+  idéntica al píxel en las dos anchuras.** Un nombre largo sigue cortándose con puntos suspensivos en móvil,
+  sin desbordar la fila.
+- **Tests:** 3 nuevos en `ProductsTable.test.jsx`:
+  - cada celda es hija directa de su fila;
+  - las 7 cabeceras tienen nombre;
+  - cada celda cae bajo la cabecera de su columna.
+
+  Con el componente anterior fallan los 3. Si se vuelve a poner `aria-hidden` en una sola cabecera, fallan 2.
+- **Queda para la tarea 6 (accesibilidad a fondo):**
+  - probarlo con un lector de pantalla de verdad (NVDA o VoiceOver). Desde aquí no se puede;
+  - en móvil no hay fila de cabecera, así que las celdas se leen sin el nombre de su columna. Es lo mismo que
+    antes.
 
 ### H11 · DECISIÓN PENDIENTE · Un `categoria` (texto) sin categoría real deja `categoria_id` en NULL para siempre, y eso puede bloquear A4
 
