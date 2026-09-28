@@ -23,7 +23,14 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      # Informativo (tarea 7): enseña en el log las vulnerabilidades conocidas de las dependencias,
+      # pero no rompe el build (continue-on-error). Se revisan a mano: ver H23 en docs/mejoras-tecnicas.md.
+      - name: npm audit (informativo)
+        run: npm audit --audit-level=low
+        continue-on-error: true
       - run: npm run lint
+      # Sin umbral de cobertura todavía: hace falta el paquete @vitest/coverage-v8, que no está
+      # instalado (ver la tarea 7 en docs/mejoras-tecnicas.md).
       - run: npm test
       - run: npm run build
 
@@ -47,6 +54,13 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      # Informativo (tarea 7): ver el mismo paso en el job del cliente.
+      - name: npm audit (informativo)
+        run: npm audit --audit-level=low
+        continue-on-error: true
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
+      # Los tests con cobertura (la de Node, sin paquetes extra) y un umbral mínimo del 50% en
+      # líneas, ramas y funciones: si baja de ahí, falla. El 28 sep estaba en 85,7 / 81,3 / 94,1%.
+      # Se empieza bajo para no bloquear, y se sube en próximas iteraciones.
+      - run: npm run test:coverage

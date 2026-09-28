@@ -1,0 +1,4 @@
+# Los archivos de texto se guardan y se sacan con fin de línea LF, también en Windows (tarea 7).
+# Evita los avisos "LF will be replaced by CRLF" y los falsos cambios de fin de línea en los diff.
+# `text=auto`: git decide qué es texto; los binarios (imágenes...) no se tocan.
+* text=auto eol=lf
