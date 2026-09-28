@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getMuebles, getCategorias } from './api';
+import { setAccessToken, limpiarTokens } from '../utils/authToken';
 
 // fetch se sustituye por un doble: estos tests comprueban QUÉ se pide y CÓMO, no la red.
 const respuestaOk = (cuerpo = []) => ({ ok: true, json: async () => cuerpo });
@@ -7,6 +8,7 @@ const respuestaOk = (cuerpo = []) => ({ ok: true, json: async () => cuerpo });
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaOk()));
   localStorage.clear();
+  limpiarTokens();
 });
 
 afterEach(() => {
@@ -36,7 +38,7 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     ['getMuebles', getMuebles, /\/muebles$/],
     ['getCategorias', getCategorias, /\/categorias$/]
   ])('%s({ fresco: true }) se salta la caché del navegador (no-store) y la de la CDN (Authorization)', async (_nombre, lectura, ruta) => {
-    localStorage.setItem('kaveToken', 'token-del-admin');
+    setAccessToken('token-del-admin'); // desde el bloque 3b, el access token vive en memoria
 
     await lectura({ fresco: true });
 
@@ -55,8 +57,19 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     expect(fetch.mock.calls[0][1]).toEqual({ cache: 'no-store', headers: {} });
   });
 
+  it('con una sesión de antes del bloque 3b (token de 7 días en kaveToken), { fresco: true } usa ese token', async () => {
+    localStorage.setItem('kaveToken', 'token-antiguo');
+
+    await getMuebles({ fresco: true });
+
+    expect(fetch.mock.calls[0][1]).toEqual({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer token-antiguo' }
+    });
+  });
+
   it('getMuebles({ fresco, limit }) combina las dos opciones', async () => {
-    localStorage.setItem('kaveToken', 'tk');
+    setAccessToken('tk');
 
     await getMuebles({ fresco: true, limit: 4 });
 
