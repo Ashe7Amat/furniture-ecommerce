@@ -284,6 +284,8 @@ DELETE FROM refresh_tokens WHERE expires_at < now() - interval '30 days';
 
 #### Antes de desplegar el bloque 3b (merge a `main`)
 
+Guía paso a paso para el usuario, con las consultas SQL y la limpieza: `docs/verificacion-3b.md`.
+
 1. **El usuario** genera `REFRESH_TOKEN_HASH_SECRET` (`openssl rand -hex 32`) y lo pone en las variables de
    producción de `nave5-api` en Vercel y en su `server/.env`. No pasa por la conversación.
 2. **Comprobación en el navegador en local:**

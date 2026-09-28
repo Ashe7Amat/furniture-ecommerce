@@ -75,6 +75,7 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   sospecha que se ha filtrado.
 - **En producción**, se pone en las variables de entorno de `nave5-api` en Vercel **antes** de
   desplegar el bloque 3b.
+- **Paso a paso** (generarla, dónde ponerla y cómo comprobar las sesiones): `docs/verificacion-3b.md`.
 - **Ejemplo (enmascarado):** `REFRESH_TOKEN_HASH_SECRET=8b1e...(64 caracteres hex)...f07a`
 
 ### `CLIENT_URL`

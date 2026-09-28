@@ -149,6 +149,9 @@ bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), per
   y flujo de autenticación.
 - **[docs/tarea3-diseno.md](docs/tarea3-diseno.md)** -- diseño de las migraciones de BD y del JWT
   con refresh y rotación (tarea 3).
+- **[docs/verificacion-3b.md](docs/verificacion-3b.md)** -- guía para poner el secreto
+  `REFRESH_TOKEN_HASH_SECRET` y comprobar a mano las sesiones con refresh token (bloque 3b) antes y
+  después de desplegarlas.
 - **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
   administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
   mutación.
