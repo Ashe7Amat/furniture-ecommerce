@@ -649,7 +649,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 |---|---|
 | H1 · metadata de Stripe | Cerrado, 22 sep (en producción) |
 | H2 · emails sin escapar | Cerrado, 22 sep (en producción) |
-| H3 · errores sin filtrar | Resuelto en `crear-sesion-pago`; falta auditar el resto de controladores |
+| H3 · errores sin filtrar | Cerrado, 28 sep: auditados todos los controladores, sin más casos |
 | H4 · límites de peticiones en memoria | Documentado y aceptado, 28 sep: el límite es por instancia, no un total |
 | H5 · límite de la detección de doble venta | Deuda aceptada, 28 sep: se cierra con el diseño de reservas |
 | H6 · la confirmación va al email tecleado | Depende de H18 (y de usar el email de la cuenta en el checkout) |
@@ -670,6 +670,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H21 · cambiar la contraseña no cerraba sesiones | Corregido en la rama, sin desplegar |
 | H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
 | H23 · vulnerabilidades del cliente | Parcial, 28 sep: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
+| H24 · subir fotos: límite de 4,5 MB de Vercel | Pendiente (media) |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -704,7 +705,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   de pieza; nombre del cliente en el email de bienvenida; nombre/email/mensaje del formulario de contacto):
   ninguna etiqueta `<script>`/`<img>` sobrevive, el texto queda escapado.
 
-### H3 · RESUELTO en su mayor parte (tarea 2) · `crear-sesion-pago` devolvía el mensaje de error sin filtrar
+### H3 · CERRADO (28 sep 2026; la parte de `crear-sesion-pago`, en la tarea 2) · `crear-sesion-pago` devolvía el mensaje de error sin filtrar
 
 - **Qué se hizo:** el `catch` de `crearSesionPago` distingue ahora `ErrorValidacion` (400, mensaje tal cual --
   cubre carrito/datos del comprador que no caben en la metadata, y piezas no disponibles, que ahora lanzan
@@ -714,9 +715,20 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 - **Verificado:** test en `confirmarSesion.test.js` que fuerza un fallo interno de Stripe y comprueba que la
   respuesta es 500 genérica, sin la cadena del error interno en ningún sitio del cuerpo. Mutación: revertir la
   distinción hace fallar ese test.
-- **No completamente cerrado:** esto cubre `crearSesionPago`. No se ha auditado sistemáticamente el resto de
-  controladores (p. ej. errores de Supabase que se re-lanzan tal cual en algún otro sitio) en busca del mismo
-  patrón -- no estaba en el alcance de esta tarea.
+- **Auditoría del resto (28 sep 2026), lo que quedaba abierto.** Se revisaron todas las respuestas de error de
+  `server/src` (controladores, middleware, rutas e `index.js`):
+  - **todas llevan un texto fijo**, escrito a mano;
+  - **solo dos devuelven el `.message` de un error**, y en los dos casos es un `ErrorValidacion`: el `catch` de
+    `crearSesionPago` y el manejador global de `index.js`;
+  - los `ErrorValidacion` se crean con textos fijos (más el id de la pieza, que viene de la propia petición) o
+    con el mensaje de Zod del middleware `validar()`, que habla de la petición y no del servidor;
+  - ninguna respuesta devuelve el objeto de error entero (`json(error)`), ni `details`, `hint` o `stack`;
+  - los errores de Supabase y de Stripe solo van al log.
+
+  **No hay más sitios con el patrón de H3.**
+- **De paso** (no es una fuga): un error de multer, como una foto de más de 5 MB, cae en el manejador global y
+  sale como un 500 genérico en vez de un 400 con el motivo. En producción, antes salta el límite de Vercel: ver
+  H24.
 
 ### H8 · MEDIA · CERRADO (22 sep 2026, commit `1202ef0`; en producción desde ese día) · `data/supabase.js` aceptaba una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
 
@@ -1349,6 +1361,29 @@ ninguno.
   versiones nuevas. Se vio porque `npm ls` y el `package.json` del paquete no coincidían. Se arregló
   apartando ese archivo y con `npm install`. El gate se pasó después, con las versiones nuevas en disco.
 - **El CI las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
+
+### H24 · MEDIA · PENDIENTE (28 sep 2026) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
+
+- **Qué pasa:** crear o editar un mueble manda todas sus fotos (hasta 5) en una sola petición a `nave5-api`.
+  - Vercel corta cualquier petición a una función de más de **4,5 MB en total**, y responde él mismo con un 413
+    `FUNCTION_PAYLOAD_TOO_LARGE`, en HTML y no en JSON ("Request body size" en la documentación de límites de
+    Vercel Functions);
+  - el cliente no reduce las fotos antes de subirlas: no hay ningún `canvas` ni `toBlob` en `client/src`;
+  - multer permite 5 MB **por archivo** (`server/src/utils/upload.js`), pero en producción nunca llega a
+    aplicarse, porque el límite de Vercel salta antes y es por petición;
+  - `sharp` reduce las fotos a 1 600 px, pero en el servidor, después de recibirlas.
+- **Efecto:** dos o tres fotos hechas con el móvil (2-4 MB cada una) ya pueden pasar de 4,5 MB. El panel dice solo
+  que no se pudo guardar, sin el motivo, porque el contrato A de `api.js` pierde el mensaje (H12). Y aunque no lo
+  perdiera, la respuesta de Vercel no es JSON.
+- **No se ha reproducido en producción:** sale de leer el código y los límites documentados de Vercel. Tampoco
+  consta que el administrador haya tenido este problema.
+- **Opciones para arreglarlo:**
+  1. **Reducir cada foto en el navegador** antes de subirla (`canvas` y `toBlob`, a unos 1 600 px, igual que
+     `sharp`). Es el cambio más pequeño, y además acelera la subida.
+  2. **Subir las fotos directamente a Supabase Storage** desde el navegador, con una URL firmada que dé el
+     servidor. Quita el límite del todo, pero es más trabajo.
+  3. **Como mínimo:** que el panel avise antes de enviar si las fotos pasan de 4 MB en total, y que multer
+     responda 400 con el motivo.
 
 ## Decisiones de diseño a recordar
 
