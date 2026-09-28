@@ -54,16 +54,28 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Dónde se obtiene:** se genera, no se pide a ningún proveedor:
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 - **Obligatoria:** en la práctica sí -- sin ella, o con un valor de relleno compartido entre
-  entornos, cualquiera podría forjar un JWT válido. Cambiarla invalida de golpe todas las
-  sesiones ya abiertas (es también la mitigación de emergencia si se sospecha una fuga).
+  entornos, cualquiera podría forjar un JWT válido. Cambiarla invalida de golpe todos los access
+  tokens ya firmados (es la mitigación de emergencia si se sospecha una fuga de esta clave). Desde
+  la tarea 3b eso **no cierra las sesiones**: el cliente pide un access token nuevo con su refresh
+  token. Para echar a todo el mundo hay que cambiar también `REFRESH_TOKEN_HASH_SECRET`.
 - **Ejemplo (enmascarado):** `JWT_SECRET=3f9a...(96 caracteres hex)...c21b`
 
 ### `REFRESH_TOKEN_HASH_SECRET`
-- **Qué hace:** secreto (distinto de `JWT_SECRET`) para el hash HMAC-SHA256 del refresh token en
-  la tabla `refresh_tokens`. **Pendiente de usar: tarea 3b** (JWT con refresh y rotación, ver
-  `docs/tarea3-diseno.md`) -- todavía no existe la tabla ni el endpoint que la necesitan.
-- **Formato (cuando se use):** una cadena aleatoria, se genera con `openssl rand -hex 32`.
-- **Obligatoria:** no todavía. Cuando llegue la tarea 3b, sí.
+- **Qué hace:** secreto, distinto de `JWT_SECRET`, con el que se calcula el HMAC-SHA256 de cada
+  refresh token antes de guardarlo en la tabla `refresh_tokens` (`server/src/utils/refreshTokens.js`,
+  tarea 3b). En la tabla solo está ese HMAC, nunca el token.
+- **Formato:** una cadena aleatoria. Se genera con `openssl rand -hex 32`.
+- **Obligatoria:** sí, para que las sesiones duren más de una hora. Sin ella el servidor arranca
+  igual, pero:
+  - el inicio de sesión funciona sin refresh token, y la sesión dura lo que el access token (1 hora);
+  - `/api/auth/refresh` y `/api/auth/logout` responden 503;
+  - queda un error en el log.
+- **Cambiarla** invalida de golpe todos los refresh tokens emitidos: ya no coinciden con su HMAC
+  guardado, y todo el mundo tiene que volver a iniciar sesión. Es la mitigación de emergencia si se
+  sospecha que se ha filtrado.
+- **En producción**, se pone en las variables de entorno de `nave5-api` en Vercel **antes** de
+  desplegar el bloque 3b.
+- **Ejemplo (enmascarado):** `REFRESH_TOKEN_HASH_SECRET=8b1e...(64 caracteres hex)...f07a`
 
 ### `CLIENT_URL`
 - **Qué hace:** URL pública del frontend. Stripe Checkout redirige aquí (`/checkout/exito`,
