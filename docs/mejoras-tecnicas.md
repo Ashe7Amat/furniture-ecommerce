@@ -656,7 +656,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H20 · código de B sin comprobar de extremo a extremo | Deuda aceptada, 26 sep |
 | H21 · cambiar la contraseña no cerraba sesiones | Corregido en la rama, sin desplegar |
 | H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
-| H23 · vulnerabilidades del cliente | Pendiente (media), con permiso para actualizar paquetes |
+| H23 · vulnerabilidades del cliente | Parcial, 28 sep: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -1123,30 +1123,53 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 - **Queda por ver en producción:** la CSP solo la aplica Vercel, así que no hay forma de comprobarla en local.
   Tras el deploy, `/login` no debería tener ningún aviso de CSP en la consola.
 
-### H23 · MEDIA · PENDIENTE (con permiso para actualizar paquetes) · Vulnerabilidades conocidas en las dependencias del cliente
+### H23 · MEDIA · PARCIAL (28 sep 2026: 8 de 15 arregladas; las 7 que quedan piden un salto de versión mayor) · Vulnerabilidades conocidas en las dependencias del cliente
 
 - **`npm audit`, 28 sep 2026:**
   - **servidor: 0 vulnerabilidades;**
   - **cliente: 15** (1 crítica, 6 altas, 7 moderadas y 1 baja).
-- **Lo que llega a producción** (va en el bundle que se sirve al público), y hay que arreglar primero:
-  - `react-router-dom` (dependencia directa) y sus paquetes `react-router` y `@remix-run/router`, moderadas.
-    Son open redirects, y uno de ellos, según el aviso, "leading to XSS". El arreglo no cambia de versión
-    mayor: `npm audit fix` las actualiza.
-- **Solo de desarrollo o de build** (no llegan al navegador del cliente):
-  - **La crítica: `vitest`.** Deja leer y ejecutar archivos cuando su servidor de UI está escuchando
-    (`vitest --ui`), y el proyecto no lo usa. El arreglo es vitest 5, un salto de versión mayor.
-  - **`vite` (alta)**, con un path traversal en el servidor de desarrollo, y **`esbuild`** (moderada). Los dos
-    se arreglan con vite 8, también de versión mayor.
-  - **El resto son indirectas de herramientas:** `@babel/core`, `brace-expansion`, `browserslist`, `js-yaml`,
-    `nanoid`, `postcss` y `baseline-browser-mapping`. Todas tienen arreglo sin cambio de versión mayor.
-- **Por qué no se ha arreglado aquí:** actualizar paquetes es descargarlos, y eso necesita permiso. Además, los
-  saltos de versión mayor (vite 8, vitest 5) necesitan su propia tarea, con el gate completo.
-- **Propuesta, por orden:**
-  1. `npm audit fix` en `client/` (sin `--force`, solo cambios dentro de la misma versión mayor) y el gate
-     completo. Cubre el open redirect de producción y la mayoría de las indirectas.
-  2. Una tarea aparte para vite 8 y vitest 5. En esa misma tarea se instala `@vitest/coverage-v8` (de la
-     misma versión que vitest) y se añade el umbral de cobertura del cliente, pendiente de la tarea 7.
-- **El CI ya las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
+- **Arreglo del 28 sep (con permiso):** `npm audit fix` en `client/`, sin `--force`. Solo cambia
+  `package-lock.json`, siempre dentro de la misma versión mayor. `package.json` no cambia. Quedan 7 (1 crítica,
+  1 alta y 5 moderadas).
+- **Revisión una a una de las 15:**
+
+  | Paquete | Gravedad | ¿Llega al navegador? | Estado |
+  |---|---|---|---|
+  | `react-router-dom` 6.30.3 → 6.30.6, `react-router` igual | moderada | sí | **Arreglado lo principal:** el "open redirect leading to XSS" (6.30.2 a 6.30.5). **Quedan dos avisos que exigen la v7** (abajo) |
+  | `@remix-run/router` 1.23.2 → 1.23.4 | moderada | sí | Arreglado (redirect a una ruta que empieza por `//`) |
+  | `@babel/core` 7.29.0 → 7.29.7 | baja | no (build) | Arreglado |
+  | `baseline-browser-mapping` 2.10.29 → 2.11.26 | moderada | no (build) | Arreglado |
+  | `brace-expansion` 1.1.14 → 1.1.21 | alta | no (lint) | Arreglado |
+  | `browserslist` 4.28.2 → 4.29.2 | alta | no (build) | Arreglado |
+  | `js-yaml` 4.1.1 → 4.3.2 | alta | no (lint) | Arreglado |
+  | `nanoid` 3.3.12 → 3.3.19 | alta | no (build, vía `postcss`) | Arreglado |
+  | `postcss` 8.5.14 → 8.5.28 | alta | no (build) | Arreglado |
+  | `vitest` 2.1.9 | **crítica** | no (tests) | **Sin tocar: exige vitest 5** |
+  | `@vitest/mocker`, `vite-node` | moderadas | no (tests) | **Sin tocar: van con vitest 5** |
+  | `vite` 5.4.21 | alta | no (servidor de desarrollo) | **Sin tocar: exige vite 8** |
+  | `esbuild` | moderada | no (servidor de desarrollo) | **Sin tocar: va con vite 8** |
+
+- **Los dos avisos de React Router que quedan** (los dos piden `react-router` 7.18, versión mayor):
+  - **Open redirect con una barra invertida en `<Link>` y `useNavigate`** (GHSA-wrjc-x8rr-h8h6). Solo se
+    explota si el destino lo controla un atacante. Hoy todos los destinos de la app son rutas fijas
+    (`/catalogo`, `/mueble/<id>`, `/cuenta`, `/login`, `/sobre-nosotros`...), y el nombre de categoría va en la
+    query, no al principio de la ruta. **No es explotable hoy.** Regla hasta la v7: no pasar a `navigate` ni a
+    `<Link>` una ruta sacada de la URL (por ejemplo, un futuro `?volver=`) sin validarla.
+  - **Inyección en `deserializeErrors()` al hidratar con SSR** (GHSA-337j-9hxr-rhxg). La app es una SPA con
+    `BrowserRouter`, sin SSR ni `hydrationData`. **No aplica.**
+- **Lo de desarrollo** (vitest, vite, esbuild) no llega a producción:
+  - la crítica de `vitest` solo se da con su servidor de UI escuchando (`vitest --ui`), y no se usa;
+  - lo de `vite` y `esbuild` afecta al servidor de desarrollo (`npm run dev`) mientras está arrancado.
+- **Tarea aparte (sin hacer): react-router 7, vite 8 y vitest 5.** Son tres saltos de versión mayor, con cambios
+  de API, y necesitan su propio gate. Al subir vitest, `@vitest/coverage-v8` tiene que subir a la misma
+  versión (tarea 7).
+- **Comprobado:** gate completo (servidor 294/294, cliente 325/325, lint y formato limpios) y `vite build` sin
+  errores.
+- **Aviso para la próxima vez:** `npm audit fix` actualizó `package-lock.json` pero no los archivos de
+  `node_modules`, porque el lockfile oculto (`node_modules/.package-lock.json`) ya decía que estaban las
+  versiones nuevas. Se vio porque `npm ls` y el `package.json` del paquete no coincidían. Se arregló
+  apartando ese archivo y con `npm install`. El gate se pasó después, con las versiones nuevas en disco.
+- **El CI las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
 
 ## Decisiones de diseño a recordar
 
