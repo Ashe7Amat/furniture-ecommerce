@@ -990,6 +990,23 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   hasta que caduque, porque `verificarToken` no consulta la base de datos. Es el riesgo aceptado del diseño
   (sección 2, "Migración a los tokens de 7 días"), ahora acotado a 1 hora en vez de 7 días.
 
+### H22 · BAJA · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · La CSP no permitía la hoja de estilos de Google Sign-In
+
+- **Síntoma** (visto en el smoke test del 26 sep y vuelto a leer el 28 en producción): en `/login`, la consola
+  dice que cargar la hoja de estilos `https://accounts.google.com/gsi/style` viola `style-src 'self'
+  'unsafe-inline' https://fonts.googleapis.com`. Hoy la política es report-only y solo sale el aviso. En
+  enforcing, el botón "Continuar con Google" se quedaría sin estilos.
+- **No es un estilo inline**, como suponía la revisión: es una hoja de estilos externa (un `<link>` que añade
+  la librería de Google), y `style-src` ya tenía `'unsafe-inline'`. Un nonce autoriza bloques inline, no
+  archivos de otro origen, así que no arreglaría nada.
+- **Arreglo:** añadir a `style-src` la URL exacta que documenta Google para su botón (`/gsi/style`), no todo
+  `accounts.google.com`. Las otras tres directivas que pide Google (`script-src`, `frame-src` y `connect-src`)
+  ya estaban cubiertas, porque permiten el origen entero.
+- **Test:** `client/src/cspVercel.test.js` lee `vercel.json` y comprueba las cuatro URLs de Google. Antes del
+  arreglo fallaba justo el de `style-src`.
+- **Queda por ver en producción:** la CSP solo la aplica Vercel, así que no hay forma de comprobarla en local.
+  Tras el deploy, `/login` no debería tener ningún aviso de CSP en la consola.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
