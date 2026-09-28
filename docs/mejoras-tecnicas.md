@@ -14,7 +14,7 @@ conversación.
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
 | 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
-| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
+| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama, salvo la cobertura del cliente (ver "Tarea 7" más abajo). Lint y formato del servidor ya estaban (tarea 8). `npm audit` informativo en los dos jobs, umbral de cobertura del 50% en el servidor (hoy 85,7% de líneas) y `.gitattributes` con `eol=lf`. La cobertura del cliente necesita instalar `@vitest/coverage-v8`: pendiente, con permiso. Hallazgo nuevo: H23 |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
 ## ✅ Merge a `main` del 26 sep 2026: cierre de 3a y tarea 4
@@ -318,6 +318,32 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
 - **Si `muebles` o `pedidos` llegan a crecer a decenas de miles de filas, revisar este punto:** la
   alternativa sería ejecutar el `CREATE INDEX CONCURRENTLY` a mano desde el SQL Editor de Supabase (esa
   conexión sí ejecuta fuera de una transacción), no algo que se pueda automatizar con `apply_migration`.
+
+## Tarea 7 — CI (28 sep 2026)
+
+### Qué se hizo
+- **`npm audit` en los dos jobs, en modo informativo.** Es un paso con `continue-on-error`: enseña las
+  vulnerabilidades en el log de cada ejecución, pero no rompe el build. Lo que salió el 28 sep está en H23.
+- **Umbral de cobertura en el servidor.** Se usa la cobertura que trae Node (`npm run test:coverage`), sin
+  paquetes extra, y excluye los propios tests.
+  - El umbral es del 50% en líneas, ramas y funciones: si baja de ahí, el CI falla. Se empieza bajo para no
+    bloquear.
+  - **El 28 sep la cobertura era del 85,7% en líneas, 81,3% en ramas y 94,1% en funciones.** La próxima vez
+    se puede subir el umbral a algo como 80 / 75 / 90, que ya pararía una bajada de verdad.
+  - En el CI, `npm test` pasa a ser `npm run test:coverage`, que ejecuta los mismos tests. El gate local sigue
+    con `npm test`.
+- **`.gitattributes` con `* text=auto eol=lf`.** Git guarda y saca los archivos de texto con LF también en
+  Windows. Se acaban los avisos de "LF will be replaced by CRLF" y los falsos cambios de fin de línea.
+  - Al añadirlo se normalizaron los tres archivos que el repositorio todavía guardaba con CRLF
+    (`client/src/styles/Catalog.css` y `Home.css`) o con los dos (`.gitignore`). Es solo el fin de línea, sin
+    cambiar el contenido.
+  - Los binarios (imágenes) siguen siendo binarios.
+
+### Qué no se hizo, y por qué
+- **El umbral de cobertura del cliente.** Vitest necesita el paquete `@vitest/coverage-v8`, que no está
+  instalado, e instalarlo es descargarlo: hace falta permiso. Además, vitest tiene una vulnerabilidad crítica
+  (H23) cuyo arreglo es vitest 5. Lo sensato es hacer las dos cosas juntas: vitest 5 con su
+  `@vitest/coverage-v8`, y el umbral, en la misma tarea.
 
 ## Tarea 8 — Documentación y limpieza de infraestructura
 
@@ -925,6 +951,34 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
     AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
   ```
   Tiene que salir vacía.
+
+*(H21 y H22 están documentados en la rama `feature/jwt-refresh`, todavía sin mergear: sesiones al cambiar la
+contraseña, y la CSP de Google Sign-In.)*
+
+### H23 · MEDIA · PENDIENTE (con permiso para actualizar paquetes) · Vulnerabilidades conocidas en las dependencias del cliente
+
+- **`npm audit`, 28 sep 2026:**
+  - **servidor: 0 vulnerabilidades;**
+  - **cliente: 15** (1 crítica, 6 altas, 7 moderadas y 1 baja).
+- **Lo que llega a producción** (va en el bundle que se sirve al público), y hay que arreglar primero:
+  - `react-router-dom` (dependencia directa) y sus paquetes `react-router` y `@remix-run/router`, moderadas.
+    Son open redirects, y uno de ellos, según el aviso, "leading to XSS". El arreglo no cambia de versión
+    mayor: `npm audit fix` las actualiza.
+- **Solo de desarrollo o de build** (no llegan al navegador del cliente):
+  - **La crítica: `vitest`.** Deja leer y ejecutar archivos cuando su servidor de UI está escuchando
+    (`vitest --ui`), y el proyecto no lo usa. El arreglo es vitest 5, un salto de versión mayor.
+  - **`vite` (alta)**, con un path traversal en el servidor de desarrollo, y **`esbuild`** (moderada). Los dos
+    se arreglan con vite 8, también de versión mayor.
+  - **El resto son indirectas de herramientas:** `@babel/core`, `brace-expansion`, `browserslist`, `js-yaml`,
+    `nanoid`, `postcss` y `baseline-browser-mapping`. Todas tienen arreglo sin cambio de versión mayor.
+- **Por qué no se ha arreglado aquí:** actualizar paquetes es descargarlos, y eso necesita permiso. Además, los
+  saltos de versión mayor (vite 8, vitest 5) necesitan su propia tarea, con el gate completo.
+- **Propuesta, por orden:**
+  1. `npm audit fix` en `client/` (sin `--force`, solo cambios dentro de la misma versión mayor) y el gate
+     completo. Cubre el open redirect de producción y la mayoría de las indirectas.
+  2. Una tarea aparte para vite 8 y vitest 5. En esa misma tarea se instala `@vitest/coverage-v8` (de la
+     misma versión que vitest) y se añade el umbral de cobertura del cliente, pendiente de la tarea 7.
+- **El CI ya las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
 
 ## Decisiones de diseño a recordar
 
