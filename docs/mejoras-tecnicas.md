@@ -674,6 +674,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
 | H23 · vulnerabilidades del cliente | Parcial, 28 sep: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
 | H24 · subir fotos: límite de 4,5 MB de Vercel | Corregido en la rama, sin desplegar (29 sep) |
+| H25 · la cesta no avisaba de "pieza única" | Corregido en la rama, sin desplegar (29 sep) |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -1436,6 +1437,24 @@ ninguno.
      servidor. Quita el límite del todo, pero es más trabajo.
   3. **Como mínimo:** que el panel avise antes de enviar si las fotos pasan de 4 MB en total, y que multer
      responda 400 con el motivo.
+
+### H25 · BAJA · CORREGIDO EN LA RAMA (29 sep 2026; sin desplegar) · La cesta no avisaba de "pieza única" al añadirla por segunda vez
+
+- **Encontrado** al escribir los tests de `CartContext` (fase 2, cobertura del cliente), que no tenía ninguno.
+- **Qué pasaba:**
+  - añadir a la cesta una pieza que ya estaba (desde la ficha o la vista rápida) decía "Producto añadido a la
+    cesta." y abría la cesta, en vez de "solo hay 1 unidad disponible". La pieza no se duplicaba: solo el aviso
+    estaba mal;
+  - el botón "+" de una línea de la cesta no avisaba de nada.
+- **Por qué:** `addToCart` y `updateQuantity` decidían qué aviso dar con una variable que se rellenaba *dentro*
+  de la función que se pasa a `setCartItems`. React solo ejecuta esa función al momento cuando el componente no
+  tiene actualizaciones pendientes. Tras la primera, ya no las tenía libres, así que la función se ejecutaba
+  después, al pintar, cuando el aviso ya se había decidido.
+- **Arreglo:** el aviso se decide con la cesta del render actual, antes de llamar a `setCartItems`. La función
+  de `setCartItems` lo vuelve a comprobar, por si llegaran dos clics antes de volver a pintar.
+- **Tests:** `client/src/context/CartContext.test.jsx` (18). Con el código anterior fallan justo los 2 de este
+  caso: añadir dos veces y el "+". Usan React de verdad (`renderHook`), así que el comportamiento es el mismo
+  que en el navegador, aunque no se ha visto en él.
 
 ## Decisiones de diseño a recordar
 
