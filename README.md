@@ -153,6 +153,9 @@ sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se
 - **[docs/verificacion-3b.md](docs/verificacion-3b.md)** -- guía para poner el secreto
   `REFRESH_TOKEN_HASH_SECRET` y comprobar a mano las sesiones con refresh token (bloque 3b) antes y
   después de desplegarlas.
+- **[docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md)** -- diseño, pendiente de
+  decidir con el cliente, de la verificación del email de las cuentas (H18). Solo diseño, sin
+  implementar.
 - **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
   administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
   mutación.

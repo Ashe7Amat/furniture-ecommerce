@@ -687,7 +687,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | Hallazgo | Estado |
 |---|---|
 | H12 · contratos de error de `api.js` | **Decidido, pendiente de implementación** cuando toque `api.js` por otro motivo (probablemente las reservas). Decisiones del 29 sep en la sección H12 |
-| H18 · el registro no verifica el email | Pendiente (alta), con el cliente |
+| H18 · el registro no verifica el email | Pendiente (alta), con el cliente. Diseño para decidir en `docs/verificacion-email-diseno.md` (29 sep) |
 | H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
 | H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
 | H28 · `perfil-update` sin límite de intentos de contraseña | Pendiente (baja), auditoría del 29 sep |
@@ -1293,6 +1293,15 @@ ninguno.
   entrega el email verificado.
 - **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
   "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
+- **Diseño para decidir con el cliente (29 sep 2026):** `docs/verificacion-email-diseno.md`. Tiene las opciones
+  (en el registro, en cada inicio de sesión, al cambiar el email), qué pasa con los pedidos de invitado y con
+  los que ya existen, los textos de los correos y la migración.
+  - **Encontrado al prepararlo:** el inicio de sesión con Google entra en una cuenta existente con el mismo email
+    sin más. Quien registre con contraseña el email de otra persona comparte la cuenta con ella cuando esa
+    persona entre con Google, y sigue sabiendo la contraseña ("pre-secuestro" de la cuenta). El diseño lo
+    cubre, en la parte 6, punto 8.
+  - **Requisito previo:** un dominio propio verificado en Resend. Con el de pruebas, los correos no llegan a
+    los clientes.
 - **Al cerrarlo, cerrar también H6:** con sesión, el checkout debe usar el email verificado de la cuenta en
   vez del que se teclee.
 
