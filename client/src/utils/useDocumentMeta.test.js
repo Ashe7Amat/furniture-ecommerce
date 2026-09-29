@@ -53,6 +53,17 @@ describe('useDocumentMeta', () => {
     expect(document.querySelector('meta[name="robots"]')).toBeNull();
   });
 
+  it('si ya había una meta robots (p. ej. de la página anterior) y esta no lleva noindex, se quita', () => {
+    const robots = document.createElement('meta');
+    robots.setAttribute('name', 'robots');
+    robots.setAttribute('content', 'noindex');
+    document.head.appendChild(robots);
+
+    renderHook(() => useDocumentMeta({ title: 'X', noindex: false }));
+
+    expect(document.querySelector('meta[name="robots"]')).toBeNull();
+  });
+
   it('al desmontar, restaura el título y la descripción por defecto', () => {
     const { unmount } = renderHook(() => useDocumentMeta({ title: 'Página temporal' }));
     expect(document.title).toBe('Página temporal | Nave 5 Barcelona');
