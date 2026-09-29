@@ -268,6 +268,39 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
 11. **`limpiarExpirados()` existe** (con test), pero no lo llama nada. Es la consulta de mantenimiento de abajo,
     para cuando la tarea 7 monte algo programado.
 
+#### Comprobación de concurrencia contra la base de datos real (29 sep 2026, con permiso)
+
+- **Cómo:**
+  - un script de usar y tirar (no está en el repositorio, como pide la regla de no commitear las pruebas
+    contra la base real) levantó el servidor local contra la base de producción, con un
+    `REFRESH_TOKEN_HASH_SECRET` generado en memoria para la prueba;
+  - creó filas de prueba en `refresh_tokens` con `refreshTokens.emitir()`, marcadas con el `user_agent`
+    `verificacion-concurrencia-29sep`, y lanzó peticiones reales a `POST /api/auth/refresh`;
+  - no imprimió ningún token.
+- **Desviación del protocolo:** el `user_id` no podía ser aleatorio, porque tiene clave foránea a `clientes`.
+  Se usó la cuenta del administrador. La tabla estaba vacía antes (0 filas), así que no había sesiones
+  reales que tocar.
+- **Resultado:**
+  1. **Dos refresh a la vez con el mismo token, 5 rondas:**
+     - en las 5, las dos peticiones reciben 200, con pares distintos;
+     - en las 5, la que pierde el `UPDATE` condicional borra su sucesor huérfano, que es la prueba de que
+       llegaron de verdad a la vez y de que Postgres dejó ganar a una sola;
+     - cada familia queda con 3 filas (la original, el sucesor de la ganadora y el del salto por el margen de
+       gracia), una sola activa, y cada revocada apunta a su sucesora.
+
+     La revisión esperaba "la otra recibe 401 (sin margen) o el mismo par (con margen)". Con el margen, lo que
+     hace el código es un salto: la segunda recibe un par nuevo, derivado del sucesor de la primera, no el
+     mismo par. Es el comportamiento del diseño, y el de los tests (`refreshTokens.test.js`, "concurrencia
+     real").
+  2. **Fuera del margen:** el token viejo presentado 61 s después de rotarlo da el 401 genérico ("Sesión no
+     válida, vuelve a iniciar sesión."), el log dice "reuso detectado, familia ... revocada entera" y la
+     familia queda con 0 filas activas de 2.
+  3. **Limpieza:** las 6 familias de prueba se borraron en el `finally`. Una consulta aparte confirma que
+     `refresh_tokens` vuelve a tener 0 filas.
+- **Conclusión:** el `UPDATE ... WHERE id = $id AND revoked_at IS NULL` es la única puerta también en la base
+  de datos real, igual que en el doble de los tests. El orden de rotación de C2 aguanta la concurrencia de
+  verdad.
+
 #### Rotar `REFRESH_TOKEN_HASH_SECRET`
 
 Invalida de golpe todos los refresh tokens emitidos, porque su HMAC deja de coincidir con el guardado, y
@@ -296,7 +329,8 @@ Guía paso a paso para el usuario, con las consultas SQL y la limpieza: `docs/ve
    - simular un 401 (el reintento funciona).
 
    Las filas que deje en `refresh_tokens` de producción las borra el usuario después (punto 5 de arriba).
-3. **La comprobación de concurrencia contra la base real** (sección 2 del diseño), con permiso aparte.
+3. ~~La comprobación de concurrencia contra la base real~~ **Hecha el 29 sep**, con resultado correcto
+   (ver "Comprobación de concurrencia contra la base de datos real", arriba).
 4. **Permiso para el merge.**
 
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026

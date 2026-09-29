@@ -115,9 +115,10 @@ ORDER BY created_at;
    la familia quedan revocadas**, incluida la activa. Al recargar el navegador, la sesión se cierra: es lo que
    pasaría si alguien hubiera robado el token.
 
-**Lo que no cubre esta guía:** la comprobación de concurrencia contra la base de datos real (dos renovaciones
-simultáneas con el mismo token, sección 2 del diseño). Necesita un permiso aparte y se hará por separado. Los
-tests ya la cubren con un doble de la base de datos (`refreshTokens.test.js`).
+**La comprobación de concurrencia contra la base de datos real** (dos renovaciones simultáneas con el mismo
+token, sección 2 del diseño) ya está hecha: el 29 sep, con permiso, con resultado correcto y sin dejar filas.
+Detalle en `docs/mejoras-tecnicas.md` ("Comprobación de concurrencia contra la base de datos real"). No hace
+falta repetirla aquí.
 
 ## 3. Limpieza de `refresh_tokens` después de la comprobación
 
