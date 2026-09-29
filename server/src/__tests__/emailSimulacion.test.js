@@ -113,16 +113,20 @@ describe('H27 — el log de la simulación no lleva datos personales', () => {
     assert.deepEqual(logs, [`${AVISO} (aviso de venta al administrador)`]);
   });
 
-  test('con EMAIL_DEBUG_DATOS=true fuera de producción, sí se escriben (para depurar en local)', async () => {
-    process.env.EMAIL_DEBUG_DATOS = 'true';
-    process.env.NODE_ENV = 'development';
+  for (const [nombre, enviar] of ENVIOS) {
+    test(`${nombre}: con EMAIL_DEBUG_DATOS=true fuera de producción, sí escribe el contenido (para depurar en local)`, async () => {
+      process.env.EMAIL_DEBUG_DATOS = 'true';
+      process.env.NODE_ENV = 'development';
 
-    await email.enviarConfirmacionCliente(PEDIDO);
+      await enviar();
 
-    const todo = logs.join('\n');
-    assert.ok(todo.includes(COMPRADOR.email));
-    assert.ok(todo.includes(COMPRADOR.direccion));
-  });
+      assert.ok(logs[0].startsWith(AVISO), 'primero, el aviso de siempre');
+      assert.ok(logs.length > 1, 'y después, el contenido');
+      assert.ok(
+        logs.join('\n').includes(COMPRADOR.email) || logs.join('\n').includes(COMPRADOR.nombre)
+      );
+    });
+  }
 
   test('con EMAIL_DEBUG_DATOS=true en producción, tampoco se escriben', async () => {
     process.env.EMAIL_DEBUG_DATOS = 'true';
