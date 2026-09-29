@@ -4,6 +4,7 @@ import { createCategoria, deleteCategoria } from '../../../services/api';
 import Icon from '../Icon';
 import { generales, especificasDe } from '../categorias';
 import useEstadoEnvio from '../hooks/useEstadoEnvio';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Pestaña "Gestionar Categorías". El formulario de alta vive en el contenedor, así que lo escrito
 // se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14): el
@@ -27,11 +28,24 @@ const CategoriasTab = ({
     if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
 
     envio.empezar('Creando categoría...');
+    // La foto se reduce antes de subirla (H24, ver utils/imagen.js): una sola foto de móvil ya
+    // puede pasar de los 4,5 MB que admite Vercel por petición.
+    let imagen = categoriaFile;
+    if (categoriaFile) {
+      const preparadas = await prepararFotos([categoriaFile], { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, 1));
+        showToast('La foto pesa demasiado', 'error');
+        return;
+      }
+      imagen = preparadas.fotos[0];
+      envio.empezar('Creando categoría...');
+    }
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', nuevaCat);
     formDataToSend.append('categoria_padre_id', nuevaCatPadre);
-    if (categoriaFile) {
-      formDataToSend.append('imagen', categoriaFile);
+    if (imagen) {
+      formDataToSend.append('imagen', imagen);
     }
 
     const res = await createCategoria(formDataToSend);

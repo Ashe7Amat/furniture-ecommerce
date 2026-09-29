@@ -47,8 +47,8 @@ export const MUTANTES = [
   {
     nombre: 'la imagen se manda aunque no se haya elegido',
     archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
-    buscar: "    if (categoriaFile) {\n      formDataToSend.append('imagen', categoriaFile);\n    }",
-    reemplazo: "    formDataToSend.append('imagen', categoriaFile);"
+    buscar: "    if (imagen) {\n      formDataToSend.append('imagen', imagen);\n    }",
+    reemplazo: "    formDataToSend.append('imagen', imagen);"
   },
   {
     nombre: 'al crear no se vacía el nombre',

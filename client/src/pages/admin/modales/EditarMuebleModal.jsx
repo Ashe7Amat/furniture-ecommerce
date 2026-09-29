@@ -5,6 +5,7 @@ import { updateMueble } from '../../../services/api';
 import Icon from '../Icon';
 import SelectorCategoria from '../SelectorCategoria';
 import { idDeCategoria } from '../categorias';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Modal "Editar Producto". Lo pinta el contenedor, fuera de <main>, y su estado (la pieza que se
 // edita y las fotos nuevas) vive allí. El estado del envío es solo de este
@@ -26,6 +27,20 @@ const EditarMuebleModal = ({
     if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
     envio.empezar('Actualizando producto...');
 
+    // Las fotos nuevas se reducen antes de subirlas (H24, ver utils/imagen.js). Si ni así caben en
+    // una petición, no se manda nada.
+    let fotosNuevas = archivosNuevos;
+    if (archivosNuevos.length > 0) {
+      const preparadas = await prepararFotos(archivosNuevos, { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, archivosNuevos.length));
+        showToast('Las fotos pesan demasiado', 'error');
+        return;
+      }
+      fotosNuevas = preparadas.fotos;
+      envio.empezar('Actualizando producto...');
+    }
+
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', mueble.nombre || '');
     formDataToSend.append('categoria', mueble.categoria || '');
@@ -37,10 +52,8 @@ const EditarMuebleModal = ({
     formDataToSend.append('estado', mueble.estado || 'disponible');
     formDataToSend.append('imagenes_existentes', JSON.stringify(mueble.imagenes || []));
 
-    if (archivosNuevos.length > 0) {
-      for (const file of archivosNuevos) {
-        formDataToSend.append('imagenes', file);
-      }
+    for (const foto of fotosNuevas) {
+      formDataToSend.append('imagenes', foto);
     }
 
     const res = await updateMueble(mueble.id, formDataToSend);

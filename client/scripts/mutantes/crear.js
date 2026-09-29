@@ -23,8 +23,8 @@ export const MUTANTES = [
   {
     nombre: 'solo manda la primera foto',
     archivo: 'src/pages/admin/pestanas/CrearMuebleTab.jsx',
-    buscar: "    for (const file of files) {\n      formDataToSend.append('imagenes', file);\n    }",
-    reemplazo: "    formDataToSend.append('imagenes', files[0]);"
+    buscar: "    for (const foto of fotos) {\n      formDataToSend.append('imagenes', foto);\n    }",
+    reemplazo: "    formDataToSend.append('imagenes', fotos[0]);"
   },
   {
     nombre: 'no lleva al inventario tras crear',

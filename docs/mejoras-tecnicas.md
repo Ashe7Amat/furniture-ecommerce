@@ -673,7 +673,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
 | H21 · cambiar la contraseña no cerraba sesiones | Corregido en la rama, sin desplegar |
 | H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
 | H23 · vulnerabilidades del cliente | Parcial, 28 sep: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
-| H24 · subir fotos: límite de 4,5 MB de Vercel | Pendiente (media) |
+| H24 · subir fotos: límite de 4,5 MB de Vercel | Corregido en la rama, sin desplegar (29 sep) |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -1372,7 +1372,48 @@ ninguno.
   apartando ese archivo y con `npm install`. El gate se pasó después, con las versiones nuevas en disco.
 - **El CI las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
 
-### H24 · MEDIA · PENDIENTE (28 sep 2026) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
+### H24 · MEDIA · CORREGIDO EN LA RAMA (29 sep 2026; sin desplegar) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
+
+- **Arreglo (29 sep, opción 1):** el panel reduce las fotos en el navegador antes de subirlas.
+  - `client/src/utils/imagen.js`:
+    - `redimensionarImagen` decodifica la foto con `createImageBitmap`, que aplica la rotación del EXIF. Si no
+      existe, usa `<img>` con `decode()`;
+    - la redibuja en un canvas a **1920 px de lado mayor** y la recomprime con **calidad 0,85**: en JPEG, o en
+      WebP si puede tener transparencia (PNG, WebP o GIF), porque en JPEG lo transparente saldría negro;
+    - una foto de menos de 500 KB y de 1920 px se sube tal cual.
+  - **Nunca impide subir una foto:** si el navegador no la sabe leer (HEIC en Chrome), no tiene las APIs, o
+    reducirla no la aligera, se sube la original, como antes.
+  - **Red de seguridad, `prepararFotos`:** si, ya reducidas, las fotos de un envío pasan de **4 MB** (los 4,5 de
+    Vercel menos margen para el resto del formulario), se reducen otra vez desde los originales, a 1600 px y
+    calidad 0,7. Si ni así caben, el panel **no manda nada** y explica cuánto pesan y cuál es el máximo, en vez
+    del "no se pudo guardar" sin motivo. Con 5 fotos con mucho detalle, 1920 px y 0,85 podían acercarse a los
+    4,5 MB, así que el tope no se dejaba a la suerte.
+  - **Integrado en los cuatro formularios que suben fotos:** "Añadir mueble", el modal de edición de mueble, "Crear
+    categoría" y el modal de edición de categoría. El plan nombraba los dos primeros, pero en los de categoría
+    una sola foto de móvil ya puede pasar del límite.
+  - **Mientras reduce,** el mensaje del formulario dice "Optimizando imagen..." con una foto, u "Optimizando
+    imágenes... 2/3" con varias. Luego vuelve al de siempre ("Guardando producto...") y el botón sigue
+    desactivado.
+  - **De paso:** redibujar en un canvas quita los metadatos EXIF, incluida la ubicación GPS de los móviles.
+    `sharp` ya los quitaba en el servidor; ahora ni siquiera salen del navegador.
+- **Desviación del plan:** si no hay `createImageBitmap`, se usa `<img>` con `decode()`, no con `onload`.
+  `decode()` devuelve una promesa que falla si la imagen no se puede leer. `onload` puede no llegar nunca (en
+  jsdom no llega) y dejaría el guardado colgado. Todos los navegadores con `decode()` cubren a los que no tienen
+  `createImageBitmap` (Safari 11.1 a 14).
+- **Tests:**
+  - 26 unitarios en `utils/imagen.test.js`, con un navegador simulado: `createImageBitmap` y el canvas;
+  - 7 de integración en `pages/Admin.fotos.test.jsx`:
+    - tres fotos de 6 MB llegan a `createMueble` reducidas, por debajo del límite;
+    - los mensajes 1/3, 2/3 y 3/3;
+    - un segundo envío mientras reduce no crea otro mueble;
+    - si no caben, no se manda nada;
+    - las fotos nuevas del modal de mueble y las de los dos formularios de categoría;
+  - **los tests de caracterización del panel no se han tocado y siguen pasando:** en jsdom no se puede
+    decodificar, así que ahí las fotos (de 1 byte) se suben tal cual.
+- **Queda por ver en un navegador de verdad:** subir desde el panel, con sesión de administrador, 3 fotos de
+  móvil. Es parte del check del panel con sesión que tiene pendiente el usuario.
+
+**El hallazgo, tal y como se anotó el 28 sep:**
 
 - **Qué pasa:** crear o editar un mueble manda todas sus fotos (hasta 5) en una sola petición a `nave5-api`.
   - Vercel corta cualquier petición a una función de más de **4,5 MB en total**, y responde él mismo con un 413
