@@ -132,11 +132,36 @@ Más adelante, para el mantenimiento normal (filas caducadas hace más de 30 dí
 
 - **Iniciar sesión en la web publicada y recargar:** la sesión sigue abierta. La consulta de la sección 2, con
   tu email, enseña las filas de producción.
-- **H22 (CSP de Google):** en `/login`, la consola del navegador no debería tener ningún aviso de
-  Content-Security-Policy sobre `accounts.google.com/gsi/style`. Solo se puede ver en producción, porque la CSP
-  la pone Vercel.
 - **Las sesiones abiertas antes del despliegue** (con el token antiguo de 7 días, `kaveToken`) siguen valiendo
   hasta que caduquen, y después se pide iniciar sesión otra vez. Es lo esperado (decisión 8 de C2/C3).
+
+### 4.1. H22: `/login` sin avisos de CSP
+
+La CSP la pone Vercel (`client/vercel.json`), así que solo se puede comprobar en la web desplegada, no en local.
+Hoy va en modo *report-only*: el navegador avisa en la consola, pero no bloquea nada.
+
+1. **Que el despliegue lleva la CSP nueva:** en la web de producción (`https://nave5-demo.vercel.app`, o el
+   dominio propio si lo hay), herramientas de desarrollo (F12), pestaña **Red**. Se recarga `/login`, se abre la
+   petición del documento y, en sus cabeceras de respuesta, `Content-Security-Policy-Report-Only` tiene que
+   incluir `https://accounts.google.com/gsi/style` dentro de `style-src`. Si no está, el despliegue no es el
+   de esta rama.
+2. **Que no queda ningún aviso:** pestaña **Consola**, se recarga `/login` y se escribe `Content-Security` en el
+   filtro. No debe salir ningún aviso. Antes del arreglo salía uno que decía que cargar la hoja de estilos
+   `https://accounts.google.com/gsi/style` viola `style-src`.
+3. **Que el botón de Google se ve bien:** "Continuar con Google" sale con su estilo (borde, logo y texto
+   alineados), no como un enlace sin formato.
+
+**Si aparece un aviso de CSP en `/login`:**
+- anotarlo en `docs/mejoras-tecnicas.md` como **H22b**, debajo de H22, con:
+  - el texto exacto del aviso, copiado de la consola;
+  - la directiva que se viola (`style-src`, `script-src`, `frame-src`, `connect-src`...);
+  - la URL bloqueada;
+  - la fecha y el navegador;
+- no pasar la CSP a modo bloqueante (quitar el `-Report-Only`) hasta que H22b esté resuelto: con la política
+  aplicada de verdad, eso que avisa dejaría de cargar.
+
+Si el aviso es de otra página (no de `/login`) o de otro origen distinto de Google, también se anota, pero como
+hallazgo nuevo, no como H22b.
 
 ## 5. Cómo reabrir H20 si un pedido real llega sin `cliente_id`
 

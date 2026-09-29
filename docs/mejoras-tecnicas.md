@@ -1325,6 +1325,8 @@ ninguno.
   arreglo fallaba justo el de `style-src`.
 - **Queda por ver en producción:** la CSP solo la aplica Vercel, así que no hay forma de comprobarla en local.
   Tras el deploy, `/login` no debería tener ningún aviso de CSP en la consola.
+- **Cómo comprobarlo tras el deploy, y qué hacer si sale un aviso (H22b):** sección 4.1 de
+  `docs/verificacion-3b.md`.
 
 ### H23 · MEDIA · PARCIAL (28 sep 2026: 8 de 15 arregladas; las 7 que quedan piden un salto de versión mayor) · Vulnerabilidades conocidas en las dependencias del cliente
 
