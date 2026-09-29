@@ -467,7 +467,9 @@ Guía paso a paso para el usuario, con las consultas SQL y la limpieza: `docs/ve
 Regla: tras cada tanda de tests, los umbrales se ponen en lo medido menos medio punto, redondeado hacia
 abajo, y no se bajan nunca. El medio punto es margen para las pequeñas diferencias de medición entre
 versiones de Node (el CI usa la 22 y el local, la 24). Los del cliente están en `client/vite.config.js`; los
-del servidor, en el script `test:coverage` de `server/package.json`.
+del servidor, en el script `test:coverage` de `server/package.json`. Las tablas redondean lo medido a un
+decimal, pero el umbral se calcula con las dos cifras decimales: por ejemplo, el 94,47% de líneas del servidor
+en `a307c6c` (94,5% en la tabla) da 94,47 − 0,5 = 93,97, es decir, 93.
 
 **Cliente** (objetivo de la fase: 70% de líneas y 85% de funciones):
 
@@ -1064,8 +1066,8 @@ por otro motivo, probablemente con las reservas (que además necesitan los mensa
   - lote a medias: "3 de 5 completados. Los otros 2 no se pudieron procesar." Cuantifica, sin dramatizar.
 - **D-d · `checkoutCart` se quita** (hecho el 29 sep, `7ca0ce8`: además llamaba a una ruta que el servidor
   ya no tiene). **`buscarMuebles` se deja.**
-  - Nota para cuando se retome: `buscarMuebles` no tiene ninguna llamada en `client/src` (comprobado el
-    29 sep). El buscador de la cabecera usa `getMuebles` y filtra en el navegador.
+  - Nota para cuando se retome: fuera de los tests, `buscarMuebles` no tiene ninguna llamada en `client/src`
+    (comprobado el 29 sep; solo la usa `api.contratos.test.js`, que fija su contrato). El buscador de la cabecera usa `getMuebles` y filtra en el navegador.
   - La revisión la daba por "en uso (búsqueda del catálogo)". Se deja por la decisión, pero hoy es código
     sin uso.
 - **Lo que ya está hecho para cuando llegue:** `client/src/services/api.contratos.test.js` fija el contrato
