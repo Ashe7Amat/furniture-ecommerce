@@ -55,11 +55,15 @@ describe('Footer', () => {
     expect(screen.queryByRole('link', { name: 'Panel Admin' })).not.toBeInTheDocument();
   });
 
-  it('COMPORTAMIENTO ACTUAL, anotado en la auditoría de seguridad (fase 6): sin sesión también se enseña "Panel Admin"', () => {
-    // La condición es (!user || user.rol === 'admin'). La ruta está protegida (ProtectedRoute con
-    // adminOnly y verificarAdmin en el servidor), así que no abre nada, pero anuncia el panel a
-    // cualquier visitante. Si se cambia, este test se cambia con ello.
+  // CAMBIADO CON H30 (29 sep 2026): hasta entonces este test fijaba lo contrario, que sin sesión
+  // también se enseñaba "Panel Admin" (la condición era `!user || user.rol === 'admin'`).
+  it('sin sesión no se enseña "Panel Admin" (H30)', () => {
     pintar();
-    expect(enlace('Panel Admin')).toHaveAttribute('href', '/admin');
+    expect(screen.queryByRole('link', { name: 'Panel Admin' })).not.toBeInTheDocument();
+  });
+
+  it('un usuario sin rol (p. ej. datos guardados de una versión antigua) tampoco lo ve', () => {
+    pintar({ nombre: 'Ana' });
+    expect(screen.queryByRole('link', { name: 'Panel Admin' })).not.toBeInTheDocument();
   });
 });

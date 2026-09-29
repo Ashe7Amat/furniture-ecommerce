@@ -52,7 +52,8 @@ const Footer = () => {
             <h4>Cuenta</h4>
             <Link to={user ? "/cuenta" : "/login"}>Mi cuenta</Link>
             <Link to={user ? "/cuenta?tab=pedidos" : "/login"}>Mis pedidos</Link>
-            {(!user || user.rol === 'admin') && <Link to="/admin">Panel Admin</Link>}
+            {/* Solo al administrador (H30): antes salía también a quien no había iniciado sesión. */}
+            {user?.rol === 'admin' && <Link to="/admin">Panel Admin</Link>}
           </div>
         </div>
       </div>

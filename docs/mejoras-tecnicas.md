@@ -696,7 +696,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H29 · `crear-sesion-pago` sin límite de peticiones | Corregido en la rama, sin desplegar (29 sep) |
 | H26 · los endpoints públicos devuelven más de lo que usa la web | Corregido en la rama, sin desplegar (29 sep) |
 | H27 · datos personales en el log en modo simulación de correo | Corregido en la rama, sin desplegar (29 sep) |
-| H30 · "Panel Admin" en el pie de página sin sesión | Informativo, auditoría del 29 sep |
+| H30 · "Panel Admin" en el pie de página sin sesión | Corregido en la rama, sin desplegar (29 sep) |
 
 **Pendientes de una decisión (negocio o UX, con el cliente):**
 
@@ -1780,7 +1780,19 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Arreglo propuesto (sin hacer):** un limitador generoso, por ejemplo 20 cada 15 minutos por IP, como el de
   `confirmar-sesion`. Con el alcance real de H4: el límite es por instancia de Vercel.
 
-### H30 · INFORMATIVO · PENDIENTE (29 sep 2026) · El pie de página enseña "Panel Admin" a quien no ha iniciado sesión
+### H30 · INFORMATIVO · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · El pie de página enseñaba "Panel Admin" a quien no había iniciado sesión
+
+- **Arreglo (29 sep 2026):** en `client/src/components/Footer.jsx`, el enlace "Panel Admin" solo sale con
+  `user?.rol === 'admin'`. Antes la condición era `!user || user.rol === 'admin'`.
+- **Tests:** en `Footer.test.jsx`, el test que fijaba el comportamiento anterior se cambia a propósito (marcado
+  "CAMBIADO CON H30"), y se añade el de un usuario sin rol:
+  - sin sesión, no está;
+  - con sesión de cliente o sin rol, tampoco;
+  - con administrador, sí.
+
+  Con la condición anterior, falla el de sin sesión.
+
+**El hallazgo, tal y como se anotó:**
 
 - **Dónde:** `client/src/components/Footer.jsx`, con la condición `(!user || user.rol === 'admin')`.
 - **No abre nada:** `/admin` está protegida en el cliente (`ProtectedRoute adminOnly`) y en el servidor
