@@ -693,7 +693,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
 | H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
 | H28 · `perfil-update` sin límite de intentos de contraseña | Corregido en la rama, sin desplegar (29 sep) |
-| H29 · `crear-sesion-pago` sin límite de peticiones | Pendiente (baja), auditoría del 29 sep |
+| H29 · `crear-sesion-pago` sin límite de peticiones | Corregido en la rama, sin desplegar (29 sep) |
 | H26 · los endpoints públicos devuelven más de lo que usa la web | Pendiente (baja), auditoría del 29 sep |
 | H27 · datos personales en el log en modo simulación de correo | Pendiente (baja), auditoría del 29 sep |
 | H30 · "Panel Admin" en el pie de página sin sesión | Informativo, auditoría del 29 sep |
@@ -1683,7 +1683,34 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Arreglo propuesto (sin hacer):** un limitador para `perfil-update` que cuente solo los intentos con
   contraseña incorrecta (`skipSuccessfulRequests`, como el de login), por cuenta y no solo por IP.
 
-### H29 · BAJA · PENDIENTE (29 sep 2026) · `crear-sesion-pago` no tiene límite de peticiones
+### H29 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · `crear-sesion-pago` no tenía límite de peticiones
+
+- **Arreglo (29 sep 2026):** dos limitadores en `POST /api/muebles/crear-sesion-pago`
+  (`server/src/routes/mueblesRoutes.js`). Los dos cuentan todas las llamadas, también las que van bien,
+  porque son las que crean sesiones en Stripe:
+  - **por IP:** 20 cada 15 minutos. Va antes de validar, así que también cuenta el spam mal formado;
+  - **por email del comprador**, si viene en `clienteInfo.email`: 10 cada 15 minutos. Va después de validar, y
+    el email se normaliza (sin espacios y en minúsculas) para que cambiar las mayúsculas no dé un contador
+    nuevo. Sin email, solo se aplica el de IP.
+  - **Al llegar a cualquiera de los dos,** responde 429 con "Demasiados intentos de pago seguidos. Espera unos
+    minutos antes de volver a intentarlo.", que el checkout enseña tal cual (contrato B de `api.js`).
+  - **No se escribe el email en el log al bloquear:** sería un dato personal (H27).
+  - **Alcance:** como los demás, por instancia de Vercel (H4).
+- **Tests:**
+  - `pagoLimiteIp.test.js` (2): 20 pasan, el 21 da 429 y ya no llega a Stripe; una petición mal formada
+    también queda bloqueada;
+  - `pagoLimiteEmail.test.js` (5), con una IP distinta por test (`trust proxy` como en Vercel):
+    - 10 con el mismo email en distintas mayúsculas pasan, y el 11 da 429;
+    - el bloqueo sigue al email, no a la IP;
+    - otro email desde la misma IP sí pasa;
+    - sin email no hay límite por email;
+    - las peticiones que no pasan la validación no gastan el límite.
+
+  Los tests de pago que ya había (`crearSesionPago`, `confirmarSesion`) siguen por debajo de los dos límites.
+  Fallos plantados, todos detectados (8): sin cada limitador, el email sin minúsculas o sin recortar, el
+  límite por email antes de validar, el de IP después, y los dos límites más altos.
+
+**El hallazgo, tal y como se anotó:**
 
 - **Dónde:** `POST /api/muebles/crear-sesion-pago` es público (se puede comprar como invitado) y cada llamada:
   - lee el catálogo;
