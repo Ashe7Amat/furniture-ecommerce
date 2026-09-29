@@ -129,9 +129,20 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   comprador) a través de Resend.
 - **Formato:** empieza por `re_...`.
 - **Dónde se obtiene:** cuenta en resend.com, Dashboard > API Keys.
-- **Obligatoria:** no -- si se deja en blanco, el envío se simula con logs en consola en vez de
-  fallar.
+- **Obligatoria:** no -- si se deja en blanco, el envío se simula en vez de fallar: en el log queda
+  solo `[email simulado omitido: falta RESEND_API_KEY, contenido con datos personales]` y de qué
+  correo se trata, sin ningún dato del cliente (H27). En producción tiene que estar puesta: sin
+  ella, los clientes no reciben ningún correo.
 - **Ejemplo (enmascarado):** `RESEND_API_KEY=re_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxx`
+
+### `EMAIL_DEBUG_DATOS`
+- **Qué hace:** solo para depurar en local. Con `true`, el modo simulación (sin `RESEND_API_KEY`)
+  vuelve a escribir en el log el contenido de cada correo: destinatario, pedido, mensaje de
+  contacto...
+- **Formato:** `true` o nada. Cualquier otro valor cuenta como no puesta.
+- **Obligatoria:** no, y **no se pone nunca en producción**. Con `NODE_ENV=production` no tiene
+  ningún efecto, a propósito: los datos personales no deben acabar en los logs de Vercel (H27).
+- **Ejemplo:** `EMAIL_DEBUG_DATOS=true` (en `server/.env`, en local)
 
 ### `RESEND_FROM`
 - **Qué hace:** dirección remitente de los emails.

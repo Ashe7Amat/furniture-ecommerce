@@ -695,7 +695,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H28 · `perfil-update` sin límite de intentos de contraseña | Corregido en la rama, sin desplegar (29 sep) |
 | H29 · `crear-sesion-pago` sin límite de peticiones | Corregido en la rama, sin desplegar (29 sep) |
 | H26 · los endpoints públicos devuelven más de lo que usa la web | Corregido en la rama, sin desplegar (29 sep) |
-| H27 · datos personales en el log en modo simulación de correo | Pendiente (baja), auditoría del 29 sep |
+| H27 · datos personales en el log en modo simulación de correo | Corregido en la rama, sin desplegar (29 sep) |
 | H30 · "Panel Admin" en el pie de página sin sesión | Informativo, auditoría del 29 sep |
 
 **Pendientes de una decisión (negocio o UX, con el cliente):**
@@ -1664,7 +1664,27 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   - las estadísticas, en una ruta aparte con `verificarAdmin` (o solo con sesión de administrador), fuera de
     la caché pública de la CDN.
 
-### H27 · BAJA · PENDIENTE (29 sep 2026) · Datos personales en el log cuando los correos están en modo simulación
+### H27 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Datos personales en el log cuando los correos estaban en modo simulación
+
+- **Arreglo (29 sep 2026):** en `server/src/utils/email.js`, los cinco correos en modo simulación (aviso de
+  venta, confirmación al cliente, bienvenida, contacto y alerta al administrador) pasan por
+  `registrarSimulacion`. Esta escribe una sola línea, `[email simulado omitido: falta RESEND_API_KEY,
+  contenido con datos personales] (<qué correo>)`, sin ningún dato.
+- **`EMAIL_DEBUG_DATOS=true`**, solo para depurar en local, vuelve a escribir el contenido, pero nunca con
+  `NODE_ENV=production`. Se lee en cada llamada. Documentada en `docs/env-vars.md`, `server/.env.example` y el
+  README.
+- **Sigue en pie** que `RESEND_API_KEY` tiene que estar en producción: sin ella, los clientes no reciben
+  ningún correo. Lo comprueba el usuario (no se ha mirado desde aquí).
+- **Tests:** `emailSimulacion.test.js` (15), cambiado a propósito (antes comprobaba que el log decía
+  "SIMULACIÓN" y escribía el contenido):
+  - para cada una de las cinco funciones, el log no lleva el nombre, el email, el teléfono, la dirección ni
+    las notas del comprador, y es una sola línea;
+  - con `EMAIL_DEBUG_DATOS=true` en desarrollo, sí; en producción, no; con otro valor que "true", no.
+
+  Fallos plantados, todos detectados (4): escribir siempre los datos, ignorar la producción, aceptar
+  cualquier valor en la variable y un correo que vuelve a escribir el nombre.
+
+**El hallazgo, tal y como se anotó:**
 
 - **Dónde:** `server/src/utils/email.js`. Sin `RESEND_API_KEY`, en vez de enviar los correos se escriben en
   el log:

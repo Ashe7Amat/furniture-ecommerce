@@ -28,6 +28,19 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const REMITENTE = process.env.RESEND_FROM || 'Nave 5 Barcelona <onboarding@resend.dev>';
 const EMAIL_ADMIN = process.env.ADMIN_EMAIL || 'amatashenafi7@gmail.com';
 
+// Modo simulación (sin RESEND_API_KEY): el correo no se envía y solo queda una línea en el log, sin
+// su contenido (H27). Antes se escribían el pedido entero, el email y el nombre de las cuentas
+// nuevas, los mensajes de contacto y los datos del comprador de las alertas, y en producción
+// habrían quedado en los logs de Vercel. Para depurar en local, EMAIL_DEBUG_DATOS=true vuelve a
+// escribirlos, pero nunca con NODE_ENV=production. Se lee en cada llamada, no al cargar el módulo.
+const AVISO_SIMULADO = '[email simulado omitido: falta RESEND_API_KEY, contenido con datos personales]';
+const registrarSimulacion = (tipo, volcarDatos) => {
+  console.log(`${AVISO_SIMULADO} (${tipo})`);
+  if (process.env.EMAIL_DEBUG_DATOS === 'true' && process.env.NODE_ENV !== 'production') {
+    volcarDatos();
+  }
+};
+
 // Escapa un texto para insertarlo en HTML. Los avisos operativos (enviarAlertaAdmin) llevan
 // datos que escribe el comprador (nombre, dirección...), así que nunca se insertan crudos.
 const escaparHtml = (texto) => String(texto ?? '')
@@ -98,10 +111,10 @@ const construirHtmlVenta = (pedido) => {
 const enviarNotificacionVenta = async (pedido) => {
   try {
     if (!resend) {
-      console.log('\n--- SIMULACIÓN DE EMAIL (RESEND_API_KEY no configurada) ---');
-      console.log('Para:', EMAIL_ADMIN);
-      console.log('Pedido:', JSON.stringify(pedido, null, 2));
-      console.log('-------------------------------------------------------------\n');
+      registrarSimulacion('aviso de venta al administrador', () => {
+        console.log('Para:', EMAIL_ADMIN);
+        console.log('Pedido:', JSON.stringify(pedido, null, 2));
+      });
       return;
     }
 
@@ -204,10 +217,10 @@ const enviarConfirmacionCliente = async (pedido) => {
     }
 
     if (!resend) {
-      console.log('\n--- SIMULACIÓN DE EMAIL AL CLIENTE (RESEND_API_KEY no configurada) ---');
-      console.log('Para:', destinatario);
-      console.log('Pedido:', JSON.stringify(pedido, null, 2));
-      console.log('-------------------------------------------------------------\n');
+      registrarSimulacion('confirmación de pedido al cliente', () => {
+        console.log('Para:', destinatario);
+        console.log('Pedido:', JSON.stringify(pedido, null, 2));
+      });
       return;
     }
 
@@ -274,7 +287,9 @@ const construirHtmlBienvenida = (nombreCliente) => `
 const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
   try {
     if (!resend) {
-      console.log(`[SIMULACIÓN EMAIL] Bienvenida enviada a ${emailDestinatario} (${nombreCliente})`);
+      registrarSimulacion('bienvenida', () =>
+        console.log(`Bienvenida para ${emailDestinatario} (${nombreCliente})`)
+      );
       return;
     }
 
@@ -303,7 +318,9 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
 const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
   try {
     if (!resend) {
-      console.log(`[SIMULACIÓN EMAIL] Contacto de ${nombre} <${email}>: ${mensaje}`);
+      registrarSimulacion('mensaje de contacto', () =>
+        console.log(`Contacto de ${nombre} <${email}>: ${mensaje}`)
+      );
       return true;
     }
 
@@ -344,11 +361,11 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
 const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
   try {
     if (!resend) {
-      console.log('\n--- SIMULACIÓN DE ALERTA AL ADMIN (RESEND_API_KEY no configurada) ---');
-      console.log('Para:', EMAIL_ADMIN);
-      console.log('Asunto:', asunto);
-      detalles.forEach(detalle => console.log('-', detalle));
-      console.log('-------------------------------------------------------------\n');
+      registrarSimulacion('alerta al administrador', () => {
+        console.log('Para:', EMAIL_ADMIN);
+        console.log('Asunto:', asunto);
+        detalles.forEach(detalle => console.log('-', detalle));
+      });
       return;
     }
 

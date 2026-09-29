@@ -98,7 +98,8 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `ALLOWED_ORIGINS` | server | No (orígenes extra permitidos por CORS) |
 | `STRIPE_SECRET_KEY` | server | Solo si se quieren cobrar pagos reales |
 | `STRIPE_WEBHOOK_SECRET` | server | No (sin ella, el respaldo `confirmar-sesion` sigue registrando ventas) |
-| `RESEND_API_KEY` | server | No (sin ella, los emails se simulan por log) |
+| `RESEND_API_KEY` | server | No en local (sin ella, los emails se simulan, y el log no lleva datos del cliente); **sí** en producción |
+| `EMAIL_DEBUG_DATOS` | server | No. Solo en local, para ver el contenido de los emails simulados; en producción no hace nada |
 | `RESEND_FROM` | server | No (tiene un valor por defecto de pruebas) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
