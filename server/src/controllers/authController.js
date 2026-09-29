@@ -32,8 +32,9 @@ const firmarToken = (usuario) => {
 };
 
 // Refresh token de una sesión nueva. Si falta REFRESH_TOKEN_HASH_SECRET (configuración
-// incompleta), el inicio de sesión sigue funcionando sin refresh token: la sesión dura lo que el
-// access token (1 hora). Se registra el error para que se note. Cualquier otro fallo se propaga.
+// incompleta), el inicio de sesión sigue funcionando sin refresh token: la sesión dura como mucho
+// lo que el access token (1 hora), y se pierde al recargar la página, porque el cliente guarda ese
+// token solo en memoria. Se registra el error para que se note. Cualquier otro fallo se propaga.
 const emitirRefresh = async (usuario, req) => {
   try {
     const { token } = await refreshTokens.emitir(usuario.id, {

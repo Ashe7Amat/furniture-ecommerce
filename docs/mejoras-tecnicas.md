@@ -234,7 +234,8 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
    - **Aprobado por la revisión el 28 sep:** conserva la atomicidad (el `UPDATE` condicional sigue siendo la
      única puerta) y elimina el falso positivo de reuso.
 2. **Sin `REFRESH_TOKEN_HASH_SECRET`**, el servidor no se cae:
-   - el inicio de sesión funciona sin refresh token (una sesión de 1 hora) y queda un error en el log;
+   - el inicio de sesión funciona sin refresh token y queda un error en el log. La sesión dura como mucho
+     1 hora, y se pierde al recargar la página o al abrir otra pestaña: el access token solo vive en memoria;
    - `refresh` y `logout` responden 503, no 401, para que el cliente no cierre la sesión (pasa a
      `reconectando`).
 3. **Nombres de la respuesta.** Login, registro y Google mantienen `token` (el access token, con el mismo
@@ -722,8 +723,14 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   - **todas llevan un texto fijo**, escrito a mano;
   - **solo dos devuelven el `.message` de un error**, y en los dos casos es un `ErrorValidacion`: el `catch` de
     `crearSesionPago` y el manejador global de `index.js`;
-  - los `ErrorValidacion` se crean con textos fijos (más el id de la pieza, que viene de la propia petición) o
-    con el mensaje de Zod del middleware `validar()`, que habla de la petición y no del servidor;
+  - los `ErrorValidacion` se crean con textos fijos, a los que solo se añade:
+    - el id de la pieza, que viene de la propia petición;
+    - el nombre de la pieza (`mueble.nombre`, en `mueblesController.js`), que sale de la base de datos pero
+      es un dato público del catálogo;
+    - el límite de longitud de un campo (`max`, en `metadataStripe.js`), una constante del servidor;
+    - o el mensaje de Zod del middleware `validar()`, que habla de la petición y no del servidor.
+
+    Nada de eso es un detalle interno;
   - ninguna respuesta devuelve el objeto de error entero (`json(error)`), ni `details`, `hint` o `stack`;
   - los errores de Supabase y de Stripe solo van al log.
 
@@ -918,16 +925,17 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   | C | `[]`: **un error no se distingue de "no hay datos"** | `getMuebles`, `getCategorias`, `buscarMuebles`, `getMisPedidos`, `getPedidos` |
 
 - **Sitios afectados** (grep de todas las llamadas a funciones de escritura en `client/src/`, sin contar tests ni
-  el propio `api.js`: 19 llamadas, 10 de ellas en `Admin.jsx`). **4 no comprueban el resultado, y las 4 están en
-  `Admin.jsx`:**
+  el propio `api.js`: 19 llamadas, 10 de ellas en el panel). **4 no comprueban el resultado, y las 4 están en el
+  panel.** Ubicaciones actualizadas el 28 sep: tras la tarea 4, el panel está repartido en `client/src/pages/admin/`
+  y `Admin.jsx` ya no hace ninguna de estas llamadas.
 
   | Llamada | ¿Comprueba el resultado? | Efecto |
   |---|---|---|
-  | `Admin.jsx:157` `deleteMueble` (borrar uno) | No | "Mueble eliminado con éxito" aunque falle |
-  | `Admin.jsx:363` `deleteMueble` en lote (`Promise.all`) | No | "N productos eliminados" aunque fallen todos o algunos |
-  | `Admin.jsx:196` `deleteCategoria` | No | "Categoría eliminada" aunque falle |
-  | `Admin.jsx:373` `updateMueble` en lote (`Promise.all`) | No | "Estado actualizado en N productos" aunque falle |
-  | `Admin.jsx:121, 176, 234, 272, 299, 635` | Sí (`if (res)`) | Correcto |
+  | `pestanas/InventarioTab.jsx:36` `deleteMueble` (borrar uno) | No | "Mueble eliminado con éxito" aunque falle |
+  | `pestanas/InventarioTab.jsx:49` `deleteMueble` en lote (`Promise.all`) | No | "N productos eliminados" aunque fallen todos o algunos |
+  | `pestanas/CategoriasTab.jsx:58` `deleteCategoria` | No | "Categoría eliminada" aunque falle |
+  | `pestanas/InventarioTab.jsx:59` `updateMueble` en lote (`Promise.all`) | No | "Estado actualizado en N productos" aunque falle |
+  | `pestanas/CrearMuebleTab.jsx:42` · `pestanas/CategoriasTab.jsx:37` · `modales/EditarMuebleModal.jsx:46` · `modales/EditarCategoriaModal.jsx:37` · `pestanas/InventarioTab.jsx:154` · `pestanas/PedidosTab.jsx:16` | Sí (`if (res)`) | Correcto |
   | `AuthModal.jsx:36, 46` · `Login.jsx:27, 85, 94` · `Profile.jsx:75` · `Contact.jsx:35` · `CheckoutModal.jsx:131` · `CheckoutExito.jsx:24` | Sí (contrato B) | Correcto |
 
   `checkoutCart` no tiene ninguna llamada: es el checkout antiguo, anterior a Stripe (código muerto).

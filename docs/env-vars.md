@@ -65,9 +65,11 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   refresh token antes de guardarlo en la tabla `refresh_tokens` (`server/src/utils/refreshTokens.js`,
   tarea 3b). En la tabla solo está ese HMAC, nunca el token.
 - **Formato:** una cadena aleatoria. Se genera con `openssl rand -hex 32`.
-- **Obligatoria:** sí, para que las sesiones duren más de una hora. Sin ella el servidor arranca
-  igual, pero:
-  - el inicio de sesión funciona sin refresh token, y la sesión dura lo que el access token (1 hora);
+- **Obligatoria:** sí, para que las sesiones sobrevivan a una recarga y duren más de una hora. Sin
+  ella el servidor arranca igual, pero:
+  - el inicio de sesión funciona sin refresh token: la sesión dura como mucho lo que el access token
+    (1 hora), y se pierde al recargar la página o abrir otra pestaña, porque ese token solo vive en
+    la memoria de la pestaña;
   - `/api/auth/refresh` y `/api/auth/logout` responden 503;
   - queda un error en el log.
 - **Cambiarla** invalida de golpe todos los refresh tokens emitidos: ya no coinciden con su HMAC

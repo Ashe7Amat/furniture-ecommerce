@@ -30,9 +30,11 @@ HMAC, nunca el token.
 
   **Tiene que estar antes del despliegue del bloque 3b.** Vercel solo aplica una variable nueva a los despliegues
   que se hagan después, y el merge a `main` crea uno.
-- **Si falta:** el servidor arranca igual, pero el inicio de sesión funciona sin refresh token (sesiones de
-  1 hora), `/api/auth/refresh` y `/api/auth/logout` responden 503, y queda un error en el log. Detalle en
-  `docs/env-vars.md`.
+- **Si falta:** el servidor arranca igual, pero:
+  - el inicio de sesión funciona sin refresh token. La sesión dura como mucho 1 hora, y **se pierde al recargar
+    la página o al abrir otra pestaña**, porque el access token solo vive en la memoria de esa pestaña;
+  - `/api/auth/refresh` y `/api/auth/logout` responden 503;
+  - queda un error en el log. Detalle en `docs/env-vars.md`.
 - **Cambiarlo más adelante** cierra todas las sesiones a la vez. Es la medida de emergencia si se sospecha que se
   ha filtrado.
 
