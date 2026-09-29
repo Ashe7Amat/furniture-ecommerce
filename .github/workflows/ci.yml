@@ -61,7 +61,8 @@ jobs:
         continue-on-error: true
       - run: npm run lint
       - run: npm run format:check
-      # Los tests con cobertura (la de Node, sin paquetes extra) y un umbral mínimo del 50% en
-      # líneas, ramas y funciones: si baja de ahí, falla. El 28 sep estaba en 85,7 / 81,3 / 94,1%.
-      # Se empieza bajo para no bloquear, y se sube en próximas iteraciones.
+      # Los tests con cobertura (la de Node, sin paquetes extra) y sus umbrales en líneas, ramas y
+      # funciones, en el script test:coverage de package.json: si una cifra baja de su umbral, falla.
+      # Los umbrales suben tras cada tanda de tests y no se bajan nunca (historial en la tarea 7 de
+      # docs/mejoras-tecnicas.md).
       - run: npm run test:coverage
