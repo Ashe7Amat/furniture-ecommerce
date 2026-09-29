@@ -337,24 +337,6 @@ export const updateProfile = async (profileData) => {
   }
 };
 
-// Compra "de respaldo" (sin pasarela real) — se mantiene por compatibilidad, pero el
-// checkout ahora usa crearSesionPago() más abajo.
-export const checkoutCart = async (checkoutData) => {
-  try {
-    const response = await fetch(`${API_URL}/muebles/comprar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(checkoutData)
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Error al procesar el pago');
-    return data;
-  } catch (error) {
-    console.error('Error en checkoutCart:', error);
-    return { error: error.message };
-  }
-};
-
 // Crea una sesión de pago real de Stripe (modo test o real, según la clave del servidor)
 // y devuelve la URL a la que hay que redirigir al comprador.
 export const crearSesionPago = async ({ items, clienteInfo }) => {

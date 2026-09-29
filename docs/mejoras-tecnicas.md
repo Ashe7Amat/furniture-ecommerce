@@ -921,7 +921,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   | Contrato | Qué devuelve si falla | Funciones |
   |---|---|---|
   | A | `null`. **El mensaje del servidor se pierde** | `createMueble`, `updateMueble`, `deleteMueble`, `createCategoria`, `updateCategoria`, `deleteCategoria`, `actualizarEstadoPedido`, y `getMuebleById` (que devuelve `null` tanto si no existe como si falla) |
-  | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `checkoutCart`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
+  | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
   | C | `[]`: **un error no se distingue de "no hay datos"** | `getMuebles`, `getCategorias`, `buscarMuebles`, `getMisPedidos`, `getPedidos` |
 
 - **Sitios afectados** (grep de todas las llamadas a funciones de escritura en `client/src/`, sin contar tests ni
@@ -938,7 +938,8 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   | `pestanas/CrearMuebleTab.jsx:42` · `pestanas/CategoriasTab.jsx:37` · `modales/EditarMuebleModal.jsx:46` · `modales/EditarCategoriaModal.jsx:37` · `pestanas/InventarioTab.jsx:154` · `pestanas/PedidosTab.jsx:16` | Sí (`if (res)`) | Correcto |
   | `AuthModal.jsx:36, 46` · `Login.jsx:27, 85, 94` · `Profile.jsx:75` · `Contact.jsx:35` · `CheckoutModal.jsx:131` · `CheckoutExito.jsx:24` | Sí (contrato B) | Correcto |
 
-  `checkoutCart` no tiene ninguna llamada: es el checkout antiguo, anterior a Stripe (código muerto).
+  `checkoutCart` no tenía ninguna llamada: era el checkout antiguo, anterior a Stripe, y llamaba a una ruta
+  (`/muebles/comprar`) que el servidor ya no tiene. **Quitado el 29 sep** (decisión D-d).
 - **Qué devuelven cuando van bien** (comprobado el 24 sep leyendo `api.js` y los controladores): las 7 escrituras
   del contrato A devuelven `await response.json()`. El servidor contesta siempre 200 o 201 con un objeto:
   `{ success, message, data }` en muebles, `{ success, data }` o `{ success, message }` en categorías, y la fila
