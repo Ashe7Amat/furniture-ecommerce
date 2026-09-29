@@ -18,7 +18,7 @@ export default defineConfig({
       include: ['src/**'],
       exclude: ['src/**/*.test.{js,jsx}', 'src/setupTests.js', 'src/pages/adminTestUtils.jsx'],
       reporter: ['text', 'text-summary'],
-      thresholds: { lines: 78, statements: 78, functions: 84, branches: 92 },
+      thresholds: { lines: 81, statements: 81, functions: 86, branches: 93 },
     },
   },
 })
