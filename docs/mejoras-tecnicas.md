@@ -690,6 +690,11 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H18 · el registro no verifica el email | Pendiente (alta), con el cliente |
 | H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
 | H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
+| H28 · `perfil-update` sin límite de intentos de contraseña | Pendiente (baja), auditoría del 29 sep |
+| H29 · `crear-sesion-pago` sin límite de peticiones | Pendiente (baja), auditoría del 29 sep |
+| H26 · los endpoints públicos devuelven más de lo que usa la web | Pendiente (baja), auditoría del 29 sep |
+| H27 · datos personales en el log en modo simulación de correo | Pendiente (baja), auditoría del 29 sep |
+| H30 · "Panel Admin" en el pie de página sin sesión | Informativo, auditoría del 29 sep |
 
 **Pendientes de una decisión (negocio o UX, con el cliente):**
 
@@ -1542,6 +1547,120 @@ ninguno.
 - **Tests:** `client/src/context/CartContext.test.jsx` (18). Con el código anterior fallan justo los 2 de este
   caso: añadir dos veces y el "+". Usan React de verdad (`renderHook`), así que el comportamiento es el mismo
   que en el navegador, aunque no se ha visto en él.
+
+## Auditoría de seguridad pasiva (fase 6, 29 sep 2026)
+
+Solo lectura: no se ha cambiado código. Las respuestas a las cinco preguntas de la revisión y los hallazgos
+nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
+
+1. **¿Algún endpoint público devuelve más de lo necesario?** Sí, poca cosa y nada sensible hoy: **H26**.
+   - Todas las lecturas públicas usan `select('*')`: `GET /api/muebles`, `/api/muebles/:id`,
+     `/api/muebles/buscar` y `/api/categorias`. Hoy no sobra nada: se comprobaron las columnas reales con una
+     consulta de solo lectura. `muebles` tiene id, nombre, categoria, descripcion, los dos precios,
+     disponible, imagenes, created_at, estado y categoria_id; `categorias`, id, nombre, imagen_url y
+     categoria_padre_id.
+   - `GET /api/categorias` sí devuelve algo que la web pública no usa: las estadísticas del panel (vendidos,
+     alquilados y valor del catálogo).
+   - El login, el registro, Google y el perfil devuelven del usuario solo `nombre`, `email` y `rol`, nunca el
+     hash de la contraseña. `confirmar-sesion` devuelve `success`, un mensaje y el total.
+2. **¿Los errores 4xx/5xx devuelven detalles internos?** No. Es la auditoría de H3 (28 sep), repetida hoy con
+   el mismo resultado:
+   - todas las respuestas de error llevan un texto fijo;
+   - solo dos devuelven el `.message` de un error, y en los dos casos es un `ErrorValidacion` pensado para
+     enseñarse;
+   - el detalle de los errores de Supabase, Stripe y Resend queda en el log.
+
+   Los tests nuevos de la fase 3 (`controladoresErrores.test.js` e `indexHttpsYErrores.test.js`) comprueban
+   que los 500 no dejan ver nada interno.
+3. **¿Están protegidas todas las rutas de administración?** Sí.
+   - **Con `verificarAdmin`:** crear, editar y borrar muebles y categorías; listar pedidos y cambiar su
+     estado.
+   - **Con `verificarToken` (solo la cuenta propia):** `GET /api/pedidos/mios` y `POST /api/auth/perfil-update`.
+   - **En el cliente,** `/admin` va dentro de `ProtectedRoute adminOnly`. Aun así, el pie de página enseña el
+     enlace "Panel Admin" a quien no ha iniciado sesión: **H30**, informativo.
+   - Los tests: `middlewareAuth.test.js` (403 a un cliente y 401 sin sesión o con un token caducado,
+     falsificado o que no es un JWT), y las comprobaciones de 401/403 de cada controlador.
+4. **¿Hay algún `console.log` con datos sensibles?**
+   - En ningún log salen tokens, contraseñas ni claves;
+   - los refresh tokens solo aparecen por su `family_id`, que por sí solo no da acceso;
+   - en el cliente no hay ningún `console.log` con datos.
+   - **Datos personales sí, pero solo en el modo de simulación de los correos** (sin `RESEND_API_KEY`):
+     **H27**.
+5. **¿Los límites de peticiones cubren las escrituras?**
+   - **Cubiertas:**
+     - con límite: login, registro, Google, el contacto y `confirmar-sesion`;
+     - protegidas de otra forma: las escrituras del panel (piden sesión de administrador), `refresh` y
+       `logout` (un refresh token de 32 bytes no se adivina) y el webhook (firma de Stripe).
+   - **Sin cubrir:**
+     - **H28:** `perfil-update` comprueba la contraseña actual sin límite de intentos;
+     - **H29:** `crear-sesion-pago` crea sesiones de Stripe sin límite.
+
+### H26 · BAJA · PENDIENTE (29 sep 2026) · Los endpoints públicos devuelven más de lo que usa la web
+
+- **`select('*')` en todas las lecturas públicas** de `mueblesController.js` (`obtenerMuebles`,
+  `obtenerMueblePorId` y `buscarMuebles`) y de `categoriasController.js` (`obtenerCategorias`). Hoy las tablas
+  no tienen ninguna columna privada. Pero si mañana se añade una a `muebles`, por ejemplo un precio de compra,
+  el proveedor o notas internas, saldrá al público sin que nadie lo decida.
+- **`GET /api/categorias` es público y devuelve las estadísticas del panel.** Cada categoría lleva
+  `stats: { totalProductos, disponibles, vendidos, alquilados, valorTotalVenta }`, y fuera del panel no las
+  usa nadie (solo `CategoriasTab.jsx`). Hoy son deducibles de `/api/muebles`, que ya enseña el estado y el
+  precio de cada pieza, incluidas las vendidas: por eso la gravedad es baja. Además, para calcularlas se leen
+  todos los muebles en cada petición pública.
+- **Arreglo propuesto (sin hacer):**
+  - lista explícita de columnas en cada `select` público;
+  - las estadísticas, en una ruta aparte con `verificarAdmin` (o solo con sesión de administrador), fuera de
+    la caché pública de la CDN.
+
+### H27 · BAJA · PENDIENTE (29 sep 2026) · Datos personales en el log cuando los correos están en modo simulación
+
+- **Dónde:** `server/src/utils/email.js`. Sin `RESEND_API_KEY`, en vez de enviar los correos se escriben en
+  el log:
+  - el pedido entero (nombre, email, teléfono, dirección y notas del comprador), en la notificación de venta
+    y en la confirmación al cliente;
+  - el email y el nombre de las cuentas nuevas;
+  - los mensajes del formulario de contacto;
+  - los detalles de las alertas al administrador (comprador, teléfono y dirección).
+- **Cuándo pasa:** solo si falta la variable. En local es lo esperado y no importa. En producción, los logs de
+  Vercel se guardarían con esos datos, y cualquiera con acceso al proyecto los vería.
+- **Qué comprobar:** que `RESEND_API_KEY` está en las variables de producción de `nave5-api`. No se ha mirado
+  desde aquí: las variables las gestiona el usuario.
+- **Arreglo propuesto (sin hacer):** en modo simulación, escribir solo que se habría enviado un correo, y a
+  qué tipo de destinatario, sin los datos.
+
+### H28 · BAJA · PENDIENTE (29 sep 2026) · `perfil-update` comprueba la contraseña actual sin límite de intentos
+
+- **Dónde:** `POST /api/auth/perfil-update` (`authRoutes.js`) no lleva `limitadorAuth`, y `actualizarPerfil`
+  compara con bcrypt la contraseña actual que se le mande.
+- **El riesgo:**
+  - alguien que tenga una sesión robada (1 hora de access token, o la duración del refresh token si se ha
+    llevado también ese) puede probar contraseñas sin límite hasta dar con la buena;
+  - con ella cambia el email y la contraseña, y con H21 eso además cierra las demás sesiones: la persona queda
+    fuera de su propia cuenta;
+  - el coste de bcrypt (10) lo frena, pero no lo para con una contraseña débil.
+- **Hace falta una sesión válida antes,** y por eso la gravedad es baja.
+- **Arreglo propuesto (sin hacer):** un limitador para `perfil-update` que cuente solo los intentos con
+  contraseña incorrecta (`skipSuccessfulRequests`, como el de login), por cuenta y no solo por IP.
+
+### H29 · BAJA · PENDIENTE (29 sep 2026) · `crear-sesion-pago` no tiene límite de peticiones
+
+- **Dónde:** `POST /api/muebles/crear-sesion-pago` es público (se puede comprar como invitado) y cada llamada:
+  - lee el catálogo;
+  - crea una sesión de Checkout en Stripe.
+
+  No tiene limitador (`confirmar-sesion`, en cambio, sí).
+- **El riesgo:** alguien que la llame en bucle gasta el límite de peticiones de la API de Stripe de la cuenta,
+  y eso podría hacer fallar el pago a compradores reales. Carga, además, la base de datos. Stripe no cobra por
+  las sesiones que no se pagan.
+- **Arreglo propuesto (sin hacer):** un limitador generoso, por ejemplo 20 cada 15 minutos por IP, como el de
+  `confirmar-sesion`. Con el alcance real de H4: el límite es por instancia de Vercel.
+
+### H30 · INFORMATIVO · PENDIENTE (29 sep 2026) · El pie de página enseña "Panel Admin" a quien no ha iniciado sesión
+
+- **Dónde:** `client/src/components/Footer.jsx`, con la condición `(!user || user.rol === 'admin')`.
+- **No abre nada:** `/admin` está protegida en el cliente (`ProtectedRoute adminOnly`) y en el servidor
+  (`verificarAdmin`). Pero anuncia a cualquier visitante que hay un panel y dónde está.
+- **Arreglo propuesto (sin hacer):** enseñarlo solo con `user?.rol === 'admin'`. El comportamiento de hoy
+  está fijado en `Footer.test.jsx`, con un test que dice que se cambia con ello.
 
 ## Decisiones de diseño a recordar
 
