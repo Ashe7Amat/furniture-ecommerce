@@ -12,9 +12,9 @@ conversación.
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación), hecho en la rama `feature/jwt-refresh` y mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir: C1 (tabla `refresh_tokens`) aplicada en producción el 26 sep; C2 (servidor) y C3 (cliente) hechos el 28 sep, sin desplegar. Antes del merge falta `REFRESH_TOKEN_HASH_SECRET` en Vercel y la comprobación en el navegador (ver "Bloque 3b" más abajo). Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
-| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
+| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo). A 29 sep: 327 tests en el servidor y 545 en el cliente, con cobertura del 95,2% y del 81,7% de líneas (historial en "Tarea 7"). E2E sigue sin empezar (no hay infraestructura) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
-| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama (ver "Tarea 7" más abajo). Lint y formato del servidor ya estaban (tarea 8). `npm audit` informativo en los dos jobs, umbral de cobertura del 50% en el servidor (hoy 85,7% de líneas), `.gitattributes` con `eol=lf` y, con permiso, la cobertura del cliente con `@vitest/coverage-v8` (60% en ramas y funciones, 50% en líneas: hoy 57,9% de líneas). Hallazgo nuevo: H23 |
+| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama (ver "Tarea 7" más abajo): `npm audit` informativo en los dos jobs, `.gitattributes` con `eol=lf` y umbrales de cobertura en los dos lados. El 29 sep se subió la cobertura (cliente del 57,9 al 81,7% de líneas; servidor del 93,6 al 95,2%) y con ella los umbrales, que solo suben. Hallazgos: H23 |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
 
 ## ✅ Merge a `main` del 26 sep 2026: cierre de 3a y tarea 4
@@ -462,6 +462,40 @@ Guía paso a paso para el usuario, con las consultas SQL y la limpieza: `docs/ve
   - `npm audit` cuenta `@vitest/coverage-v8` 2.1.9 como crítica, pero no por un fallo propio: depende de
     vitest 2 (H23). Se arregla al subir los dos a vitest 5.
 
+### Subida de la cobertura (29 sep 2026)
+
+Regla: tras cada tanda de tests, los umbrales se ponen en lo medido menos medio punto, redondeado hacia
+abajo, y no se bajan nunca. El medio punto es margen para las pequeñas diferencias de medición entre
+versiones de Node (el CI usa la 22 y el local, la 24). Los del cliente están en `client/vite.config.js`; los
+del servidor, en el script `test:coverage` de `server/package.json`.
+
+**Cliente** (objetivo de la fase: 70% de líneas y 85% de funciones):
+
+| Tanda | Commit | Líneas | Funciones | Ramas | Umbrales (líneas / funciones / ramas) |
+|---|---|---|---|---|---|
+| Antes | `ff01f41` | 57,9% | 72,1% | 89,3% | 50 / 60 / 60 |
+| H24 (`utils/imagen.js` con sus tests) | `e644618` | 59,4% | 73,8% | 89,5% | 50 / 60 / 60 |
+| utils | `0d56c7d` | 60,2% | 74,6% | 90,6% | 59 / 74 / 90 |
+| services (`api.js`) | `430da77` | 64,7% | 80,9% | 92,1% | 64 / 80 / 91 |
+| `CartContext` (con H25) | `4e7bbc3` | 66,8% | 81,8% | 92,0% | 66 / 81 / 91 |
+| `FavoritesContext` | `af1a60d` | 67,3% | 82,2% | 92,2% | 66 / 81 / 91 |
+| páginas | `64823e2` | 78,7% | 84,6% | 93,3% | 78 / 84 / 92 |
+| componentes | `a03b944` | **81,7%** | **87,2%** | 94,2% | 81 / 86 / 93 |
+
+Sin tests quedan sobre todo `Catalog`, `Home`, `ProductDetail`, las páginas legales, `App.jsx` y
+`CategorySlider`.
+
+**Servidor** (objetivo: 95% de líneas):
+
+| Tanda | Commit | Líneas | Funciones | Ramas | Umbrales (líneas / funciones / ramas) |
+|---|---|---|---|---|---|
+| Antes | `a03b944` | 93,6% | 97,8% | 79,6% | 50 / 50 / 50 |
+| utils, middleware e `index.js` | `a307c6c` | 94,5% | 98,6% | 81,6% | 93 / 98 / 81 |
+| caminos de error de los controladores | `c4571be` | **95,2%** | 98,6% | 83,9% | 94 / 98 / 83 |
+
+Lo que queda por debajo está en `authController` (88%) y `mueblesController` (79%): sobre todo sus
+`catch` de 500 y la subida de fotos con `sharp` y Storage.
+
 ### Qué no se hizo, y por qué
 - **vitest 5, vite 8 y react-router 7** (lo que queda de H23): son saltos de versión mayor, con su propia tarea.
 
@@ -646,35 +680,57 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 
 ## Hallazgos
 
-Resumen a 28 sep 2026. El detalle de cada uno va debajo.
+Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número.
+
+**Abiertos (hay algo que hacer):**
 
 | Hallazgo | Estado |
 |---|---|
-| H1 · metadata de Stripe | Cerrado, 22 sep (en producción) |
-| H2 · emails sin escapar | Cerrado, 22 sep (en producción) |
-| H3 · errores sin filtrar | Cerrado, 28 sep: auditados todos los controladores, sin más casos |
-| H4 · límites de peticiones en memoria | Documentado y aceptado, 28 sep: el límite es por instancia, no un total |
-| H5 · límite de la detección de doble venta | Deuda aceptada, 28 sep: se cierra con el diseño de reservas |
-| H6 · la confirmación va al email tecleado | Depende de H18 (y de usar el email de la cuenta en el checkout) |
-| H7 · alquilar un día bloquea la pieza | Pendiente del cliente (negocio) |
-| H8 · `SUPABASE_URL` con `http://` | Cerrado, 22 sep (en producción) |
-| H9 · RLS de `pedidos` | Cerrado, 24 sep (en la base de datos) |
-| H10 · roles ARIA de la tabla del catálogo | Corregido en la rama, sin desplegar |
-| H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
-| H12 · contratos de error de `api.js` | Abierto (media); propuesta de arreglo del 28 sep, pendiente de revisión |
-| H13 · formularios que sobreviven al cambio de pestaña | Decisión pendiente (UX) |
-| H14 · un solo `status` en el panel | Corregido en la rama, sin desplegar |
-| H15 · categoría preseleccionada | Decisión pendiente (UX) |
-| H16 · caché del panel | Cerrado, 24 sep (en producción) |
-| H17 · ILIKE en "Mis pedidos" | Cerrado, 24 sep (en producción) |
+| H12 · contratos de error de `api.js` | **Decidido, pendiente de implementación** cuando toque `api.js` por otro motivo (probablemente las reservas). Decisiones del 29 sep en la sección H12 |
 | H18 · el registro no verifica el email | Pendiente (alta), con el cliente |
-| H19 · fallo suelto de `npm test` | Cerrado el 25 sep: no reproducible |
-| H20 · código de B sin comprobar de extremo a extremo | Deuda aceptada, 26 sep |
-| H21 · cambiar la contraseña no cerraba sesiones | Corregido en la rama, sin desplegar |
-| H22 · CSP de Google Sign-In | Corregido en la rama, sin desplegar |
-| H23 · vulnerabilidades del cliente | Parcial, 28 sep: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
-| H24 · subir fotos: límite de 4,5 MB de Vercel | Corregido en la rama, sin desplegar (29 sep) |
-| H25 · la cesta no avisaba de "pieza única" | Corregido en la rama, sin desplegar (29 sep) |
+| H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
+| H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
+
+**Pendientes de una decisión (negocio o UX, con el cliente):**
+
+| Hallazgo | Estado |
+|---|---|
+| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas |
+| H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
+| H13 · formularios que sobreviven al cambio de pestaña | UX |
+| H15 · categoría preseleccionada | UX |
+
+**Corregidos en la rama, sin desplegar:**
+
+| Hallazgo | Estado |
+|---|---|
+| H10 · roles ARIA de la tabla del catálogo | 28 sep |
+| H14 · un solo `status` en el panel | 28 sep |
+| H21 · cambiar la contraseña no cerraba sesiones | 28 sep |
+| H22 · CSP de Google Sign-In | 28 sep; se comprueba tras el deploy (sección 4.1 de `docs/verificacion-3b.md`) |
+| H24 · subir fotos: límite de 4,5 MB de Vercel | 29 sep |
+| H25 · la cesta no avisaba de "pieza única" | 29 sep |
+
+**Deuda aceptada o documentada:**
+
+| Hallazgo | Estado |
+|---|---|
+| H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total |
+| H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
+| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 5 de `docs/verificacion-3b.md`) |
+
+**Cerrados:**
+
+| Hallazgo | Cuándo |
+|---|---|
+| H1 · metadata de Stripe | 22 sep (en producción) |
+| H2 · emails sin escapar | 22 sep (en producción) |
+| H8 · `SUPABASE_URL` con `http://` | 22 sep (en producción) |
+| H9 · RLS de `pedidos` | 24 sep (en la base de datos) |
+| H16 · caché del panel | 24 sep (en producción) |
+| H17 · ILIKE en "Mis pedidos" | 24 sep (en producción) |
+| H19 · fallo suelto de `npm test` | 25 sep: no reproducible |
+| H3 · errores sin filtrar | 28 sep: auditados todos los controladores, sin más casos |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -914,7 +970,7 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
 
-### H12 · MEDIA · ABIERTO, con propuesta pendiente de revisión (28 sep 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+### H12 · MEDIA · DECIDIDO, PENDIENTE DE IMPLEMENTACIÓN (29 sep 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
 
 - **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
   dentro y devuelven un valor. Pero no siempre el mismo:
@@ -984,7 +1040,33 @@ Resumen a 28 sep 2026. El detalle de cada uno va debajo.
     y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
     diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
 
-#### Propuesta de unificación (fase D, 28 sep 2026) · PENDIENTE DE REVISIÓN, sin ejecutar
+#### Decisiones de la revisión (29 sep 2026)
+
+**H12 queda cerrado como decisión y abierto como implementación.** Se hará cuando haya que tocar `api.js`
+por otro motivo, probablemente con las reservas (que además necesitan los mensajes 409).
+- **D-a · No se tocan los tests congelados.** Si H12 obliga a cambiar la preparación de los tests de
+  caracterización del panel, H12 no está listo. La congelación es la red de seguridad del refactor, y
+  abrirla para un cambio "que no cambia aserciones" es una pendiente resbaladiza. Se replantea con las
+  reservas.
+- **D-b · El formato vive encima de `apiFetch`, no dentro.** Dos capas:
+  - `apiFetch`, que hace lo de hoy: HTTP, sesión y reintento tras un 401;
+  - encima, `apiCall`, que devuelve `{ data, error, status }`.
+
+  Las 11 funciones públicas siguen con su contrato actual hasta que se migren una a una.
+- **D-c · Textos** (los propone la revisión):
+  - fallo de carga: "No se ha podido cargar. Revisa tu conexión." Sin culpar al usuario y sin el error
+    técnico;
+  - lote a medias: "3 de 5 completados. Los otros 2 no se pudieron procesar." Cuantifica, sin dramatizar.
+- **D-d · `checkoutCart` se quita** (hecho el 29 sep, `7ca0ce8`: además llamaba a una ruta que el servidor
+  ya no tiene). **`buscarMuebles` se deja.**
+  - Nota para cuando se retome: `buscarMuebles` no tiene ninguna llamada en `client/src` (comprobado el
+    29 sep). El buscador de la cabecera usa `getMuebles` y filtra en el navegador.
+  - La revisión la daba por "en uso (búsqueda del catálogo)". Se deja por la decisión, pero hoy es código
+    sin uso.
+- **Lo que ya está hecho para cuando llegue:** `client/src/services/api.contratos.test.js` fija el contrato
+  de hoy de cada función. Al migrar, esos tests dirán exactamente qué cambia.
+
+#### Propuesta de unificación (fase D, 28 sep 2026) · revisada el 29 sep (ver las decisiones de arriba)
 
 **Por qué se para aquí.** El plan decía: "si el diseño se hace grande, para tras la propuesta". Lo es:
 - 21 funciones de `api.js` y 33 llamadas en 19 archivos. Son más que las 19 escrituras de arriba, porque las
@@ -1414,6 +1496,9 @@ ninguno.
     - las fotos nuevas del modal de mueble y las de los dos formularios de categoría;
   - **los tests de caracterización del panel no se han tocado y siguen pasando:** en jsdom no se puede
     decodificar, así que ahí las fotos (de 1 byte) se suben tal cual.
+  - 8 fallos plantados en la integración y en `imagen.js`, todos detectados;
+  - la mutación del panel (`categorias`, `crear` y `modales`, con los 4 mutantes repuntados al código nuevo):
+    53 muertos y el superviviente esperado de siempre (caso B).
 - **Queda por ver en un navegador de verdad:** subir desde el panel, con sesión de administrador, 3 fotos de
   móvil. Es parte del check del panel con sesión que tiene pendiente el usuario.
 

@@ -5,6 +5,17 @@ navegador, la limpieza de la base de datos, y qué mirar después del despliegue
 `docs/tarea3-diseno.md` (sección 2), y el estado y las decisiones, en `docs/mejoras-tecnicas.md` ("Estado del
 bloque 3b").
 
+**Qué se ha comprobado de esta guía (29 sep 2026):**
+- **las consultas SQL**, contra la base de datos real:
+  - las de solo lectura, ejecutándolas con un email que no existe (y la de H20 tal cual: sale vacía);
+  - las dos escrituras (el `DELETE` de la limpieza y la corrección de H20), solo con `EXPLAIN` sin `ANALYZE`,
+    que enseña el plan sin ejecutar nada;
+- **cada paso contra el código**, con una revisión aparte (claves de `localStorage`, rutas, códigos de estado,
+  textos y qué dispara cada petición).
+
+**Lo que no se ha podido probar desde aquí:** los pasos en el navegador (sección 2). Necesitan el secreto, que
+pone el usuario, y una cuenta real con la que iniciar sesión.
+
 **Resumen de lo que cambia:** el access token dura 1 hora y vive solo en memoria. El refresh token dura 7 días,
 se guarda en `localStorage` (`kaveRefreshToken`) y rota en cada uso. En la tabla `refresh_tokens` solo queda su
 HMAC, nunca el token.

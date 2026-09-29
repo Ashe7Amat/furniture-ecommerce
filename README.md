@@ -13,8 +13,8 @@ cuenta de cliente con historial de compras.
 | Base de datos | Supabase (Postgres), acceso solo desde el servidor con la clave `service_role` |
 | Pagos | Stripe Checkout (redirección a página de pago; sin Stripe Elements embebido) |
 | Email | Resend (bienvenida, aviso de venta al admin, confirmación al comprador) |
-| Autenticación | JWT propio (login con email/contraseña o con Google) |
-| Tests | `node:test` + `supertest` en el servidor, Vitest + Testing Library en el cliente |
+| Autenticación | JWT propio (login con email/contraseña o con Google): access token de 1 hora en memoria y refresh token de 7 días con rotación (bloque 3b) |
+| Tests | `node:test` + `supertest` en el servidor, Vitest + Testing Library en el cliente, con umbral mínimo de cobertura en el CI |
 | Hosting | Vercel (frontend y backend en dos proyectos independientes) |
 
 No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...): `client/` y
@@ -35,7 +35,8 @@ No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...):
 │       │                    hooks/ y utilidades; Admin.jsx es solo el contenedor
 │       ├── services/        api.js -- único punto de entrada a la API del servidor
 │       ├── styles/          Un .css por página/componente, variables de diseño en index.css
-│       └── utils/           Funciones puras sin estado (formato, imágenes, hooks pequeños)
+│       └── utils/           Funciones y hooks pequeños: formato, imágenes, reducir las fotos antes
+│                            de subirlas (imagen.js), tokens de sesión (authToken.js)...
 │
 ├── server/                   Backend (Express)
 │   ├── api/index.js          Punto de entrada que usa Vercel (función serverless)
@@ -47,7 +48,7 @@ No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...):
 │       ├── middleware/        Auth (JWT) y validación (Zod) reutilizables entre rutas
 │       ├── schemas/          Esquemas Zod de validación de entrada, uno por recurso
 │       ├── data/              Cliente de Supabase (supabase.js) -- único punto de conexión a la BD
-│       ├── utils/             Email, Stripe, metadata de pagos, procesado de pedidos...
+│       ├── utils/             Email, Stripe, metadata de pagos, procesado de pedidos, refresh tokens...
 │       └── __tests__/         Tests (node:test), con dobles en memoria de Supabase/Stripe
 │
 ├── docs/                      Documentación del proyecto (este mismo README enlaza a cada una)
@@ -92,7 +93,7 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `SUPABASE_SERVICE_ROLE_KEY` | server | **Sí** |
 | `SUPABASE_ANON_KEY` | server | No (solo la usa `server/src/seed.js`) |
 | `JWT_SECRET` | server | **Sí** (sin ella, cualquier JWT firmado con el valor por defecto sería inseguro) |
-| `REFRESH_TOKEN_HASH_SECRET` | server | No en esta rama. La usa el bloque 3b (JWT con refresh), en la rama `feature/jwt-refresh`, sin mergear |
+| `REFRESH_TOKEN_HASH_SECRET` | server | **Sí**, para que las sesiones duren más de 1 hora y sobrevivan a una recarga (bloque 3b; cómo ponerla, en [docs/verificacion-3b.md](docs/verificacion-3b.md)) |
 | `CLIENT_URL` | server | Recomendada (URL de retorno de Stripe) |
 | `ALLOWED_ORIGINS` | server | No (orígenes extra permitidos por CORS) |
 | `STRIPE_SECRET_KEY` | server | Solo si se quieren cobrar pagos reales |
@@ -137,10 +138,10 @@ este repositorio.
 
 CI (`.github/workflows/ci.yml`) corre en cada push y cada Pull Request contra `main`: lint, tests
 con un umbral mínimo de cobertura y build del cliente; lint, formato y tests con un umbral mínimo de
-cobertura del servidor. En los dos
-hay además un `npm audit` informativo, que enseña vulnerabilidades sin romper el build (tarea 7). Un fallo en CI no
-bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), pero si CI falla en
-`main`, algo se ha desplegado roto.
+cobertura del servidor. Los umbrales solo suben: tras cada tanda de tests se ponen en lo medido
+menos medio punto. En los dos jobs hay además un `npm audit` informativo, que enseña
+vulnerabilidades sin romper el build (tarea 7). Un fallo en CI no bloquea el deploy de Vercel por
+sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se ha desplegado roto.
 
 ## Más documentación
 

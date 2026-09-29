@@ -63,16 +63,26 @@ sequenceDiagram
 
     C->>API: POST /api/auth/login (email + contraseña) o /google (token de Google)
     API->>DB: Verifica credenciales / crea la cuenta si es la primera vez con Google
-    API-->>C: JWT (1 hora* -- ver nota), guardado hoy en localStorage
-    C->>API: Peticiones siguientes con "Authorization: Bearer <token>"
+    API->>DB: Guarda el HMAC del refresh token nuevo (tabla refresh_tokens)
+    API-->>C: access token (JWT de 1 hora, en memoria) + refresh token (7 días, en localStorage)
+    C->>API: Peticiones siguientes con "Authorization: Bearer <access token>"
     API->>API: verificarToken / verificarAdmin (middleware/auth.js) comprueban firma y expiración
+    Note over C,API: Si una petición da 401 (access token caducado)...
+    C->>API: POST /api/auth/refresh (refresh token)
+    API->>DB: Revoca el refresh token usado y guarda su sucesor (rotación, en un UPDATE condicional)
+    API-->>C: access token + refresh token nuevos, y el cliente repite la petición una vez
 ```
 
-**\*Pendiente, tarea 3b:** hoy el JWT dura 7 días y no hay refresh -- cuando caduca, hay que
-volver a iniciar sesión. La tarea 3b (diseño completo en `docs/tarea3-diseno.md`) cambia esto a
-un access token de 1 hora + un refresh token con rotación y detección de reuso (tabla
-`refresh_tokens`, todavía no creada), y mueve el access token de `localStorage` a memoria. Nada
-de esto está implementado todavía: esta sección describe el estado **actual**, no el objetivo.
+**Estado (29 sep 2026):** es el bloque 3b, hecho en `feature/mejoras-tecnicas` y **sin desplegar**.
+En producción, hasta que se mergee, sigue el esquema anterior: un JWT de 7 días en `localStorage`,
+sin refresh. Detalles:
+- si alguien presenta un refresh token ya rotado fuera del margen de gracia (60 s), se considera
+  robado y se revoca la familia entera (todas las sesiones que salieron de ese inicio de sesión);
+- cerrar sesión (`POST /api/auth/logout`) revoca la familia;
+- cambiar la contraseña o el email revoca todas las sesiones de la cuenta menos la actual (H21).
+
+Diseño en `docs/tarea3-diseno.md` (sección 2), decisiones tomadas al implementarlo en
+`docs/mejoras-tecnicas.md` ("Estado del bloque 3b"), y cómo comprobarlo en `docs/verificacion-3b.md`.
 
 ## Decisiones técnicas clave (consolidado, con enlace al detalle)
 
