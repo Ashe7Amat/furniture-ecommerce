@@ -23,9 +23,11 @@ const googleClient = process.env.GOOGLE_CLIENT_ID
 // gracias al refresh token (utils/refreshTokens.js), que se rota en /api/auth/refresh. Los tokens
 // de 7 días firmados antes de este cambio siguen valiendo hasta que caduquen solos (opción 1 del
 // diseño): verificarToken no cambia.
+// `sub` es el id de la cuenta (el campo estándar de JWT para "de quién es"): lo usa el límite de
+// intentos de perfil-update (H28). Los tokens firmados antes no lo llevan; ahí se usa el email.
 const firmarToken = (usuario) => {
   return jwt.sign(
-    { email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
+    { sub: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
     process.env.JWT_SECRET,
     { expiresIn: '1h' }
   );
@@ -191,6 +193,8 @@ const actualizarPerfil = async (req, res) => {
       // 2. Verificar la contraseña actual
       const contraseñaCorrecta = await bcrypt.compare(passwordActual, usuario.password);
       if (!contraseñaCorrecta) {
+        // H28: queda en el log quién lo intentó (el id de la cuenta), nunca la contraseña.
+        console.warn(`perfil-update: contraseña actual incorrecta (cuenta ${usuario.id}).`);
         return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
       }
       idUsuario = usuario.id;

@@ -692,7 +692,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H18 · el registro no verifica el email | Pendiente (alta), con el cliente. Diseño para decidir en `docs/verificacion-email-diseno.md` (29 sep) |
 | H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
 | H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
-| H28 · `perfil-update` sin límite de intentos de contraseña | Pendiente (baja), auditoría del 29 sep |
+| H28 · `perfil-update` sin límite de intentos de contraseña | Corregido en la rama, sin desplegar (29 sep) |
 | H29 · `crear-sesion-pago` sin límite de peticiones | Pendiente (baja), auditoría del 29 sep |
 | H26 · los endpoints públicos devuelven más de lo que usa la web | Pendiente (baja), auditoría del 29 sep |
 | H27 · datos personales en el log en modo simulación de correo | Pendiente (baja), auditoría del 29 sep |
@@ -1643,7 +1643,33 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Arreglo propuesto (sin hacer):** en modo simulación, escribir solo que se habría enviado un correo, y a
   qué tipo de destinatario, sin los datos.
 
-### H28 · BAJA · PENDIENTE (29 sep 2026) · `perfil-update` comprueba la contraseña actual sin límite de intentos
+### H28 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · `perfil-update` comprobaba la contraseña actual sin límite de intentos
+
+- **Arreglo (29 sep 2026):** `limitadorPerfil` en `server/src/routes/authRoutes.js`, después de
+  `verificarToken`.
+  - **10 intentos fallidos cada 15 minutos por cuenta,** no por IP. Solo cuentan los que fallan (una
+    contraseña incorrecta, un cuerpo no válido...): cambiar solo el nombre no gasta nada.
+  - **Al llegar al límite,** responde 429 con "Demasiados intentos con una contraseña incorrecta. Espera 15
+    minutos antes de volver a intentarlo.", también con la contraseña buena, hasta que pase la ventana.
+  - **La clave es el id de la cuenta.** Para eso, el access token lleva ahora `sub` (el id, el campo estándar
+    de JWT). Los tokens firmados antes no lo llevan, y en ellos se usa el email, que también identifica la
+    cuenta. Esos tokens desaparecen solos en 7 días como mucho.
+  - **Log:** cada contraseña incorrecta deja "perfil-update: contraseña actual incorrecta (cuenta <id>)", y el
+    límite, "límite de intentos alcanzado (cuenta:<id>)". Nunca la contraseña.
+  - **Alcance:** como los demás límites, vive en la memoria de cada instancia de Vercel (H4). Frena la fuerza
+    bruta, pero no es un tope global.
+- **Tests:** `server/src/__tests__/perfilLimite.test.js` (7):
+  - 10 fallos dan 401, el 11 da 429 con el mensaje, y el 12, con la contraseña buena, también 429;
+  - el límite es por cuenta: desde la misma IP, otra cuenta sigue pudiendo;
+  - cambiar el nombre no gasta intentos;
+  - un token sin `sub` se reconoce por el email;
+  - el token del login lleva `sub`;
+  - los avisos del log llevan el id y nunca la contraseña.
+
+  Fallos plantados, todos detectados: sin limitador, la clave por IP, contar también los que van bien, límite
+  de 20, sin `sub` en el token y sin el aviso de cada fallo.
+
+**El hallazgo, tal y como se anotó:**
 
 - **Dónde:** `POST /api/auth/perfil-update` (`authRoutes.js`) no lleva `limitadorAuth`, y `actualizarPerfil`
   compara con bcrypt la contraseña actual que se le mande.
