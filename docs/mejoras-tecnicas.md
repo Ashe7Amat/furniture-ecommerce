@@ -694,7 +694,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
 | H28 · `perfil-update` sin límite de intentos de contraseña | Corregido en la rama, sin desplegar (29 sep) |
 | H29 · `crear-sesion-pago` sin límite de peticiones | Corregido en la rama, sin desplegar (29 sep) |
-| H26 · los endpoints públicos devuelven más de lo que usa la web | Pendiente (baja), auditoría del 29 sep |
+| H26 · los endpoints públicos devuelven más de lo que usa la web | Corregido en la rama, sin desplegar (29 sep) |
 | H27 · datos personales en el log en modo simulación de correo | Pendiente (baja), auditoría del 29 sep |
 | H30 · "Panel Admin" en el pie de página sin sesión | Informativo, auditoría del 29 sep |
 
@@ -1611,7 +1611,44 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
      - **H28:** `perfil-update` comprueba la contraseña actual sin límite de intentos;
      - **H29:** `crear-sesion-pago` crea sesiones de Stripe sin límite.
 
-### H26 · BAJA · PENDIENTE (29 sep 2026) · Los endpoints públicos devuelven más de lo que usa la web
+### H26 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Los endpoints públicos devolvían más de lo que usa la web
+
+- **Arreglo (29 sep 2026):**
+  - **Muebles:** `GET /api/muebles`, `/api/muebles/buscar` y `/api/muebles/:id` piden solo
+    `COLUMNAS_PUBLICAS_MUEBLE` (`mueblesController.js`), que son las que usan la web y el panel: `id`,
+    `nombre`, `categoria`, `descripcion`, `precio_venta`, `precio_alquiler_dia`, `imagenes` y `estado`.
+    - Ya no salen `disponible` (se deriva de `estado`), `created_at` (solo sirve para ordenar, y ordenar no
+      necesita devolverla) ni `categoria_id` (la web usa `categoria`).
+    - Cuando cierre la migración A y la web pase a `categoria_id`, habrá que añadirla a la lista a mano.
+  - **Categorías, lectura pública:** `GET /api/categorias` devuelve solo `id`, `nombre`, `imagen_url` y
+    `categoria_padre_id`, sin estadísticas. Ya no lee todos los muebles en cada visita.
+  - **Categorías con estadísticas:** en una ruta nueva, `GET /api/admin/categorias/con-stats`
+    (`routes/adminRoutes.js`, con `verificarAdmin`), con `Cache-Control: private, no-store`. Los muebles se
+    leen solo con las columnas que entran en las cuentas.
+  - **El panel no cambia:** sigue llamando a `getCategorias({ fresco: true })`, que en `api.js` ahora va a la
+    ruta de administración con la sesión (`apiFetch`). Así los tests de caracterización del panel, que
+    simulan `getCategorias`, no se tocan.
+- **Tests:**
+  - `columnasPublicas.test.js` (4):
+    - con dos columnas inventadas en la tabla (`precio_compra`, `proveedor`), las tres lecturas públicas de
+      muebles no las devuelven;
+    - con el cliente real de supabase-js, lo que llega a PostgREST en `select` es la lista explícita, también
+      en categorías;
+  - `categoriasController.test.js`:
+    - la lectura pública: solo las cuatro columnas, ni una nueva, sin leer los muebles, ordenada y
+      cacheable;
+    - la de administración: 401 sin sesión y 403 a un cliente, las estadísticas de siempre (movidas de la
+      pública), sin caché y 500 genérico;
+  - `api.test.js`: el test de `getCategorias({ fresco: true })` se cambia a propósito (marcado "CAMBIADO CON
+    H26") para la ruta nueva.
+  - `fakeSupabase` aplica ahora la lista de columnas de `select()`, como PostgREST. Los 341 tests del
+    servidor siguieron pasando con ese cambio.
+
+  Fallos plantados, todos detectados (6): volver a '*' en muebles y en categorías, añadir una columna a la
+  lista, poner las estadísticas en la ruta pública, quitar `verificarAdmin` de la nueva y cachearla como
+  pública.
+
+**El hallazgo, tal y como se anotó:**
 
 - **`select('*')` en todas las lecturas públicas** de `mueblesController.js` (`obtenerMuebles`,
   `obtenerMueblePorId` y `buscarMuebles`) y de `categoriasController.js` (`obtenerCategorias`). Hoy las tablas

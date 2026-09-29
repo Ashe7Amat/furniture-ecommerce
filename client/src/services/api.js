@@ -228,11 +228,15 @@ export const deleteMueble = async (id) => {
   }
 };
 
-// `fresco`: igual que en getMuebles (ver lecturaFresca).
+// Sin opciones: la lectura pública, cacheable, sin estadísticas.
+// `fresco` es la del panel (la única que lo usa): va a GET /api/admin/categorias/con-stats, con
+// sesión de administrador, que es la única que trae las estadísticas de cada categoría (H26). Esa
+// ruta no se guarda en ninguna caché, y apiFetch añade la sesión y la renueva si ha caducado.
 export const getCategorias = async (opciones = {}) => {
   try {
-    const url = `${API_URL}/categorias`;
-    const response = opciones.fresco ? await fetch(url, lecturaFresca()) : await fetch(url);
+    const response = opciones.fresco
+      ? await apiFetch(`${API_URL}/admin/categorias/con-stats`, { cache: 'no-store' })
+      : await fetch(`${API_URL}/categorias`);
     if (!response.ok) return [];
     return await response.json();
   } catch (error) {

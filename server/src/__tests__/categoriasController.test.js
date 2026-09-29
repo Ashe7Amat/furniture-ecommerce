@@ -26,27 +26,120 @@ const conCliente = (req) => req.set('Authorization', `Bearer ${tokenCliente}`);
 let fake;
 afterEach(() => mock.restoreAll());
 
-describe('GET /api/categorias — jerarquía y estadísticas', () => {
+// Datos comunes: dos categorías generales, dos específicas y cuatro muebles. Las categorías llevan
+// una columna que no existe hoy (`nota_interna`): si una lectura pública la devolviera, es que no
+// elige sus columnas (H26).
+const tiendaDePrueba = () =>
+  crearFakeSupabase({
+    categorias: [
+      {
+        id: 1,
+        nombre: 'Mobiliario',
+        categoria_padre_id: null,
+        imagen_url: null,
+        nota_interna: 'x'
+      },
+      {
+        id: 2,
+        nombre: 'Sillas',
+        categoria_padre_id: 1,
+        imagen_url: 'https://img.test/s.jpg',
+        nota_interna: 'x'
+      },
+      { id: 3, nombre: 'Mesas', categoria_padre_id: 1, imagen_url: null, nota_interna: 'x' },
+      { id: 4, nombre: 'Decoración', categoria_padre_id: null, imagen_url: null, nota_interna: 'x' }
+    ],
+    muebles: [
+      { id: 'm1', categoria: 'Sillas', estado: 'disponible', precio_venta: 50 },
+      { id: 'm2', categoria: 'Sillas', estado: 'vendido', precio_venta: 80 },
+      { id: 'm3', categoria: 'Mesas', estado: 'alquilado', precio_venta: 120 },
+      { id: 'm4', categoria: 'Decoración', estado: 'disponible', precio_venta: 20 }
+    ]
+  });
+
+describe('GET /api/categorias — pública, sin estadísticas (H26)', () => {
+  let tablasLeidas;
   beforeEach(() => {
-    fake = crearFakeSupabase({
-      categorias: [
-        { id: 1, nombre: 'Mobiliario', categoria_padre_id: null },
-        { id: 2, nombre: 'Sillas', categoria_padre_id: 1 },
-        { id: 3, nombre: 'Mesas', categoria_padre_id: 1 },
-        { id: 4, nombre: 'Decoración', categoria_padre_id: null }
-      ],
-      muebles: [
-        { id: 'm1', categoria: 'Sillas', estado: 'disponible', precio_venta: 50 },
-        { id: 'm2', categoria: 'Sillas', estado: 'vendido', precio_venta: 80 },
-        { id: 'm3', categoria: 'Mesas', estado: 'alquilado', precio_venta: 120 },
-        { id: 'm4', categoria: 'Decoración', estado: 'disponible', precio_venta: 20 }
-      ]
+    fake = tiendaDePrueba();
+    tablasLeidas = [];
+    mock.method(supabase, 'from', (tabla) => {
+      tablasLeidas.push(tabla);
+      return fake.from(tabla);
     });
+  });
+
+  test('devuelve solo las cuatro columnas de la categoría: ni estadísticas ni columnas nuevas', async () => {
+    const res = await request(app).get('/api/categorias');
+
+    assert.equal(res.status, 200);
+    for (const categoria of res.body) {
+      assert.deepEqual(Object.keys(categoria).sort(), [
+        'categoria_padre_id',
+        'id',
+        'imagen_url',
+        'nombre'
+      ]);
+    }
+    assert.deepEqual(
+      res.body.find((c) => c.nombre === 'Sillas'),
+      {
+        id: 2,
+        nombre: 'Sillas',
+        categoria_padre_id: 1,
+        imagen_url: 'https://img.test/s.jpg'
+      }
+    );
+  });
+
+  test('ya no lee los muebles (las estadísticas los recorrían todos en cada visita)', async () => {
+    await request(app).get('/api/categorias');
+
+    assert.deepEqual(tablasLeidas, ['categorias']);
+  });
+
+  test('llegan ordenadas por nombre', async () => {
+    const res = await request(app).get('/api/categorias');
+    const nombres = res.body.map((c) => c.nombre);
+    assert.deepEqual(
+      nombres,
+      [...nombres].sort((a, b) => a.localeCompare(b))
+    );
+  });
+
+  test('sigue siendo cacheable por la CDN (es pública)', async () => {
+    const res = await request(app).get('/api/categorias');
+
+    assert.match(res.headers['cache-control'], /^public, /);
+  });
+
+  test('un error de Supabase al leer categorías da 500 con mensaje genérico', async () => {
+    fake = crearFakeSupabase({
+      categorias: [],
+      fallos: { 'categorias.select': { message: 'caído' } }
+    });
+    mock.method(supabase, 'from', fake.from);
+    mock.method(console, 'error', () => {});
+
+    const res = await request(app).get('/api/categorias');
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Error al obtener las categorías.' });
+  });
+});
+
+describe('GET /api/admin/categorias/con-stats — estadísticas, solo para el panel (H26)', () => {
+  const URL_STATS = '/api/admin/categorias/con-stats';
+  beforeEach(() => {
+    fake = tiendaDePrueba();
     mock.method(supabase, 'from', fake.from);
   });
 
+  test('sin sesión, 401; con sesión de cliente, 403: las estadísticas no son públicas', async () => {
+    assert.equal((await request(app).get(URL_STATS)).status, 401);
+    assert.equal((await conCliente(request(app).get(URL_STATS))).status, 403);
+  });
+
   test('una categoría específica (con padre) suma solo sus propios muebles por nombre', async () => {
-    const res = await request(app).get('/api/categorias');
+    const res = await conAdmin(request(app).get(URL_STATS));
     assert.equal(res.status, 200);
     const sillas = res.body.find((c) => c.nombre === 'Sillas');
     assert.equal(sillas.stats.totalProductos, 2);
@@ -56,7 +149,7 @@ describe('GET /api/categorias — jerarquía y estadísticas', () => {
   });
 
   test('una categoría general (sin padre) suma los muebles de TODAS sus hijas', async () => {
-    const res = await request(app).get('/api/categorias');
+    const res = await conAdmin(request(app).get(URL_STATS));
     const mobiliario = res.body.find((c) => c.nombre === 'Mobiliario');
     // Sillas (2) + Mesas (1) = 3, aunque "Mobiliario" en sí no tiene ningún mueble con ese nombre
     assert.equal(mobiliario.stats.totalProductos, 3);
@@ -72,38 +165,44 @@ describe('GET /api/categorias — jerarquía y estadísticas', () => {
     });
     mock.method(supabase, 'from', fake.from);
 
-    const res = await request(app).get('/api/categorias');
+    const res = await conAdmin(request(app).get(URL_STATS));
     assert.equal(res.status, 200);
     assert.equal(res.body[0].stats.totalProductos, 0);
   });
 
   test('el valor total de venta se formatea como moneda en euros', async () => {
-    const res = await request(app).get('/api/categorias');
+    const res = await conAdmin(request(app).get(URL_STATS));
     const sillas = res.body.find((c) => c.nombre === 'Sillas'); // 50 + 80 = 130
     assert.match(sillas.stats.valorTotalVenta, /130/);
     assert.match(sillas.stats.valorTotalVenta, /€/);
   });
 
-  test('llegan ordenadas por nombre', async () => {
-    const res = await request(app).get('/api/categorias');
-    const nombres = res.body.map((c) => c.nombre);
-    assert.deepEqual(
-      nombres,
-      [...nombres].sort((a, b) => a.localeCompare(b))
-    );
+  test('cada categoría lleva sus cuatro columnas y `stats`, nada más, y no se guarda en ninguna caché', async () => {
+    const res = await conAdmin(request(app).get(URL_STATS));
+
+    for (const categoria of res.body) {
+      assert.deepEqual(Object.keys(categoria).sort(), [
+        'categoria_padre_id',
+        'id',
+        'imagen_url',
+        'nombre',
+        'stats'
+      ]);
+    }
+    assert.equal(res.headers['cache-control'], 'private, no-store');
   });
 
-  test('un error de Supabase al leer categorías da 500 con mensaje genérico', async () => {
+  test('un error de Supabase da 500 con mensaje genérico', async () => {
     fake = crearFakeSupabase({
       categorias: [],
-      fallos: { 'categorias.select': { message: 'caído' } }
+      fallos: { 'muebles.select': { message: 'caído' } }
     });
     mock.method(supabase, 'from', fake.from);
     mock.method(console, 'error', () => {});
 
-    const res = await request(app).get('/api/categorias');
+    const res = await conAdmin(request(app).get(URL_STATS));
     assert.equal(res.status, 500);
-    assert.doesNotMatch(res.body.error, /caído/); // no filtra el error interno
+    assert.doesNotMatch(res.body.error, /caído/);
   });
 });
 

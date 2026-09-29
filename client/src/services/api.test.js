@@ -34,15 +34,27 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     expect(fetch.mock.calls[0][0]).toMatch(/\/muebles\?limit=4$/);
   });
 
-  it.each([
-    ['getMuebles', getMuebles, /\/muebles$/],
-    ['getCategorias', getCategorias, /\/categorias$/]
-  ])('%s({ fresco: true }) se salta la caché del navegador (no-store) y la de la CDN (Authorization)', async (_nombre, lectura, ruta) => {
+  it('getMuebles({ fresco: true }) se salta la caché del navegador (no-store) y la de la CDN (Authorization)', async () => {
     setAccessToken('token-del-admin'); // desde el bloque 3b, el access token vive en memoria
 
-    await lectura({ fresco: true });
+    await getMuebles({ fresco: true });
 
-    expect(fetch.mock.calls[0][0]).toMatch(ruta);
+    expect(fetch.mock.calls[0][0]).toMatch(/\/muebles$/);
+    expect(fetch.mock.calls[0][1]).toEqual({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer token-del-admin' }
+    });
+  });
+
+  // CAMBIADO CON H26 (29 sep 2026): antes iba a /categorias, igual que getMuebles. Las estadísticas
+  // de cada categoría ya no salen en la ruta pública; el panel (el único que usa `fresco`) las pide
+  // a la de administración, con sesión y sin caché.
+  it('getCategorias({ fresco: true }) pide las categorías con estadísticas a la ruta de administración, con sesión y sin caché', async () => {
+    setAccessToken('token-del-admin');
+
+    await getCategorias({ fresco: true });
+
+    expect(fetch.mock.calls[0][0]).toMatch(/\/admin\/categorias\/con-stats$/);
     expect(fetch.mock.calls[0][1]).toEqual({
       cache: 'no-store',
       headers: { Authorization: 'Bearer token-del-admin' }

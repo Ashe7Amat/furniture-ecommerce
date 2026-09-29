@@ -19,7 +19,9 @@
 //     trg_sync_disponible_desde_estado (BEFORE INSERT OR UPDATE): `disponible` se recalcula
 //     siempre desde `estado`, pisando lo que se haya mandado. Las filas iniciales no pasan por
 //     él, igual que las que ya están en la base de datos.
-// Lo que NO comprueba: nombres de columnas ni tipos, ni cómo serializa la librería cada
+//   - select('a, b') devuelve solo esas columnas, como PostgREST (H26: así se puede comprobar que
+//     un endpoint público no expone una columna que no ha pedido).
+// Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
@@ -218,6 +220,17 @@ const crearFakeSupabase = ({
     return aplicarSalida(encontradas, consulta.salida);
   };
 
+  // Deja en cada fila del resultado solo las columnas pedidas en select() (ver select, abajo).
+  const proyectar = (resultado, columnas) => {
+    if (!columnas || resultado.error || resultado.data == null) return resultado;
+    const recortar = (fila) =>
+      Object.fromEntries(columnas.filter((c) => c in fila).map((c) => [c, fila[c]]));
+    return {
+      ...resultado,
+      data: Array.isArray(resultado.data) ? resultado.data.map(recortar) : recortar(resultado.data)
+    };
+  };
+
   const from = (nombre) => {
     if (!tablas[nombre]) throw new Error(`Tabla no prevista en el doble de Supabase: ${nombre}`);
     const consulta = {
@@ -235,7 +248,21 @@ const crearFakeSupabase = ({
       return constructor;
     };
     const constructor = {
-      select: () => usar('select'),
+      // Como PostgREST, select('a, b') devuelve solo esas columnas (también detrás de un insert o un
+      // update). Sin argumento o con '*', todas. Lo que no sea una lista de nombres simples
+      // (relaciones, alias, 'columna->>clave'...) se deja pasar entero. Hace falta para comprobar
+      // que un endpoint no expone una columna que no ha pedido (H26).
+      select: (columnas) => {
+        const texto = typeof columnas === 'string' ? columnas.trim() : '';
+        consulta.columnas =
+          !texto || texto === '*' || /[():>]/.test(texto)
+            ? null
+            : texto
+                .split(',')
+                .map((c) => c.trim())
+                .filter(Boolean);
+        return usar('select');
+      },
       limit: (n) => {
         consulta.limite = n;
         return usar('limit');
@@ -333,7 +360,7 @@ const crearFakeSupabase = ({
       },
       then: (resolver, rechazar) =>
         new Promise((r) => setImmediate(r))
-          .then(() => ejecutar(nombre, consulta))
+          .then(() => proyectar(ejecutar(nombre, consulta), consulta.columnas))
           .then(resolver, rechazar)
     };
     return constructor;
