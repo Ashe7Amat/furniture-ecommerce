@@ -129,6 +129,29 @@ diseño y el porqué de cada una están en **[docs/tarea3-diseno.md](docs/tarea3
 | Formato (comprobar) | -- | `npm run format:check` |
 | Formato (aplicar) | -- | `npm run format` |
 
+## Cómo verificar antes del merge
+
+Lo que queda por hacer a mano antes de mergear `feature/mejoras-tecnicas` a `main`, y justo después.
+El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificacion-3b.md)**.
+
+**Antes del merge** (unos 20 minutos):
+1. **El secreto** `REFRESH_TOKEN_HASH_SECRET`: generarlo con `openssl rand -hex 32` y ponerlo en
+   `server/.env` y en Vercel (`nave5-api`, Production). No se pasa por ningún chat. Sección 1; unos 2 min.
+2. **Las sesiones del bloque 3b en el navegador:** iniciar sesión, recargar, el 401 simulado y cerrar
+   sesión. Sección 2; unos 10 min.
+3. **El panel con sesión de administrador:** el orden, las estadísticas de categorías, el estado de
+   cada formulario, subir 2 o 3 fotos de móvil y la cesta. Sección 5; unos 5 min.
+4. **Limpiar** las filas de prueba de `refresh_tokens` con el SQL de la guía. Sección 3; unos 2 min.
+5. **Dar permiso para el merge.**
+
+**Después del despliegue:**
+1. La sesión sigue abierta al recargar, y las fotos de móvil se guardan también con el límite de
+   Vercel. Sección 4.
+2. `/login` sin avisos de CSP (H22). Sección 4.1.
+3. Los límites de intentos (H28) y de sesiones de pago (H29), sin crear ninguna sesión en Stripe.
+   Sección 6.
+4. `RESEND_API_KEY` puesta en producción (H27). Sección 6.
+
 ## Cómo se despliega
 
 Vercel despliega automáticamente al hacer push a `main`: dos proyectos independientes, uno para

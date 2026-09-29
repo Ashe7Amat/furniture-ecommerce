@@ -758,7 +758,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 |---|---|
 | H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total |
 | H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
-| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 5 de `docs/verificacion-3b.md`) |
+| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
 
 **Cerrados:**
 

@@ -1,7 +1,11 @@
-# Verificación del bloque 3b (sesiones con refresh token)
+# Verificación antes del merge: bloque 3b, panel y límites
 
-Guía para comprobar a mano el bloque 3b antes de mergearlo a `main`: el secreto nuevo, las pruebas en el
-navegador, la limpieza de la base de datos, y qué mirar después del despliegue. El diseño está en
+Guía para comprobar a mano la rama antes de mergearla a `main`, y después del despliegue:
+- el bloque 3b: el secreto nuevo, las pruebas en el navegador y la limpieza de la base de datos;
+- el panel con sesión (sección 5);
+- los límites de peticiones de H28 y H29 en producción (sección 6).
+
+El resumen, con los tiempos, está en el README ("Cómo verificar antes del merge"). El diseño está en
 `docs/tarea3-diseno.md` (sección 2), y el estado y las decisiones, en `docs/mejoras-tecnicas.md` ("Estado del
 bloque 3b").
 
@@ -13,8 +17,10 @@ bloque 3b").
 - **cada paso contra el código**, con una revisión aparte (claves de `localStorage`, rutas, códigos de estado,
   textos y qué dispara cada petición).
 
-**Lo que no se ha podido probar desde aquí:** los pasos en el navegador (sección 2). Necesitan el secreto, que
-pone el usuario, y una cuenta real con la que iniciar sesión.
+**Lo que no se ha podido probar desde aquí:** los pasos en el navegador (secciones 2 y 5) y los de producción
+(secciones 4 y 6). Necesitan el secreto, que pone el usuario, una cuenta real con la que iniciar sesión y el
+despliegue. Las secciones 5 y 6 se revisaron contra el código el 29 sep: rutas, textos, orden de las pestañas, y
+que en `crear-sesion-pago` una pieza que no existe se rechaza antes de llamar a Stripe.
 
 **Resumen de lo que cambia:** el access token dura 1 hora y vive solo en memoria. El refresh token dura 7 días,
 se guarda en `localStorage` (`kaveRefreshToken`) y rota en cada uso. En la tabla `refresh_tokens` solo queda su
@@ -144,6 +150,8 @@ Más adelante, para el mantenimiento normal (filas caducadas hace más de 30 dí
 
 - **Iniciar sesión en la web publicada y recargar:** la sesión sigue abierta. La consulta de la sección 2, con
   tu email, enseña las filas de producción.
+- **Fotos de móvil (H24), ahora sí con el límite de Vercel:** crear en el panel publicado un mueble de prueba con
+  3 fotos del móvil (juntas pasarían de 4,5 MB). Tiene que guardarse bien. Después se borra.
 - **Las sesiones abiertas antes del despliegue** (con el token antiguo de 7 días, `kaveToken`) siguen valiendo
   hasta que caduquen, y después se pide iniciar sesión otra vez. Es lo esperado (decisión 8 de C2/C3).
 
@@ -175,7 +183,80 @@ Hoy va en modo *report-only*: el navegador avisa en la consola, pero no bloquea 
 Si el aviso es de otra página (no de `/login`) o de otro origen distinto de Google, también se anota, pero como
 hallazgo nuevo, no como H22b.
 
-## 5. Cómo reabrir H20 si un pedido real llega sin `cliente_id`
+## 5. El panel con sesión (en local, con la cuenta de administrador)
+
+Con los dos servidores arrancados, como en la sección 2, se inicia sesión con la cuenta de administrador y se
+abre `http://localhost:5173/admin`. **El servidor local usa la base de datos de producción:** lo que se cree aquí
+(una categoría o un mueble de prueba) es real. Se borra al final, desde el propio panel.
+
+1. **El orden del panel.**
+   - Abre en **Resumen** ("Dashboard"), con seis tarjetas en este orden: productos totales, disponibles,
+     vendidos, alquilados, valor en stock y pedidos por procesar. Si hay piezas sin foto o sin categoría, salen
+     sus avisos, y debajo, "Avisos / Últimas Ventas".
+   - La barra lateral, de arriba abajo: Resumen, Añadir Mueble, Gestionar Inventario, Pedidos (con la insignia
+     de pendientes, si los hay) y Gestionar Categorías. La pestaña abierta es la única marcada.
+2. **Las estadísticas de las categorías (H26).**
+   - En **Gestionar Categorías**, cada tarjeta enseña "Productos totales", "Stock: ... disponibles · ...
+     vendidos · ... alquilados" y "Valor del catálogo", no "Cargando analíticas...". En **Red** sale
+     `GET /api/admin/categorias/con-stats` con 200.
+   - En la web pública (la portada, sin el panel), la respuesta de `GET /api/categorias` ya no trae `stats`.
+3. **Cada formulario, su propio estado (H14).**
+   - En Gestionar Categorías, se crea una categoría de prueba con un **doble clic** rápido en "Crear Categoría".
+     Tiene que crearse **una sola**, y el botón se desactiva mientras se crea.
+   - El mensaje de progreso sale junto a su formulario, y no en otra pestaña.
+   - Al terminar, se borra la categoría de prueba.
+4. **Fotos de móvil (H24).**
+   - En **Añadir Mueble**, se crea un mueble de prueba con **2 o 3 fotos hechas con el móvil**, a poder ser
+     alguna en vertical.
+   - Mientras guarda, el mensaje dice "Optimizando imágenes... 1/3", "2/3" y "3/3", y después "Guardando
+     producto...".
+   - En **Red**, la petición `POST /api/muebles` pesa bastante menos de 4,5 MB (columna de tamaño).
+   - En el catálogo, las fotos salen bien orientadas: la vertical, en vertical.
+   - En local no hay límite de 4,5 MB (ese lo pone Vercel), así que la prueba de verdad es la de la sección 4,
+     después del despliegue.
+   - Al terminar, se borra el mueble de prueba desde Gestionar Inventario.
+5. **La cesta, pieza única (H25).** En el catálogo, se abre la vista rápida de una pieza disponible y se pulsa
+   dos veces "Añadir a la cesta". La
+   segunda vez tiene que salir "Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad
+   disponible.", y no "Producto añadido a la cesta.". En la cesta, el "+" de una línea da el mismo aviso.
+6. **"Panel Admin" en el pie de página (H30):** sin sesión no sale, con sesión de cliente tampoco, y con la del
+   administrador, sí.
+
+## 6. Los límites de H28 y H29, en producción (después del despliegue)
+
+Cada instancia de Vercel lleva su propia cuenta (H4). Con poco tráfico suele haber una sola, así que los
+números salen exactos. Si alguno tarda un poco más en saltar, es eso, no un fallo.
+
+**H28, intentos de cambiar la contraseña.** Se hace con una cuenta de cliente de prueba, **no con la del
+administrador**, porque la deja 15 minutos sin poder cambiar la contraseña.
+1. En la web publicada, con esa cuenta: Mi cuenta, Mis Datos. Se escribe una contraseña actual **incorrecta**,
+   una nueva y su confirmación, y se pulsa "Guardar cambios" **11 veces**.
+2. Las 10 primeras dicen "La contraseña actual es incorrecta.". La 11 dice "Demasiados intentos con una
+   contraseña incorrecta. Espera 15 minutos antes de volver a intentarlo.".
+3. Con la contraseña **buena**, también sale ese aviso, hasta que pasen 15 minutos. Después, funciona.
+4. En los logs de `nave5-api` en Vercel quedan 10 líneas "perfil-update: contraseña actual incorrecta (cuenta
+   ...)" y una "límite de intentos alcanzado", con el id de la cuenta y sin la contraseña.
+
+**H29, sesiones de pago.** Se comprueba **sin crear ninguna sesión en Stripe**: las peticiones mal formadas, o las
+de una pieza que no existe, se rechazan con 400 antes de llegar a Stripe, pero cuentan para el límite. Desde Git
+Bash, y desde una red desde la que no se vaya a comprar en los próximos 15 minutos (la IP queda bloqueada ese
+rato):
+1. **Por email** (10 cada 15 min): la misma dirección inventada, con una pieza que no existe, 11 veces.
+   ```bash
+   for i in $(seq 1 11); do curl -s -o /dev/null -w "%{http_code} " -X POST https://nave5-api.vercel.app/api/muebles/crear-sesion-pago -H "Content-Type: application/json" -d '{"items":[{"productId":"00000000-0000-4000-8000-000000000000"}],"clienteInfo":{"email":"prueba-limite@example.com"}}'; done; echo
+   ```
+   Tienen que salir diez `400` y un `429`.
+2. **Por IP** (20 cada 15 min): esas 11 ya cuentan, así que faltan 9 para llegar a 20.
+   ```bash
+   for i in $(seq 1 10); do curl -s -o /dev/null -w "%{http_code} " -X POST https://nave5-api.vercel.app/api/muebles/crear-sesion-pago -H "Content-Type: application/json" -d '{"items":[]}'; done; echo
+   ```
+   Tienen que salir nueve `400` y un `429`.
+3. **En el Dashboard de Stripe no ha aparecido ninguna sesión nueva.**
+
+**H27:** en Vercel, `nave5-api`, Settings, Environment Variables, `RESEND_API_KEY` tiene que estar puesta en
+Production. Sin ella los clientes no reciben ningún correo, aunque ya no se escriban sus datos en el log.
+
+## 7. Cómo reabrir H20 si un pedido real llega sin `cliente_id`
 
 H20 es la deuda aceptada de que el código que rellena `pedidos.cliente_id` no se ha visto funcionar con un
 pedido real. **Después de cada pedido real**, o de vez en cuando, lanzar esta consulta (solo lectura):
