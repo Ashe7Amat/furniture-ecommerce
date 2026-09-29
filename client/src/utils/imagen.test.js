@@ -210,6 +210,31 @@ describe('redimensionarImagen', () => {
       expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:foto');
     });
 
+    it('si createImageBitmap no acepta imageOrientation "from-image" (Chrome < 112, Firefox < 111, Safari < 16), se reduce con <img>', async () => {
+      const decode = instalarImg({ ancho: 4032, alto: 3024 });
+      const { lienzos } = navegadorQueRedimensiona({ ancho: 0, alto: 0 });
+      // Como en esos navegadores: la función existe, pero un valor de enum que no conoce es un TypeError.
+      vi.stubGlobal('createImageBitmap', vi.fn(async (_archivo, opciones) => {
+        if (opciones?.imageOrientation === 'from-image') throw new TypeError("'from-image' is not a valid enum value");
+        return { width: 4032, height: 3024, close: vi.fn() };
+      }));
+
+      const reducida = await redimensionarImagen(archivo('foto.jpg', 'image/jpeg', 6 * MB));
+
+      expect(decode).toHaveBeenCalled();
+      expect(lienzos[0]).toMatchObject({ ancho: 1920, alto: 1440 });
+      expect(reducida.size).toBeLessThan(6 * MB);
+    });
+
+    it('si createImageBitmap falla y <img> tampoco puede (una foto que no se sabe leer), se sube el original', async () => {
+      instalarImg({ ancho: 4032, alto: 3024, falla: true });
+      vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new DOMException('no se puede decodificar'); }));
+      const original = archivo('IMG_0001.HEIC', 'image/heic', 3 * MB);
+
+      expect(await redimensionarImagen(original)).toBe(original);
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:foto');
+    });
+
     it('si decode() falla, se sube el original y también se libera la URL', async () => {
       instalarImg({ ancho: 4032, alto: 3024, falla: true });
       vi.stubGlobal('createImageBitmap', undefined);
@@ -285,13 +310,28 @@ describe('prepararFotos', () => {
     expect(listas).toEqual(fotos);
   });
 
-  it('avisa del progreso en cada pasada', async () => {
+  it('avisa del progreso en cada pasada: con una basta, una vez por foto', async () => {
     navegadorQueRedimensiona({ ancho: 4032, alto: 3024 });
     const avisos = [];
 
     await prepararFotos([archivo('a.jpg', 'image/jpeg', 5 * MB)], { alProgreso: (n, t) => avisos.push(`${n}/${t}`) });
 
     expect(avisos).toEqual(['1/1']);
+  });
+
+  it('avisa del progreso en cada pasada: si hace falta la segunda, vuelve a contar desde 1', async () => {
+    navegadorQueRedimensiona({ ancho: 4032, alto: 3024 });
+    // 1920 px y 0,85: 1 MB por foto (5 MB en total, más que el tope); 1600 px y 0,7: 500 KB.
+    HTMLCanvasElement.prototype.toBlob.mockImplementation((alTerminar, tipo, calidad) =>
+      alTerminar(new Blob([new Uint8Array(calidad === 0.85 ? 1 * MB : 500 * 1024)], { type: tipo }))
+    );
+    const fotos = ['a', 'b', 'c', 'd', 'e'].map((n) => archivo(`${n}.jpg`, 'image/jpeg', 5 * MB));
+    const avisos = [];
+
+    await prepararFotos(fotos, { alProgreso: (n, t) => avisos.push(`${n}/${t}`) });
+
+    const unaPasada = ['1/5', '2/5', '3/5', '4/5', '5/5'];
+    expect(avisos).toEqual([...unaPasada, ...unaPasada]);
   });
 });
 

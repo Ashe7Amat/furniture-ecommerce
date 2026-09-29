@@ -42,7 +42,13 @@ const simularNavegador = ({ manual = false } = {}) => {
   vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((alTerminar, tipo) =>
     alTerminar(new Blob([new Uint8Array(400 * 1024)], { type: tipo }))
   );
-  return { siguiente: () => act(async () => esperando.shift()()) };
+  return {
+    siguiente: () => act(async () => esperando.shift()()),
+    // Resuelve todo lo que quede pendiente, también lo que se vaya pidiendo mientras tanto.
+    vaciar: async () => {
+      while (esperando.length > 0) await act(async () => esperando.shift()());
+    },
+  };
 };
 
 const enviar = (elemento) =>
@@ -120,7 +126,9 @@ describe('H24 — las fotos se reducen antes de subirlas', () => {
     await enviar(boton);
     expect(screen.getByText('Optimizando imagen...')).toBeInTheDocument();
     await enviar(boton);
-    await navegador.siguiente();
+    // Se deja terminar todo lo pendiente: si el segundo envío hubiera salido, también llegaría a
+    // createMueble.
+    await navegador.vaciar();
 
     expect(createMueble).toHaveBeenCalledTimes(1);
   });

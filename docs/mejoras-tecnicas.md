@@ -1496,12 +1496,17 @@ ninguno.
     desactivado.
   - **De paso:** redibujar en un canvas quita los metadatos EXIF, incluida la ubicación GPS de los móviles.
     `sharp` ya los quitaba en el servidor; ahora ni siquiera salen del navegador.
-- **Desviación del plan:** si no hay `createImageBitmap`, se usa `<img>` con `decode()`, no con `onload`.
+- **Corregido tras la revisión del 29 sep:** `createImageBitmap` existe desde Chrome 50 y Safari 15, pero el valor
+  `imageOrientation: 'from-image'` solo desde Chrome 112, Firefox 111 y Safari 16 (datos de compatibilidad de MDN).
+  En los anteriores, por ejemplo un iPhone que se ha quedado en iOS 15, la llamada se rechaza. Antes eso se
+  tomaba por "no se puede leer" y no se reducía ninguna foto. Ahora se prueba entonces con `<img>`.
+- **Desviación del plan:** si no hay `createImageBitmap` (o no acepta la opción), se usa `<img>` con
+  `decode()`, no con `onload`.
   `decode()` devuelve una promesa que falla si la imagen no se puede leer. `onload` puede no llegar nunca (en
   jsdom no llega) y dejaría el guardado colgado. Todos los navegadores con `decode()` cubren a los que no tienen
   `createImageBitmap` (Safari 11.1 a 14).
 - **Tests:**
-  - 26 unitarios en `utils/imagen.test.js`, con un navegador simulado: `createImageBitmap` y el canvas;
+  - 29 unitarios en `utils/imagen.test.js`, con un navegador simulado: `createImageBitmap` y el canvas;
   - 7 de integración en `pages/Admin.fotos.test.jsx`:
     - tres fotos de 6 MB llegan a `createMueble` reducidas, por debajo del límite;
     - los mensajes 1/3, 2/3 y 3/3;
