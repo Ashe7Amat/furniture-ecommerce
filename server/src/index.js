@@ -9,6 +9,7 @@ const categoriasRoutes = require('./routes/categoriasRoutes');
 const pedidosRoutes = require('./routes/pedidosRoutes');
 const contactoRoutes = require('./routes/contactoRoutes');
 const stripeRoutes = require('./routes/stripeRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -93,6 +94,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/contacto', contactoRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Ruta base de comprobación
 app.get('/', (req, res) => {

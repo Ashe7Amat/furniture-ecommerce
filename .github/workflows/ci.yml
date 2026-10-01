@@ -23,8 +23,16 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      # Informativo (tarea 7): enseña en el log las vulnerabilidades conocidas de las dependencias,
+      # pero no rompe el build (continue-on-error). Se revisan a mano: ver H23 en docs/mejoras-tecnicas.md.
+      - name: npm audit (informativo)
+        run: npm audit --audit-level=low
+        continue-on-error: true
       - run: npm run lint
-      - run: npm test
+      # Los tests con cobertura (@vitest/coverage-v8) y sus umbrales, definidos en vite.config.js:
+      # si una cifra baja de su umbral, falla. Los umbrales suben tras cada tanda de tests y no se
+      # bajan nunca (historial en la tarea 7 de docs/mejoras-tecnicas.md).
+      - run: npm run test:coverage
       - run: npm run build
 
   server:
@@ -47,6 +55,14 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      # Informativo (tarea 7): ver el mismo paso en el job del cliente.
+      - name: npm audit (informativo)
+        run: npm audit --audit-level=low
+        continue-on-error: true
       - run: npm run lint
       - run: npm run format:check
-      - run: npm test
+      # Los tests con cobertura (la de Node, sin paquetes extra) y sus umbrales en líneas, ramas y
+      # funciones, en el script test:coverage de package.json: si una cifra baja de su umbral, falla.
+      # Los umbrales suben tras cada tanda de tests y no se bajan nunca (historial en la tarea 7 de
+      # docs/mejoras-tecnicas.md).
+      - run: npm run test:coverage

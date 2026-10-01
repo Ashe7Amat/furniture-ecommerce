@@ -168,20 +168,24 @@ describe('Categorías — crear', () => {
     expect(createCategoria).not.toHaveBeenCalled();
   });
 
-  it('"Crear Categoría" no se desactiva mientras se crea: dos envíos seguidos hacen dos altas', async () => {
-    // CARACTERIZACIÓN: comportamiento actual discutible (H14): el botón no se desactiva durante el
-    // envío, así que un doble clic manda dos altas antes de que vuelva la primera.
+  it('"Crear Categoría" se desactiva mientras se crea: un doble clic hace una sola alta', async () => {
+    // CAMBIADO A PROPÓSITO CON EL ARREGLO DE H14 (28 sep 2026). Hasta entonces este test era de
+    // caracterización y fijaba lo contrario: el botón no se desactivaba y dos envíos seguidos
+    // hacían dos altas.
     let terminar;
     createCategoria.mockReturnValue(new Promise((resolve) => (terminar = resolve)));
     const { user } = await abrirCategorias();
     await user.type(campoNombre(), 'Exterior');
 
     await crear();
-    expect(screen.getByRole('button', { name: 'Crear Categoría' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Crear Categoría' })).toBeDisabled();
+    expect(screen.getByText('Creando categoría...')).toBeInTheDocument();
     await crear();
 
-    expect(createCategoria).toHaveBeenCalledTimes(2);
+    expect(createCategoria).toHaveBeenCalledTimes(1);
     await act(async () => terminar({ success: true }));
+    expect(screen.getByRole('button', { name: 'Crear Categoría' })).toBeEnabled();
+    expect(screen.queryByText('Creando categoría...')).not.toBeInTheDocument();
   });
 });
 

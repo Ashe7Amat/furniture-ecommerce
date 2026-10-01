@@ -3,32 +3,49 @@ import { ToastContext } from '../../../context/ToastContext';
 import { createCategoria, deleteCategoria } from '../../../services/api';
 import Icon from '../Icon';
 import { generales, especificasDe } from '../categorias';
+import useEstadoEnvio from '../hooks/useEstadoEnvio';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Pestaña "Gestionar Categorías". El formulario de alta vive en el contenedor, así que lo escrito
-// se conserva al cambiar de pestaña (H13), y usa el `status` compartido del panel (H14).
+// se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14): el
+// botón se desactiva mientras se crea, así que un doble clic ya no crea dos categorías.
 // Ojo (H12): borrar avisa de éxito sin mirar la respuesta. Se conserva a propósito en el refactor.
 const CategoriasTab = ({
   categorias,
   nuevaCat, setNuevaCat,
   nuevaCatPadre, setNuevaCatPadre,
   categoriaFile, setCategoriaFile,
-  setStatus,
   recargarCategorias,
   confirmarBorrado,
   abrirEditorCategoria
 }) => {
   const { showToast } = useContext(ToastContext);
+  const envio = useEstadoEnvio();
 
   const handleAddCategoria = async (e) => {
     e.preventDefault();
     if (!nuevaCat) return;
+    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
 
-    setStatus('Creando categoría...');
+    envio.empezar('Creando categoría...');
+    // La foto se reduce antes de subirla (H24, ver utils/imagen.js): una sola foto de móvil ya
+    // puede pasar de los 4,5 MB que admite Vercel por petición.
+    let imagen = categoriaFile;
+    if (categoriaFile) {
+      const preparadas = await prepararFotos([categoriaFile], { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, 1));
+        showToast('La foto pesa demasiado', 'error');
+        return;
+      }
+      imagen = preparadas.fotos[0];
+      envio.empezar('Creando categoría...');
+    }
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', nuevaCat);
     formDataToSend.append('categoria_padre_id', nuevaCatPadre);
-    if (categoriaFile) {
-      formDataToSend.append('imagen', categoriaFile);
+    if (imagen) {
+      formDataToSend.append('imagen', imagen);
     }
 
     const res = await createCategoria(formDataToSend);
@@ -40,10 +57,11 @@ const CategoriasTab = ({
       const fileInput = document.getElementById('categoria-file-input');
       if (fileInput) fileInput.value = '';
       recargarCategorias();
+      envio.acabarBien();
     } else {
       showToast('Error al crear la categoría', 'error');
+      envio.acabarMal();
     }
-    setStatus('');
   };
 
   const handleDeleteCategoria = (id) => {
@@ -89,8 +107,9 @@ const CategoriasTab = ({
               required
             />
           </div>
-          <button type="submit" className="admin-btn">Crear Categoría</button>
+          <button type="submit" className="admin-btn" disabled={envio.enviando}>Crear Categoría</button>
         </form>
+        {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
 
         {generales(categorias).map(general => (
           <div key={general.id} className="cat-group">

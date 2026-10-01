@@ -1,10 +1,13 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / ilike / contains / limit / order / insert / update / delete /
-// single / maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
+// Soporta: select / eq / neq / in / is / lt / ilike / contains / limit / order / insert / update /
+// delete / single / maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
 // al bucle de eventos antes de ejecutarse, así dos flujos concurrentes se intercalan paso a
-// paso como harían contra una base de datos de verdad, y cada operación es atómica.
+// paso como harían contra una base de datos de verdad, y cada operación es atómica: un update()
+// busca las filas que cumplen sus filtros y las modifica en el mismo paso síncrono, así que dos
+// `update(...).is('revoked_at', null)` lanzados a la vez nunca ven los dos la fila sin revocar
+// (igual que el UPDATE ... WHERE ... RETURNING de Postgres; lo necesita refreshTokens.test.js).
 //
 // Fidelidad con la base de datos real (lo que un doble descuidado ocultaría):
 //   - single()/maybeSingle() con más filas de las esperadas devuelven ERROR, no la primera
@@ -16,11 +19,13 @@
 //     trg_sync_disponible_desde_estado (BEFORE INSERT OR UPDATE): `disponible` se recalcula
 //     siempre desde `estado`, pisando lo que se haya mandado. Las filas iniciales no pasan por
 //     él, igual que las que ya están en la base de datos.
-// Lo que NO comprueba: nombres de columnas ni tipos, ni cómo serializa la librería cada
+//   - select('a, b') devuelve solo esas columnas, como PostgREST (H26: así se puede comprobar que
+//     un endpoint público no expone una columna que no ha pedido).
+// Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
-//   muebles, pedidos, categorias, clientes  filas iniciales
+//   muebles, pedidos, categorias, clientes, refresh_tokens  filas iniciales
 //   indiceUnicoStripe    emula el índice único de pedidos.stripe_session_id (código 23505)
 //   fallos               { 'tabla.accion': error | (consulta) => error|null } hace fallar esa
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
@@ -31,6 +36,7 @@ const crearFakeSupabase = ({
   pedidos = [],
   categorias = [],
   clientes = [],
+  refresh_tokens = [],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -38,7 +44,8 @@ const crearFakeSupabase = ({
     muebles: muebles.map((fila) => ({ ...fila })),
     pedidos: pedidos.map((fila) => ({ ...fila })),
     categorias: categorias.map((fila) => ({ ...fila })),
-    clientes: clientes.map((fila) => ({ ...fila }))
+    clientes: clientes.map((fila) => ({ ...fila })),
+    refresh_tokens: refresh_tokens.map((fila) => ({ ...fila }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };
@@ -156,7 +163,11 @@ const crearFakeSupabase = ({
       nuevasFilas.forEach((fila, i) =>
         escrituras.push({ tabla: nombre, accion: 'insert', fila, enviado: entrada[i] })
       );
-      return { data: nuevasFilas, error: null };
+      // Como supabase-js: `.insert(...).select().single()` devuelve un objeto, no una lista.
+      return aplicarSalida(
+        nuevasFilas.map((f) => ({ ...f })),
+        consulta.salida
+      );
     }
 
     if (consulta.accion === 'update') {
@@ -209,6 +220,17 @@ const crearFakeSupabase = ({
     return aplicarSalida(encontradas, consulta.salida);
   };
 
+  // Deja en cada fila del resultado solo las columnas pedidas en select() (ver select, abajo).
+  const proyectar = (resultado, columnas) => {
+    if (!columnas || resultado.error || resultado.data == null) return resultado;
+    const recortar = (fila) =>
+      Object.fromEntries(columnas.filter((c) => c in fila).map((c) => [c, fila[c]]));
+    return {
+      ...resultado,
+      data: Array.isArray(resultado.data) ? resultado.data.map(recortar) : recortar(resultado.data)
+    };
+  };
+
   const from = (nombre) => {
     if (!tablas[nombre]) throw new Error(`Tabla no prevista en el doble de Supabase: ${nombre}`);
     const consulta = {
@@ -226,7 +248,21 @@ const crearFakeSupabase = ({
       return constructor;
     };
     const constructor = {
-      select: () => usar('select'),
+      // Como PostgREST, select('a, b') devuelve solo esas columnas (también detrás de un insert o un
+      // update). Sin argumento o con '*', todas. Lo que no sea una lista de nombres simples
+      // (relaciones, alias, 'columna->>clave'...) se deja pasar entero. Hace falta para comprobar
+      // que un endpoint no expone una columna que no ha pedido (H26).
+      select: (columnas) => {
+        const texto = typeof columnas === 'string' ? columnas.trim() : '';
+        consulta.columnas =
+          !texto || texto === '*' || /[():>]/.test(texto)
+            ? null
+            : texto
+                .split(',')
+                .map((c) => c.trim())
+                .filter(Boolean);
+        return usar('select');
+      },
       limit: (n) => {
         consulta.limite = n;
         return usar('limit');
@@ -249,6 +285,20 @@ const crearFakeSupabase = ({
       in: (columna, valores) => {
         consulta.filtros.push((f) => valores.includes(valorDeColumna(f, columna)));
         return usar('in');
+      },
+      // "columna IS NULL" (o IS TRUE/FALSE): una columna que no está en la fila cuenta como NULL
+      is: (columna, valor) => {
+        consulta.filtros.push((f) =>
+          valor === null ? valorDeColumna(f, columna) == null : valorDeColumna(f, columna) === valor
+        );
+        return usar('is');
+      },
+      // Como SQL: comparar con NULL no cumple nunca. Sirve para fechas ISO (se comparan como texto).
+      lt: (columna, valor) => {
+        consulta.filtros.push(
+          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) < valor
+        );
+        return usar('lt');
       },
       // Comparación de texto sin distinguir mayúsculas/minúsculas, con los comodines de ILIKE
       // (ver comodinARegex). Admite columnas jsonb tipo 'cliente_info->>email'.
@@ -310,7 +360,7 @@ const crearFakeSupabase = ({
       },
       then: (resolver, rechazar) =>
         new Promise((r) => setImmediate(r))
-          .then(() => ejecutar(nombre, consulta))
+          .then(() => proyectar(ejecutar(nombre, consulta), consulta.columnas))
           .then(resolver, rechazar)
     };
     return constructor;

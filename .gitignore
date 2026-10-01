@@ -5,6 +5,9 @@ server/node_modules/
 # Producción
 client/dist/
 
+# Informes de cobertura (npm run test:coverage en client/)
+client/coverage/
+
 # Variables de entorno y credenciales (CRÍTICO)
 .env
 client/.env

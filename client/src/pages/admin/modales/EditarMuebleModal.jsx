@@ -1,27 +1,45 @@
 import { useContext } from 'react';
+import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { ToastContext } from '../../../context/ToastContext';
 import { updateMueble } from '../../../services/api';
 import Icon from '../Icon';
 import SelectorCategoria from '../SelectorCategoria';
 import { idDeCategoria } from '../categorias';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Modal "Editar Producto". Lo pinta el contenedor, fuera de <main>, y su estado (la pieza que se
-// edita y las fotos nuevas) vive allí. Usa el `status` compartido del panel (H14).
+// edita y las fotos nuevas) vive allí. El estado del envío es solo de este
+// modal (H14): su error sale aquí, no debajo de otro formulario.
 const EditarMuebleModal = ({
   mueble, setMueble,
   archivosNuevos, setArchivosNuevos,
   categorias,
-  status, setStatus,
   confirmarBorrado,
   onGuardado,
   onCerrar
 }) => {
   const { showToast } = useContext(ToastContext);
+  const envio = useEstadoEnvio();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!mueble) return;
-    setStatus('Actualizando producto...');
+    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
+    envio.empezar('Actualizando producto...');
+
+    // Las fotos nuevas se reducen antes de subirlas (H24, ver utils/imagen.js). Si ni así caben en
+    // una petición, no se manda nada.
+    let fotosNuevas = archivosNuevos;
+    if (archivosNuevos.length > 0) {
+      const preparadas = await prepararFotos(archivosNuevos, { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, archivosNuevos.length));
+        showToast('Las fotos pesan demasiado', 'error');
+        return;
+      }
+      fotosNuevas = preparadas.fotos;
+      envio.empezar('Actualizando producto...');
+    }
 
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', mueble.nombre || '');
@@ -34,21 +52,19 @@ const EditarMuebleModal = ({
     formDataToSend.append('estado', mueble.estado || 'disponible');
     formDataToSend.append('imagenes_existentes', JSON.stringify(mueble.imagenes || []));
 
-    if (archivosNuevos.length > 0) {
-      for (const file of archivosNuevos) {
-        formDataToSend.append('imagenes', file);
-      }
+    for (const foto of fotosNuevas) {
+      formDataToSend.append('imagenes', foto);
     }
 
     const res = await updateMueble(mueble.id, formDataToSend);
     if (res) {
-      setStatus('');
+      envio.acabarBien();
       showToast('Producto actualizado correctamente', 'success');
       onCerrar();
       setArchivosNuevos([]);
       onGuardado();
     } else {
-      setStatus('Error al actualizar.');
+      envio.acabarMal('Error al actualizar.');
       showToast('Error al actualizar el producto', 'error');
     }
   };
@@ -159,9 +175,10 @@ const EditarMuebleModal = ({
             />
           </div>
 
-          <button type="submit" className="admin-btn" disabled={status.includes('Actualizando')}>
+          <button type="submit" className="admin-btn" disabled={envio.enviando}>
             Guardar Cambios
           </button>
+          {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
         </form>
       </div>
     </div>

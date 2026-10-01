@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /cuenta
 
-Sitemap: https://nave5-demo.vercel.app/sitemap.xml
+Sitemap: https://www.nave5barcelona.com/sitemap.xml

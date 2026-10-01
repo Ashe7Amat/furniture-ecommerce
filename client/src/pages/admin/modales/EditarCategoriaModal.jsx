@@ -1,45 +1,62 @@
 import { useContext } from 'react';
+import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { ToastContext } from '../../../context/ToastContext';
 import { updateCategoria } from '../../../services/api';
 import Icon from '../Icon';
 import { generales } from '../categorias';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Modal "Editar Categoría". Lo pinta el contenedor, fuera de <main>, y su estado (la categoría
-// que se edita y la imagen nueva) vive allí. Usa el `status` compartido del panel (H14).
+// que se edita y la imagen nueva) vive allí. El estado del envío es solo de este
+// modal (H14): su error sale aquí, no debajo de otro formulario.
 const EditarCategoriaModal = ({
   categoria, setCategoria,
   archivoNuevo, setArchivoNuevo,
   categorias,
-  status, setStatus,
   confirmarBorrado,
   onGuardado,
   onCerrar
 }) => {
   const { showToast } = useContext(ToastContext);
+  const envio = useEstadoEnvio();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!categoria) return;
-    setStatus('Actualizando categoría...');
+    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
+    envio.empezar('Actualizando categoría...');
+
+    // La foto nueva se reduce antes de subirla (H24, ver utils/imagen.js).
+    let imagen = archivoNuevo;
+    if (archivoNuevo) {
+      const preparadas = await prepararFotos([archivoNuevo], { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, 1));
+        showToast('La foto pesa demasiado', 'error');
+        return;
+      }
+      imagen = preparadas.fotos[0];
+      envio.empezar('Actualizando categoría...');
+    }
 
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', categoria.nombre || '');
     formDataToSend.append('categoria_padre_id', categoria.categoria_padre_id || '');
-    if (archivoNuevo) {
-      formDataToSend.append('imagen', archivoNuevo);
+    if (imagen) {
+      formDataToSend.append('imagen', imagen);
     } else {
       formDataToSend.append('imagen_url', categoria.imagen_url || '');
     }
 
     const res = await updateCategoria(categoria.id, formDataToSend);
     if (res) {
-      setStatus('');
+      envio.acabarBien();
       showToast('Categoría actualizada correctamente', 'success');
       onCerrar();
       setArchivoNuevo(null);
       onGuardado();
     } else {
-      setStatus('Error al actualizar.');
+      envio.acabarMal('Error al actualizar.');
       showToast('Error al actualizar la categoría', 'error');
     }
   };
@@ -108,9 +125,10 @@ const EditarCategoriaModal = ({
             />
           </div>
 
-          <button type="submit" className="admin-btn" disabled={status.includes('Actualizando')}>
+          <button type="submit" className="admin-btn" disabled={envio.enviando}>
             Guardar Cambios
           </button>
+          {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
         </form>
       </div>
     </div>

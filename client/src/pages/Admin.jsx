@@ -55,7 +55,6 @@ const Admin = () => {
     estado: 'disponible'
   });
   const [files, setFiles] = useState([]);
-  const [status, setStatus] = useState('');
 
   // Inventario: búsqueda, filtros, orden, paginación y selección (se conservan al cambiar de pestaña)
   const vista = useInventarioVista(muebles);
@@ -111,8 +110,6 @@ const Admin = () => {
             setFormData={setFormData}
             files={files}
             setFiles={setFiles}
-            status={status}
-            setStatus={setStatus}
             recargarMuebles={cargarMuebles}
             irA={setVistaActiva}
           />
@@ -148,7 +145,6 @@ const Admin = () => {
             setNuevaCatPadre={setNuevaCatPadre}
             categoriaFile={categoriaFile}
             setCategoriaFile={setCategoriaFile}
-            setStatus={setStatus}
             recargarCategorias={cargarCategorias}
             confirmarBorrado={confirmarBorrado}
             abrirEditorCategoria={setCategoriaAEditar}
@@ -164,8 +160,6 @@ const Admin = () => {
           archivosNuevos={editMuebleFiles}
           setArchivosNuevos={setEditMuebleFiles}
           categorias={categorias}
-          status={status}
-          setStatus={setStatus}
           confirmarBorrado={confirmarBorrado}
           onGuardado={cargarMuebles}
           onCerrar={() => setMuebleAEditar(null)}
@@ -179,8 +173,6 @@ const Admin = () => {
           archivoNuevo={editCategoriaFile}
           setArchivoNuevo={setEditCategoriaFile}
           categorias={categorias}
-          status={status}
-          setStatus={setStatus}
           confirmarBorrado={confirmarBorrado}
           onGuardado={cargarCategorias}
           onCerrar={() => setCategoriaAEditar(null)}

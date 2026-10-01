@@ -54,16 +54,31 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Dónde se obtiene:** se genera, no se pide a ningún proveedor:
   `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 - **Obligatoria:** en la práctica sí -- sin ella, o con un valor de relleno compartido entre
-  entornos, cualquiera podría forjar un JWT válido. Cambiarla invalida de golpe todas las
-  sesiones ya abiertas (es también la mitigación de emergencia si se sospecha una fuga).
+  entornos, cualquiera podría forjar un JWT válido. Cambiarla invalida de golpe todos los access
+  tokens ya firmados (es la mitigación de emergencia si se sospecha una fuga de esta clave). Desde
+  la tarea 3b eso **no cierra las sesiones**: el cliente pide un access token nuevo con su refresh
+  token. Para echar a todo el mundo hay que cambiar también `REFRESH_TOKEN_HASH_SECRET`.
 - **Ejemplo (enmascarado):** `JWT_SECRET=3f9a...(96 caracteres hex)...c21b`
 
 ### `REFRESH_TOKEN_HASH_SECRET`
-- **Qué hace:** secreto (distinto de `JWT_SECRET`) para el hash HMAC-SHA256 del refresh token en
-  la tabla `refresh_tokens`. **Pendiente de usar: tarea 3b** (JWT con refresh y rotación, ver
-  `docs/tarea3-diseno.md`) -- todavía no existe la tabla ni el endpoint que la necesitan.
-- **Formato (cuando se use):** una cadena aleatoria, se genera con `openssl rand -hex 32`.
-- **Obligatoria:** no todavía. Cuando llegue la tarea 3b, sí.
+- **Qué hace:** secreto, distinto de `JWT_SECRET`, con el que se calcula el HMAC-SHA256 de cada
+  refresh token antes de guardarlo en la tabla `refresh_tokens` (`server/src/utils/refreshTokens.js`,
+  tarea 3b). En la tabla solo está ese HMAC, nunca el token.
+- **Formato:** una cadena aleatoria. Se genera con `openssl rand -hex 32`.
+- **Obligatoria:** sí, para que las sesiones sobrevivan a una recarga y duren más de una hora. Sin
+  ella el servidor arranca igual, pero:
+  - el inicio de sesión funciona sin refresh token: la sesión dura como mucho lo que el access token
+    (1 hora), y se pierde al recargar la página o abrir otra pestaña, porque ese token solo vive en
+    la memoria de la pestaña;
+  - `/api/auth/refresh` y `/api/auth/logout` responden 503;
+  - queda un error en el log.
+- **Cambiarla** invalida de golpe todos los refresh tokens emitidos: ya no coinciden con su HMAC
+  guardado, y todo el mundo tiene que volver a iniciar sesión. Es la mitigación de emergencia si se
+  sospecha que se ha filtrado.
+- **En producción**, se pone en las variables de entorno de `nave5-api` en Vercel **antes** de
+  desplegar el bloque 3b.
+- **Paso a paso** (generarla, dónde ponerla y cómo comprobar las sesiones): `docs/verificacion-3b.md`.
+- **Ejemplo (enmascarado):** `REFRESH_TOKEN_HASH_SECRET=8b1e...(64 caracteres hex)...f07a`
 
 ### `CLIENT_URL`
 - **Qué hace:** URL pública del frontend. Stripe Checkout redirige aquí (`/checkout/exito`,
@@ -114,9 +129,20 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   comprador) a través de Resend.
 - **Formato:** empieza por `re_...`.
 - **Dónde se obtiene:** cuenta en resend.com, Dashboard > API Keys.
-- **Obligatoria:** no -- si se deja en blanco, el envío se simula con logs en consola en vez de
-  fallar.
+- **Obligatoria:** no -- si se deja en blanco, el envío se simula en vez de fallar: en el log queda
+  solo `[email simulado omitido: falta RESEND_API_KEY, contenido con datos personales]` y de qué
+  correo se trata, sin ningún dato del cliente (H27). En producción tiene que estar puesta: sin
+  ella, los clientes no reciben ningún correo.
 - **Ejemplo (enmascarado):** `RESEND_API_KEY=re_xxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxx`
+
+### `EMAIL_DEBUG_DATOS`
+- **Qué hace:** solo para depurar en local. Con `true`, el modo simulación (sin `RESEND_API_KEY`)
+  vuelve a escribir en el log el contenido de cada correo: destinatario, pedido, mensaje de
+  contacto...
+- **Formato:** `true` o nada. Cualquier otro valor cuenta como no puesta.
+- **Obligatoria:** no, y **no se pone nunca en producción**. Con `NODE_ENV=production` no tiene
+  ningún efecto, a propósito: los datos personales no deben acabar en los logs de Vercel (H27).
+- **Ejemplo:** `EMAIL_DEBUG_DATOS=true` (en `server/.env`, en local)
 
 ### `RESEND_FROM`
 - **Qué hace:** dirección remitente de los emails.
@@ -166,6 +192,26 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Dónde se obtiene:** panel de GA4, Admin > Flujos de datos > Web.
 - **Obligatoria:** no -- si se deja en blanco, no se carga GA4.
 - **Ejemplo:** `VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX`
+
+## Variables que pone la plataforma (no se rellenan)
+
+El servidor lee dos variables que no están en la plantilla porque las define Vercel. Se documentan
+aquí porque cambian cómo se comporta:
+
+### `NODE_ENV`
+- **Quién la pone:** Vercel, con el valor `production`. En local no hace falta.
+- **Qué cambia en producción:**
+  - el servidor exige que `SUPABASE_URL` empiece por `https://` (H8), y si no, no arranca;
+  - redirige a HTTPS las peticiones que lleguen por HTTP (según `x-forwarded-proto`);
+  - no escribe en el log la URL de Supabase en cada arranque.
+
+### `VERCEL`
+- **Quién la pone:** Vercel, con el valor `1`.
+- **Qué cambia:** activa `trust proxy`, para que Express lea la IP real del visitante en
+  `X-Forwarded-For`. Sin esto, los límites de peticiones (login, contacto, confirmación de pago)
+  meterían a todo el mundo en el mismo contador.
+- **No se pone en local:** sin el proxy de Vercel delante, cualquiera podría falsear su IP con esa
+  cabecera.
 
 ## Nota, no una variable a rellenar: `client/.env` real tiene dos claves sin plantilla
 

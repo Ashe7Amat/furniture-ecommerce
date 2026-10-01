@@ -1,8 +1,8 @@
 # Rama `feature/mejoras-tecnicas`: registro de trabajo
 
 Este documento recoge el estado de las mejoras técnicas de la rama, lo que queda por hacer a mano y los
-hallazgos detectados que **todavía no se han corregido**, para que no dependan del historial de una
-conversación.
+hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
+"Hallazgos"), para que no dependan del historial de una conversación.
 
 ## Estado de las tareas
 
@@ -10,12 +10,39 @@ conversación.
 |---|-------|--------|
 | 1 | Webhook de Stripe, con `confirmar-sesion` como respaldo idempotente y con límite de peticiones | Hecha, con H1 corregido. Falta probarla contra Stripe y Vercel reales (ver más abajo) |
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
-| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación): decisiones tomadas (ver "Bloque 3b" más abajo). C1 va justo después del merge de 3a; C2 y C3, a las 48 h y con `REFRESH_TOKEN_HASH_SECRET` ya puesta. Diseño completo en `docs/tarea3-diseno.md` |
+| 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación), hecho en la rama `feature/jwt-refresh` y mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir: C1 (tabla `refresh_tokens`) aplicada en producción el 26 sep; C2 (servidor) y C3 (cliente) hechos el 28 sep, sin desplegar. Antes del merge falta `REFRESH_TOKEN_HASH_SECRET` en Vercel y la comprobación en el navegador (ver "Bloque 3b" más abajo). Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
-| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo): 240 tests en el servidor (antes 182) y 118 en el cliente (antes 30). E2E sigue sin empezar (no hay infraestructura todavía) |
+| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo). A 29 sep, al cierre de la auditoría: 365 tests en el servidor y 549 en el cliente, con cobertura del 95,6% y del 81,7% de líneas (historial en "Tarea 7"). E2E sigue sin empezar (no hay infraestructura) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
-| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Lint y formato del servidor añadidos al workflow (tarea 8, ver más abajo). `npm audit` en CI y umbral de cobertura, pendientes |
+| 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama (ver "Tarea 7" más abajo): `npm audit` informativo en los dos jobs, `.gitattributes` con `eol=lf` y umbrales de cobertura en los dos lados. El 29 sep se subió la cobertura (cliente del 57,9 al 81,7% de líneas; servidor del 93,6 al 95,2%) y con ella los umbrales, que solo suben. Hallazgos: H23 |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
+
+## ✅ Merge a `main` del 26 sep 2026: cierre de 3a y tarea 4
+
+- **Merge:** `5d1723b` (`--no-ff`; padres `a1a7dfe` y `6e9cc9c`, sin conflictos). Gate completo en `main`
+  antes del push, en verde: servidor 264/264 y cliente 272/272. Antes del merge se subió
+  `feature/mejoras-tecnicas` como copia de seguridad (`6e9cc9c`).
+- **Push de `main`:** 26 sep a las **19:33:06 UTC**. CI de `main` en verde (36 s).
+- **Deploy, comprobado con la API de Vercel:**
+  - `nave5-demo`: `READY` a las **19:33:19 UTC** (`dpl_7UKAqRPrLmw5mwPvppkFaQC4Xb3T`);
+  - `nave5-api`: `READY` a las **19:33:46 UTC** (`dpl_7fviWVHzWW747xhSKUrzrFptktQL`).
+- **Qué llevaba:**
+  - el refactor del panel de la tarea 4, con su revisión (test del orden de la barra lateral y
+    `no-restricted-globals`);
+  - H19;
+  - dejar de fijar `disponible` a mano;
+  - la copia de B3 y los documentos de cierre de 3a.
+- **Smoke test en producción**, con el navegador integrado y sin iniciar sesión:
+  - la portada carga con datos de la API: las 3 categorías y 4 piezas destacadas;
+  - el catálogo muestra las 114 piezas (las mismas que hay en la base de datos), y todas las llamadas a
+    `nave5-api.vercel.app` (`/api/muebles`, `/api/categorias`) responden 200;
+  - `/admin` sin sesión redirige a `/login`, que es lo correcto. Las pestañas no se pueden ver sin
+    iniciar sesión, pero el trozo del panel del build (`Admin-DOiCm_Me.js`) se sirve con 200 y contiene las
+    5 pestañas y los 2 modales;
+  - la consola no tiene errores. Solo sale un aviso de la CSP (report-only) en `/login`, que ya estaba con
+    la misma CSP antes de este merge: ver "CSP cliente" en la tarea 2.
+- **Queda sin comprobar:** el panel por dentro con sesión iniciada. Es la comprobación en el navegador
+  pendiente de la tarea 4, que necesita que el usuario inicie sesión.
 
 ## ✅ Pausa de despliegue cerrada (migración B): B3 aplicada el 26 sep 2026
 
@@ -165,6 +192,147 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
    **Decisión (26 sep):** sigue necesitando un permiso aparte, que se pedirá cuando toque (en C2 o en la
    comprobación final).
 
+### Estado del bloque 3b (hecho en la rama `feature/jwt-refresh`, desde `main` en `5d1723b`; mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir)
+
+- **C1 aplicada** el 26 sep a las 19:37 UTC (versión `20260926193731`, commit `cf64bf1`):
+  - es la tabla `refresh_tokens` del diseño, con sus 3 índices y RLS sin políticas;
+  - está vacía, y ningún código la usa todavía;
+  - la copia coincide byte a byte con `schema_migrations`.
+- **El marcador de `REFRESH_TOKEN_HASH_SECRET` en `server/.env.example`** va en C2, que es el primero que lo
+  usa. El diseño lo ponía en el commit de C1, y el plan de la revisión, en C2.
+- **C2 (servidor) hecho el 28 sep, commit `870d031`:**
+  - access token de 1 hora;
+  - `POST /api/auth/refresh` y `POST /api/auth/logout`;
+  - rotación, reuso por `family_id`, margen de gracia de 60 s y el mismo 401 genérico en los tres casos;
+  - H21.
+- **C3 (cliente) hecho el mismo día, commit `e3ec2b3`:**
+  - access token en memoria y refresh en `localStorage`;
+  - `apiFetch` con un solo reintento y renovación de-duplicada;
+  - sincronización entre pestañas;
+  - refresh silencioso con `loading`, y el estado `reconectando`.
+- **Sin desplegar:** el 28 sep se mergeó en `feature/mejoras-tecnicas` (las dos ramas juntas), pero nada de
+  eso está subido ni en `main`. El código se escribió antes de que C1 cumpliera
+  sus 48 h (el 28 sep a las 19:37 UTC). Las 48 h del diseño son de producción, y en producción no ha entrado
+  nada.
+- **Tests:**
+  - servidor: 27 en `refreshTokens.test.js` y 3 de contrato con el cliente real de supabase-js;
+  - cliente: 37 (`authToken`, `apiFetch`, `AuthContext` y `ProtectedRoute`).
+  - Aparte, se plantaron a mano 15 fallos en el servidor y 15 en el cliente, y los tests los detectaron
+    todos. Entre ellos: quitar la condición `revoked_at IS NULL`, quitar el flag de un solo reintento,
+    quitar la de-duplicación y tratar un fallo de red como un 401.
+
+#### Decisiones tomadas por defecto en C2 y C3 (el diseño no las cubría, o se desvía por un motivo)
+
+1. **Orden de la rotación.** El diseño dice reclamar el token viejo y después insertar el sucesor y rellenar
+   `replaced_by`. Así, la segunda de dos peticiones simultáneas veía el token revocado con `replaced_by` a
+   NULL, lo tomaba por reuso y revocaba la familia, incluido el token recién entregado a la primera.
+   - **Se hace así:** el sucesor se inserta antes, y `revoked_at` y `replaced_by` van en el mismo `UPDATE
+     ... WHERE id = $id AND revoked_at IS NULL`, que sigue siendo la única puerta.
+   - Si ese `UPDATE` no afecta a ninguna fila, el sucesor huérfano se borra y se sigue por el margen de gracia.
+   - **Comprobado:** con el orden literal fallan justo los dos tests de concurrencia (a través de Express y
+     en el módulo), y con este pasan.
+   - **Aprobado por la revisión el 28 sep:** conserva la atomicidad (el `UPDATE` condicional sigue siendo la
+     única puerta) y elimina el falso positivo de reuso.
+2. **Sin `REFRESH_TOKEN_HASH_SECRET`**, el servidor no se cae:
+   - el inicio de sesión funciona sin refresh token y queda un error en el log. La sesión dura como mucho
+     1 hora, y se pierde al recargar la página o al abrir otra pestaña: el access token solo vive en memoria;
+   - `refresh` y `logout` responden 503, no 401, para que el cliente no cierre la sesión (pasa a
+     `reconectando`).
+3. **Nombres de la respuesta.** Login, registro y Google mantienen `token` (el access token, con el mismo
+   nombre de siempre) y añaden `refreshToken`. `refresh` devuelve `{ accessToken, refreshToken }`, como dice
+   el diseño.
+4. **H21:**
+   - la revocación de todas las sesiones va **antes** de guardar el cambio de contraseña o email: si fallara,
+     no se cambia nada;
+   - la sesión que hace el cambio recibe un refresh token nuevo, para no quedarse fuera;
+   - cambiar solo el nombre no revoca nada, y la respuesta no trae `refreshToken`.
+   - **Interpretación definitiva, aprobada el 28 sep:** se revocan todas las sesiones menos la que hace el
+     cambio (la revisión había pedido "todas, incluida la actual"). Esa sesión acaba de demostrar la
+     contraseña, así que es legítima; es lo que hacen GitHub y Slack.
+5. **`apiFetch` solo para las peticiones con sesión** (las diez que llevaban `authHeaders()`). El diseño dice
+   "todas", pero también que el comportamiento del camino feliz no cambie. Si las públicas llevaran
+   `Authorization`:
+   - se saltarían la caché de la CDN para todo el que haya iniciado sesión (H16);
+   - el 401 de una contraseña incorrecta intentaría renovar la sesión.
+6. **`reconectando` vive en `ProtectedRoute`**, que es donde importa no leer sin token. Las páginas públicas
+   no esperan a nada.
+7. **`logout` espera al servidor un máximo de 5 s** y después cierra la sesión local igual. El diseño dice
+   "después de que la llamada responda, o de todos modos si falla por red"; sin tope, un servidor colgado
+   retrasaría el cierre.
+8. **Sesiones de antes del bloque 3b** (solo `kaveToken`, sin refresh): se sigue usando ese token hasta que
+   caduque (opción 1). No se renueva al cargar. Cuando dé 401, se cierra la sesión.
+9. **`user_agent` e `ip`:** la ip solo se guarda si es una dirección válida. La columna es `inet`, y un valor
+   raro haría fallar el `INSERT` y con él el inicio de sesión.
+10. **Un cuerpo sin refresh token es un 400** (petición mal formada), distinto del 401 genérico de un token
+    que no vale.
+11. **`limpiarExpirados()` existe** (con test), pero no lo llama nada. Es la consulta de mantenimiento de abajo,
+    para cuando la tarea 7 monte algo programado.
+
+#### Comprobación de concurrencia contra la base de datos real (29 sep 2026, con permiso)
+
+- **Cómo:**
+  - un script de usar y tirar (no está en el repositorio, como pide la regla de no commitear las pruebas
+    contra la base real) levantó el servidor local contra la base de producción, con un
+    `REFRESH_TOKEN_HASH_SECRET` generado en memoria para la prueba;
+  - creó filas de prueba en `refresh_tokens` con `refreshTokens.emitir()`, marcadas con el `user_agent`
+    `verificacion-concurrencia-29sep`, y lanzó peticiones reales a `POST /api/auth/refresh`;
+  - no imprimió ningún token.
+- **Desviación del protocolo:** el `user_id` no podía ser aleatorio, porque tiene clave foránea a `clientes`.
+  Se usó la cuenta del administrador. La tabla estaba vacía antes (0 filas), así que no había sesiones
+  reales que tocar.
+- **Resultado:**
+  1. **Dos refresh a la vez con el mismo token, 5 rondas:**
+     - en las 5, las dos peticiones reciben 200, con pares distintos;
+     - en las 5, la que pierde el `UPDATE` condicional borra su sucesor huérfano, que es la prueba de que
+       llegaron de verdad a la vez y de que Postgres dejó ganar a una sola;
+     - cada familia queda con 3 filas (la original, el sucesor de la ganadora y el del salto por el margen de
+       gracia), una sola activa, y cada revocada apunta a su sucesora.
+
+     La revisión esperaba "la otra recibe 401 (sin margen) o el mismo par (con margen)". Con el margen, lo que
+     hace el código es un salto: la segunda recibe un par nuevo, derivado del sucesor de la primera, no el
+     mismo par. Es el comportamiento del diseño, y el de los tests (`refreshTokens.test.js`, "concurrencia
+     real").
+  2. **Fuera del margen:** el token viejo presentado 61 s después de rotarlo da el 401 genérico ("Sesión no
+     válida, vuelve a iniciar sesión."), el log dice "reuso detectado, familia ... revocada entera" y la
+     familia queda con 0 filas activas de 2.
+  3. **Limpieza:** las 6 familias de prueba se borraron en el `finally`. Una consulta aparte confirma que
+     `refresh_tokens` vuelve a tener 0 filas.
+- **Conclusión:** el `UPDATE ... WHERE id = $id AND revoked_at IS NULL` es la única puerta también en la base
+  de datos real, igual que en el doble de los tests. El orden de rotación de C2 aguanta la concurrencia de
+  verdad.
+
+#### Rotar `REFRESH_TOKEN_HASH_SECRET`
+
+Invalida de golpe todos los refresh tokens emitidos, porque su HMAC deja de coincidir con el guardado, y
+obliga a todo el mundo a volver a iniciar sesión. Es la mitigación de emergencia si se sospecha que se ha
+filtrado. Cambiar solo `JWT_SECRET` ya no basta para cerrar las sesiones: el cliente pide otro access token
+con su refresh.
+
+#### Mantenimiento de `refresh_tokens`
+
+Para lanzarla a mano de vez en cuando (se guardan 30 días más allá de la caducidad por si hay que investigar
+un reuso):
+```sql
+DELETE FROM refresh_tokens WHERE expires_at < now() - interval '30 days';
+```
+
+#### Antes de desplegar el bloque 3b (merge a `main`)
+
+Guía paso a paso para el usuario, con las consultas SQL y la limpieza: `docs/verificacion-3b.md`.
+
+1. **El usuario** genera `REFRESH_TOKEN_HASH_SECRET` (`openssl rand -hex 32`) y lo pone en las variables de
+   producción de `nave5-api` en Vercel y en su `server/.env`. No pasa por la conversación.
+2. **Comprobación en el navegador en local:**
+   - iniciar sesión;
+   - recargar la página (recupera la sesión sin pedir la contraseña);
+   - cerrar sesión (la familia queda revocada; se comprueba por SQL);
+   - simular un 401 (el reintento funciona).
+
+   Las filas que deje en `refresh_tokens` de producción las borra el usuario después (punto 5 de arriba).
+3. ~~La comprobación de concurrencia contra la base real~~ **Hecha el 29 sep**, con resultado correcto
+   (ver "Comprobación de concurrencia contra la base de datos real", arriba).
+4. **Permiso para el merge.**
+
 ## ✅ Pausa de despliegue cerrada (bloque 3a): A3 aplicada el 24 sep 2026
 
 - **Merge a `main` y deploy:** commit `6d6624a` (merge de `feature/mejoras-tecnicas`, incluye H8, A1, A2 y
@@ -248,6 +416,10 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
     embebido -- comprobado, no hay ningún `loadStripe`/`@stripe/stripe-js` en el cliente). Quedan preparados
     para cuando las pestañas "Apple Pay"/"Bizum" del checkout tengan una implementación real; si eso no llega a
     pasar, se pueden quitar sin que nada se rompa.
+  - **Antes de pasar a enforcing** (visto en el smoke test del 26 sep): el botón de Google de `/login` carga
+    la hoja de estilos `https://accounts.google.com/gsi/style`, y `style-src` no la permite. Hoy solo sale un
+    aviso en la consola, porque la política es report-only. En enforcing, el botón se quedaría sin estilos.
+    Hay que añadir ese origen a `style-src`.
 - **CORS:** `CLIENT_URL` + `ALLOWED_ORIGINS` (lista separada por comas, orígenes exactos), sin comodín.
 - **`data/supabase.js` falla al arrancar** sin `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY`; ya no hay respaldo a
   la clave `anon`. `.github/workflows/ci.yml` define ambas como variables de prueba para el job del servidor.
@@ -287,6 +459,81 @@ Pero hay cinco cosas que el diseño no resuelve, o que choca con el plan de la r
 - **Si `muebles` o `pedidos` llegan a crecer a decenas de miles de filas, revisar este punto:** la
   alternativa sería ejecutar el `CREATE INDEX CONCURRENTLY` a mano desde el SQL Editor de Supabase (esa
   conexión sí ejecuta fuera de una transacción), no algo que se pueda automatizar con `apply_migration`.
+
+## Tarea 7 — CI (28 sep 2026)
+
+### Qué se hizo
+- **`npm audit` en los dos jobs, en modo informativo.** Es un paso con `continue-on-error`: enseña las
+  vulnerabilidades en el log de cada ejecución, pero no rompe el build. Lo que salió el 28 sep está en H23.
+- **Umbral de cobertura en el servidor.** Se usa la cobertura que trae Node (`npm run test:coverage`), sin
+  paquetes extra, y excluye los propios tests.
+  - El umbral es del 50% en líneas, ramas y funciones: si baja de ahí, el CI falla. Se empieza bajo para no
+    bloquear.
+  - **El 28 sep la cobertura era del 85,7% en líneas, 81,3% en ramas y 94,1% en funciones.** La próxima vez
+    se puede subir el umbral a algo como 80 / 75 / 90, que ya pararía una bajada de verdad.
+  - En el CI, `npm test` pasa a ser `npm run test:coverage`, que ejecuta los mismos tests. El gate local sigue
+    con `npm test`.
+- **`.gitattributes` con `* text=auto eol=lf`.** Git guarda y saca los archivos de texto con LF también en
+  Windows. Se acaban los avisos de "LF will be replaced by CRLF" y los falsos cambios de fin de línea.
+  - Al añadirlo se normalizaron los tres archivos que el repositorio todavía guardaba con CRLF
+    (`client/src/styles/Catalog.css` y `Home.css`) o con los dos (`.gitignore`). Es solo el fin de línea, sin
+    cambiar el contenido.
+  - Los binarios (imágenes) siguen siendo binarios.
+
+- **Umbral de cobertura en el cliente** (28 sep, con permiso para instalar `@vitest/coverage-v8`):
+  - `@vitest/coverage-v8` 2.1.9, la misma versión que vitest, como dependencia de desarrollo;
+  - `npm run test:coverage` (`vitest run --coverage`), con la configuración y los umbrales en
+    `vite.config.js`: cuenta el código de `src/`, sin los tests ni sus ayudas;
+  - en el CI del cliente, `npm test` pasa a ser `npm run test:coverage`. El gate local sigue con `npm test`.
+  - **Umbrales: 60% en ramas y funciones, 50% en líneas y sentencias.** El plan pedía 60% suponiendo que la
+    cobertura del cliente rondaba el 85%, pero esa cifra era la del servidor. **La del cliente, medida el
+    28 sep: 57,9% de líneas, 89,3% de ramas y 72,1% de funciones.** Un 60% en líneas habría roto el CI desde
+    la primera ejecución (comprobado: sale con código 1 y "Coverage for lines (57.92%) does not meet global
+    threshold (60%)"). Se deja el 50% en líneas, con el mismo margen que el servidor.
+  - **Lo que baja la cifra de líneas:** las páginas sin tests (`Profile`, `Catalog`, `ProductDetail`,
+    `Login`, `Home`, `Contact` y las legales), `CartContext` y la mitad de `api.js`. Cuando se suba de
+    ~70%, el umbral de líneas puede pasar al 60%.
+  - `npm audit` cuenta `@vitest/coverage-v8` 2.1.9 como crítica, pero no por un fallo propio: depende de
+    vitest 2 (H23). Se arregla al subir los dos a vitest 5.
+
+### Subida de la cobertura (29 sep 2026)
+
+Regla: tras cada tanda de tests, los umbrales se ponen en lo medido menos medio punto, redondeado hacia
+abajo, y no se bajan nunca. El medio punto es margen para las pequeñas diferencias de medición entre
+versiones de Node (el CI usa la 22 y el local, la 24). Los del cliente están en `client/vite.config.js`; los
+del servidor, en el script `test:coverage` de `server/package.json`. Las tablas redondean lo medido a un
+decimal, pero el umbral se calcula con las dos cifras decimales: por ejemplo, el 94,47% de líneas del servidor
+en `a307c6c` (94,5% en la tabla) da 94,47 − 0,5 = 93,97, es decir, 93.
+
+**Cliente** (objetivo de la fase: 70% de líneas y 85% de funciones):
+
+| Tanda | Commit | Líneas | Funciones | Ramas | Umbrales (líneas / funciones / ramas) |
+|---|---|---|---|---|---|
+| Antes | `ff01f41` | 57,9% | 72,1% | 89,3% | 50 / 60 / 60 |
+| H24 (`utils/imagen.js` con sus tests) | `e644618` | 59,4% | 73,8% | 89,5% | 50 / 60 / 60 |
+| utils | `0d56c7d` | 60,2% | 74,6% | 90,6% | 59 / 74 / 90 |
+| services (`api.js`) | `430da77` | 64,7% | 80,9% | 92,1% | 64 / 80 / 91 |
+| `CartContext` (con H25) | `4e7bbc3` | 66,8% | 81,8% | 92,0% | 66 / 81 / 91 |
+| `FavoritesContext` | `af1a60d` | 67,3% | 82,2% | 92,2% | 66 / 81 / 91 |
+| páginas | `64823e2` | 78,7% | 84,6% | 93,3% | 78 / 84 / 92 |
+| componentes | `a03b944` | **81,7%** | **87,2%** | 94,2% | 81 / 86 / 93 |
+
+Sin tests quedan sobre todo `Catalog`, `Home`, `ProductDetail`, las páginas legales, `App.jsx` y
+`CategorySlider`.
+
+**Servidor** (objetivo: 95% de líneas):
+
+| Tanda | Commit | Líneas | Funciones | Ramas | Umbrales (líneas / funciones / ramas) |
+|---|---|---|---|---|---|
+| Antes | `a03b944` | 93,6% | 97,8% | 79,6% | 50 / 50 / 50 |
+| utils, middleware e `index.js` | `a307c6c` | 94,5% | 98,6% | 81,6% | 93 / 98 / 81 |
+| caminos de error de los controladores | `c4571be` | **95,2%** | 98,6% | 83,9% | 94 / 98 / 83 |
+
+Lo que queda por debajo está en `authController` (88%) y `mueblesController` (79%): sobre todo sus
+`catch` de 500 y la subida de fotos con `sharp` y Storage.
+
+### Qué no se hizo, y por qué
+- **vitest 5, vite 8 y react-router 7** (lo que queda de H23): son saltos de versión mayor, con su propia tarea.
 
 ## Tarea 8 — Documentación y limpieza de infraestructura
 
@@ -467,9 +714,78 @@ que se quiere o si "alquilado" debería seguir permitiendo la vista rápida.
 del código (commit `31f1e98`, 3 sep), sin justificación documentada. Pendiente de preguntar al
 cliente si es intencional o si debe cambiarse cuando se implementen las reservas por fechas.
 
-## Hallazgos abiertos
+## Hallazgos
 
-### H1 · RESUELTO (commit `1e23a5d`) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
+Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), por estado. El detalle de cada uno va debajo, por
+número.
+
+**Cerrados en la rama, pendientes de desplegar** (entran con el merge; cómo comprobarlos, en
+`docs/verificacion-3b.md`):
+
+| Hallazgo | Cerrado |
+|---|---|
+| H10 · roles ARIA de la tabla del catálogo | 28 sep |
+| H14 · un solo `status` en el panel | 28 sep |
+| H21 · cambiar la contraseña no cerraba sesiones | 28 sep |
+| H22 · CSP de Google Sign-In | 28 sep; se comprueba tras el deploy (sección 4.1 de la guía) |
+| H24 · subir fotos: límite de 4,5 MB de Vercel | 29 sep |
+| H25 · la cesta no avisaba de "pieza única" | 29 sep |
+| H26 · los endpoints públicos devolvían más de lo que usa la web | 29 sep |
+| H27 · datos personales en el log en modo simulación de correo | 29 sep |
+| H28 · `perfil-update` sin límite de intentos de contraseña | 29 sep |
+| H29 · `crear-sesion-pago` sin límite de peticiones | 29 sep |
+| H30 · "Panel Admin" en el pie de página sin sesión | 29 sep |
+
+**Cerrados, ya en producción o en la base de datos:**
+
+| Hallazgo | Cerrado |
+|---|---|
+| H1 · metadata de Stripe | 22 sep |
+| H2 · emails sin escapar | 22 sep |
+| H8 · `SUPABASE_URL` con `http://` | 22 sep |
+| H9 · RLS de `pedidos` | 24 sep (en la base de datos) |
+| H16 · caché del panel | 24 sep |
+| H17 · ILIKE en "Mis pedidos" | 24 sep |
+| H19 · fallo suelto de `npm test` | 25 sep: no reproducible |
+| H3 · errores sin filtrar | 28 sep: auditados todos los controladores, sin más casos |
+
+**Decidido, pendiente de implementación:**
+
+| Hallazgo | Estado |
+|---|---|
+| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12 |
+
+**Parcial:**
+
+| Hallazgo | Estado |
+|---|---|
+| H23 · vulnerabilidades del cliente | 8 de 15 arregladas. Las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5): tarea aparte, después de mergear 3b |
+
+**Dependen del cliente:**
+
+| Hallazgo | Estado |
+|---|---|
+| H18 · el registro no verifica el email | Alta. Diseño para decidir en `docs/verificacion-email-diseno.md` |
+| H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
+
+**Deuda aceptada:**
+
+| Hallazgo | Estado |
+|---|---|
+| H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total. Vale también para los límites nuevos de H28 y H29 |
+| H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
+| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
+
+**Pendientes de una decisión del cliente (negocio o UX):**
+
+| Hallazgo | Estado |
+|---|---|
+| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas |
+| H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
+| H13 · formularios que sobreviven al cambio de pestaña | UX |
+| H15 · categoría preseleccionada | UX |
+
+### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
 - **Qué se hizo:** `server/src/utils/metadataStripe.js` reparte el carrito en varias claves (`items_0`,
   `items_1`...) y valida cada dato del comprador contra el límite de 500 caracteres antes de llamar a Stripe,
@@ -492,7 +808,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **Nota de honestidad ya superada:** la distinción `ErrorMetadata`/`ErrorValidacion` no cambiaba nada
   observable hasta que se resolvió H3 (tarea 2). Ahora sí importa: ver H3.
 
-### H2 · RESUELTO (tarea 2) · Plantillas de email antiguas sin escapar HTML
+### H2 · CERRADO (22 sep 2026, tarea 2, commit `15305d9`; en producción) · Plantillas de email antiguas sin escapar HTML
 
 - **Qué se hizo:** `escaparHtml` (ya existía para `enviarAlertaAdmin`, de la tarea 1) se aplicó también en
   `construirHtmlVenta`, `construirHtmlConfirmacionCliente`, `construirHtmlBienvenida` y en la plantilla inline
@@ -502,7 +818,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   de pieza; nombre del cliente en el email de bienvenida; nombre/email/mensaje del formulario de contacto):
   ninguna etiqueta `<script>`/`<img>` sobrevive, el texto queda escapado.
 
-### H3 · RESUELTO en su mayor parte (tarea 2) · `crear-sesion-pago` devolvía el mensaje de error sin filtrar
+### H3 · CERRADO (28 sep 2026; la parte de `crear-sesion-pago`, en la tarea 2) · `crear-sesion-pago` devolvía el mensaje de error sin filtrar
 
 - **Qué se hizo:** el `catch` de `crearSesionPago` distingue ahora `ErrorValidacion` (400, mensaje tal cual --
   cubre carrito/datos del comprador que no caben en la metadata, y piezas no disponibles, que ahora lanzan
@@ -512,12 +828,35 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **Verificado:** test en `confirmarSesion.test.js` que fuerza un fallo interno de Stripe y comprueba que la
   respuesta es 500 genérica, sin la cadena del error interno en ningún sitio del cuerpo. Mutación: revertir la
   distinción hace fallar ese test.
-- **No completamente cerrado:** esto cubre `crearSesionPago`. No se ha auditado sistemáticamente el resto de
-  controladores (p. ej. errores de Supabase que se re-lanzan tal cual en algún otro sitio) en busca del mismo
-  patrón -- no estaba en el alcance de esta tarea.
+- **Auditoría del resto (28 sep 2026), lo que quedaba abierto.** Se revisaron todas las respuestas de error de
+  `server/src` (controladores, middleware, rutas e `index.js`):
+  - **todas llevan un texto fijo**, escrito a mano;
+  - **solo dos devuelven el `.message` de un error**, y en los dos casos es un `ErrorValidacion`: el `catch` de
+    `crearSesionPago` y el manejador global de `index.js`;
+  - los `ErrorValidacion` se crean con textos fijos, a los que solo se añade:
+    - el id de la pieza, que viene de la propia petición;
+    - el nombre de la pieza (`mueble.nombre`, en `mueblesController.js`), que sale de la base de datos pero
+      es un dato público del catálogo;
+    - el límite de longitud de un campo (`max`, en `metadataStripe.js`), una constante del servidor;
+    - o el mensaje de Zod del middleware `validar()`, que habla de la petición y no del servidor.
 
-### H8 · MEDIA · `data/supabase.js` acepta una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
+    Nada de eso es un detalle interno;
+  - ninguna respuesta devuelve el objeto de error entero (`json(error)`), ni `details`, `hint` o `stack`;
+  - los errores de Supabase y de Stripe solo van al log.
 
+  **No hay más sitios con el patrón de H3.**
+- **De paso** (no es una fuga): un error de multer, como una foto de más de 5 MB, cae en el manejador global y
+  sale como un 500 genérico en vez de un 400 con el motivo. En producción, antes salta el límite de Vercel: ver
+  H24.
+
+### H8 · MEDIA · CERRADO (22 sep 2026, commit `1202ef0`; en producción desde ese día) · `data/supabase.js` aceptaba una `SUPABASE_URL` con `http://` (sin TLS) — la service_role key viajaría en claro
+
+- **Cierre:** corregido en `1202ef0` (tarea 3, bloque 3a, paso 1) y desplegado el 22 sep con el merge
+  `6d6624a`.
+  - Con `NODE_ENV === 'production'`, el servidor no arranca si `SUPABASE_URL` no empieza por `https://`.
+  - En vez de la excepción para `development` que proponía esta nota, la regla se aplica solo en producción,
+    tras la revisión del diseño de la tarea 3.
+  - Lo cubren los tests de `supabaseFailFast.test.js`.
 - **Dónde:** `server/src/data/supabase.js`, la comprobación `!supabaseUrl.startsWith('http')` acepta tanto
   `http://` como `https://`. Es un comportamiento heredado (idéntico antes y después de la tarea 2, comprobado
   con `git show HEAD`): no lo introdujo esta tarea, pero una revisión de la tarea 2 lo detectó al comprobar el
@@ -534,42 +873,118 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   porque no estaba en el alcance de la tarea 2 y toda edición de un archivo de seguridad en esta rama pasa por
   su propio commit y su propio diff revisado — no se cuela como añadido de última hora en otro commit.
 
-### H4 · BAJA · Los límites de peticiones viven en memoria
+### H4 · BAJA · DOCUMENTADO, DEUDA ACEPTADA (28 sep 2026) · Los límites de peticiones viven en memoria
 
-- **Dónde:** login, contacto y `confirmar-sesion` (`express-rate-limit` con el almacén por defecto).
-- **Impacto:** en Vercel cada instancia tiene su propio contador y se pierde en cada arranque en frío: frena
-  el abuso casual, no es un tope global. Para un límite estricto haría falta un almacén externo.
+- **Dónde:** `express-rate-limit` 8.7 con el almacén por defecto, que guarda un contador por IP en la memoria del
+  proceso. Hay tres limitadores:
 
-### H5 · BAJA · Límite conocido de la detección de doble venta
+  | Limitador | Rutas | Límite configurado | Qué cuenta |
+  |---|---|---|---|
+  | `limitadorAuth` (`authRoutes.js`) | `/api/auth/login`, `/register` y `/google` | 15 cada 15 min por IP | Solo los intentos fallidos (`skipSuccessfulRequests`). **Un único contador para las tres rutas**: es el mismo limitador |
+  | `limitadorContacto` (`contactoRoutes.js`) | `POST /api/contacto` | 5 cada 15 min por IP | Todos los envíos |
+  | `limitadorConfirmacion` (`mueblesRoutes.js`) | `GET /api/muebles/confirmar-sesion` | 20 cada 15 min por IP | Todas las comprobaciones |
 
-- Una pieza marcada "vendido" a mano, sin ningún otro pedido de compra, no se detecta como conflicto: es
-  indistinguible de un reintento o del webhook y el respaldo procesando a la vez, y avisar produciría falsas
-  alertas. Está fijado en `pagos.test.js` ("límite conocido").
+  `/api/auth/refresh` y `/logout` no tienen límite. No hace falta: el refresh token son 32 bytes aleatorios, y
+  adivinar uno por fuerza bruta no es viable.
+- **Cómo corre la API en Vercel:** `nave5-api` se creó el 3 sep 2026, y desde el 23 abr 2025 los proyectos nuevos
+  llevan Fluid compute activado por defecto. La API del proyecto no devuelve ese ajuste, así que se da por
+  activo sin haberlo visto. Con Fluid:
+  - varias peticiones comparten la misma instancia (el mismo proceso), y por tanto el mismo contador;
+  - Vercel usa primero las instancias que ya tiene libres, y solo arranca más cuando no le bastan;
+  - todo corre en una sola región (no hay `regions` en `vercel.json`).
+- **El límite real, por IP y ventana de 15 minutos,** es el configurado multiplicado por las instancias que
+  atienden a esa IP en esa ventana:
+  - **Tráfico normal (este proyecto hoy):** hay una instancia, o muy pocas. El límite real es prácticamente el
+    configurado: 15 fallos de login, 5 mensajes y 20 comprobaciones.
+  - **Ráfaga concurrente desde una IP** (varias peticiones a la vez, que es lo que hace un ataque): Vercel puede
+    repartirlas entre N instancias, cada una con su contador. El tope sube a N × 15, N × 5 y N × 20. N no se
+    puede fijar desde el código ni ver desde el proyecto, así que lo único garantizado es el límite dentro de
+    cada instancia, no un total.
+  - **Los contadores se pierden** al reciclar la instancia: cada deploy, y cuando Vercel la para por estar
+    inactiva (no documenta cuánto tarda). Tras un reciclado, la IP vuelve a empezar de cero.
+- **En resumen:** frena el abuso casual (alguien probando contraseñas a mano, un formulario de contacto
+  enviado en bucle) y hace falta más para uno distribuido o muy concurrente. Contra una contraseña concreta
+  también protege el hash de las contraseñas (bcryptjs, coste 10), que hace lento cada intento.
+- **Si algún día hiciera falta un tope global:** un almacén compartido para `express-rate-limit` (por ejemplo,
+  Redis de Upstash desde el Marketplace de Vercel, con `rate-limit-redis`), o una regla de límite de peticiones
+  en el Firewall de Vercel, delante de la función. Hoy no hay urgencia: no se ha visto abuso, y los tres
+  endpoints ya tienen otras defensas (validación con Zod, el honeypot del contacto, y la idempotencia de la
+  confirmación).
 
-### H6 · BAJA · La confirmación va a la dirección que teclea el comprador
+### H5 · BAJA · DEUDA ACEPTADA (28 sep 2026; se cierra con las reservas) · Límite conocido de la detección de doble venta
 
-- El email de confirmación sale desde el remitente de Nave 5 a un correo que nadie verifica. Requiere un pago
-  real por cada envío y, con H2 corregido, el contenido queda escapado.
+- **El límite:** una pieza marcada "vendido" a mano, sin ningún pedido de compra, no se detecta como conflicto si
+  alguien la paga después en la web.
+- **Por qué no se puede distinguir hoy:** quien registra el pedido puede encontrarse la pieza ya en "vendido"
+  por dos motivos legítimos:
+  - **un reintento de la misma sesión:** un intento anterior marcó la pieza y falló antes de guardar el pedido;
+  - **el gemelo webhook/respaldo:** uno marca la pieza y el otro gana la inserción del pedido.
+
+  En los dos casos, la pieza está en el estado buscado y no hay otro pedido, igual que con una venta a mano.
+  Avisar ahí daría falsas alertas en compras normales.
+- **Ya cubierto por tests** (`server/src/__tests__/pagos.test.js`):
+  - el reintento tras un fallo parcial no da una falsa alerta ("tras un fallo parcial de la propia sesión...");
+  - dos procesados simultáneos dejan un pedido y ninguna alerta;
+  - el propio límite ("límite conocido: una pieza ya 'vendida'...").
+
+  No hace falta ningún test más.
+- **Qué haría falta para cerrarlo:** saber quién puso la pieza en "vendido". Por ejemplo, una columna con la
+  sesión de Stripe que la vendió, rellenada en el mismo `UPDATE` condicional de `marcarPiezas`, y que el panel
+  vaciara al cambiar el estado a mano. Es una migración más un cambio en el panel: un rediseño, no un arreglo
+  pequeño.
+- **Se cierra con el diseño de reservas** (`docs/reservas-diseno.md`, en la rama `feature/reservas-diseno`):
+  "marcar vendido a mano" pasa a ser "registrar una venta fuera de la web", que inserta una fila de venta. Una
+  pieza vendida a mano tendrá su fila, y el conflicto se verá. No merece la pena una columna provisional antes.
+
+### H6 · BAJA · DEPENDE DE H18 (28 sep 2026) · La confirmación va a la dirección que teclea el comprador
+
+- El email de confirmación sale desde el remitente de Nave 5 hacia un correo que nadie verifica. Para abusar de
+  ello hace falta un pago real por cada envío, y con H2 corregido el contenido va escapado.
+- **Depende de H18** (el registro no verifica el email). Hoy no hay ninguna dirección verificada que usar: ni
+  siquiera la de una cuenta.
+- **Cerrar H18 no basta por sí solo.** El checkout siempre empieza con el campo de email vacío, también con la
+  sesión iniciada (`CheckoutModal.jsx`, `useState('')`), y el pedido usa lo que se teclee. Cuando H18 esté
+  resuelto, **H6 se cierra con un cambio pequeño en el checkout:** con sesión, usar el email (ya verificado)
+  de la cuenta, sin dejar cambiarlo.
+- **Lo que quedará para siempre:** en una compra de invitado, el email lo teclea quien paga y no se verifica.
+  Es un riesgo aceptado: cada envío cuesta un pago real, y verificar antes de pagar añadiría un paso a la compra.
 
 ### H7 · NEGOCIO · Alquilar un día bloquea la pieza
 
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
 
-### H10 · BAJA · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
+### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 
-- **Dónde:** `client/src/components/ProductsTable.jsx` / `client/src/styles/Catalog.css`
-  (`.products-table-info`, `.products-table-footer`). En escritorio se usa `display: contents` para que las
-  celdas agrupadas se comporten como columnas directas de la fila -- es lo que permite reflowar la misma fila
-  a tarjeta en móvil sin duplicar el JSX en dos estructuras distintas.
-- **Impacto:** en algunas versiones de NVDA/JAWS, `display: contents` puede sacar al contenedor (y con él los
-  `role="cell"` que agrupa) del árbol de accesibilidad, aunque el texto siga siendo anunciado igual a través
-  de sus hijos en la mayoría de los casos. Es un compromiso conocido de este patrón ("tabla con roles ARIA que
-  se aplana por CSS"), no un descuido. La navegación por teclado (solo el botón "Ver", con su `aria-label`
-  "Ver [nombre]") no depende de esto y funciona igual.
-- **Cuándo se revisa:** tarea 6 (accesibilidad a fondo). Alternativa sin este compromiso, si hiciera falta:
-  no usar `display: contents` y duplicar el marcado por breakpoint (dos estructuras, una oculta por CSS según
-  el ancho) -- más código, sin la dependencia de cómo cada lector de pantalla trate `display: contents`.
+- **Dónde:** `client/src/components/ProductsTable.jsx` y `client/src/styles/Catalog.css`, la vista de lista del
+  catálogo.
+- **Lo que había:**
+  - en escritorio, dos contenedores sin rol (`.products-table-info` y `.products-table-footer`) se "aplanaban"
+    con `display: contents` para que sus celdas fueran columnas de la fila. Así, varias celdas no colgaban
+    directamente de su `role="row"`, y algunos lectores de pantalla tratan mal `display: contents`;
+  - **un fallo más claro, encontrado al revisarlo:** las cabeceras de la columna de la foto y la del botón
+    "Ver" llevaban `aria-hidden="true"`. Un lector de pantalla veía 5 cabeceras para 7 celdas por fila, así
+    que anunciaba cada celda con la cabecera de la columna siguiente: la foto como "Nombre", el nombre como
+    "Categoría", y así hasta el final.
+- **Arreglo:**
+  - **sin contenedores ni `display: contents`:** todas las celdas son hijas directas de su fila. La tarjeta móvil
+    se hace colocando cada celda en la rejilla de la fila (`grid-row` y `grid-column`), no agrupándolas;
+  - **las dos cabeceras sin título tienen nombre** ("Foto" y "Acción"), con un texto que solo lee el lector de
+    pantalla (`.products-table-sr-only`).
+- **Comprobado en el navegador** (servidor y cliente locales, catálogo real, vista de lista): se midió la caja de
+  cada celda, relativa a su fila, en las 3 primeras filas, antes y después, a 1280 y a 375 px de ancho. **Es
+  idéntica al píxel en las dos anchuras.** Un nombre largo sigue cortándose con puntos suspensivos en móvil,
+  sin desbordar la fila.
+- **Tests:** 3 nuevos en `ProductsTable.test.jsx`:
+  - cada celda es hija directa de su fila;
+  - las 7 cabeceras tienen nombre;
+  - cada celda cae bajo la cabecera de su columna.
+
+  Con el componente anterior fallan los 3. Si se vuelve a poner `aria-hidden` en una sola cabecera, fallan 2.
+- **Queda para la tarea 6 (accesibilidad a fondo):**
+  - probarlo con un lector de pantalla de verdad (NVDA o VoiceOver). Desde aquí no se puede;
+  - en móvil no hay fila de cabecera, así que las celdas se leen sin el nombre de su columna. Es lo mismo que
+    antes.
 
 ### H11 · DECISIÓN PENDIENTE · Un `categoria` (texto) sin categoría real deja `categoria_id` en NULL para siempre, y eso puede bloquear A4
 
@@ -608,7 +1023,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
 
-### H12 · MEDIA · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+### H12 · MEDIA · DECIDIDO, PENDIENTE DE IMPLEMENTACIÓN (29 sep 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
 
 - **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
   dentro y devuelven un valor. Pero no siempre el mismo:
@@ -616,23 +1031,25 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   | Contrato | Qué devuelve si falla | Funciones |
   |---|---|---|
   | A | `null`. **El mensaje del servidor se pierde** | `createMueble`, `updateMueble`, `deleteMueble`, `createCategoria`, `updateCategoria`, `deleteCategoria`, `actualizarEstadoPedido`, y `getMuebleById` (que devuelve `null` tanto si no existe como si falla) |
-  | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `checkoutCart`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
+  | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
   | C | `[]`: **un error no se distingue de "no hay datos"** | `getMuebles`, `getCategorias`, `buscarMuebles`, `getMisPedidos`, `getPedidos` |
 
 - **Sitios afectados** (grep de todas las llamadas a funciones de escritura en `client/src/`, sin contar tests ni
-  el propio `api.js`: 19 llamadas, 10 de ellas en `Admin.jsx`). **4 no comprueban el resultado, y las 4 están en
-  `Admin.jsx`:**
+  el propio `api.js`: 19 llamadas, 10 de ellas en el panel). **4 no comprueban el resultado, y las 4 están en el
+  panel.** Ubicaciones actualizadas el 28 sep: tras la tarea 4, el panel está repartido en `client/src/pages/admin/`
+  y `Admin.jsx` ya no hace ninguna de estas llamadas.
 
   | Llamada | ¿Comprueba el resultado? | Efecto |
   |---|---|---|
-  | `Admin.jsx:157` `deleteMueble` (borrar uno) | No | "Mueble eliminado con éxito" aunque falle |
-  | `Admin.jsx:363` `deleteMueble` en lote (`Promise.all`) | No | "N productos eliminados" aunque fallen todos o algunos |
-  | `Admin.jsx:196` `deleteCategoria` | No | "Categoría eliminada" aunque falle |
-  | `Admin.jsx:373` `updateMueble` en lote (`Promise.all`) | No | "Estado actualizado en N productos" aunque falle |
-  | `Admin.jsx:121, 176, 234, 272, 299, 635` | Sí (`if (res)`) | Correcto |
+  | `pestanas/InventarioTab.jsx:36` `deleteMueble` (borrar uno) | No | "Mueble eliminado con éxito" aunque falle |
+  | `pestanas/InventarioTab.jsx:49` `deleteMueble` en lote (`Promise.all`) | No | "N productos eliminados" aunque fallen todos o algunos |
+  | `pestanas/CategoriasTab.jsx:58` `deleteCategoria` | No | "Categoría eliminada" aunque falle |
+  | `pestanas/InventarioTab.jsx:59` `updateMueble` en lote (`Promise.all`) | No | "Estado actualizado en N productos" aunque falle |
+  | `pestanas/CrearMuebleTab.jsx:42` · `pestanas/CategoriasTab.jsx:37` · `modales/EditarMuebleModal.jsx:46` · `modales/EditarCategoriaModal.jsx:37` · `pestanas/InventarioTab.jsx:154` · `pestanas/PedidosTab.jsx:16` | Sí (`if (res)`) | Correcto |
   | `AuthModal.jsx:36, 46` · `Login.jsx:27, 85, 94` · `Profile.jsx:75` · `Contact.jsx:35` · `CheckoutModal.jsx:131` · `CheckoutExito.jsx:24` | Sí (contrato B) | Correcto |
 
-  `checkoutCart` no tiene ninguna llamada: es el checkout antiguo, anterior a Stripe (código muerto).
+  `checkoutCart` no tenía ninguna llamada: era el checkout antiguo, anterior a Stripe, y llamaba a una ruta
+  (`/muebles/comprar`) que el servidor ya no tiene. **Quitado el 29 sep** (decisión D-d).
 - **Qué devuelven cuando van bien** (comprobado el 24 sep leyendo `api.js` y los controladores): las 7 escrituras
   del contrato A devuelven `await response.json()`. El servidor contesta siempre 200 o 201 con un objeto:
   `{ success, message, data }` en muebles, `{ success, data }` o `{ success, message }` en categorías, y la fila
@@ -676,6 +1093,120 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
     y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
     diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
 
+#### Decisiones de la revisión (29 sep 2026)
+
+**H12 queda cerrado como decisión y abierto como implementación.** Se hará cuando haya que tocar `api.js`
+por otro motivo, probablemente con las reservas (que además necesitan los mensajes 409).
+- **D-a · No se tocan los tests congelados.** Si H12 obliga a cambiar la preparación de los tests de
+  caracterización del panel, H12 no está listo. La congelación es la red de seguridad del refactor, y
+  abrirla para un cambio "que no cambia aserciones" es una pendiente resbaladiza. Se replantea con las
+  reservas.
+- **D-b · El formato vive encima de `apiFetch`, no dentro.** Dos capas:
+  - `apiFetch`, que hace lo de hoy: HTTP, sesión y reintento tras un 401;
+  - encima, `apiCall`, que devuelve `{ data, error, status }`.
+
+  Las 11 funciones públicas siguen con su contrato actual hasta que se migren una a una.
+- **D-c · Textos** (los propone la revisión):
+  - fallo de carga: "No se ha podido cargar. Revisa tu conexión." Sin culpar al usuario y sin el error
+    técnico;
+  - lote a medias: "3 de 5 completados. Los otros 2 no se pudieron procesar." Cuantifica, sin dramatizar.
+- **D-d · `checkoutCart` se quita** (hecho el 29 sep, `7ca0ce8`: además llamaba a una ruta que el servidor
+  ya no tiene). **`buscarMuebles` se deja.**
+  - Nota para cuando se retome: fuera de los tests, `buscarMuebles` no tiene ninguna llamada en `client/src`
+    (comprobado el 29 sep; solo la usa `api.contratos.test.js`, que fija su contrato). El buscador de la cabecera usa `getMuebles` y filtra en el navegador.
+  - La revisión la daba por "en uso (búsqueda del catálogo)". Se deja por la decisión, pero hoy es código
+    sin uso.
+- **Lo que ya está hecho para cuando llegue:** `client/src/services/api.contratos.test.js` fija el contrato
+  de hoy de cada función. Al migrar, esos tests dirán exactamente qué cambia.
+
+#### Propuesta de unificación (fase D, 28 sep 2026) · revisada el 29 sep (ver las decisiones de arriba)
+
+**Por qué se para aquí.** El plan decía: "si el diseño se hace grande, para tras la propuesta". Lo es:
+- 21 funciones de `api.js` y 33 llamadas en 19 archivos. Son más que las 19 escrituras de arriba, porque las
+  lecturas (contrato C) también cambian.
+- 9 de esos archivos no tienen tests hoy: `Login`, `Profile`, `Contact`, `CheckoutExito`, `Catalog`, `Home`,
+  `ProductDetail`, `CategorySlider` y `CartContext`. `AuthModal` está cubierto a medias.
+- Hay tres decisiones que no son técnicas (abajo).
+
+**Hechos comprobados el 28 sep:**
+- **El servidor ya es uniforme:** todo error sale como `{ error: "mensaje" }`. Son 45 respuestas en los
+  controladores, el 404 de `/api`, el manejador global y los 3 límites de peticiones. Ninguna ruta responde 204.
+- **Lo que no es del servidor no es JSON.** Vercel responde con su propia página a un timeout (504) o a una subida
+  de más de 4,5 MB (413). Además, está el fallo de red.
+- **Dos fallos del contrato B que se ven hoy** (encontrados al preparar esto):
+  - sin conexión, `fetch` lanza, y quien llama enseña el mensaje técnico del navegador en inglés ("Failed to
+    fetch"). Pasa en el login, el registro, Google, el perfil, el contacto y el pago;
+  - si llega una página de Vercel en vez de JSON, se enseña el error de `response.json()`, también en inglés
+    ("Unexpected token '<'...").
+- **Los tests de caracterización del panel simulan `api.js` con las formas de hoy.** `renderAdmin` hace que
+  `getMuebles`, `getCategorias` y `getPedidos` devuelvan listas, y hay unas 50 llamadas `mockResolvedValue`
+  con `null` o `{ success: true }`. **Pasar el panel al contrato nuevo obliga a cambiar cómo se preparan esos
+  tests, aunque no cambie nada de lo que ve el usuario.**
+
+**Diseño propuesto:**
+1. **Un núcleo, `peticion()`, que nunca lanza y siempre devuelve `{ data, error, status }`:**
+   - **éxito (2xx):** `data` es el cuerpo JSON y `error` es `null`;
+   - **error con `{ error }`:** el mensaje del servidor, tal cual;
+   - **error sin JSON** (una página de Vercel): un mensaje en castellano que da cada función ("No se pudo guardar
+     el mueble.");
+   - **fallo de red:** `status: 0` y "No se pudo conectar con el servidor. Revisa tu conexión.";
+   - **2xx sin cuerpo** (un futuro 204): `data: null`, `error: null`. Es un éxito, no un error; es el aviso que
+     ya hacía este hallazgo.
+2. **`apiFetch` se queda como transporte y sigue devolviendo la `Response`.** Hay que decidirlo, porque la
+   revisión proponía que fuera `apiFetch` quien devolviera `{ data, error, status }`. Motivos para dejarlo:
+   - las 11 funciones públicas no pasan por `apiFetch`, y deben seguir sin hacerlo por la caché de la CDN (H16) y
+     por el 401 de una contraseña incorrecta, que no debe intentar renovar la sesión. El formato en `apiFetch`
+     no las cubriría;
+   - los 12 tests del reintento y de la de-duplicación siguen valiendo tal cual.
+
+   `peticion()` usa `apiFetch` cuando la llamada lleva sesión, y `fetch` cuando no.
+3. **El adaptador para migrar por tandas:**
+   - las funciones nuevas (mismos nombres, formato nuevo) viven en un módulo nuevo, por ejemplo
+     `services/peticiones.js`;
+   - `api.js` conserva los nombres de hoy como envoltorios finos, con tres adaptadores de una línea
+     (`comoContratoA`, `comoContratoB` y `comoContratoC`) que devuelven exactamente lo de siempre;
+   - así, lo que no se ha migrado, y los tests que simulan `../services/api`, siguen igual;
+   - migrar una llamada es cambiar el `import` y leer `{ data, error }`.
+4. **Tandas, un commit cada una, con sus tests:**
+   0. **Núcleo y envoltorios.** Sin cambios de comportamiento: la prueba es que `api.test.js`, `apiFetch.test.js`
+      y todos los demás siguen verdes sin tocarlos.
+   1. **Auth:** `AuthModal` y `Login`, con tests nuevos para las dos pantallas.
+   2. **Perfil:** `updateProfile`, `getMisPedidos` y los favoritos. "Mis pedidos" distingue "no tienes pedidos"
+      de "no se han podido cargar".
+   3. **Contacto.**
+   4. **Pago:** `CheckoutModal`, que ya tiene tests, y `CheckoutExito`, con tests nuevos.
+   5. **Catálogo público:** `Header`, `CategorySlider`, `Catalog`, `Home`, `ProductDetail` y `CartContext`. La
+      ficha distingue "no existe" (404) de "no se ha podido cargar".
+   6. **Panel:**
+      - los borrados y el cambio de estado en lote con `Promise.allSettled`, y un mensaje que cuenta los fallos;
+      - los 4 tests marcados H12 y el del contrato C de `Admin.pedidos.test.jsx`, "CAMBIADO A PROPÓSITO";
+      - la preparación de los demás tests del panel, pasada al formato nuevo (necesita permiso, ver D-a);
+      - las listas de mutantes, reapuntadas y relanzadas.
+   7. **Limpieza:** se quitan los envoltorios y el código muerto (`checkoutCart` y `buscarMuebles`, que no tienen
+      ninguna llamada), y H12 queda cerrado.
+
+   Cada tanda deja la app funcionando. Si se para a medias, lo no migrado sigue con su contrato de siempre.
+
+**Decisiones que necesita (no técnicas):**
+- **D-a · Tests congelados.** Permiso para cambiar, en los 8 `Admin.*.test.jsx` y en `adminTestUtils.jsx`, solo
+  la preparación de los mocks, que es un cambio mecánico: `mockResolvedValue(lista)` pasa a
+  `mockResolvedValue(ok(lista))`, y `null` pasa a `fallo('...')`. Ninguna aserción cambia, salvo las 5 marcadas.
+  La prueba de que no se pierde nada es relanzar la mutación del panel (hoy 72/72 más el superviviente
+  esperado) y que mate los mismos mutantes. Sin este permiso, el panel no se puede migrar, y H12 se quedaría
+  arreglado solo fuera del panel.
+- **D-b · Dónde vive el formato:** en `apiFetch`, como proponía la revisión, o en una capa encima, como se
+  propone aquí (punto 2).
+- **D-c · Textos:**
+  - el aviso de "no se ha podido cargar" en cada pantalla. Propuesta: el mismo en todas, con un botón
+    "Reintentar";
+  - el de un lote a medias. Propuesta: "3 de 5 eliminados; 2 no se pudieron eliminar";
+  - qué hace la cesta si falla la comprobación de sus piezas. Propuesta: dejarla como está, sin borrar nada.
+- **D-d · Código muerto:** quitar `checkoutCart` y `buscarMuebles` del cliente. La ruta `/muebles/comprar` del
+  servidor queda fuera; sería otro cambio.
+
+**Tamaño estimado:** 8 commits y unos 25 archivos. La mayor parte son tests nuevos de pantallas que hoy no tienen
+ninguno.
+
 ### H13 · DECISIÓN PENDIENTE (UX) · Formularios del panel que sobreviven al cambio de pestaña
 
 - **Hoy**, un formulario a medio rellenar ("Añadir mueble" o "Nueva categoría") se conserva al cambiar de pestaña
@@ -688,9 +1219,28 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 - **Cuándo se decide:** con el cliente, sin prisa. Después de la tarea 4, cambiarlo es trivial: se mueve ese estado
   del contenedor a la pestaña y se vacía al desmontarla.
 
-### H14 · BAJA · UX · Un solo `status` para todos los formularios del panel
+### H14 · BAJA · UX · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · Un solo `status` para todos los formularios del panel
 
-- **Hoy:** `Admin` tiene un único estado `status` para el mensaje de progreso o error. Lo escriben cuatro
+- **Arreglo (28 sep, en `feature/mejoras-tecnicas`):**
+  - cada formulario tiene su propio estado de envío con `pages/admin/hooks/useEstadoEnvio.js`: "Añadir
+    mueble", "Crear Categoría" y los dos modales de edición;
+  - el botón se desactiva mientras ESE envío está en curso, y el manejador también ignora un segundo envío
+    (doble clic, Intro);
+  - el mensaje sale junto a su formulario: el de los modales, dentro del modal;
+  - se quita la condición muerta de "Subiendo".
+- **Qué cambia a la vista:**
+  - el error del modal ya no aparece bajo "Añadir mueble";
+  - "Crear Categoría" se desactiva, y enseña "Creando categoría..." mientras crea;
+  - el mensaje de "Añadir mueble" ya no se conserva al cambiar de pestaña;
+  - "Crear Categoría" no enseña ningún mensaje si falla: solo el aviso, como antes.
+- **Tests:**
+  - se han cambiado a propósito los dos tests de caracterización que fijaban el comportamiento viejo, marcados
+    con "CAMBIADO A PROPÓSITO CON EL ARREGLO DE H14": el de "Crear Categoría" en
+    `Admin.categorias.test.jsx`, y el del error que viajaba en `Admin.navegacion.test.jsx`;
+  - ningún otro test de caracterización se ha tocado, y todos siguen en verde;
+  - son nuevos `useEstadoEnvio.test.js` (5) y `Admin.envio.test.jsx` (4), con su lista de mutantes
+    `scripts/mutantes/envio.js`, y se han repuntado los 6 mutantes que usaban el `status` compartido.
+- **Antes del arreglo:** `Admin` tenía un único estado `status` para el mensaje de progreso o error. Lo escribían cuatro
   manejadores:
   - añadir mueble: "Guardando producto..." y "Error al guardar en base de datos.";
   - crear categoría: "Creando categoría...";
@@ -727,7 +1277,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   la tarea 4 es un cambio de pocas líneas en el `useEffect` de la categoría preseleccionada. Los tests de los
   casos A y C cambiarían a propósito en ese mismo commit.
 
-### H16 · MEDIA · CORREGIDO (desplegado el 24 sep 2026) · El panel no veía sus propios cambios hasta recargar
+### H16 · MEDIA · CERRADO (24 sep 2026, commit `63f1324`; en producción) · El panel no veía sus propios cambios hasta recargar
 
 - **Síntoma** (24 sep, durante la prueba de A3 en producción): después de crear una pieza, el inventario del panel
   no la mostraba hasta recargar la página. Después de editarla, seguía saliendo con la categoría de antes.
@@ -750,7 +1300,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   más en el peor caso. Si es demasiado, se bajan `s-maxage` y `stale-while-revalidate` en el servidor, a
   cambio de más consultas a Supabase. Recomendación del revisor: no tocarlo mientras el cliente no lo note.
 
-### H17 · ALTA · CORREGIDO (desplegado el 24 sep 2026) · "Mis pedidos" enseñaba pedidos de otras personas
+### H17 · ALTA · CERRADO (24 sep 2026, commit `9cf2043`; en producción) · "Mis pedidos" enseñaba pedidos de otras personas
 
 - **El fallo:** `obtenerMisPedidos` buscaba con `.ilike('cliente_info->>email', email)`, usando el email de la
   cuenta como patrón. En ILIKE, `_` es "un carácter cualquiera", y `supabase-js` pasa el patrón sin escapar.
@@ -781,7 +1331,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   H18. La migración B (`cliente_id`) ayudará con los pedidos de clientes con cuenta, pero los de invitado
   seguirán cruzándose por email.
 
-### H18 · ALTA · PENDIENTE (tarea futura, con el cliente) · El registro no verifica el email
+### H18 · ALTA · DEPENDE DEL CLIENTE (29 sep 2026; tarea futura) · El registro no verifica el email
 
 - **Hoy** cualquiera puede crear una cuenta con el email de otra persona: no se envía confirmación. Combinado
   con H17, permitía ver pedidos ajenos con un email parecido. Aun con H17 corregido, quien registre el email
@@ -791,8 +1341,19 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
   entrega el email verificado.
 - **A decidir con el cliente:** ¿se bloquea el inicio de sesión hasta verificar el email, o solo el acceso a
   "Mis pedidos"? Está en la checklist del cliente en Notion. Entra en una tarea posterior.
+- **Diseño para decidir con el cliente (29 sep 2026):** `docs/verificacion-email-diseno.md`. Tiene las opciones
+  (en el registro, en cada inicio de sesión, al cambiar el email), qué pasa con los pedidos de invitado y con
+  los que ya existen, los textos de los correos y la migración.
+  - **Encontrado al prepararlo:** el inicio de sesión con Google entra en una cuenta existente con el mismo email
+    sin más. Quien registre con contraseña el email de otra persona comparte la cuenta con ella cuando esa
+    persona entre con Google, y sigue sabiendo la contraseña ("pre-secuestro" de la cuenta). El diseño lo
+    cubre, en la parte 6, punto 8.
+  - **Requisito previo:** un dominio propio verificado en Resend. Con el de pruebas, los correos no llegan a
+    los clientes.
+- **Al cerrarlo, cerrar también H6:** con sesión, el checkout debe usar el email verificado de la cuenta en
+  vez del que se teclee.
 
-### H9 · ALTA · CORREGIDO (24 sep 2026) · Con la clave pública se leían todos los pedidos
+### H9 · ALTA · CERRADO (24 sep 2026, commit `50b03d5`; aplicado en la base de datos ese día) · Con la clave pública se leían todos los pedidos
 
 - **El fallo:** la política RLS `"Admins pueden ver todos los pedidos"` de `pedidos` era `SELECT` para el rol
   `public` con `USING (true)`: pese al nombre, no comprobaba nada. Con la clave pública (`anon`), cualquiera
@@ -875,6 +1436,415 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
     AND lower(cliente_info->>'email') IN (SELECT lower(email) FROM clientes);
   ```
   Tiene que salir vacía.
+
+### H21 · MEDIA · CERRADO EN LA RAMA (28 sep 2026, `870d031`; sin desplegar) · Cambiar la contraseña no cerraba las demás sesiones
+
+- **El fallo:** `perfil-update` permite cambiar el email y la contraseña (la revisión suponía que el email no).
+  Con las sesiones largas del bloque 3b, alguien que cambiara la contraseña porque sospecha que se la han
+  robado dejaría abiertas las sesiones de quien la robó: su refresh token seguiría rotando siete días más.
+- **Arreglo:**
+  - al cambiar la contraseña o el email se revocan todos los refresh tokens de la cuenta, antes de guardar
+    el cambio;
+  - la sesión que hace el cambio recibe un refresh token nuevo, en una familia nueva;
+  - cambiar solo el nombre no revoca nada.
+- **Tests:** 4 en `refreshTokens.test.js`: contraseña, email, solo el nombre, y contraseña actual incorrecta.
+  Las sesiones de otras cuentas no se tocan.
+- **Queda un hueco hasta 1 hora:** el access token que ya tuviera quien robó la contraseña sigue valiendo
+  hasta que caduque, porque `verificarToken` no consulta la base de datos. Es el riesgo aceptado del diseño
+  (sección 2, "Migración a los tokens de 7 días"), ahora acotado a 1 hora en vez de 7 días.
+
+### H22 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · La CSP no permitía la hoja de estilos de Google Sign-In
+
+- **Síntoma** (visto en el smoke test del 26 sep y vuelto a leer el 28 en producción): en `/login`, la consola
+  dice que cargar la hoja de estilos `https://accounts.google.com/gsi/style` viola `style-src 'self'
+  'unsafe-inline' https://fonts.googleapis.com`. Hoy la política es report-only y solo sale el aviso. En
+  enforcing, el botón "Continuar con Google" se quedaría sin estilos.
+- **No es un estilo inline**, como suponía la revisión: es una hoja de estilos externa (un `<link>` que añade
+  la librería de Google), y `style-src` ya tenía `'unsafe-inline'`. Un nonce autoriza bloques inline, no
+  archivos de otro origen, así que no arreglaría nada.
+- **Arreglo:** añadir a `style-src` la URL exacta que documenta Google para su botón (`/gsi/style`), no todo
+  `accounts.google.com`. Las otras tres directivas que pide Google (`script-src`, `frame-src` y `connect-src`)
+  ya estaban cubiertas, porque permiten el origen entero.
+- **Test:** `client/src/cspVercel.test.js` lee `vercel.json` y comprueba las cuatro URLs de Google. Antes del
+  arreglo fallaba justo el de `style-src`.
+- **Queda por ver en producción:** la CSP solo la aplica Vercel, así que no hay forma de comprobarla en local.
+  Tras el deploy, `/login` no debería tener ningún aviso de CSP en la consola.
+- **Cómo comprobarlo tras el deploy, y qué hacer si sale un aviso (H22b):** sección 4.1 de
+  `docs/verificacion-3b.md`.
+
+### H23 · MEDIA · PARCIAL (28 sep 2026: 8 de 15 arregladas; las 7 que quedan piden un salto de versión mayor) · Vulnerabilidades conocidas en las dependencias del cliente
+
+- **`npm audit`, 28 sep 2026:**
+  - **servidor: 0 vulnerabilidades;**
+  - **cliente: 15** (1 crítica, 6 altas, 7 moderadas y 1 baja).
+- **Arreglo del 28 sep (con permiso):** `npm audit fix` en `client/`, sin `--force`. Solo cambia
+  `package-lock.json`, siempre dentro de la misma versión mayor. `package.json` no cambia. Quedan 7 (1 crítica,
+  1 alta y 5 moderadas).
+- **Revisión una a una de las 15:**
+
+  | Paquete | Gravedad | ¿Llega al navegador? | Estado |
+  |---|---|---|---|
+  | `react-router-dom` 6.30.3 → 6.30.6, `react-router` igual | moderada | sí | **Arreglado lo principal:** el "open redirect leading to XSS" (6.30.2 a 6.30.5). **Quedan dos avisos que exigen la v7** (abajo) |
+  | `@remix-run/router` 1.23.2 → 1.23.4 | moderada | sí | Arreglado (redirect a una ruta que empieza por `//`) |
+  | `@babel/core` 7.29.0 → 7.29.7 | baja | no (build) | Arreglado |
+  | `baseline-browser-mapping` 2.10.29 → 2.11.26 | moderada | no (build) | Arreglado |
+  | `brace-expansion` 1.1.14 → 1.1.21 | alta | no (lint) | Arreglado |
+  | `browserslist` 4.28.2 → 4.29.2 | alta | no (build) | Arreglado |
+  | `js-yaml` 4.1.1 → 4.3.2 | alta | no (lint) | Arreglado |
+  | `nanoid` 3.3.12 → 3.3.19 | alta | no (build, vía `postcss`) | Arreglado |
+  | `postcss` 8.5.14 → 8.5.28 | alta | no (build) | Arreglado |
+  | `vitest` 2.1.9 | **crítica** | no (tests) | **Sin tocar: exige vitest 5** |
+  | `@vitest/mocker`, `vite-node` | moderadas | no (tests) | **Sin tocar: van con vitest 5** |
+  | `vite` 5.4.21 | alta | no (servidor de desarrollo) | **Sin tocar: exige vite 8** |
+  | `esbuild` | moderada | no (servidor de desarrollo) | **Sin tocar: va con vite 8** |
+
+- **Los dos avisos de React Router que quedan** (los dos piden `react-router` 7.18, versión mayor):
+  - **Open redirect con una barra invertida en `<Link>` y `useNavigate`** (GHSA-wrjc-x8rr-h8h6). Solo se
+    explota si el destino lo controla un atacante. Hoy todos los destinos de la app son rutas fijas
+    (`/catalogo`, `/mueble/<id>`, `/cuenta`, `/login`, `/sobre-nosotros`...), y el nombre de categoría va en la
+    query, no al principio de la ruta. **No es explotable hoy.** Regla hasta la v7: no pasar a `navigate` ni a
+    `<Link>` una ruta sacada de la URL (por ejemplo, un futuro `?volver=`) sin validarla.
+  - **Inyección en `deserializeErrors()` al hidratar con SSR** (GHSA-337j-9hxr-rhxg). La app es una SPA con
+    `BrowserRouter`, sin SSR ni `hydrationData`. **No aplica.**
+- **Lo de desarrollo** (vitest, vite, esbuild) no llega a producción:
+  - la crítica de `vitest` solo se da con su servidor de UI escuchando (`vitest --ui`), y no se usa;
+  - lo de `vite` y `esbuild` afecta al servidor de desarrollo (`npm run dev`) mientras está arrancado.
+- **Tarea aparte (sin hacer): react-router 7, vite 8 y vitest 5.** Son tres saltos de versión mayor, con cambios
+  de API, y necesitan su propio gate. Al subir vitest, `@vitest/coverage-v8` tiene que subir a la misma
+  versión (tarea 7).
+- **Comprobado:** gate completo (servidor 294/294, cliente 325/325, lint y formato limpios) y `vite build` sin
+  errores.
+- **Aviso para la próxima vez:** `npm audit fix` actualizó `package-lock.json` pero no los archivos de
+  `node_modules`, porque el lockfile oculto (`node_modules/.package-lock.json`) ya decía que estaban las
+  versiones nuevas. Se vio porque `npm ls` y el `package.json` del paquete no coincidían. Se arregló
+  apartando ese archivo y con `npm install`. El gate se pasó después, con las versiones nuevas en disco.
+- **El CI las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
+
+### H24 · MEDIA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
+
+- **Arreglo (29 sep, opción 1):** el panel reduce las fotos en el navegador antes de subirlas.
+  - `client/src/utils/imagen.js`:
+    - `redimensionarImagen` decodifica la foto con `createImageBitmap`, que aplica la rotación del EXIF. Si no
+      existe, usa `<img>` con `decode()`;
+    - la redibuja en un canvas a **1920 px de lado mayor** y la recomprime con **calidad 0,85**: en JPEG, o en
+      WebP si puede tener transparencia (PNG, WebP o GIF), porque en JPEG lo transparente saldría negro;
+    - una foto de menos de 500 KB y de 1920 px se sube tal cual.
+  - **Nunca impide subir una foto:** si el navegador no la sabe leer (HEIC en Chrome), no tiene las APIs, o
+    reducirla no la aligera, se sube la original, como antes.
+  - **Red de seguridad, `prepararFotos`:** si, ya reducidas, las fotos de un envío pasan de **4 MB** (los 4,5 de
+    Vercel menos margen para el resto del formulario), se reducen otra vez desde los originales, a 1600 px y
+    calidad 0,7. Si ni así caben, el panel **no manda nada** y explica cuánto pesan y cuál es el máximo, en vez
+    del "no se pudo guardar" sin motivo. Con 5 fotos con mucho detalle, 1920 px y 0,85 podían acercarse a los
+    4,5 MB, así que el tope no se dejaba a la suerte.
+  - **Integrado en los cuatro formularios que suben fotos:** "Añadir mueble", el modal de edición de mueble, "Crear
+    categoría" y el modal de edición de categoría. El plan nombraba los dos primeros, pero en los de categoría
+    una sola foto de móvil ya puede pasar del límite.
+  - **Mientras reduce,** el mensaje del formulario dice "Optimizando imagen..." con una foto, u "Optimizando
+    imágenes... 2/3" con varias. Luego vuelve al de siempre ("Guardando producto...") y el botón sigue
+    desactivado.
+  - **De paso:** redibujar en un canvas quita los metadatos EXIF, incluida la ubicación GPS de los móviles.
+    `sharp` ya los quitaba en el servidor; ahora ni siquiera salen del navegador.
+- **Corregido tras la revisión del 29 sep:** `createImageBitmap` existe desde Chrome 50 y Safari 15, pero el valor
+  `imageOrientation: 'from-image'` solo desde Chrome 112, Firefox 111 y Safari 16 (datos de compatibilidad de MDN).
+  En los anteriores, por ejemplo un iPhone que se ha quedado en iOS 15, la llamada se rechaza. Antes eso se
+  tomaba por "no se puede leer" y no se reducía ninguna foto. Ahora se prueba entonces con `<img>`.
+- **Desviación del plan:** si no hay `createImageBitmap` (o no acepta la opción), se usa `<img>` con
+  `decode()`, no con `onload`.
+  `decode()` devuelve una promesa que falla si la imagen no se puede leer. `onload` puede no llegar nunca (en
+  jsdom no llega) y dejaría el guardado colgado. Todos los navegadores con `decode()` cubren a los que no tienen
+  `createImageBitmap` (Safari 11.1 a 14).
+- **Tests:**
+  - 29 unitarios en `utils/imagen.test.js`, con un navegador simulado: `createImageBitmap` y el canvas;
+  - 7 de integración en `pages/Admin.fotos.test.jsx`:
+    - tres fotos de 6 MB llegan a `createMueble` reducidas, por debajo del límite;
+    - los mensajes 1/3, 2/3 y 3/3;
+    - un segundo envío mientras reduce no crea otro mueble;
+    - si no caben, no se manda nada;
+    - las fotos nuevas del modal de mueble y las de los dos formularios de categoría;
+  - **los tests de caracterización del panel no se han tocado y siguen pasando:** en jsdom no se puede
+    decodificar, así que ahí las fotos (de 1 byte) se suben tal cual.
+  - 8 fallos plantados en la integración y en `imagen.js`, todos detectados;
+  - la mutación del panel (`categorias`, `crear` y `modales`, con los 4 mutantes repuntados al código nuevo):
+    53 muertos y el superviviente esperado de siempre (caso B).
+- **Queda por ver en un navegador de verdad:** subir desde el panel, con sesión de administrador, 3 fotos de
+  móvil. Es parte del check del panel con sesión que tiene pendiente el usuario.
+
+**El hallazgo, tal y como se anotó el 28 sep:**
+
+- **Qué pasa:** crear o editar un mueble manda todas sus fotos (hasta 5) en una sola petición a `nave5-api`.
+  - Vercel corta cualquier petición a una función de más de **4,5 MB en total**, y responde él mismo con un 413
+    `FUNCTION_PAYLOAD_TOO_LARGE`, en HTML y no en JSON ("Request body size" en la documentación de límites de
+    Vercel Functions);
+  - el cliente no reduce las fotos antes de subirlas: no hay ningún `canvas` ni `toBlob` en `client/src`;
+  - multer permite 5 MB **por archivo** (`server/src/utils/upload.js`), pero en producción nunca llega a
+    aplicarse, porque el límite de Vercel salta antes y es por petición;
+  - `sharp` reduce las fotos a 1 600 px, pero en el servidor, después de recibirlas.
+- **Efecto:** dos o tres fotos hechas con el móvil (2-4 MB cada una) ya pueden pasar de 4,5 MB. El panel dice solo
+  que no se pudo guardar, sin el motivo, porque el contrato A de `api.js` pierde el mensaje (H12). Y aunque no lo
+  perdiera, la respuesta de Vercel no es JSON.
+- **No se ha reproducido en producción:** sale de leer el código y los límites documentados de Vercel. Tampoco
+  consta que el administrador haya tenido este problema.
+- **Opciones para arreglarlo:**
+  1. **Reducir cada foto en el navegador** antes de subirla (`canvas` y `toBlob`, a unos 1 600 px, igual que
+     `sharp`). Es el cambio más pequeño, y además acelera la subida.
+  2. **Subir las fotos directamente a Supabase Storage** desde el navegador, con una URL firmada que dé el
+     servidor. Quita el límite del todo, pero es más trabajo.
+  3. **Como mínimo:** que el panel avise antes de enviar si las fotos pasan de 4 MB en total, y que multer
+     responda 400 con el motivo.
+
+### H25 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · La cesta no avisaba de "pieza única" al añadirla por segunda vez
+
+- **Encontrado** al escribir los tests de `CartContext` (fase 2, cobertura del cliente), que no tenía ninguno.
+- **Qué pasaba:**
+  - añadir a la cesta una pieza que ya estaba (desde la ficha o la vista rápida) decía "Producto añadido a la
+    cesta." y abría la cesta, en vez de "solo hay 1 unidad disponible". La pieza no se duplicaba: solo el aviso
+    estaba mal;
+  - el botón "+" de una línea de la cesta no avisaba de nada.
+- **Por qué:** `addToCart` y `updateQuantity` decidían qué aviso dar con una variable que se rellenaba *dentro*
+  de la función que se pasa a `setCartItems`. React solo ejecuta esa función al momento cuando el componente no
+  tiene actualizaciones pendientes. Tras la primera, ya no las tenía libres, así que la función se ejecutaba
+  después, al pintar, cuando el aviso ya se había decidido.
+- **Arreglo:** el aviso se decide con la cesta del render actual, antes de llamar a `setCartItems`. La función
+  de `setCartItems` lo vuelve a comprobar, por si llegaran dos clics antes de volver a pintar.
+- **Tests:** `client/src/context/CartContext.test.jsx` (18). Con el código anterior fallan justo los 2 de este
+  caso: añadir dos veces y el "+". Usan React de verdad (`renderHook`), así que el comportamiento es el mismo
+  que en el navegador, aunque no se ha visto en él.
+
+## Auditoría de seguridad pasiva (fase 6, 29 sep 2026)
+
+Solo lectura: no se ha cambiado código. Las respuestas a las cinco preguntas de la revisión y los hallazgos
+nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
+
+1. **¿Algún endpoint público devuelve más de lo necesario?** Sí, poca cosa y nada sensible hoy: **H26**.
+   - Todas las lecturas públicas usan `select('*')`: `GET /api/muebles`, `/api/muebles/:id`,
+     `/api/muebles/buscar` y `/api/categorias`. Hoy no sobra nada: se comprobaron las columnas reales con una
+     consulta de solo lectura. `muebles` tiene id, nombre, categoria, descripcion, los dos precios,
+     disponible, imagenes, created_at, estado y categoria_id; `categorias`, id, nombre, imagen_url y
+     categoria_padre_id.
+   - `GET /api/categorias` sí devuelve algo que la web pública no usa: las estadísticas del panel (vendidos,
+     alquilados y valor del catálogo).
+   - El login, el registro, Google y el perfil devuelven del usuario solo `nombre`, `email` y `rol`, nunca el
+     hash de la contraseña. `confirmar-sesion` devuelve `success`, un mensaje y el total.
+2. **¿Los errores 4xx/5xx devuelven detalles internos?** No. Es la auditoría de H3 (28 sep), repetida hoy con
+   el mismo resultado:
+   - todas las respuestas de error llevan un texto fijo;
+   - solo dos devuelven el `.message` de un error, y en los dos casos es un `ErrorValidacion` pensado para
+     enseñarse;
+   - el detalle de los errores de Supabase, Stripe y Resend queda en el log.
+
+   Los tests nuevos de la fase 3 (`controladoresErrores.test.js` e `indexHttpsYErrores.test.js`) comprueban
+   que los 500 no dejan ver nada interno.
+3. **¿Están protegidas todas las rutas de administración?** Sí.
+   - **Con `verificarAdmin`:** crear, editar y borrar muebles y categorías; listar pedidos y cambiar su
+     estado.
+   - **Con `verificarToken` (solo la cuenta propia):** `GET /api/pedidos/mios` y `POST /api/auth/perfil-update`.
+   - **En el cliente,** `/admin` va dentro de `ProtectedRoute adminOnly`. Aun así, el pie de página enseña el
+     enlace "Panel Admin" a quien no ha iniciado sesión: **H30**, informativo.
+   - Los tests: `middlewareAuth.test.js` (403 a un cliente y 401 sin sesión o con un token caducado,
+     falsificado o que no es un JWT), y las comprobaciones de 401/403 de cada controlador.
+4. **¿Hay algún `console.log` con datos sensibles?**
+   - En ningún log salen tokens, contraseñas ni claves;
+   - los refresh tokens solo aparecen por su `family_id`, que por sí solo no da acceso;
+   - en el cliente no hay ningún `console.log` con datos.
+   - **Datos personales sí, pero solo en el modo de simulación de los correos** (sin `RESEND_API_KEY`):
+     **H27**.
+5. **¿Los límites de peticiones cubren las escrituras?**
+   - **Cubiertas:**
+     - con límite: login, registro, Google, el contacto y `confirmar-sesion`;
+     - protegidas de otra forma: las escrituras del panel (piden sesión de administrador), `refresh` y
+       `logout` (un refresh token de 32 bytes no se adivina) y el webhook (firma de Stripe).
+   - **Sin cubrir:**
+     - **H28:** `perfil-update` comprueba la contraseña actual sin límite de intentos;
+     - **H29:** `crear-sesion-pago` crea sesiones de Stripe sin límite.
+
+### H26 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Los endpoints públicos devolvían más de lo que usa la web
+
+- **Arreglo (29 sep 2026):**
+  - **Muebles:** `GET /api/muebles`, `/api/muebles/buscar` y `/api/muebles/:id` piden solo
+    `COLUMNAS_PUBLICAS_MUEBLE` (`mueblesController.js`), que son las que usan la web y el panel: `id`,
+    `nombre`, `categoria`, `descripcion`, `precio_venta`, `precio_alquiler_dia`, `imagenes` y `estado`.
+    - Ya no salen `disponible` (se deriva de `estado`), `created_at` (solo sirve para ordenar, y ordenar no
+      necesita devolverla) ni `categoria_id` (la web usa `categoria`).
+    - Cuando cierre la migración A y la web pase a `categoria_id`, habrá que añadirla a la lista a mano.
+  - **Categorías, lectura pública:** `GET /api/categorias` devuelve solo `id`, `nombre`, `imagen_url` y
+    `categoria_padre_id`, sin estadísticas. Ya no lee todos los muebles en cada visita.
+  - **Categorías con estadísticas:** en una ruta nueva, `GET /api/admin/categorias/con-stats`
+    (`routes/adminRoutes.js`, con `verificarAdmin`), con `Cache-Control: private, no-store`. Los muebles se
+    leen solo con las columnas que entran en las cuentas.
+  - **El panel no cambia:** sigue llamando a `getCategorias({ fresco: true })`, que en `api.js` ahora va a la
+    ruta de administración con la sesión (`apiFetch`). Así los tests de caracterización del panel, que
+    simulan `getCategorias`, no se tocan.
+- **Tests:**
+  - `columnasPublicas.test.js` (4):
+    - con dos columnas inventadas en la tabla (`precio_compra`, `proveedor`), las tres lecturas públicas de
+      muebles no las devuelven;
+    - con el cliente real de supabase-js, lo que llega a PostgREST en `select` es la lista explícita, también
+      en categorías;
+  - `categoriasController.test.js`:
+    - la lectura pública: solo las cuatro columnas, ni una nueva, sin leer los muebles, ordenada y
+      cacheable;
+    - la de administración: 401 sin sesión y 403 a un cliente, las estadísticas de siempre (movidas de la
+      pública), sin caché y 500 genérico;
+  - `api.test.js`: el test de `getCategorias({ fresco: true })` se cambia a propósito (marcado "CAMBIADO CON
+    H26") para la ruta nueva.
+  - `fakeSupabase` aplica ahora la lista de columnas de `select()`, como PostgREST. Los 341 tests del
+    servidor siguieron pasando con ese cambio.
+
+  Fallos plantados, todos detectados (6): volver a '*' en muebles y en categorías, añadir una columna a la
+  lista, poner las estadísticas en la ruta pública, quitar `verificarAdmin` de la nueva y cachearla como
+  pública.
+
+**El hallazgo, tal y como se anotó:**
+
+- **`select('*')` en todas las lecturas públicas** de `mueblesController.js` (`obtenerMuebles`,
+  `obtenerMueblePorId` y `buscarMuebles`) y de `categoriasController.js` (`obtenerCategorias`). Hoy las tablas
+  no tienen ninguna columna privada. Pero si mañana se añade una a `muebles`, por ejemplo un precio de compra,
+  el proveedor o notas internas, saldrá al público sin que nadie lo decida.
+- **`GET /api/categorias` es público y devuelve las estadísticas del panel.** Cada categoría lleva
+  `stats: { totalProductos, disponibles, vendidos, alquilados, valorTotalVenta }`, y fuera del panel no las
+  usa nadie (solo `CategoriasTab.jsx`). Hoy son deducibles de `/api/muebles`, que ya enseña el estado y el
+  precio de cada pieza, incluidas las vendidas: por eso la gravedad es baja. Además, para calcularlas se leen
+  todos los muebles en cada petición pública.
+- **Arreglo propuesto (sin hacer):**
+  - lista explícita de columnas en cada `select` público;
+  - las estadísticas, en una ruta aparte con `verificarAdmin` (o solo con sesión de administrador), fuera de
+    la caché pública de la CDN.
+
+### H27 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Datos personales en el log cuando los correos estaban en modo simulación
+
+- **Arreglo (29 sep 2026):** en `server/src/utils/email.js`, los cinco correos en modo simulación (aviso de
+  venta, confirmación al cliente, bienvenida, contacto y alerta al administrador) pasan por
+  `registrarSimulacion`. Esta escribe una sola línea, `[email simulado omitido: falta RESEND_API_KEY,
+  contenido con datos personales] (<qué correo>)`, sin ningún dato.
+- **`EMAIL_DEBUG_DATOS=true`**, solo para depurar en local, vuelve a escribir el contenido, pero nunca con
+  `NODE_ENV=production`. Se lee en cada llamada. Documentada en `docs/env-vars.md`, `server/.env.example` y el
+  README.
+- **Sigue en pie** que `RESEND_API_KEY` tiene que estar en producción: sin ella, los clientes no reciben
+  ningún correo. Lo comprueba el usuario (no se ha mirado desde aquí).
+- **Tests:** `emailSimulacion.test.js` (15), cambiado a propósito (antes comprobaba que el log decía
+  "SIMULACIÓN" y escribía el contenido):
+  - para cada una de las cinco funciones, el log no lleva el nombre, el email, el teléfono, la dirección ni
+    las notas del comprador, y es una sola línea;
+  - con `EMAIL_DEBUG_DATOS=true` en desarrollo, sí; en producción, no; con otro valor que "true", no.
+
+  Fallos plantados, todos detectados (4): escribir siempre los datos, ignorar la producción, aceptar
+  cualquier valor en la variable y un correo que vuelve a escribir el nombre.
+
+**El hallazgo, tal y como se anotó:**
+
+- **Dónde:** `server/src/utils/email.js`. Sin `RESEND_API_KEY`, en vez de enviar los correos se escriben en
+  el log:
+  - el pedido entero (nombre, email, teléfono, dirección y notas del comprador), en la notificación de venta
+    y en la confirmación al cliente;
+  - el email y el nombre de las cuentas nuevas;
+  - los mensajes del formulario de contacto;
+  - los detalles de las alertas al administrador (comprador, teléfono y dirección).
+- **Cuándo pasa:** solo si falta la variable. En local es lo esperado y no importa. En producción, los logs de
+  Vercel se guardarían con esos datos, y cualquiera con acceso al proyecto los vería.
+- **Qué comprobar:** que `RESEND_API_KEY` está en las variables de producción de `nave5-api`. No se ha mirado
+  desde aquí: las variables las gestiona el usuario.
+- **Arreglo propuesto (sin hacer):** en modo simulación, escribir solo que se habría enviado un correo, y a
+  qué tipo de destinatario, sin los datos.
+
+### H28 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · `perfil-update` comprobaba la contraseña actual sin límite de intentos
+
+- **Arreglo (29 sep 2026):** `limitadorPerfil` en `server/src/routes/authRoutes.js`, después de
+  `verificarToken`.
+  - **10 intentos fallidos cada 15 minutos por cuenta,** no por IP. Solo cuentan los que fallan (una
+    contraseña incorrecta, un cuerpo no válido...): cambiar solo el nombre no gasta nada.
+  - **Al llegar al límite,** responde 429 con "Demasiados intentos con una contraseña incorrecta. Espera 15
+    minutos antes de volver a intentarlo.", también con la contraseña buena, hasta que pase la ventana.
+  - **La clave es el id de la cuenta.** Para eso, el access token lleva ahora `sub` (el id, el campo estándar
+    de JWT). Los tokens firmados antes no lo llevan, y en ellos se usa el email, que también identifica la
+    cuenta. Esos tokens desaparecen solos en 7 días como mucho.
+  - **Log:** cada contraseña incorrecta deja "perfil-update: contraseña actual incorrecta (cuenta <id>)", y el
+    límite, "límite de intentos alcanzado (cuenta:<id>)". Nunca la contraseña.
+  - **Alcance:** como los demás límites, vive en la memoria de cada instancia de Vercel (H4). Frena la fuerza
+    bruta, pero no es un tope global.
+- **Tests:** `server/src/__tests__/perfilLimite.test.js` (7):
+  - 10 fallos dan 401, el 11 da 429 con el mensaje, y el 12, con la contraseña buena, también 429;
+  - el límite es por cuenta: desde la misma IP, otra cuenta sigue pudiendo;
+  - cambiar el nombre no gasta intentos;
+  - un token sin `sub` se reconoce por el email;
+  - el token del login lleva `sub`;
+  - los avisos del log llevan el id y nunca la contraseña.
+
+  Fallos plantados, todos detectados: sin limitador, la clave por IP, contar también los que van bien, límite
+  de 20, sin `sub` en el token y sin el aviso de cada fallo.
+
+**El hallazgo, tal y como se anotó:**
+
+- **Dónde:** `POST /api/auth/perfil-update` (`authRoutes.js`) no lleva `limitadorAuth`, y `actualizarPerfil`
+  compara con bcrypt la contraseña actual que se le mande.
+- **El riesgo:**
+  - alguien que tenga una sesión robada (1 hora de access token, o la duración del refresh token si se ha
+    llevado también ese) puede probar contraseñas sin límite hasta dar con la buena;
+  - con ella cambia el email y la contraseña, y con H21 eso además cierra las demás sesiones: la persona queda
+    fuera de su propia cuenta;
+  - el coste de bcrypt (10) lo frena, pero no lo para con una contraseña débil.
+- **Hace falta una sesión válida antes,** y por eso la gravedad es baja.
+- **Arreglo propuesto (sin hacer):** un limitador para `perfil-update` que cuente solo los intentos con
+  contraseña incorrecta (`skipSuccessfulRequests`, como el de login), por cuenta y no solo por IP.
+
+### H29 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · `crear-sesion-pago` no tenía límite de peticiones
+
+- **Arreglo (29 sep 2026):** dos limitadores en `POST /api/muebles/crear-sesion-pago`
+  (`server/src/routes/mueblesRoutes.js`). Los dos cuentan todas las llamadas, también las que van bien,
+  porque son las que crean sesiones en Stripe:
+  - **por IP:** 20 cada 15 minutos. Va antes de validar, así que también cuenta el spam mal formado;
+  - **por email del comprador**, si viene en `clienteInfo.email`: 10 cada 15 minutos. Va después de validar, y
+    el email se normaliza (sin espacios y en minúsculas) para que cambiar las mayúsculas no dé un contador
+    nuevo. Sin email, solo se aplica el de IP.
+  - **Al llegar a cualquiera de los dos,** responde 429 con "Demasiados intentos de pago seguidos. Espera unos
+    minutos antes de volver a intentarlo.", que el checkout enseña tal cual (contrato B de `api.js`).
+  - **No se escribe el email en el log al bloquear:** sería un dato personal (H27).
+  - **Alcance:** como los demás, por instancia de Vercel (H4).
+- **Tests:**
+  - `pagoLimiteIp.test.js` (2): 20 pasan, el 21 da 429 y ya no llega a Stripe; una petición mal formada
+    también queda bloqueada;
+  - `pagoLimiteEmail.test.js` (5), con una IP distinta por test (`trust proxy` como en Vercel):
+    - 10 con el mismo email en distintas mayúsculas pasan, y el 11 da 429;
+    - el bloqueo sigue al email, no a la IP;
+    - otro email desde la misma IP sí pasa;
+    - sin email no hay límite por email;
+    - las peticiones que no pasan la validación no gastan el límite.
+
+  Los tests de pago que ya había (`crearSesionPago`, `confirmarSesion`) siguen por debajo de los dos límites.
+  Fallos plantados, todos detectados (8): sin cada limitador, el email sin minúsculas o sin recortar, el
+  límite por email antes de validar, el de IP después, y los dos límites más altos.
+
+**El hallazgo, tal y como se anotó:**
+
+- **Dónde:** `POST /api/muebles/crear-sesion-pago` es público (se puede comprar como invitado) y cada llamada:
+  - lee el catálogo;
+  - crea una sesión de Checkout en Stripe.
+
+  No tiene limitador (`confirmar-sesion`, en cambio, sí).
+- **El riesgo:** alguien que la llame en bucle gasta el límite de peticiones de la API de Stripe de la cuenta,
+  y eso podría hacer fallar el pago a compradores reales. Carga, además, la base de datos. Stripe no cobra por
+  las sesiones que no se pagan.
+- **Arreglo propuesto (sin hacer):** un limitador generoso, por ejemplo 20 cada 15 minutos por IP, como el de
+  `confirmar-sesion`. Con el alcance real de H4: el límite es por instancia de Vercel.
+
+### H30 · INFORMATIVO · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · El pie de página enseñaba "Panel Admin" a quien no había iniciado sesión
+
+- **Arreglo (29 sep 2026):** en `client/src/components/Footer.jsx`, el enlace "Panel Admin" solo sale con
+  `user?.rol === 'admin'`. Antes la condición era `!user || user.rol === 'admin'`.
+- **Tests:** en `Footer.test.jsx`, el test que fijaba el comportamiento anterior se cambia a propósito (marcado
+  "CAMBIADO CON H30"), y se añade el de un usuario sin rol:
+  - sin sesión, no está;
+  - con sesión de cliente o sin rol, tampoco;
+  - con administrador, sí.
+
+  Con la condición anterior, falla el de sin sesión.
+
+**El hallazgo, tal y como se anotó:**
+
+- **Dónde:** `client/src/components/Footer.jsx`, con la condición `(!user || user.rol === 'admin')`.
+- **No abre nada:** `/admin` está protegida en el cliente (`ProtectedRoute adminOnly`) y en el servidor
+  (`verificarAdmin`). Pero anuncia a cualquier visitante que hay un panel y dónde está.
+- **Arreglo propuesto (sin hacer):** enseñarlo solo con `user?.rol === 'admin'`. El comportamiento de hoy
+  está fijado en `Footer.test.jsx`, con un test que dice que se cambia con ello.
 
 ## Decisiones de diseño a recordar
 

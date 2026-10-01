@@ -219,10 +219,11 @@ describe('Navegación — categoría preseleccionada de "Añadir mueble" (casos 
   });
 });
 
-describe('Navegación — un solo mensaje de estado para todos los formularios (H14)', () => {
-  it('el error de guardar en el modal de edición aparece después debajo de "Añadir mueble"', async () => {
-    // CARACTERIZACIÓN: comportamiento actual discutible (H14): `status` es uno para todo el panel,
-    // no se limpia en los fallos y solo se pinta en "Añadir mueble".
+describe('Navegación — cada formulario tiene su propio mensaje de estado (H14)', () => {
+  it('el error de guardar en el modal de edición sale en el modal, y no debajo de "Añadir mueble"', async () => {
+    // CAMBIADO A PROPÓSITO CON EL ARREGLO DE H14 (28 sep 2026). Hasta entonces este test era de
+    // caracterización y fijaba lo contrario: `status` era uno para todo el panel y este error
+    // aparecía después debajo de "Añadir mueble".
     updateMueble.mockResolvedValue(null);
     const { user } = await abrirPanel();
     await irAPestana(user, 'Gestionar Inventario');
@@ -230,10 +231,11 @@ describe('Navegación — un solo mensaje de estado para todos los formularios (
     await user.click(within(fila).getByRole('button', { name: 'Editar' }));
     await user.click(screen.getByRole('button', { name: 'Guardar Cambios' }));
     await waitFor(() => expect(updateMueble).toHaveBeenCalledTimes(1));
+    expect(within(document.querySelector('.admin-modal-content')).getByText('Error al actualizar.')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cerrar' }));
 
     await irAPestana(user, 'Añadir Mueble');
 
-    expect(screen.getByText('Error al actualizar.')).toBeInTheDocument();
+    expect(screen.queryByText('Error al actualizar.')).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 const { enviarEmailBienvenida } = require('../utils/email');
+const refreshTokens = require('../utils/refreshTokens');
 
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
@@ -18,13 +19,37 @@ const googleClient = process.env.GOOGLE_CLIENT_ID
 // que queda en este archivo son las reglas que dependen de la base de datos (email duplicado,
 // contraseña actual correcta...), que Zod no puede comprobar por sí solo.
 
-// Firma un token de sesión (válido 7 días) con los datos mínimos del usuario
+// Firma el access token (válido 1 hora) con los datos mínimos del usuario. La sesión dura más
+// gracias al refresh token (utils/refreshTokens.js), que se rota en /api/auth/refresh. Los tokens
+// de 7 días firmados antes de este cambio siguen valiendo hasta que caduquen solos (opción 1 del
+// diseño): verificarToken no cambia.
+// `sub` es el id de la cuenta (el campo estándar de JWT para "de quién es"): lo usa el límite de
+// intentos de perfil-update (H28). Los tokens firmados antes no lo llevan; ahí se usa el email.
 const firmarToken = (usuario) => {
   return jwt.sign(
-    { email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
+    { sub: usuario.id, email: usuario.email, nombre: usuario.nombre, rol: usuario.rol },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1h' }
   );
+};
+
+// Refresh token de una sesión nueva. Si falta REFRESH_TOKEN_HASH_SECRET (configuración
+// incompleta), el inicio de sesión sigue funcionando sin refresh token: la sesión dura como mucho
+// lo que el access token (1 hora), y se pierde al recargar la página, porque el cliente guarda ese
+// token solo en memoria. Se registra el error para que se note. Cualquier otro fallo se propaga.
+const emitirRefresh = async (usuario, req) => {
+  try {
+    const { token } = await refreshTokens.emitir(usuario.id, {
+      meta: refreshTokens.metadatos(req)
+    });
+    return token;
+  } catch (error) {
+    if (error instanceof refreshTokens.SecretoNoConfigurado) {
+      console.error(`${error.message} Se inicia sesión sin refresh token.`);
+      return null;
+    }
+    throw error;
+  }
 };
 
 // 1. REGISTRO DE NUEVOS CLIENTES
@@ -67,6 +92,7 @@ const registrarCliente = async (req, res) => {
     enviarEmailBienvenida(nuevoUsuario[0].email, nuevoUsuario[0].nombre);
 
     const token = firmarToken(nuevoUsuario[0]);
+    const refreshToken = await emitirRefresh(nuevoUsuario[0], req);
 
     res.status(201).json({
       success: true,
@@ -76,7 +102,8 @@ const registrarCliente = async (req, res) => {
         email: nuevoUsuario[0].email,
         rol: nuevoUsuario[0].rol
       },
-      token
+      token,
+      refreshToken
     });
   } catch (error) {
     console.error('Error en registro:', error.message);
@@ -111,8 +138,10 @@ const loginCliente = async (req, res) => {
       return res.status(401).json(CREDENCIALES_INVALIDAS);
     }
 
-    // Login exitoso: Devolvemos los datos limpios (sin la contraseña) + token de sesión
+    // Login exitoso: Devolvemos los datos limpios (sin la contraseña), el access token (`token`,
+    // el nombre de siempre) y el refresh token
     const token = firmarToken(usuario);
+    const refreshToken = await emitirRefresh(usuario, req);
 
     res.status(200).json({
       success: true,
@@ -121,7 +150,8 @@ const loginCliente = async (req, res) => {
         email: usuario.email,
         rol: usuario.rol
       },
-      token
+      token,
+      refreshToken
     });
   } catch (error) {
     console.error('Error en login:', error.message);
@@ -139,6 +169,7 @@ const actualizarPerfil = async (req, res) => {
 
     const estaCambiandoEmail = nuevoEmail && nuevoEmail !== emailActual;
     const estaCambiandoPassword = !!nuevaPassword;
+    let idUsuario = null; // solo se rellena si cambian el email o la contraseña (ver H21, abajo)
 
     // Solo verificar la contraseña si se está intentando cambiar email o contraseña
     if (estaCambiandoEmail || estaCambiandoPassword) {
@@ -162,8 +193,11 @@ const actualizarPerfil = async (req, res) => {
       // 2. Verificar la contraseña actual
       const contraseñaCorrecta = await bcrypt.compare(passwordActual, usuario.password);
       if (!contraseñaCorrecta) {
+        // H28: queda en el log quién lo intentó (el id de la cuenta), nunca la contraseña.
+        console.warn(`perfil-update: contraseña actual incorrecta (cuenta ${usuario.id}).`);
         return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
       }
+      idUsuario = usuario.id;
     }
 
     // 3. Preparar los campos a actualizar
@@ -191,6 +225,12 @@ const actualizarPerfil = async (req, res) => {
       updateFields.password = await bcrypt.hash(nuevaPassword, salt);
     }
 
+    // H21: cambiar la contraseña o el email cierra todas las sesiones de la cuenta (los refresh
+    // tokens de otras pestañas y dispositivos, y también el de esta). Se hace ANTES de guardar el
+    // cambio: si la revocación fallara, no se cambia nada. La sesión que hace el cambio recibe un
+    // refresh token nuevo (más abajo) para no quedarse fuera.
+    if (idUsuario) await refreshTokens.revocarTodasDelUsuario(idUsuario);
+
     // 5. Ejecutar la actualización en Supabase
     const { data: dataActualizada, error: updateError } = await supabase
       .from('clientes')
@@ -202,11 +242,18 @@ const actualizarPerfil = async (req, res) => {
       throw new Error(updateError?.message || 'Error al actualizar registro en base de datos');
     }
 
-    // Se firma un token nuevo porque el token de sesión lleva dentro el nombre/email/rol:
-    // si no se renueva aquí, el nombre o el email quedan desactualizados en la sesión y,
-    // si cambió el email, las peticiones autenticadas posteriores (p. ej. "Mis Pedidos")
-    // dejarían de encontrar nada porque seguirían buscando con el email antiguo.
+    // Se firma un access token nuevo (1 hora) porque lleva dentro el nombre/email/rol: si no se
+    // renueva aquí, el nombre o el email quedan desactualizados en la sesión y, si cambió el
+    // email, las peticiones autenticadas posteriores (p. ej. "Mis Pedidos") dejarían de encontrar
+    // nada porque seguirían buscando con el email antiguo. El cliente lo guarda en memoria.
+    // Si solo cambia el nombre, el refresh token no se toca (cada rotación ya vuelve a leer la
+    // cuenta) y la respuesta no trae `refreshToken`. Si cambiaron el email o la contraseña, las
+    // sesiones se han revocado arriba (H21) y `refreshToken` trae el de una sesión nueva (o null si
+    // falta REFRESH_TOKEN_HASH_SECRET).
     const token = firmarToken(dataActualizada[0]);
+    const sesionNueva = idUsuario
+      ? { refreshToken: await emitirRefresh(dataActualizada[0], req) }
+      : {};
 
     res.status(200).json({
       success: true,
@@ -216,7 +263,8 @@ const actualizarPerfil = async (req, res) => {
         email: dataActualizada[0].email,
         rol: dataActualizada[0].rol
       },
-      token
+      token,
+      ...sesionNueva
     });
   } catch (error) {
     console.error('Error al actualizar perfil:', error.message);
@@ -286,11 +334,13 @@ const loginConGoogle = async (req, res) => {
     }
 
     const token = firmarToken(usuario);
+    const refreshToken = await emitirRefresh(usuario, req);
 
     res.status(200).json({
       success: true,
       user: { nombre: usuario.nombre, email: usuario.email, rol: usuario.rol },
-      token
+      token,
+      refreshToken
     });
   } catch (error) {
     console.error('Error en login con Google:', error.message);
@@ -298,9 +348,82 @@ const loginConGoogle = async (req, res) => {
   }
 };
 
+// 5. RENOVAR LA SESIÓN (POST /api/auth/refresh)
+// Entrada: { refreshToken }. Salida: { accessToken, refreshToken }: el refresh SIEMPRE rota.
+// Los tres fallos (token que no existe, reuso y caducado) responden igual, con el mismo 401 y el
+// mismo texto: distinguirlos le confirmaría a quien llama que su token fue legítimo alguna vez.
+// El motivo solo va al log, nunca el token.
+const SESION_NO_VALIDA = { error: 'Sesión no válida, vuelve a iniciar sesión.' };
+const SESIONES_NO_DISPONIBLES = {
+  error: 'No se puede renovar la sesión ahora mismo. Inténtalo de nuevo en unos minutos.'
+};
+
+const refrescarSesion = async (req, res) => {
+  try {
+    const resultado = await refreshTokens.rotar(
+      req.body.refreshToken,
+      refreshTokens.metadatos(req)
+    );
+
+    if (!resultado.ok) {
+      if (resultado.motivo === 'reuso') {
+        console.warn(`Refresh: reuso detectado, familia ${resultado.familia} revocada entera.`);
+      } else {
+        console.warn(`Refresh rechazado: token ${resultado.motivo}.`);
+      }
+      return res.status(401).json(SESION_NO_VALIDA);
+    }
+
+    // Se lee la cuenta en cada rotación: si cambió el nombre o el rol desde el último login, el
+    // access token nuevo ya lo refleja.
+    const { data: usuario, error } = await supabase
+      .from('clientes')
+      .select('id, email, nombre, rol')
+      .eq('id', resultado.userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!usuario) {
+      await refreshTokens.revocarFamilia(resultado.familia);
+      console.warn(`Refresh rechazado: la cuenta ya no existe (familia ${resultado.familia}).`);
+      return res.status(401).json(SESION_NO_VALIDA);
+    }
+
+    res
+      .status(200)
+      .json({ accessToken: firmarToken(usuario), refreshToken: resultado.refreshToken });
+  } catch (error) {
+    if (error instanceof refreshTokens.SecretoNoConfigurado) {
+      console.error(error.message);
+      return res.status(503).json(SESIONES_NO_DISPONIBLES);
+    }
+    console.error('Error al renovar la sesión:', error.message);
+    res.status(500).json(SESIONES_NO_DISPONIBLES);
+  }
+};
+
+// 6. CERRAR SESIÓN (POST /api/auth/logout)
+// Entrada: { refreshToken }. Revoca toda la familia de ese token (la sesión entera, con todas sus
+// rotaciones). Responde 200 aunque el token no exista o ya estuviera revocado: cerrar sesión dos
+// veces no es un error. El cliente borra su sesión local pase lo que pase.
+const cerrarSesion = async (req, res) => {
+  try {
+    await refreshTokens.revocarFamiliaDeToken(req.body.refreshToken);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    if (error instanceof refreshTokens.SecretoNoConfigurado) {
+      console.error(error.message);
+      return res.status(503).json(SESIONES_NO_DISPONIBLES);
+    }
+    console.error('Error al cerrar sesión:', error.message);
+    res.status(500).json({ error: 'No se pudo cerrar la sesión en el servidor.' });
+  }
+};
+
 module.exports = {
   registrarCliente,
   loginCliente,
   actualizarPerfil,
-  loginConGoogle
+  loginConGoogle,
+  refrescarSesion,
+  cerrarSesion
 };

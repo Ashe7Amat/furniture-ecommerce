@@ -6,6 +6,8 @@ import { getMuebleById } from '../services/api';
 
 export const CartContext = createContext();
 
+const PIEZA_UNICA = 'Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.';
+
 export const CartProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
@@ -27,65 +29,54 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem(storageKey, JSON.stringify(cartItems));
   }, [cartItems, storageKey]);
 
+  // Qué aviso sale se decide con la cesta de este render, no dentro de la función que se pasa a
+  // setCartItems (H25): React no siempre ejecuta esa función al momento, y un aviso decidido ahí
+  // dentro salía mal. Añadir por segunda vez una pieza decía "Producto añadido a la cesta." y abría
+  // la cesta, y el "+" de una línea no avisaba de nada. La función de setCartItems vuelve a
+  // comprobarlo por si llegaran dos clics antes de volver a pintar.
   const addToCart = (product, modality) => {
-    const price = modality === 'compra' ? product.precio_venta : product.precio_alquiler_dia;
-    let alreadyExists = false;
-
-    setCartItems(prev => {
-      const existingItem = prev.find(item => item.productId === product.id && item.modalidad === modality);
-      if (existingItem) {
-        alreadyExists = true;
-        return prev;
-      } else {
-        const newItem = {
-          id: `${product.id}-${modality}`,
-          productId: product.id,
-          nombre: product.nombre,
-          imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : PLACEHOLDER_IMG,
-          precio: price,
-          modalidad: modality,
-          cantidad: 1
-        };
-        return [...prev, newItem];
-      }
-    });
-
-    if (alreadyExists) {
-      showToast('Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.', 'warning');
-    } else {
-      showToast('Producto añadido a la cesta.', 'success');
-      setIsCartOpen(true);
+    const estaEnLaCesta = (items) => items.some(item => item.productId === product.id && item.modalidad === modality);
+    if (estaEnLaCesta(cartItems)) {
+      showToast(PIEZA_UNICA, 'warning');
+      return;
     }
+
+    const newItem = {
+      id: `${product.id}-${modality}`,
+      productId: product.id,
+      nombre: product.nombre,
+      imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : PLACEHOLDER_IMG,
+      precio: modality === 'compra' ? product.precio_venta : product.precio_alquiler_dia,
+      modalidad: modality,
+      cantidad: 1
+    };
+    setCartItems(prev => (estaEnLaCesta(prev) ? prev : [...prev, newItem]));
+    showToast('Producto añadido a la cesta.', 'success');
+    setIsCartOpen(true);
   };
 
   const removeFromCart = (idToRemove) => {
     setCartItems(prev => prev.filter(item => item.id !== idToRemove));
   };
 
+  // Igual que en addToCart (H25): el aviso de "pieza única" se decide con la cesta de este render.
   const updateQuantity = (id, delta) => {
-    let limitReached = false;
+    if (!cartItems.some(item => item.id === id)) return;
+    if (delta > 0) {
+      showToast(PIEZA_UNICA, 'warning');
+      return;
+    }
 
     setCartItems(prev => {
       const existing = prev.find(item => item.id === id);
       if (!existing) return prev;
-      
-      if (delta > 0) {
-        limitReached = true;
-        return prev;
-      }
-      
       if ((existing.cantidad || 1) + delta <= 0) {
         return prev.filter(item => item.id !== id);
       }
-      
-      return prev.map(item => 
+      return prev.map(item =>
         item.id === id ? { ...item, cantidad: (item.cantidad || 1) + delta } : item
       );
     });
-
-    if (limitReached) {
-      showToast('Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.', 'warning');
-    }
   };
 
   const emptyCart = () => {

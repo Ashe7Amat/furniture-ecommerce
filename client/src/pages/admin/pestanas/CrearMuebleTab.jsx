@@ -3,12 +3,15 @@ import { ToastContext } from '../../../context/ToastContext';
 import { createMueble } from '../../../services/api';
 import SelectorCategoria from '../SelectorCategoria';
 import { idDeCategoria } from '../categorias';
+import useEstadoEnvio from '../hooks/useEstadoEnvio';
+import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
-// Pestaña "Añadir Mueble". El formulario (formData, files) y el mensaje de estado viven en el
-// contenedor, así que lo escrito se conserva al cambiar de pestaña (H13) y `status` es el mismo
-// para todos los formularios del panel (H14): este es el único sitio donde se pinta.
-const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, status, setStatus, recargarMuebles, irA }) => {
+// Pestaña "Añadir Mueble". El formulario (formData, files) vive en el contenedor, así que lo escrito
+// se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14,
+// ver hooks/useEstadoEnvio.js): no se conserva al cambiar de pestaña.
+const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, recargarMuebles, irA }) => {
   const { showToast } = useContext(ToastContext);
+  const envio = useEstadoEnvio();
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,7 +23,22 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, st
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus('Guardando producto...');
+    if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
+    envio.empezar('Guardando producto...');
+
+    // Las fotos se reducen antes de subirlas (H24, ver utils/imagen.js): todas van en la misma
+    // petición, y Vercel rechaza las de más de 4,5 MB. Si ni así caben, no se manda nada.
+    let fotos = files;
+    if (files.length > 0) {
+      const preparadas = await prepararFotos(files, { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+      if (!preparadas.caben) {
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, files.length));
+        showToast('Las fotos pesan demasiado', 'error');
+        return;
+      }
+      fotos = preparadas.fotos;
+      envio.empezar('Guardando producto...');
+    }
 
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', formData.nombre);
@@ -32,13 +50,13 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, st
     if (formData.precio_alquiler) formDataToSend.append('precio_alquiler', formData.precio_alquiler);
     formDataToSend.append('estado', formData.estado);
 
-    for (const file of files) {
-      formDataToSend.append('imagenes', file);
+    for (const foto of fotos) {
+      formDataToSend.append('imagenes', foto);
     }
 
     const res = await createMueble(formDataToSend);
     if (res) {
-      setStatus('');
+      envio.acabarBien();
       showToast('Producto añadido con éxito al catálogo', 'success');
       setFormData({ nombre: '', categoria: '', descripcion: '', precio_venta: '', precio_alquiler: '', estado: 'disponible' });
       setFiles([]);
@@ -47,7 +65,7 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, st
       recargarMuebles();
       irA('inventario');
     } else {
-      setStatus('Error al guardar en base de datos.');
+      envio.acabarMal('Error al guardar en base de datos.');
       showToast('Error al guardar producto', 'error');
     }
   };
@@ -75,9 +93,9 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, st
           <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} required />
         </div>
 
-        <button type="submit" className="admin-btn" disabled={status.includes('Subiendo') || status.includes('Guardando')}>Guardar Producto</button>
+        <button type="submit" className="admin-btn" disabled={envio.enviando}>Guardar Producto</button>
       </form>
-      {status && <p className="admin-status">{status}</p>}
+      {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
     </div>
   );
 };

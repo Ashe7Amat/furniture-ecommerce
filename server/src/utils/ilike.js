@@ -9,7 +9,7 @@
 // Anteponer '\' a esos cuatro caracteres los vuelve literales. Comprobado contra el PostgREST real
 // (24 sep 2026, solo lectura): '_', '%' y '*' escapados dejan de ser comodines, y el resto del
 // texto se sigue comparando sin distinguir mayúsculas, que es lo que aporta ILIKE.
-// Usarlo en TODO .ilike()/.like() que lleve texto que venga del usuario.
+// Usarlo en todos los .ilike()/.like() que lleven texto que venga del usuario.
 const escaparIlike = (texto) => String(texto).replace(/[\\%_*]/g, '\\$&');
 
 module.exports = { escaparIlike };

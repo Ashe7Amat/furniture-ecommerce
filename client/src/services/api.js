@@ -1,9 +1,108 @@
+import {
+  tokenParaCabecera,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+  limpiarTokens,
+  avisarCierreDeSesion
+} from '../utils/authToken';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Cabecera de sesión: se añade sola en cuanto hay un usuario logueado con token
+// Cabecera de sesión: el access token en memoria (o el antiguo de 7 días mientras dure; ver
+// utils/authToken.js)
 const authHeaders = () => {
-  const token = localStorage.getItem('kaveToken');
+  const token = tokenParaCabecera();
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+// Renueva la sesión con el refresh token (POST /api/auth/refresh). Si ya hay una renovación en
+// curso, devuelve esa misma promesa: dos peticiones que reciben un 401 a la vez no gastan dos
+// refresh tokens (el segundo llegaría ya revocado y se comería el margen de gracia).
+// Resultado:
+//   'renovada'     par nuevo guardado: access en memoria, refresh en localStorage.
+//   'rechazada'    el servidor dice que la sesión ya no vale (401), o no hay refresh token: se
+//                  borran los tokens y se avisa a AuthContext para que cierre la sesión.
+//   'sin-conexion' fallo de red o 5xx: NO se toca nada. Puede ser una sesión válida con mala
+//                  conexión, o el servidor reiniciándose tras un despliegue.
+let renovacionEnCurso = null;
+
+const pedirRenovacion = async () => {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    limpiarTokens();
+    avisarCierreDeSesion();
+    return 'rechazada';
+  }
+  let response;
+  try {
+    response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+  } catch {
+    return 'sin-conexion';
+  }
+  if (response.status === 401) {
+    limpiarTokens();
+    avisarCierreDeSesion();
+    return 'rechazada';
+  }
+  if (!response.ok) return 'sin-conexion';
+  try {
+    const par = await response.json();
+    setAccessToken(par.accessToken);
+    setRefreshToken(par.refreshToken);
+    return 'renovada';
+  } catch {
+    return 'sin-conexion';
+  }
+};
+
+export const renovarSesion = () => {
+  if (!renovacionEnCurso) {
+    renovacionEnCurso = pedirRenovacion().finally(() => {
+      renovacionEnCurso = null;
+    });
+  }
+  return renovacionEnCurso;
+};
+
+// Peticiones con sesión. Añade la cabecera Authorization y, si el servidor responde 401 (el
+// access token de 1 hora ha caducado), renueva la sesión y repite la petición UNA sola vez
+// (`reintentada`): lo que responda esa repetición, aunque sea otro 401, se devuelve tal cual. Si
+// la renovación no sale bien, se devuelve el 401 original: quien llamó lo trata como siempre.
+// Solo lo usan las peticiones que llevan sesión: las públicas siguen con fetch sin cabecera, para
+// que la CDN pueda cachearlas y para que un 401 de "contraseña incorrecta" no intente renovar nada.
+export const apiFetch = async (url, opciones = {}, { reintentada = false } = {}) => {
+  const response = await fetch(url, {
+    ...opciones,
+    headers: { ...(opciones.headers || {}), ...authHeaders() }
+  });
+  if (response.status !== 401 || reintentada) return response;
+  const resultado = await renovarSesion();
+  if (resultado !== 'renovada') return response;
+  return apiFetch(url, opciones, { reintentada: true });
+};
+
+// Cierre de sesión en el servidor: revoca la sesión entera (la familia del refresh token). No
+// espera más de 5 segundos: perder la conexión no debe impedir cerrar la sesión en el navegador.
+export const cerrarSesionEnServidor = async (refreshToken) => {
+  const control = new AbortController();
+  const limite = setTimeout(() => control.abort(), 5000);
+  try {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      signal: control.signal
+    });
+  } catch {
+    // El servidor no se enterará hasta que el token caduque solo, pero la sesión local se cierra.
+  } finally {
+    clearTimeout(limite);
+  }
 };
 
 // El servidor deja cachear el catálogo y las categorías: el navegador los guarda hasta 1 minuto y
@@ -81,10 +180,10 @@ export const registerUser = async (userData) => {
 export const createMueble = async (muebleData) => {
   try {
     const isFormData = muebleData instanceof FormData;
-    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
     const body = isFormData ? muebleData : JSON.stringify(muebleData);
 
-    const response = await fetch(`${API_URL}/muebles`, {
+    const response = await apiFetch(`${API_URL}/muebles`, {
       method: 'POST',
       headers,
       body
@@ -100,10 +199,10 @@ export const createMueble = async (muebleData) => {
 export const updateMueble = async (id, muebleData) => {
   try {
     const isFormData = muebleData instanceof FormData;
-    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
     const body = isFormData ? muebleData : JSON.stringify(muebleData);
 
-    const response = await fetch(`${API_URL}/muebles/${id}`, {
+    const response = await apiFetch(`${API_URL}/muebles/${id}`, {
       method: 'PUT',
       headers,
       body
@@ -118,9 +217,8 @@ export const updateMueble = async (id, muebleData) => {
 
 export const deleteMueble = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/muebles/${id}`, {
-      method: 'DELETE',
-      headers: authHeaders()
+    const response = await apiFetch(`${API_URL}/muebles/${id}`, {
+      method: 'DELETE'
     });
     if (!response.ok) throw new Error('Error al eliminar mueble');
     return await response.json();
@@ -130,11 +228,15 @@ export const deleteMueble = async (id) => {
   }
 };
 
-// `fresco`: igual que en getMuebles (ver lecturaFresca).
+// Sin opciones: la lectura pública, cacheable, sin estadísticas.
+// `fresco` es la del panel (la única que lo usa): va a GET /api/admin/categorias/con-stats, con
+// sesión de administrador, que es la única que trae las estadísticas de cada categoría (H26). Esa
+// ruta no se guarda en ninguna caché, y apiFetch añade la sesión y la renueva si ha caducado.
 export const getCategorias = async (opciones = {}) => {
   try {
-    const url = `${API_URL}/categorias`;
-    const response = opciones.fresco ? await fetch(url, lecturaFresca()) : await fetch(url);
+    const response = opciones.fresco
+      ? await apiFetch(`${API_URL}/admin/categorias/con-stats`, { cache: 'no-store' })
+      : await fetch(`${API_URL}/categorias`);
     if (!response.ok) return [];
     return await response.json();
   } catch (error) {
@@ -146,10 +248,10 @@ export const getCategorias = async (opciones = {}) => {
 export const createCategoria = async (categoriaData) => {
   try {
     const isFormData = categoriaData instanceof FormData;
-    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
     const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
 
-    const response = await fetch(`${API_URL}/categorias`, {
+    const response = await apiFetch(`${API_URL}/categorias`, {
       method: 'POST',
       headers,
       body
@@ -165,10 +267,10 @@ export const createCategoria = async (categoriaData) => {
 export const updateCategoria = async (id, categoriaData) => {
   try {
     const isFormData = categoriaData instanceof FormData;
-    const headers = { ...authHeaders(), ...(isFormData ? {} : { 'Content-Type': 'application/json' }) };
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
     const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
 
-    const response = await fetch(`${API_URL}/categorias/${id}`, {
+    const response = await apiFetch(`${API_URL}/categorias/${id}`, {
       method: 'PUT',
       headers,
       body
@@ -183,9 +285,8 @@ export const updateCategoria = async (id, categoriaData) => {
 
 export const deleteCategoria = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/categorias/${id}`, {
-      method: 'DELETE',
-      headers: authHeaders()
+    const response = await apiFetch(`${API_URL}/categorias/${id}`, {
+      method: 'DELETE'
     });
     if (!response.ok) throw new Error('Error al eliminar categoría');
     return await response.json();
@@ -226,9 +327,9 @@ export const loginConGoogle = async (credential) => {
 
 export const updateProfile = async (profileData) => {
   try {
-    const response = await fetch(`${API_URL}/auth/perfil-update`, {
+    const response = await apiFetch(`${API_URL}/auth/perfil-update`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profileData)
     });
     const data = await response.json();
@@ -236,24 +337,6 @@ export const updateProfile = async (profileData) => {
     return data;
   } catch (error) {
     console.error('Error en updateProfile:', error);
-    return { error: error.message };
-  }
-};
-
-// Compra "de respaldo" (sin pasarela real) — se mantiene por compatibilidad, pero el
-// checkout ahora usa crearSesionPago() más abajo.
-export const checkoutCart = async (checkoutData) => {
-  try {
-    const response = await fetch(`${API_URL}/muebles/comprar`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(checkoutData)
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Error al procesar el pago');
-    return data;
-  } catch (error) {
-    console.error('Error en checkoutCart:', error);
     return { error: error.message };
   }
 };
@@ -292,7 +375,7 @@ export const confirmarSesionPago = async (sessionId) => {
 // Lista los pedidos del cliente logueado (para su Historial de Pedidos en Mi Cuenta)
 export const getMisPedidos = async () => {
   try {
-    const response = await fetch(`${API_URL}/pedidos/mios`, { headers: authHeaders() });
+    const response = await apiFetch(`${API_URL}/pedidos/mios`);
     if (!response.ok) throw new Error('Error al obtener tus pedidos');
     return await response.json();
   } catch (error) {
@@ -305,7 +388,7 @@ export const getMisPedidos = async () => {
 // productos y total de cada venta, para poder prepararla y enviarla)
 export const getPedidos = async () => {
   try {
-    const response = await fetch(`${API_URL}/pedidos`, { headers: authHeaders() });
+    const response = await apiFetch(`${API_URL}/pedidos`);
     if (!response.ok) throw new Error('Error al obtener los pedidos');
     return await response.json();
   } catch (error) {
@@ -317,9 +400,9 @@ export const getPedidos = async () => {
 // Cambia el estado de un pedido (procesando / enviado / entregado / cancelado)
 export const actualizarEstadoPedido = async (id, estado) => {
   try {
-    const response = await fetch(`${API_URL}/pedidos/${id}/estado`, {
+    const response = await apiFetch(`${API_URL}/pedidos/${id}/estado`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estado })
     });
     if (!response.ok) throw new Error('Error al actualizar el estado del pedido');

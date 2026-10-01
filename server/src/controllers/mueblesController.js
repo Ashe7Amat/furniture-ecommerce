@@ -22,12 +22,24 @@ const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
   return data.id;
 };
 
+// Columnas que devuelven las lecturas públicas de muebles (H26): las que usan la web y el panel
+// (que lee el catálogo con estas mismas rutas). Antes era select('*'): no había nada privado, pero
+// cualquier columna nueva (un precio de compra, el proveedor, notas internas...) habría salido al
+// público sin que nadie lo decidiera. No van `disponible` (se deriva de `estado`), `created_at`
+// (solo sirve para ordenar, y ordenar no necesita devolverla) ni `categoria_id` (la web usa
+// `categoria`; cuando cierre la migración A habrá que añadirla aquí).
+const COLUMNAS_PUBLICAS_MUEBLE =
+  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado';
+
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
 // el catálogo entero de golpe solo para quedarse con los primeros 4).
 const obtenerMuebles = async (req, res) => {
   try {
-    let query = supabase.from('muebles').select('*').order('created_at', { ascending: false });
+    let query = supabase
+      .from('muebles')
+      .select(COLUMNAS_PUBLICAS_MUEBLE)
+      .order('created_at', { ascending: false });
 
     const limit = parseInt(req.query.limit, 10);
     if (Number.isInteger(limit) && limit > 0) {
@@ -51,7 +63,11 @@ const obtenerMuebles = async (req, res) => {
 const obtenerMueblePorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase.from('muebles').select('*').eq('id', id).single();
+    const { data, error } = await supabase
+      .from('muebles')
+      .select(COLUMNAS_PUBLICAS_MUEBLE)
+      .eq('id', id)
+      .single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });
@@ -224,7 +240,7 @@ const buscarMuebles = async (req, res) => {
     if (!q) return res.status(200).json([]);
     const { data, error } = await supabase
       .from('muebles')
-      .select('*')
+      .select(COLUMNAS_PUBLICAS_MUEBLE)
       .ilike('nombre', `%${escaparIlike(q)}%`);
     if (error) throw error;
     res.status(200).json(data);

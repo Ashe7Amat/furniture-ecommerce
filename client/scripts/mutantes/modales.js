@@ -41,7 +41,7 @@ export const MUTANTES = [
   {
     nombre: 'no se mandan las fotos nuevas',
     archivo: 'src/pages/admin/modales/EditarMuebleModal.jsx',
-    buscar: "      for (const file of archivosNuevos) {\n        formDataToSend.append('imagenes', file);\n      }",
+    buscar: "    for (const foto of fotosNuevas) {\n      formDataToSend.append('imagenes', foto);\n    }",
     reemplazo: ''
   },
   {
@@ -71,7 +71,7 @@ export const MUTANTES = [
   {
     nombre: '"Guardar Cambios" del mueble no se desactiva mientras guarda',
     archivo: 'src/pages/admin/modales/EditarMuebleModal.jsx',
-    buscar: "<button type=\"submit\" className=\"admin-btn\" disabled={status.includes('Actualizando')}>",
+    buscar: "<button type=\"submit\" className=\"admin-btn\" disabled={envio.enviando}>",
     reemplazo: '<button type="submit" className="admin-btn" disabled={false}>'
   },
   {
@@ -101,7 +101,7 @@ export const MUTANTES = [
   {
     nombre: 'la imagen nueva de la categoría no se manda',
     archivo: 'src/pages/admin/modales/EditarCategoriaModal.jsx',
-    buscar: "formDataToSend.append('imagen', archivoNuevo);",
+    buscar: "formDataToSend.append('imagen', imagen);",
     reemplazo: ''
   },
   {

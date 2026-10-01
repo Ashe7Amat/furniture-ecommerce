@@ -13,8 +13,8 @@ cuenta de cliente con historial de compras.
 | Base de datos | Supabase (Postgres), acceso solo desde el servidor con la clave `service_role` |
 | Pagos | Stripe Checkout (redirección a página de pago; sin Stripe Elements embebido) |
 | Email | Resend (bienvenida, aviso de venta al admin, confirmación al comprador) |
-| Autenticación | JWT propio (login con email/contraseña o con Google) |
-| Tests | `node:test` + `supertest` en el servidor, Vitest + Testing Library en el cliente |
+| Autenticación | JWT propio (login con email/contraseña o con Google): access token de 1 hora en memoria y refresh token de 7 días con rotación (bloque 3b) |
+| Tests | `node:test` + `supertest` en el servidor, Vitest + Testing Library en el cliente, con umbral mínimo de cobertura en el CI |
 | Hosting | Vercel (frontend y backend en dos proyectos independientes) |
 
 No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...): `client/` y
@@ -26,13 +26,17 @@ No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...):
 ```
 .
 ├── client/                  Frontend (React + Vite)
+│   ├── scripts/             Comprobación por mutación de los tests del panel (mutantes-panel.js)
 │   └── src/
 │       ├── components/      Piezas de UI reutilizables (tarjetas, modales, cabecera...)
 │       ├── context/         Estado global vía Context API (auth, carrito, favoritos, toasts)
 │       ├── pages/           Una página por ruta (Catálogo, Detalle, Admin, Perfil...)
+│       │   └── admin/       Piezas del panel de administración (tarea 4): pestanas/, modales/,
+│       │                    hooks/ y utilidades; Admin.jsx es solo el contenedor
 │       ├── services/        api.js -- único punto de entrada a la API del servidor
 │       ├── styles/          Un .css por página/componente, variables de diseño en index.css
-│       └── utils/           Funciones puras sin estado (formato, imágenes, hooks pequeños)
+│       └── utils/           Funciones y hooks pequeños: formato, imágenes, reducir las fotos antes
+│                            de subirlas (imagen.js), tokens de sesión (authToken.js)...
 │
 ├── server/                   Backend (Express)
 │   ├── api/index.js          Punto de entrada que usa Vercel (función serverless)
@@ -44,7 +48,7 @@ No es un monorepo con herramientas de workspace (Turborepo, pnpm workspaces...):
 │       ├── middleware/        Auth (JWT) y validación (Zod) reutilizables entre rutas
 │       ├── schemas/          Esquemas Zod de validación de entrada, uno por recurso
 │       ├── data/              Cliente de Supabase (supabase.js) -- único punto de conexión a la BD
-│       ├── utils/             Email, Stripe, metadata de pagos, procesado de pedidos...
+│       ├── utils/             Email, Stripe, metadata de pagos, procesado de pedidos, refresh tokens...
 │       └── __tests__/         Tests (node:test), con dobles en memoria de Supabase/Stripe
 │
 ├── docs/                      Documentación del proyecto (este mismo README enlaza a cada una)
@@ -89,12 +93,13 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `SUPABASE_SERVICE_ROLE_KEY` | server | **Sí** |
 | `SUPABASE_ANON_KEY` | server | No (solo la usa `server/src/seed.js`) |
 | `JWT_SECRET` | server | **Sí** (sin ella, cualquier JWT firmado con el valor por defecto sería inseguro) |
-| `REFRESH_TOKEN_HASH_SECRET` | server | No -- pendiente de usar, tarea 3b (JWT con refresh) |
+| `REFRESH_TOKEN_HASH_SECRET` | server | **Sí**, para que las sesiones duren más de 1 hora y sobrevivan a una recarga (bloque 3b; cómo ponerla, en [docs/verificacion-3b.md](docs/verificacion-3b.md)) |
 | `CLIENT_URL` | server | Recomendada (URL de retorno de Stripe) |
 | `ALLOWED_ORIGINS` | server | No (orígenes extra permitidos por CORS) |
 | `STRIPE_SECRET_KEY` | server | Solo si se quieren cobrar pagos reales |
 | `STRIPE_WEBHOOK_SECRET` | server | No (sin ella, el respaldo `confirmar-sesion` sigue registrando ventas) |
-| `RESEND_API_KEY` | server | No (sin ella, los emails se simulan por log) |
+| `RESEND_API_KEY` | server | No en local (sin ella, los emails se simulan, y el log no lleva datos del cliente); **sí** en producción |
+| `EMAIL_DEBUG_DATOS` | server | No. Solo en local, para ver el contenido de los emails simulados; en producción no hace nada |
 | `RESEND_FROM` | server | No (tiene un valor por defecto de pruebas) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
@@ -117,9 +122,35 @@ diseño y el porqué de cada una están en **[docs/tarea3-diseno.md](docs/tarea3
 | Arrancar en desarrollo | `npm run dev` | `npm run dev` |
 | Compilar para producción | `npm run build` | -- (no aplica, es una función serverless) |
 | Tests | `npm test` | `npm test` |
+| Tests con umbral de cobertura (el que usa el CI) | `npm run test:coverage` | `npm run test:coverage` |
+| Tests de contrato contra Stripe/Supabase reales (fuera de `npm test`) | -- | `npm run test:stripe`, `test:supabase-ilike`, `test:supabase-rls` |
+| Comprobación por mutación del panel | `node scripts/mutantes-panel.js [pestaña]` | -- |
 | Lint | `npm run lint` | `npm run lint` |
 | Formato (comprobar) | -- | `npm run format:check` |
 | Formato (aplicar) | -- | `npm run format` |
+
+## Cómo verificar antes del merge
+
+Lo que queda por hacer a mano antes de mergear `feature/mejoras-tecnicas` a `main`, y justo después.
+El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificacion-3b.md)**.
+
+**Antes del merge** (unos 20 minutos):
+1. **El secreto** `REFRESH_TOKEN_HASH_SECRET`: generarlo con `openssl rand -hex 32` y ponerlo en
+   `server/.env` y en Vercel (`nave5-api`, Production). No se pasa por ningún chat. Sección 1; unos 2 min.
+2. **Las sesiones del bloque 3b en el navegador:** iniciar sesión, recargar, el 401 simulado y cerrar
+   sesión. Sección 2; unos 10 min.
+3. **El panel con sesión de administrador:** el orden, las estadísticas de categorías, el estado de
+   cada formulario, subir 2 o 3 fotos de móvil y la cesta. Sección 5; unos 5 min.
+4. **Limpiar** las filas de prueba de `refresh_tokens` con el SQL de la guía. Sección 3; unos 2 min.
+5. **Dar permiso para el merge.**
+
+**Después del despliegue:**
+1. La sesión sigue abierta al recargar, y las fotos de móvil se guardan también con el límite de
+   Vercel. Sección 4.
+2. `/login` sin avisos de CSP (H22). Sección 4.1.
+3. Los límites de intentos (H28) y de sesiones de pago (H29), sin crear ninguna sesión en Stripe.
+   Sección 6.
+4. `RESEND_API_KEY` puesta en producción (H27). Sección 6.
 
 ## Cómo se despliega
 
@@ -130,9 +161,11 @@ variables de entorno de producción se configuran en el panel de cada proyecto d
 este repositorio.
 
 CI (`.github/workflows/ci.yml`) corre en cada push y cada Pull Request contra `main`: lint, tests
-y build del cliente; tests (y, desde la tarea 8, lint/formato) del servidor. Un fallo en CI no
-bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), pero si CI falla en
-`main`, algo se ha desplegado roto.
+con un umbral mínimo de cobertura y build del cliente; lint, formato y tests con un umbral mínimo de
+cobertura del servidor. Los umbrales solo suben: tras cada tanda de tests se ponen en lo medido
+menos medio punto. En los dos jobs hay además un `npm audit` informativo, que enseña
+vulnerabilidades sin romper el build (tarea 7). Un fallo en CI no bloquea el deploy de Vercel por
+sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se ha desplegado roto.
 
 ## Más documentación
 
@@ -141,6 +174,15 @@ bloquea el deploy de Vercel por sí mismo (son dos sistemas independientes), per
   y flujo de autenticación.
 - **[docs/tarea3-diseno.md](docs/tarea3-diseno.md)** -- diseño de las migraciones de BD y del JWT
   con refresh y rotación (tarea 3).
+- **[docs/verificacion-3b.md](docs/verificacion-3b.md)** -- guía para poner el secreto
+  `REFRESH_TOKEN_HASH_SECRET` y comprobar a mano las sesiones con refresh token (bloque 3b) antes y
+  después de desplegarlas.
+- **[docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md)** -- diseño, pendiente de
+  decidir con el cliente, de la verificación del email de las cuentas (H18). Solo diseño, sin
+  implementar.
+- **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
+  administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
+  mutación.
 - **[docs/mejoras-tecnicas.md](docs/mejoras-tecnicas.md)** -- registro de trabajo de la rama
   `feature/mejoras-tecnicas`: estado de cada tarea, hallazgos de seguridad y pasos manuales
   pendientes al desplegar.

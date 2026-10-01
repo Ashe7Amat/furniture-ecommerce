@@ -143,3 +143,59 @@ describe('ProductsTable', () => {
     });
   });
 });
+
+// H10: la tabla se lee bien con un lector de pantalla. Dos cosas que jsdom sí puede comprobar
+// (no aplica el CSS, así que la geometría se comprobó aparte, en el navegador):
+//   - cada celda cuelga directamente de su fila: ni contenedores intermedios ni `display:
+//     contents`, que algunos lectores no tratan bien;
+//   - cada columna tiene una cabecera con nombre. Antes, las de la foto y el botón llevaban
+//     aria-hidden, y el lector se quedaba con 5 cabeceras para 7 celdas: anunciaba la foto como
+//     "Nombre", el nombre como "Categoría", y así hasta el final.
+describe('ProductsTable — accesibilidad de la tabla (H10)', () => {
+  // La celda del precio de la tarjeta móvil no tiene columna: en escritorio está oculta con
+  // display:none (Catalog.css), y en móvil no hay fila de cabecera.
+  const celdasConColumna = (fila) =>
+    within(fila)
+      .getAllByRole('cell')
+      .filter((celda) => !celda.classList.contains('products-table-col-precio-movil'));
+
+  it('cada celda es hija directa de su fila, sin contenedores intermedios', () => {
+    renderProductsTable(productosDePrueba);
+
+    const [cabecera, ...filas] = screen.getAllByRole('row');
+    within(cabecera)
+      .getAllByRole('columnheader')
+      .forEach((c) => expect(c.parentElement).toBe(cabecera));
+    filas.forEach((fila) => {
+      const celdas = within(fila).getAllByRole('cell');
+      expect(celdas).toHaveLength(8);
+      celdas.forEach((celda) => expect(celda.parentElement).toBe(fila));
+      // y la fila no tiene más hijos que sus celdas
+      expect(fila.children).toHaveLength(celdas.length);
+    });
+  });
+
+  it('todas las columnas tienen una cabecera con nombre, también la de la foto y la del botón', () => {
+    renderProductsTable(productosDePrueba);
+
+    const nombres = screen.getAllByRole('columnheader').map((c) => c.textContent);
+    expect(nombres).toEqual(['Foto', 'Nombre', 'Categoría', 'Precio venta', 'Precio alquiler/día', 'Estado', 'Acción']);
+  });
+
+  it('cada celda cae bajo la cabecera de su columna', () => {
+    renderProductsTable(productosDePrueba);
+
+    const cabeceras = screen.getAllByRole('columnheader').map((c) => c.textContent);
+    const [, filaBaul, filaSilla] = screen.getAllByRole('row');
+    const deColumna = (fila, nombre) => celdasConColumna(fila)[cabeceras.indexOf(nombre)];
+
+    [filaBaul, filaSilla].forEach((fila) => expect(celdasConColumna(fila)).toHaveLength(cabeceras.length));
+    expect(within(deColumna(filaBaul, 'Foto')).getByRole('img')).toHaveAttribute('alt', 'Baúl de viaje');
+    expect(deColumna(filaBaul, 'Nombre')).toHaveTextContent('Baúl de viaje');
+    expect(deColumna(filaBaul, 'Categoría')).toHaveTextContent('Baúles');
+    expect(deColumna(filaBaul, 'Precio venta')).toHaveTextContent('110 €');
+    expect(deColumna(filaSilla, 'Precio alquiler/día')).toHaveTextContent('8 €/día');
+    expect(deColumna(filaSilla, 'Estado')).toHaveTextContent('Alquilado');
+    expect(within(deColumna(filaSilla, 'Acción')).getByRole('button')).toHaveAccessibleName('Ver Silla nórdica');
+  });
+});
