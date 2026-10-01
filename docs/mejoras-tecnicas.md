@@ -1,8 +1,8 @@
 # Rama `feature/mejoras-tecnicas`: registro de trabajo
 
 Este documento recoge el estado de las mejoras técnicas de la rama, lo que queda por hacer a mano y los
-hallazgos detectados que **todavía no se han corregido**, para que no dependan del historial de una
-conversación.
+hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
+"Hallazgos"), para que no dependan del historial de una conversación.
 
 ## Estado de las tareas
 
@@ -12,7 +12,7 @@ conversación.
 | 2 | Seguridad: CSP, CORS, Zod, `service_role` obligatoria, escape de email | Hecha (ver detalle abajo). `bcrypt`/JWT + refresh quedan para la tarea 3 |
 | 3 | Migraciones SQL en `server/migrations/` + JWT con refresh | **Bloque 3a cerrado el 26 sep 2026.** Aplicadas en producción: A1, A2 y A3 (`muebles.categoria_id`), B1, B2 y B3 (`pedidos.cliente_id`) y H9 (RLS de `pedidos`). También hechos H8, la doble escritura de `categoria_id`, el código que rellena `cliente_id` al registrar un pedido (commiteado y desplegado el 24 sep) y dejar de fijar `disponible` a mano. Queda anotada una deuda aceptada: H20, el código de B sin comprobar de extremo a extremo. **Bloque 3b** (JWT con refresh y rotación), hecho en la rama `feature/jwt-refresh` y mergeado en `feature/mejoras-tecnicas` el 28 sep, sin subir: C1 (tabla `refresh_tokens`) aplicada en producción el 26 sep; C2 (servidor) y C3 (cliente) hechos el 28 sep, sin desplegar. Antes del merge falta `REFRESH_TOKEN_HASH_SECRET` en Vercel y la comprobación en el navegador (ver "Bloque 3b" más abajo). Diseño completo en `docs/tarea3-diseno.md` |
 | 4 | Refactor: `Admin.jsx` por pestañas, ESLint + Prettier en el servidor, `engines` | ESLint + Prettier + `engines.node` del servidor hechos (tarea 8, ver más abajo). Refactor de `Admin.jsx`: hecho el 25 sep 2026 en la rama, sin subir (cierre en `docs/tarea4-diseno.md`, sección 11). `Admin.jsx` pasa de 1 039 a 201 líneas; los 125 tests de caracterización no se han tocado desde el primer commit de refactor, y después se ha añadido uno del orden de la barra lateral. ESLint del cliente con `no-restricted-globals`. Falta la comprobación en el navegador. Hallazgos: H12, H13, H14 y H15 abiertos; H19 cerrado (no reproducible) |
-| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo). A 29 sep: 327 tests en el servidor y 545 en el cliente, con cobertura del 95,2% y del 81,7% de líneas (historial en "Tarea 7"). E2E sigue sin empezar (no hay infraestructura) |
+| 5 | Tests: servidor, cliente y E2E | Servidor y cliente hechos (ver detalle abajo). A 29 sep, al cierre de la auditoría: 365 tests en el servidor y 549 en el cliente, con cobertura del 95,6% y del 81,7% de líneas (historial en "Tarea 7"). E2E sigue sin empezar (no hay infraestructura) |
 | 6 | Frontend: persistencia de carrito y favoritos, filtros, Schema.org, accesibilidad, skeletons | Pendiente (la vista de inventario en tabla del catálogo, con su propia deuda de accesibilidad H10, ya está hecha, fuera de esta tarea) |
 | 7 | CI: lint y formato del servidor, `npm audit`, umbral de cobertura | Hecha el 28 sep 2026 en la rama (ver "Tarea 7" más abajo): `npm audit` informativo en los dos jobs, `.gitattributes` con `eol=lf` y umbrales de cobertura en los dos lados. El 29 sep se subió la cobertura (cliente del 57,9 al 81,7% de líneas; servidor del 93,6 al 95,2%) y con ella los umbrales, que solo suben. Hallazgos: H23 |
 | 8 | Documentación: README raíz y variables de entorno | Hecha: `README.md`, `docs/env-vars.md`, `docs/architecture.md` (ver detalle más abajo) |
@@ -716,23 +716,67 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 
 ## Hallazgos
 
-Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número.
+Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), por estado. El detalle de cada uno va debajo, por
+número.
 
-**Abiertos (hay algo que hacer):**
+**Cerrados en la rama, pendientes de desplegar** (entran con el merge; cómo comprobarlos, en
+`docs/verificacion-3b.md`):
+
+| Hallazgo | Cerrado |
+|---|---|
+| H10 · roles ARIA de la tabla del catálogo | 28 sep |
+| H14 · un solo `status` en el panel | 28 sep |
+| H21 · cambiar la contraseña no cerraba sesiones | 28 sep |
+| H22 · CSP de Google Sign-In | 28 sep; se comprueba tras el deploy (sección 4.1 de la guía) |
+| H24 · subir fotos: límite de 4,5 MB de Vercel | 29 sep |
+| H25 · la cesta no avisaba de "pieza única" | 29 sep |
+| H26 · los endpoints públicos devolvían más de lo que usa la web | 29 sep |
+| H27 · datos personales en el log en modo simulación de correo | 29 sep |
+| H28 · `perfil-update` sin límite de intentos de contraseña | 29 sep |
+| H29 · `crear-sesion-pago` sin límite de peticiones | 29 sep |
+| H30 · "Panel Admin" en el pie de página sin sesión | 29 sep |
+
+**Cerrados, ya en producción o en la base de datos:**
+
+| Hallazgo | Cerrado |
+|---|---|
+| H1 · metadata de Stripe | 22 sep |
+| H2 · emails sin escapar | 22 sep |
+| H8 · `SUPABASE_URL` con `http://` | 22 sep |
+| H9 · RLS de `pedidos` | 24 sep (en la base de datos) |
+| H16 · caché del panel | 24 sep |
+| H17 · ILIKE en "Mis pedidos" | 24 sep |
+| H19 · fallo suelto de `npm test` | 25 sep: no reproducible |
+| H3 · errores sin filtrar | 28 sep: auditados todos los controladores, sin más casos |
+
+**Decidido, pendiente de implementación:**
 
 | Hallazgo | Estado |
 |---|---|
-| H12 · contratos de error de `api.js` | **Decidido, pendiente de implementación** cuando toque `api.js` por otro motivo (probablemente las reservas). Decisiones del 29 sep en la sección H12 |
-| H18 · el registro no verifica el email | Pendiente (alta), con el cliente. Diseño para decidir en `docs/verificacion-email-diseno.md` (29 sep) |
-| H6 · la confirmación va al email tecleado | Depende de H18, y de usar el email de la cuenta en el checkout |
-| H23 · vulnerabilidades del cliente | Parcial: 8 de 15 arregladas; las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5) |
-| H28 · `perfil-update` sin límite de intentos de contraseña | Corregido en la rama, sin desplegar (29 sep) |
-| H29 · `crear-sesion-pago` sin límite de peticiones | Corregido en la rama, sin desplegar (29 sep) |
-| H26 · los endpoints públicos devuelven más de lo que usa la web | Corregido en la rama, sin desplegar (29 sep) |
-| H27 · datos personales en el log en modo simulación de correo | Corregido en la rama, sin desplegar (29 sep) |
-| H30 · "Panel Admin" en el pie de página sin sesión | Corregido en la rama, sin desplegar (29 sep) |
+| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12 |
 
-**Pendientes de una decisión (negocio o UX, con el cliente):**
+**Parcial:**
+
+| Hallazgo | Estado |
+|---|---|
+| H23 · vulnerabilidades del cliente | 8 de 15 arregladas. Las 7 que quedan piden versión mayor (react-router 7, vite 8, vitest 5): tarea aparte, después de mergear 3b |
+
+**Dependen del cliente:**
+
+| Hallazgo | Estado |
+|---|---|
+| H18 · el registro no verifica el email | Alta. Diseño para decidir en `docs/verificacion-email-diseno.md` |
+| H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
+
+**Deuda aceptada:**
+
+| Hallazgo | Estado |
+|---|---|
+| H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total. Vale también para los límites nuevos de H28 y H29 |
+| H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
+| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
+
+**Pendientes de una decisión del cliente (negocio o UX):**
 
 | Hallazgo | Estado |
 |---|---|
@@ -740,38 +784,6 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
 | H13 · formularios que sobreviven al cambio de pestaña | UX |
 | H15 · categoría preseleccionada | UX |
-
-**Corregidos en la rama, sin desplegar:**
-
-| Hallazgo | Estado |
-|---|---|
-| H10 · roles ARIA de la tabla del catálogo | 28 sep |
-| H14 · un solo `status` en el panel | 28 sep |
-| H21 · cambiar la contraseña no cerraba sesiones | 28 sep |
-| H22 · CSP de Google Sign-In | 28 sep; se comprueba tras el deploy (sección 4.1 de `docs/verificacion-3b.md`) |
-| H24 · subir fotos: límite de 4,5 MB de Vercel | 29 sep |
-| H25 · la cesta no avisaba de "pieza única" | 29 sep |
-
-**Deuda aceptada o documentada:**
-
-| Hallazgo | Estado |
-|---|---|
-| H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total |
-| H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
-| H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
-
-**Cerrados:**
-
-| Hallazgo | Cuándo |
-|---|---|
-| H1 · metadata de Stripe | 22 sep (en producción) |
-| H2 · emails sin escapar | 22 sep (en producción) |
-| H8 · `SUPABASE_URL` con `http://` | 22 sep (en producción) |
-| H9 · RLS de `pedidos` | 24 sep (en la base de datos) |
-| H16 · caché del panel | 24 sep (en producción) |
-| H17 · ILIKE en "Mis pedidos" | 24 sep (en producción) |
-| H19 · fallo suelto de `npm test` | 25 sep: no reproducible |
-| H3 · errores sin filtrar | 28 sep: auditados todos los controladores, sin más casos |
 
 ### H1 · CERRADO (22 sep 2026, commit `1e23a5d`; en producción) · El límite de 500 caracteres de la metadata de Stripe podía impedir pagar
 
@@ -942,7 +954,7 @@ Resumen a 29 sep 2026, por estado. El detalle de cada uno va debajo, por número
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
 
-### H10 · BAJA · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
+### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 
 - **Dónde:** `client/src/components/ProductsTable.jsx` y `client/src/styles/Catalog.css`, la vista de lista del
   catálogo.
@@ -1207,7 +1219,7 @@ ninguno.
 - **Cuándo se decide:** con el cliente, sin prisa. Después de la tarea 4, cambiarlo es trivial: se mueve ese estado
   del contenedor a la pestaña y se vacía al desmontarla.
 
-### H14 · BAJA · UX · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · Un solo `status` para todos los formularios del panel
+### H14 · BAJA · UX · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · Un solo `status` para todos los formularios del panel
 
 - **Arreglo (28 sep, en `feature/mejoras-tecnicas`):**
   - cada formulario tiene su propio estado de envío con `pages/admin/hooks/useEstadoEnvio.js`: "Añadir
@@ -1319,7 +1331,7 @@ ninguno.
   H18. La migración B (`cliente_id`) ayudará con los pedidos de clientes con cuenta, pero los de invitado
   seguirán cruzándose por email.
 
-### H18 · ALTA · PENDIENTE (tarea futura, con el cliente) · El registro no verifica el email
+### H18 · ALTA · DEPENDE DEL CLIENTE (29 sep 2026; tarea futura) · El registro no verifica el email
 
 - **Hoy** cualquiera puede crear una cuenta con el email de otra persona: no se envía confirmación. Combinado
   con H17, permitía ver pedidos ajenos con un email parecido. Aun con H17 corregido, quien registre el email
@@ -1425,7 +1437,7 @@ ninguno.
   ```
   Tiene que salir vacía.
 
-### H21 · MEDIA · CORREGIDO EN LA RAMA (28 sep 2026, `870d031`; sin desplegar) · Cambiar la contraseña no cerraba las demás sesiones
+### H21 · MEDIA · CERRADO EN LA RAMA (28 sep 2026, `870d031`; sin desplegar) · Cambiar la contraseña no cerraba las demás sesiones
 
 - **El fallo:** `perfil-update` permite cambiar el email y la contraseña (la revisión suponía que el email no).
   Con las sesiones largas del bloque 3b, alguien que cambiara la contraseña porque sospecha que se la han
@@ -1441,7 +1453,7 @@ ninguno.
   hasta que caduque, porque `verificarToken` no consulta la base de datos. Es el riesgo aceptado del diseño
   (sección 2, "Migración a los tokens de 7 días"), ahora acotado a 1 hora en vez de 7 días.
 
-### H22 · BAJA · CORREGIDO EN LA RAMA (28 sep 2026; sin desplegar) · La CSP no permitía la hoja de estilos de Google Sign-In
+### H22 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · La CSP no permitía la hoja de estilos de Google Sign-In
 
 - **Síntoma** (visto en el smoke test del 26 sep y vuelto a leer el 28 en producción): en `/login`, la consola
   dice que cargar la hoja de estilos `https://accounts.google.com/gsi/style` viola `style-src 'self'
@@ -1508,7 +1520,7 @@ ninguno.
   apartando ese archivo y con `npm install`. El gate se pasó después, con las versiones nuevas en disco.
 - **El CI las enseña en cada ejecución** (`npm audit`, en modo informativo): no rompe el build.
 
-### H24 · MEDIA · CORREGIDO EN LA RAMA (29 sep 2026; sin desplegar) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
+### H24 · MEDIA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · Subir fotos en el panel: el límite real es el de Vercel, 4,5 MB por petición
 
 - **Arreglo (29 sep, opción 1):** el panel reduce las fotos en el navegador antes de subirlas.
   - `client/src/utils/imagen.js`:
@@ -1580,7 +1592,7 @@ ninguno.
   3. **Como mínimo:** que el panel avise antes de enviar si las fotos pasan de 4 MB en total, y que multer
      responda 400 con el motivo.
 
-### H25 · BAJA · CORREGIDO EN LA RAMA (29 sep 2026; sin desplegar) · La cesta no avisaba de "pieza única" al añadirla por segunda vez
+### H25 · BAJA · CERRADO EN LA RAMA (29 sep 2026; sin desplegar) · La cesta no avisaba de "pieza única" al añadirla por segunda vez
 
 - **Encontrado** al escribir los tests de `CartContext` (fase 2, cobertura del cliente), que no tenía ninguno.
 - **Qué pasaba:**
