@@ -18,6 +18,9 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
 | A9 — backfill de referencias de muebles (los 114 existentes) | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
 | Categoría nueva "Espejos" (ESP, id 28, dentro de "Decoración y hogar") | `20261002174749` | `add_categoria_espejos` | ✅ Aplicada en BD (2 oct, 17:47 UTC) |
+| Agrupación (1/3): copia de seguridad de las 52 fichas afectadas | `20261002193936` | `respaldo_agrupacion_muebles` | ✅ Aplicada en BD (2 oct, 19:39 UTC) |
+| Agrupación (2/3): las 15 fichas principales reciben las fotos de su grupo; 2 cambian de nombre | `20261002200855` | `agrupar_fichas_juntar_fotos` | ✅ Aplicada en BD (2 oct, 20:08 UTC) |
+| Agrupación (3/3): borrar las 37 fichas restantes (114 → 77) | — | — | ⏳ Pendiente: `apply_migration` se cuelga con `DELETE` |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
