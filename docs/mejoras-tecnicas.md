@@ -31,10 +31,20 @@ Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el 
   ficha.
 - A7 (`941fc94`): tests de integración de las referencias.
 
+**Después del cierre (2 oct 2026), decisiones del usuario:**
+- Relleno de las referencias de los muebles existentes: **sí**. La migración está preparada, **sin aplicar**, en
+  `docs/propuesta-backfill-referencias.md` (versión `20261002115522`, simulacro en solo lectura: 114 muebles,
+  9 categorías, sin repetidos). Pendiente de validación y de autorización para aplicarla.
+- Celda vacía en el inventario cuando no hay referencia: se queda así (con el relleno no habrá ninguna).
+- Buscador del inventario: pasa a "Buscar por nombre o referencia...", con los tests de caracterización
+  actualizados ("CAMBIADO A PROPÓSITO").
+- Cambiar el código de una categoría con muebles con referencia: pedirá confirmación (pendiente de hacer).
+- El freeze de los tests de caracterización del panel se levanta (ver `docs/tarea4-diseno.md`, sección 8).
+
 **Pendiente:**
-- Rellenar la referencia de los 114 muebles existentes: hoy todos la tienen vacía (migración en la base de
-  datos, necesita permiso).
-- Bloque C: `MOSTRAR_PRECIOS` server-side (otra sesión).
+- Aplicar el relleno de referencias (con autorización).
+- La confirmación al cambiar el código de una categoría.
+- Bloque C: `MOSTRAR_PRECIOS` server-side (otra sesión; espera el texto del botón sustituto).
 - Comprobación en el navegador con sesión de administrador.
 
 **Nota:** No mergear a `main` sin decidir antes lo de las referencias de los muebles existentes y revisar el
@@ -752,7 +762,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 
 ## Hallazgos
 
-Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), por estado. El detalle de cada uno va debajo, por
+Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), con H32 añadido el 2 oct, por estado. El detalle de cada uno va debajo, por
 número.
 
 **Cerrados en la rama, pendientes de desplegar** (entran con el merge; cómo comprobarlos, en
@@ -771,6 +781,7 @@ número.
 | H28 · `perfil-update` sin límite de intentos de contraseña | 29 sep |
 | H29 · `crear-sesion-pago` sin límite de peticiones | 29 sep |
 | H30 · "Panel Admin" en el pie de página sin sesión | 29 sep |
+| H32 · la ficha se inventaba una "Ref. SKU-…" | 2 oct (A6) |
 
 **Cerrados, ya en producción o en la base de datos:**
 
@@ -789,7 +800,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12 |
+| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12. Caso adicional del 2 oct: el error de código de categoría repetido |
 
 **Parcial:**
 
@@ -1242,6 +1253,17 @@ por otro motivo, probablemente con las reservas (que además necesitan los mensa
 
 **Tamaño estimado:** 8 commits y unos 25 archivos. La mayor parte son tests nuevos de pantallas que hoy no tienen
 ninguno.
+
+**Caso adicional (bloque A, 2 oct 2026): el código de categoría repetido.**
+- Desde A5, `POST`/`PUT /api/categorias` responden **400 "Ese código ya lo usa otra categoría."** cuando el código
+  choca con el índice único de `categorias.codigo`.
+- `createCategoria` y `updateCategoria` son del contrato A: ante cualquier error devuelven `null`, así que ese
+  mensaje no llega a la pantalla y sale el aviso genérico ("Error al crear la categoría" / "Error al actualizar la
+  categoría").
+- Hoy casi no se ve: el panel comprueba el código antes de enviar (`errorDeCodigo` en
+  `client/src/pages/admin/categorias.js`) y dice qué categoría lo usa. El genérico solo saldría si dos
+  administradores ponen el mismo código a la vez.
+- Se arregla con el resto de H12: con el contrato nuevo, el panel enseñaría el mensaje del servidor.
 
 ### H13 · DECISIÓN PENDIENTE (UX) · Formularios del panel que sobreviven al cambio de pestaña
 
@@ -1881,6 +1903,19 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   (`verificarAdmin`). Pero anuncia a cualquier visitante que hay un panel y dónde está.
 - **Arreglo propuesto (sin hacer):** enseñarlo solo con `user?.rol === 'admin'`. El comportamiento de hoy
   está fijado en `Footer.test.jsx`, con un test que dice que se cambia con ello.
+
+### H32 · BAJA · BUG · CERRADO EN LA RAMA (2 oct 2026, `c0a90e1`; sin desplegar) · La ficha del producto se inventaba una referencia
+
+- **Dónde:** `client/src/pages/ProductDetail.jsx`, al final de la ficha: `Ref. SKU-{String(mueble.id).slice(0,
+  6).toUpperCase() || '0001A'}`.
+- **Qué pasaba:** enseñaba al público una "referencia" que no existía en ningún sitio: los 6 primeros caracteres del
+  id (un UUID). No servía para buscar la pieza ni coincidía con nada del panel. Desde A6 convivía además con la
+  referencia real ("Ref. NAV-…"), con dos referencias distintas en la misma ficha.
+- **Arreglo (A6):** quitada, junto con su estilo (`.pd-sku`). La ficha enseña solo la referencia real, bajo el
+  nombre, con `ReferenciaProducto`.
+- **Tests:** la ficha no tenía ninguno. `ProductDetail.test.jsx` (16 tests) la cubre entera, con uno que comprueba
+  que ya no sale ningún "SKU".
+- **Nota:** no hay ningún H31 anotado en este documento; la numeración salta de H30 a H32.
 
 ## Decisiones de diseño a recordar
 

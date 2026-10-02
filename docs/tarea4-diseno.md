@@ -235,6 +235,18 @@ verde, **sin tocarlos**, en cada commit del refactor. Es el invariante que demue
 - **No cambia la estrategia de carga** (los tres listados al entrar) ni se añade ninguna dependencia.
 - **Sin estado global ni contexto nuevo.**
 
+**Los tests de caracterización ya no están congelados (2 oct 2026, decisión del usuario).**
+- Durante la tarea 4 y después, los `Admin.*.test.jsx` y `adminTestUtils.jsx` no se tocaban: si uno fallaba, el
+  cambio se daba por malo, y cambiar uno pedía permiso expreso (como D-a en H12).
+- **Desde el 2 oct 2026 se levanta el freeze.** Cuando un cambio de producto decidido rompa uno de esos tests, el
+  test se actualiza en el mismo commit, con un comentario `// CAMBIADO A PROPÓSITO (motivo, fecha)` encima de la
+  línea que cambia. Ya no es bloqueante ni hace falta pedir permiso.
+- **Lo que no cambia:** un test que falla por un cambio que no se quería sigue siendo un fallo y se arregla el
+  código, no el test. La comprobación por mutación (`node scripts/mutantes-panel.js`) sigue valiendo: si un cambio
+  deja vivo un mutante, falta un test.
+- Primer uso: el texto del buscador del inventario ("Buscar por nombre o referencia...", bloque A), en
+  `Admin.inventario.test.jsx` y `Admin.navegacion.test.jsx`.
+
 ## 9. Orden de commits
 
 Cada commit con su gate (`npm run lint` + `npm test` en `client/` y `server/`) y el diff revisado antes de
