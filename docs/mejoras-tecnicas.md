@@ -850,7 +850,7 @@ número.
 | H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
 
 **Deuda aceptada (2 oct):** H33 · dos secretos legibles en el panel de Vercel; se cambia si entra un
-colaborador.
+colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por página en el HTML servido.
 
 **Pendientes de una decisión del cliente (negocio o UX):**
 
@@ -1961,6 +1961,22 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
     vuelve a probar el pago.
 - **No confundir:** `MOSTRAR_PRECIOS` es *Encrypted* a propósito; no es un secreto, y así se puede ver si está
   en `true` o en `false`.
+
+### H34 · BAJA · SEO · DECIDIDO: PENDIENTE (2 oct 2026) · Sin `canonical` ni `og:url`, y el SEO por página solo existe con JavaScript
+
+- **Estado real (comprobado el 2 oct en el código y en el HTML de producción):** no hay ninguna etiqueta
+  `<link rel="canonical">` ni `og:url`, ni en `client/index.html` ni en el código. Antes no estaba anotado en
+  ningún hallazgo (se habló de él como "H31", número que no existe).
+- **El SEO por página es solo de cliente:** `useDocumentMeta` (`client/src/utils/useDocumentMeta.js`) cambia con
+  JavaScript el `<title>`, la descripción y las etiquetas Open Graph y Twitter de cada página. Quien no ejecuta
+  JavaScript (las vistas previas de WhatsApp, Facebook o LinkedIn, y en parte los buscadores) solo ve las del
+  `index.html` compartido, que son las de la portada: un enlace a una ficha se previsualiza como la portada.
+- **Por qué no se añade ahora:** con un único `index.html` para todas las rutas, un `canonical` (o un `og:url`)
+  fijo apuntaría siempre a la portada, y eso le diría a los buscadores que todas las páginas son la portada.
+  Peor que no tenerlo.
+- **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
+  de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
+  por página, junto con el resto de etiquetas.
 
 ## Decisiones de diseño a recordar
 
