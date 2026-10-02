@@ -4,9 +4,11 @@ Este documento recoge el estado de las mejoras técnicas de la rama, lo que qued
 hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
 "Hallazgos"), para que no dependan del historial de una conversación.
 
-## 🔄 Cierre parcial — Bloque A (referencias de muebles): 1 oct 2026
+## 🔄 Bloque A (referencias de muebles): A1-A7 hechas, 2 oct 2026
 
-Trabajo realizado en la sesión del 1-2 oct 2026. **A1-A4 completadas. A5-A7 y Bloque C pendientes.**
+Sesiones del 1-2 oct 2026. **A1-A7 completadas** (A5-A7: informe en `docs/reporte-a5-a7.md`).
+**Pendiente:** rellenar la referencia de los 114 muebles que ya existen (migración, necesita permiso) y el
+bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 
 | Migración | Version | Nombre | Estado |
 |-----------|---------|--------|--------|
@@ -22,13 +24,21 @@ ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), P
 Reintento en colisión UNIQUE (código Postgres 23505, constraint `muebles_referencia_key`), hasta 3 intentos.
 Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el catálogo.
 
-**Pendiente (sesión siguiente):**
-- A5: admin — campo referencia en formulario/tabla, búsqueda, campo código en categorías.
-- A6: catálogo — referencia pequeña bajo el nombre del mueble.
-- A7: tests y cierre del bloque.
-- Bloque C: `MOSTRAR_PRECIOS` server-side.
+**A5-A7 (2 oct 2026, ver `docs/reporte-a5-a7.md`):**
+- A5 (`d4efb45`): referencia en el panel (columna, búsqueda, solo lectura al editar, aviso al crear),
+  `GET /api/admin/muebles` y código de 3 letras en las categorías (crear, editar, validar, tarjeta).
+- A6 (`c0a90e1`): referencia bajo el nombre en el catálogo público; fuera la "Ref. SKU-…" inventada de la
+  ficha.
+- A7 (`941fc94`): tests de integración de las referencias.
 
-**Nota:** No mergear a `main` hasta cerrar A5-A7 y revisar gate completo.
+**Pendiente:**
+- Rellenar la referencia de los 114 muebles existentes: hoy todos la tienen vacía (migración en la base de
+  datos, necesita permiso).
+- Bloque C: `MOSTRAR_PRECIOS` server-side (otra sesión).
+- Comprobación en el navegador con sesión de administrador.
+
+**Nota:** No mergear a `main` sin decidir antes lo de las referencias de los muebles existentes y revisar el
+gate completo.
 
 ## Estado de las tareas
 
