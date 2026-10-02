@@ -114,3 +114,14 @@ body {
 .page-loading {
   min-height: 40vh;
 }
+
+/* Referencia del mueble bajo su nombre (A6, components/ReferenciaProducto.jsx) */
+.ref-producto {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 400; /* no hereda la negrita del nombre (p. ej. en la lista del catálogo) */
+  letter-spacing: 0.04em;
+  color: var(--secondary-color);
+  line-height: 1.3;
+}

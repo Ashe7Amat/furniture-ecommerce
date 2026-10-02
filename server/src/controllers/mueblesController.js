@@ -33,13 +33,15 @@ const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
 // público sin que nadie lo decidiera. No van `disponible` (se deriva de `estado`), `created_at`
 // (solo sirve para ordenar, y ordenar no necesita devolverla) ni `categoria_id` (la web usa
 // `categoria`; cuando cierre la migración A habrá que añadirla aquí).
+// `referencia` (NAV-SIL-001) sale también al público desde A6: el catálogo la enseña bajo el nombre.
 const COLUMNAS_PUBLICAS_MUEBLE =
-  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado';
+  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado, referencia';
 
-// Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores): las públicas
-// más `referencia` (A5). Es la lectura que tendrá siempre los precios reales aunque el catálogo
-// público deje de mostrarlos (bloque C).
-const COLUMNAS_ADMIN_MUEBLE = `${COLUMNAS_PUBLICAS_MUEBLE}, referencia`;
+// Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores). Hoy son las
+// mismas que las públicas (en A5 añadía `referencia`, que desde A6 ya es pública), pero van aparte:
+// es la lectura que tendrá siempre los precios reales aunque el catálogo público deje de
+// mostrarlos (bloque C), y una columna solo para el panel se añade aquí, no arriba.
+const COLUMNAS_ADMIN_MUEBLE = COLUMNAS_PUBLICAS_MUEBLE;
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía

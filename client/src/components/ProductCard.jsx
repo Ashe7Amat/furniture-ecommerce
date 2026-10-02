@@ -6,6 +6,7 @@ import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const ProductCard = ({ mueble }) => {
   const { toggleFavorite, isFavorite } = useContext(FavoritesContext);
@@ -54,6 +55,7 @@ const ProductCard = ({ mueble }) => {
         </div>
         <div className="product-info">
           <h3 className="product-title">{mueble.nombre}</h3>
+          <ReferenciaProducto referencia={mueble.referencia} />
           <p className="product-description">{mueble.descripcion}</p>
           <span className="price-value">
             {mueble.estado === 'vendido' ? (

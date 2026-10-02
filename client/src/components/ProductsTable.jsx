@@ -19,6 +19,7 @@ import QuickViewModal from './QuickViewModal';
 // Estilos en Catalog.css (archivo existente), no en una hoja nueva: esta tabla es una
 // vista alternativa DEL catálogo, no un componente independiente con identidad propia.
 import '../styles/Catalog.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const ETIQUETA_ESTADO = {
   disponible: 'Disponible',
@@ -71,7 +72,15 @@ const ProductsTable = ({ productos }) => {
                 <img src={imageUrl} alt={mueble.nombre || 'Mueble'} loading="lazy" decoding="async" />
               </div>
 
-              <div className="products-table-cell products-table-col-nombre" role="cell">{mueble.nombre}</div>
+              <div className="products-table-cell products-table-col-nombre" role="cell">
+                {/* Con referencia, el nombre va en su propio <span> y la referencia debajo (A6) */}
+                {mueble.referencia ? (
+                  <>
+                    <span>{mueble.nombre}</span>
+                    <ReferenciaProducto referencia={mueble.referencia} />
+                  </>
+                ) : mueble.nombre}
+              </div>
               <div className="products-table-cell products-table-col-categoria" role="cell">{mueble.categoria || '—'}</div>
               <div className="products-table-cell products-table-col-precio" role="cell">
                 {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : '—'}

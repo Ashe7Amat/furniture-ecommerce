@@ -7,6 +7,7 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
+import ReferenciaProducto from '../components/ReferenciaProducto';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -120,6 +121,9 @@ const ProductDetail = () => {
               </svg>
             </button>
           </div>
+          {/* A6: la referencia real (NAV-SIL-001). Sustituye a la "Ref. SKU-…" que había al final de
+              la ficha, inventada con los 6 primeros caracteres del id. */}
+          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref" />
           <p className="pd-price font-display">{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : 'Consultar precio'}</p>
           
           <div className="pd-description">
@@ -188,10 +192,6 @@ const ProductDetail = () => {
                 <p>Contamos con transporte especializado en muebles delicados (1-2 semanas aprox). Ofrecemos 14 días para devoluciones desde la recepción del producto, siempre conservando el embalaje original.</p>
               </div>
             </div>
-          </div>
-          
-          <div className="pd-sku">
-            Ref. SKU-{String(mueble.id).slice(0, 6).toUpperCase() || '0001A'}
           </div>
 
         </div>

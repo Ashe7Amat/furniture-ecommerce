@@ -354,10 +354,9 @@
   padding-bottom: 20px;
 }
 
-.pd-sku {
+.pd-ref {
+  margin: -4px 0 12px;
   font-size: 0.8rem;
-  color: var(--secondary-color);
-  text-transform: uppercase;
 }
 
 .pd-loading-container {

@@ -6,6 +6,7 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/QuickViewModal.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const QuickViewModal = ({ mueble, onClose }) => {
   const { addToCart } = useContext(CartContext);
@@ -50,6 +51,7 @@ const QuickViewModal = ({ mueble, onClose }) => {
         <div className="qv-body">
           <span className="qv-category">{mueble.categoria}</span>
           <h3 id="qv-title" className="qv-name font-display">{mueble.nombre}</h3>
+          <ReferenciaProducto referencia={mueble.referencia} className="qv-ref" />
           {mueble.descripcion && <p className="qv-desc">{mueble.descripcion}</p>}
           <span className="qv-price font-display">
             {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar precio')}
