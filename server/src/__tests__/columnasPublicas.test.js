@@ -22,7 +22,8 @@ const COLUMNAS_MUEBLE = [
   'imagenes',
   'nombre',
   'precio_alquiler_dia',
-  'precio_venta'
+  'precio_venta',
+  'referencia' // pública desde A6: el catálogo la enseña bajo el nombre
 ];
 const muebleConColumnasNuevas = {
   id: ID,
@@ -33,6 +34,7 @@ const muebleConColumnasNuevas = {
   precio_alquiler_dia: 20,
   imagenes: ['https://img.test/a.jpg'],
   estado: 'disponible',
+  referencia: 'NAV-APA-001',
   disponible: true,
   created_at: '2026-09-01T10:00:00Z',
   categoria_id: 7,
@@ -96,7 +98,7 @@ describe('contrato con supabase-js real: lo que se pide a PostgREST es la lista 
     await request(app).get('/api/categorias');
 
     const listaMueble =
-      'id,nombre,categoria,descripcion,precio_venta,precio_alquiler_dia,imagenes,estado';
+      'id,nombre,categoria,descripcion,precio_venta,precio_alquiler_dia,imagenes,estado,referencia';
     assert.deepEqual(selects, [
       `/rest/v1/muebles ${listaMueble}`,
       `/rest/v1/muebles ${listaMueble}`,

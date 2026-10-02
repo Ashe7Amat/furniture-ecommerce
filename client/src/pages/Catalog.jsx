@@ -9,6 +9,7 @@ import CatalogViewToggle from '../components/CatalogViewToggle';
 import ProductSkeleton from '../components/ProductSkeleton';
 import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
+import { tienePrecio } from '../utils/format';
 import '../styles/Catalog.css';
 
 // Array estable para cuando el contexto de favoritos aún no está listo: un `[]` literal
@@ -52,6 +53,12 @@ export default function Catalog() {
     fetchDatos();
   }, []);
 
+  // Fase C: con los precios ocultos (MOSTRAR_PRECIOS) todas las piezas llegan sin precio, y ordenar
+  // por precio no haría nada. Se decide con el catálogo entero que se ha cargado, no con lo filtrado,
+  // para que el selector no aparezca y desaparezca al cambiar de categoría. Mientras carga se deja.
+  const hayPrecios = useMemo(() => todosLosMuebles.some(tienePrecio), [todosLosMuebles]);
+  const ordenPorPrecio = loading || hayPrecios;
+
   // 2. Filtrar y ordenar — NUNCA muta todosLosMuebles. Con useMemo en vez de un
   // useEffect+setState aparte: se recalcula solo cuando algo relevante cambia, sin
   // provocar un re-render extra de por medio.
@@ -86,15 +93,15 @@ export default function Catalog() {
       resultado = resultado.filter(m => m.estado !== 'vendido' && m.estado !== 'alquilado');
     }
 
-    // Ordenación por precio
-    if (orden === 'menor') {
+    // Ordenación por precio (solo si hay precios que ordenar: ver ordenPorPrecio)
+    if (ordenPorPrecio && orden === 'menor') {
       resultado.sort((a, b) => a.precio_venta - b.precio_venta);
-    } else if (orden === 'mayor') {
+    } else if (ordenPorPrecio && orden === 'mayor') {
       resultado.sort((a, b) => b.precio_venta - a.precio_venta);
     }
 
     return resultado;
-  }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
+  }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles, ordenPorPrecio]);
 
   // ⚡ Función limpia para el botón de "Ver todo"
   const limpiarFiltros = () => {
@@ -188,6 +195,7 @@ export default function Catalog() {
           </label>
         </div>
 
+        {ordenPorPrecio && (
         <div className="filter-group">
           <label htmlFor="sort-select">Ordenar por precio</label>
           <select
@@ -201,6 +209,7 @@ export default function Catalog() {
             <option value="mayor">Precio: Mayor a Menor</option>
           </select>
         </div>
+        )}
 
         <div className="filter-group filter-group--view-toggle">
           <span className="filter-group-label-static">Vista</span>

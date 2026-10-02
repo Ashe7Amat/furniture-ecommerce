@@ -4,6 +4,66 @@ Este documento recoge el estado de las mejoras técnicas de la rama, lo que qued
 hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
 "Hallazgos"), para que no dependan del historial de una conversación.
 
+## 🔄 Bloque A (referencias de muebles): A1-A7 hechas, 2 oct 2026
+
+Sesiones del 1-2 oct 2026. **A1-A7 completadas** (A5-A7: informe en `docs/reporte-a5-a7.md`).
+**Pendiente:** rellenar la referencia de los 114 muebles que ya existen (migración, necesita permiso) y el
+bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
+
+| Migración | Version | Nombre | Estado |
+|-----------|---------|--------|--------|
+| A1: `categorias.codigo` | `20261001193100` | `add_categorias_codigo` | ✅ Aplicada en BD |
+| A2: `muebles.referencia` | `20261001212500` | `add_muebles_referencia` | ✅ Aplicada en BD |
+| A3: backfill códigos | `20261001220000` | `backfill_categorias_codigo` | ✅ Aplicada en BD |
+| A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
+| A9 — backfill de referencias de muebles (los 114 existentes) | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
+
+**Códigos aplicados en las 12 categorías:**
+ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
+
+**Formato de referencia:** `NAV-COD-NNN` (p. ej. `NAV-SIL-001`). Lógica en `server/src/utils/referencia.js`.
+Reintento en colisión UNIQUE (código Postgres 23505, constraint `muebles_referencia_key`), hasta 3 intentos.
+Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el catálogo.
+
+**A5-A7 (2 oct 2026, ver `docs/reporte-a5-a7.md`):**
+- A5 (`d4efb45`): referencia en el panel (columna, búsqueda, solo lectura al editar, aviso al crear),
+  `GET /api/admin/muebles` y código de 3 letras en las categorías (crear, editar, validar, tarjeta).
+- A6 (`c0a90e1`): referencia bajo el nombre en el catálogo público; fuera la "Ref. SKU-…" inventada de la
+  ficha.
+- A7 (`941fc94`): tests de integración de las referencias.
+
+**Después del cierre (2 oct 2026), decisiones del usuario:**
+- Relleno de las referencias de los muebles existentes: **sí**. **Aplicado el 2 oct 2026 a las 12:18 UTC**, con
+  autorización expresa (A9 — backfill de referencias de muebles, versión `20261002121823`, `backfill_muebles_referencia`): los 114 muebles tienen
+  referencia, de 001 en adelante por categoría y por antigüedad, y las 5 comprobaciones salen bien. Detalle en
+  `docs/propuesta-backfill-referencias.md`.
+- Celda vacía en el inventario cuando no hay referencia: se queda así (con el relleno no habrá ninguna).
+- Buscador del inventario: pasa a "Buscar por nombre o referencia...", con los tests de caracterización
+  actualizados ("CAMBIADO A PROPÓSITO").
+- Cambiar el código de una categoría con muebles con referencia: pedirá confirmación (pendiente de hacer).
+- El freeze de los tests de caracterización del panel se levanta (ver `docs/tarea4-diseno.md`, sección 8).
+
+**Pendiente:**
+- La confirmación al cambiar el código de una categoría.
+- Comprobación en el navegador con sesión de administrador.
+
+**Nota:** No mergear a `main` sin decidir antes lo de las referencias de los muebles existentes y revisar el
+gate completo.
+
+## ✅ Fase C (ocultar precios al público): hecha, 2 oct 2026
+
+Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80` (C2), `b736e8b` (C3) y
+`9d97017` (C4).
+- `MOSTRAR_PRECIOS` (servidor): solo `true` enseña precios. **Sin poner, los precios quedan ocultos**: las
+  lecturas públicas devuelven los precios a null, la web pone "Consultar precio" y "Preguntar por esta pieza"
+  (lleva a contacto con la pieza en el mensaje), y `crear-sesion-pago` responde 403. El panel ve siempre los
+  precios reales.
+- La cesta no suma las líneas sin precio y no deja pagar con ellas.
+- **Antes del merge:** decidir con el cliente el valor de `MOSTRAR_PRECIOS` en Vercel y ponerlo. Sin él,
+  producción deja de enseñar precios y de vender en cuanto se despliegue.
+- "Ordenar por precio" se oculta cuando ninguna pieza tiene precio (`45502c4`, hallazgo 6 del informe).
+- Pendiente: la comprobación en el navegador.
+
 ## Estado de las tareas
 
 | # | Tarea | Estado |
@@ -716,7 +776,7 @@ cliente si es intencional o si debe cambiarse cuando se implementen las reservas
 
 ## Hallazgos
 
-Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), por estado. El detalle de cada uno va debajo, por
+Resumen a 29 sep 2026 (cierre de la auditoría de seguridad), con H32 añadido el 2 oct, por estado. El detalle de cada uno va debajo, por
 número.
 
 **Cerrados en la rama, pendientes de desplegar** (entran con el merge; cómo comprobarlos, en
@@ -735,6 +795,7 @@ número.
 | H28 · `perfil-update` sin límite de intentos de contraseña | 29 sep |
 | H29 · `crear-sesion-pago` sin límite de peticiones | 29 sep |
 | H30 · "Panel Admin" en el pie de página sin sesión | 29 sep |
+| H32 · la ficha se inventaba una "Ref. SKU-…" | 2 oct (A6) |
 
 **Cerrados, ya en producción o en la base de datos:**
 
@@ -753,7 +814,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12 |
+| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12. Caso adicional del 2 oct: el error de código de categoría repetido |
 
 **Parcial:**
 
@@ -1206,6 +1267,17 @@ por otro motivo, probablemente con las reservas (que además necesitan los mensa
 
 **Tamaño estimado:** 8 commits y unos 25 archivos. La mayor parte son tests nuevos de pantallas que hoy no tienen
 ninguno.
+
+**Caso adicional (bloque A, 2 oct 2026): el código de categoría repetido.**
+- Desde A5, `POST`/`PUT /api/categorias` responden **400 "Ese código ya lo usa otra categoría."** cuando el código
+  choca con el índice único de `categorias.codigo`.
+- `createCategoria` y `updateCategoria` son del contrato A: ante cualquier error devuelven `null`, así que ese
+  mensaje no llega a la pantalla y sale el aviso genérico ("Error al crear la categoría" / "Error al actualizar la
+  categoría").
+- Hoy casi no se ve: el panel comprueba el código antes de enviar (`errorDeCodigo` en
+  `client/src/pages/admin/categorias.js`) y dice qué categoría lo usa. El genérico solo saldría si dos
+  administradores ponen el mismo código a la vez.
+- Se arregla con el resto de H12: con el contrato nuevo, el panel enseñaría el mensaje del servidor.
 
 ### H13 · DECISIÓN PENDIENTE (UX) · Formularios del panel que sobreviven al cambio de pestaña
 
@@ -1845,6 +1917,19 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   (`verificarAdmin`). Pero anuncia a cualquier visitante que hay un panel y dónde está.
 - **Arreglo propuesto (sin hacer):** enseñarlo solo con `user?.rol === 'admin'`. El comportamiento de hoy
   está fijado en `Footer.test.jsx`, con un test que dice que se cambia con ello.
+
+### H32 · BAJA · BUG · CERRADO EN LA RAMA (2 oct 2026, `c0a90e1`; sin desplegar) · La ficha del producto se inventaba una referencia
+
+- **Dónde:** `client/src/pages/ProductDetail.jsx`, al final de la ficha: `Ref. SKU-{String(mueble.id).slice(0,
+  6).toUpperCase() || '0001A'}`.
+- **Qué pasaba:** enseñaba al público una "referencia" que no existía en ningún sitio: los 6 primeros caracteres del
+  id (un UUID). No servía para buscar la pieza ni coincidía con nada del panel. Desde A6 convivía además con la
+  referencia real ("Ref. NAV-…"), con dos referencias distintas en la misma ficha.
+- **Arreglo (A6):** quitada, junto con su estilo (`.pd-sku`). La ficha enseña solo la referencia real, bajo el
+  nombre, con `ReferenciaProducto`.
+- **Tests:** la ficha no tenía ninguno. `ProductDetail.test.jsx` (16 tests) la cubre entera, con uno que comprueba
+  que ya no sale ningún "SKU".
+- **Nota:** no hay ningún H31 anotado en este documento; la numeración salta de H30 a H32.
 
 ## Decisiones de diseño a recordar
 

@@ -22,7 +22,8 @@ const useInventarioVista = (muebles) => {
   const muebleFiltrados = useMemo(() => {
     const term = busqueda.trim().toLowerCase();
     const muebleCoincide = (m) => {
-      const matchTexto = !term || m.nombre?.toLowerCase().includes(term);
+      // Por nombre o por referencia (A5): "nav-sil-00" encuentra NAV-SIL-001, NAV-SIL-002...
+      const matchTexto = !term || m.nombre?.toLowerCase().includes(term) || m.referencia?.toLowerCase().includes(term);
       const matchCategoria = !filtroCategoria || m.categoria === filtroCategoria;
       const matchEstado = !filtroEstado || (m.estado || 'disponible') === filtroEstado;
       return matchTexto && matchCategoria && matchEstado;

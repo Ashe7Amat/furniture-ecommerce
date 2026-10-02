@@ -1,13 +1,17 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import InfoPageLayout from '../components/InfoPageLayout';
 import { enviarContacto } from '../services/api';
+import { mensajeSobrePieza } from '../utils/preguntarPorPieza';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const Contact = () => {
   const [status, setStatus] = useState('idle'); // idle | sending | sent | error
   const [errorMsg, setErrorMsg] = useState('');
-  const [formData, setFormData] = useState({ nombre: '', email: '', mensaje: '', web: '' });
+  // C3: desde "Preguntar por esta pieza" se llega con ?pieza=…&ref=…, y el mensaje empieza escrito.
+  const [searchParams] = useSearchParams();
+  const [formData, setFormData] = useState(() => ({ nombre: '', email: '', mensaje: mensajeSobrePieza(searchParams), web: '' }));
 
   const validar = () => {
     if (!formData.nombre.trim() || formData.nombre.trim().length < 2) {

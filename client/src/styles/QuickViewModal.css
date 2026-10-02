@@ -138,6 +138,15 @@
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
+/* "Preguntar por esta pieza" (C3) es un enlace con el aspecto del botón */
+a.qv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+}
+
 .qv-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

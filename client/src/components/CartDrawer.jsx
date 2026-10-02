@@ -1,7 +1,8 @@
 // client/src/components/CartDrawer.jsx
 import { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CartContext } from '../context/CartContext';
+import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
+import { TEXTO_SIN_PRECIO } from '../utils/format';
 import { ToastContext } from '../context/ToastContext';
 import { AuthContext } from '../context/AuthContext';
 import CheckoutModal from './CheckoutModal';
@@ -9,7 +10,7 @@ import AuthModal from './AuthModal';
 import '../styles/CartDrawer.css';
 
 const CartDrawer = () => {
-  const { isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal, validateCart } = useContext(CartContext);
+  const { isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal, validateCart, hayLineasSinPrecio } = useContext(CartContext);
   const { showToast } = useContext(ToastContext);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ const CartDrawer = () => {
                   <h4 className="cart-item-title">{item.nombre}</h4>
                   
                   <div className="cart-item-pricing-qty">
-                    <span className="cart-item-price-label">{item.precio} €</span>
+                    <span className="cart-item-price-label">{lineaSinPrecio(item) ? TEXTO_SIN_PRECIO : `${item.precio} €`}</span>
                     <div className="cart-qty-selector">
                       <button 
                         className="qty-btn" 
@@ -167,7 +168,9 @@ const CartDrawer = () => {
               </div>
             </div>
             
-            <button className="cart-checkout-btn" onClick={handleCheckoutClick}>
+            {/* C4: con alguna pieza sin precio (precios ocultos) no se puede pagar */}
+            {hayLineasSinPrecio && <p className="cart-sin-precio-msg">{SIN_PRECIO_EN_CESTA}</p>}
+            <button className="cart-checkout-btn" onClick={handleCheckoutClick} disabled={hayLineasSinPrecio}>
               Confirmar Pedido
             </button>
           </div>

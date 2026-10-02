@@ -2,10 +2,11 @@
 import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice } from '../utils/format';
+import { textoPrecio, tienePrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const ProductCard = ({ mueble }) => {
   const { toggleFavorite, isFavorite } = useContext(FavoritesContext);
@@ -54,14 +55,19 @@ const ProductCard = ({ mueble }) => {
         </div>
         <div className="product-info">
           <h3 className="product-title">{mueble.nombre}</h3>
+          <ReferenciaProducto referencia={mueble.referencia} />
           <p className="product-description">{mueble.descripcion}</p>
           <span className="price-value">
+            {/* C2: vendida, el precio tachado; vendida y sin precio, nada (antes salía "null €/día", y
+                pedir precio de algo vendido no tiene sentido). Si no, textoPrecio. */}
             {mueble.estado === 'vendido' ? (
-              <span style={{ textDecoration: 'line-through', color: 'var(--secondary-color)', fontSize: '0.9rem' }}>
-                {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : `${formatPrice(mueble.precio_alquiler_dia)} €/día`}
-              </span>
+              tienePrecio(mueble) && (
+                <span style={{ textDecoration: 'line-through', color: 'var(--secondary-color)', fontSize: '0.9rem' }}>
+                  {textoPrecio(mueble)}
+                </span>
+              )
             ) : (
-              mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar')
+              textoPrecio(mueble)
             )}
           </span>
         </div>

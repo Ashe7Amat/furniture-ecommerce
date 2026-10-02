@@ -1,6 +1,6 @@
 // client/src/components/CheckoutModal.jsx
 import { useState, useContext, useEffect } from 'react';
-import { CartContext } from '../context/CartContext';
+import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
 import { crearSesionPago } from '../services/api';
 import '../styles/CheckoutModal.css';
 
@@ -117,6 +117,14 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
     if (cartItems.length === 0) {
       setPayError('Tu cesta está vacía.');
+      setPaymentStatus('idle');
+      return;
+    }
+
+    // C4: con alguna pieza sin precio (precios ocultos) no se paga. La cesta ya desactiva su botón,
+    // y el servidor también lo rechaza (403); esto es por si se llega aquí de todos modos.
+    if (cartItems.some(lineaSinPrecio)) {
+      setPayError(SIN_PRECIO_EN_CESTA);
       setPaymentStatus('idle');
       return;
     }

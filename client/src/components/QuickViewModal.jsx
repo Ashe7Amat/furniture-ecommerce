@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice } from '../utils/format';
+import { textoPrecio, tienePrecio } from '../utils/format';
+import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/QuickViewModal.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const QuickViewModal = ({ mueble, onClose }) => {
   const { addToCart } = useContext(CartContext);
@@ -29,8 +31,10 @@ const QuickViewModal = ({ mueble, onClose }) => {
     };
   }, [onClose]);
 
+  // C4: antes añadía siempre para comprar, también una pieza que solo se alquila (y llegaba a la
+  // cesta sin precio). Sin precio de venta, para alquilar, como la ficha.
   const handleAddToCart = () => {
-    addToCart(mueble, 'compra');
+    addToCart(mueble, mueble.precio_venta ? 'compra' : 'alquiler');
     onClose();
   };
 
@@ -50,15 +54,23 @@ const QuickViewModal = ({ mueble, onClose }) => {
         <div className="qv-body">
           <span className="qv-category">{mueble.categoria}</span>
           <h3 id="qv-title" className="qv-name font-display">{mueble.nombre}</h3>
+          <ReferenciaProducto referencia={mueble.referencia} className="qv-ref" />
           {mueble.descripcion && <p className="qv-desc">{mueble.descripcion}</p>}
           <span className="qv-price font-display">
-            {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar precio')}
+            {textoPrecio(mueble)}
           </span>
 
           <div className="qv-actions">
-            <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado}>
-              {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : 'Añadir a la cesta'}
-            </button>
+            {/* C3: disponible y sin precios a la vista, se pregunta por ella en vez de comprarla */}
+            {!isSold && !isAlquilado && !tienePrecio(mueble) ? (
+              <Link to={rutaPreguntarPorPieza(mueble)} className="qv-btn qv-btn-solid" onClick={onClose}>
+                {TEXTO_PREGUNTAR}
+              </Link>
+            ) : (
+              <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado}>
+                {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : 'Añadir a la cesta'}
+              </button>
+            )}
             <button className={`qv-btn qv-btn-ghost ${isFav ? 'active' : ''}`} onClick={() => toggleFavorite(mueble.id)}>
               {isFav ? 'En favoritos ✓' : 'Añadir a favoritos'}
             </button>

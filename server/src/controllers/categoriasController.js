@@ -5,6 +5,16 @@ const { uploadToSupabase } = require('../utils/upload');
 // que usa la web. Explícitas, para que una columna nueva no salga al público sin decidirlo.
 const COLUMNAS_PUBLICAS_CATEGORIA = 'id, nombre, imagen_url, categoria_padre_id';
 
+// La lectura del panel añade el código de 3 letras (A5), que solo sirve para administrar las
+// referencias de los muebles: la web no lo usa.
+const COLUMNAS_ADMIN_CATEGORIA = `${COLUMNAS_PUBLICAS_CATEGORIA}, codigo`;
+
+// Un 23505 en el índice único de categorias.codigo: otra categoría ya usa ese código. Se responde
+// 400 con un mensaje que se puede enseñar tal cual, no el 500 genérico.
+const esCodigoRepetido = (error) =>
+  error?.code === '23505' && String(error.message || '').includes('codigo');
+const MENSAJE_CODIGO_REPETIDO = 'Ese código ya lo usa otra categoría.';
+
 // 1. Obtener todas las categorías (pública: la cabecera, el catálogo, la portada...). Sin
 // estadísticas: esas son del panel y van en obtenerCategoriasConEstadisticas (H26).
 const obtenerCategorias = async (req, res) => {
@@ -33,7 +43,7 @@ const obtenerCategoriasConEstadisticas = async (req, res) => {
   try {
     const { data: categorias, error: errCat } = await supabase
       .from('categorias')
-      .select(COLUMNAS_PUBLICAS_CATEGORIA)
+      .select(COLUMNAS_ADMIN_CATEGORIA)
       .order('nombre', { ascending: true });
 
     if (errCat) throw errCat;
@@ -103,7 +113,7 @@ const obtenerCategoriasConEstadisticas = async (req, res) => {
 // 2. Crear una nueva categoría con soporte de carga física de imágenes
 const crearCategoria = async (req, res) => {
   try {
-    const { nombre } = req.body;
+    const { nombre, codigo } = req.body;
     let imagen_url = req.body.imagen_url;
 
     // categoria_padre_id: vacío/ausente = categoría general (nivel superior)
@@ -123,7 +133,9 @@ const crearCategoria = async (req, res) => {
           nombre,
           imagen_url:
             imagen_url || 'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=200',
-          categoria_padre_id
+          categoria_padre_id,
+          // Ya validado y en mayúsculas por schemas/categorias.js; sin código, null.
+          codigo: codigo ?? null
         }
       ])
       .select();
@@ -131,6 +143,7 @@ const crearCategoria = async (req, res) => {
     if (error) throw error;
     res.status(201).json({ success: true, data });
   } catch (error) {
+    if (esCodigoRepetido(error)) return res.status(400).json({ error: MENSAJE_CODIGO_REPETIDO });
     console.error('Error al crear categoría:', error);
     res.status(500).json({ error: 'Error al crear la categoría.' });
   }
@@ -140,7 +153,7 @@ const crearCategoria = async (req, res) => {
 const editarCategoria = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre } = req.body;
+    const { nombre, codigo } = req.body;
     let imagen_url = req.body.imagen_url;
 
     // Si se subió un archivo físico para reemplazar la imagen anterior
@@ -162,6 +175,11 @@ const editarCategoria = async (req, res) => {
         : null;
     }
 
+    // codigo: ausente = no se toca; vacío = sin código (null). Las referencias ya dadas no cambian.
+    if (codigo !== undefined) {
+      updateData.codigo = codigo;
+    }
+
     const { data, error } = await supabase
       .from('categorias')
       .update(updateData)
@@ -171,6 +189,7 @@ const editarCategoria = async (req, res) => {
     if (error) throw error;
     res.status(200).json({ success: true, data });
   } catch (error) {
+    if (esCodigoRepetido(error)) return res.status(400).json({ error: MENSAJE_CODIGO_REPETIDO });
     console.error('Error al editar categoría:', error);
     res.status(500).json({ error: 'Error al editar la categoría.' });
   }

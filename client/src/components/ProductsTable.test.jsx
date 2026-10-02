@@ -87,6 +87,15 @@ describe('ProductsTable', () => {
     expect(filaSilla.querySelector('.products-table-col-precio-movil').textContent).toBe('8 €/día');
   });
 
+  it('sin ningún precio (o con los precios ocultos), "Consultar precio" en venta y en la tarjeta móvil; "—" en alquiler', () => {
+    renderProductsTable([{ id: '3', nombre: 'Bidón antiguo', categoria: 'Bidones', estado: 'disponible', imagenes: [], precio_venta: null, precio_alquiler_dia: null }]);
+    const fila = screen.getAllByRole('row')[1];
+
+    expect(fila.querySelector('.products-table-col-precio').textContent).toBe('Consultar precio');
+    expect(fila.querySelector('.products-table-col-alquiler').textContent).toBe('—');
+    expect(fila.querySelector('.products-table-col-precio-movil').textContent).toBe('Consultar precio');
+  });
+
   it('muestra el badge de estado correcto por fila', () => {
     renderProductsTable(productosDePrueba);
     expect(screen.getByText('Disponible')).toBeInTheDocument();

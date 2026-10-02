@@ -37,6 +37,7 @@ const renderDrawer = ({
   cartTotal = 0,
   validateCart = vi.fn().mockResolvedValue(true),
   isCartOpen = true,
+  hayLineasSinPrecio = false,
   showToast = vi.fn(),
   user = { email: 'cliente@example.com', nombre: 'Cliente' }
 } = {}) => {
@@ -44,7 +45,7 @@ const renderDrawer = ({
     <MemoryRouter initialEntries={['/']}>
       <AuthContext.Provider value={{ user, login: vi.fn(), logout: vi.fn(), loading: false }}>
         <ToastContext.Provider value={{ showToast }}>
-          <CartContext.Provider value={{ isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal, validateCart }}>
+          <CartContext.Provider value={{ isCartOpen, toggleCart, cartItems, removeFromCart, updateQuantity, cartTotal, validateCart, hayLineasSinPrecio }}>
             <Routes>
               <Route path="*" element={<><CartDrawer /><MarcadorDeRuta /></>} />
             </Routes>
@@ -186,5 +187,25 @@ describe('CartDrawer — cierre y validación al abrir', () => {
   it('con la cesta cerrada, no valida nada al montar', () => {
     const { validateCart } = renderDrawer({ isCartOpen: false, cartItems: [itemBase()] });
     expect(validateCart).not.toHaveBeenCalled();
+  });
+});
+
+// Fase C (C4): con alguna línea sin precio (precios ocultos), no se puede pagar.
+describe('CartDrawer — líneas sin precio (fase C)', () => {
+  const mensaje = 'Hay piezas sin precio en tu cesta. Quítalas para pagar, o pregúntanos por ellas en la página de contacto.';
+
+  it('la línea sin precio dice "Consultar precio", y "Confirmar Pedido" está desactivado con una explicación', () => {
+    renderDrawer({ cartItems: [itemBase(), itemBase({ id: 'mesa-compra', productId: 'mesa', nombre: 'Mesa', precio: null })], cartTotal: 90, hayLineasSinPrecio: true });
+
+    expect(screen.getByText('Consultar precio')).toHaveClass('cart-item-price-label');
+    expect(screen.getByText('90 €')).toHaveClass('cart-item-price-label');
+    expect(screen.getByText(mensaje)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar Pedido' })).toBeDisabled();
+  });
+
+  it('con todas las líneas con precio, ni aviso ni botón desactivado', () => {
+    renderDrawer({ cartItems: [itemBase()], cartTotal: 90, hayLineasSinPrecio: false });
+    expect(screen.queryByText(mensaje)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmar Pedido' })).toBeEnabled();
   });
 });

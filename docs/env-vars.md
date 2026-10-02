@@ -171,6 +171,24 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   fallar.
 - **Ejemplo (enmascarado):** `GOOGLE_CLIENT_ID=123456789-xxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com`
 
+### `MOSTRAR_PRECIOS`
+- **Qué hace:** decide si el catálogo público enseña los precios y deja comprar (fase C; ver
+  `server/src/utils/precios.js`).
+  - `true`: todo como siempre.
+  - Cualquier otro valor, o sin poner: `GET /api/muebles`, `/api/muebles/buscar` y
+    `/api/muebles/:id` devuelven `precio_venta` y `precio_alquiler_dia` a `null`; la web enseña
+    "Consultar precio" y el botón "Preguntar por esta pieza" (lleva a contacto) en vez de añadir a
+    la cesta; y `POST /api/muebles/crear-sesion-pago` responde 403, así que no se puede pagar.
+  - El panel (`GET /api/admin/muebles`) ve siempre los precios reales, y se pueden editar. La base
+    de datos no se toca: es solo lo que sale en las respuestas.
+- **Formato:** `true` exacto, en minúsculas. `TRUE`, `1` o `si` cuentan como "no".
+- **Obligatoria:** no. **Por defecto, sin poner, los precios están ocultos.** Si se despliega este
+  código sin la variable, la web deja de enseñar precios y de vender; para seguir como antes hay
+  que ponerla a `true`.
+- **Al cambiarla:** en Vercel hay que redesplegar. Además, la CDN guarda el catálogo hasta unos
+  minutos (`s-maxage=120` más `stale-while-revalidate=300`), así que el cambio puede tardar en verse.
+- **Ejemplo:** `MOSTRAR_PRECIOS=false` (catálogo sin precios ni compra) o `MOSTRAR_PRECIOS=true`
+
 ## Cliente (`client/.env`)
 
 ### `VITE_API_URL`

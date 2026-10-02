@@ -3,7 +3,7 @@ import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { ToastContext } from '../../../context/ToastContext';
 import { updateCategoria } from '../../../services/api';
 import Icon from '../Icon';
-import { generales } from '../categorias';
+import { generales, normalizarCodigo, errorDeCodigo, avisoCambioDeCodigo } from '../categorias';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Modal "Editar Categoría". Lo pinta el contenedor, fuera de <main>, y su estado (la categoría
@@ -13,6 +13,7 @@ const EditarCategoriaModal = ({
   categoria, setCategoria,
   archivoNuevo, setArchivoNuevo,
   categorias,
+  muebles = [],
   confirmarBorrado,
   onGuardado,
   onCerrar
@@ -24,6 +25,23 @@ const EditarCategoriaModal = ({
     e.preventDefault();
     if (!categoria) return;
     if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
+    const errorCodigo = errorDeCodigo(categoria.codigo, categorias, categoria.id);
+    if (errorCodigo) {
+      envio.acabarMal(errorCodigo);
+      showToast(errorCodigo, 'error');
+      return;
+    }
+    // Bloque A: si cambia el código y la categoría ya tiene muebles con referencia, se pregunta antes.
+    // Cancelar no guarda nada y deja el modal como estaba.
+    const aviso = avisoCambioDeCodigo(categoria, categorias, muebles);
+    if (aviso) {
+      confirmarBorrado('Cambiar el código de la categoría', aviso, guardar, 'Continuar');
+      return;
+    }
+    await guardar();
+  };
+
+  const guardar = async () => {
     envio.empezar('Actualizando categoría...');
 
     // La foto nueva se reduce antes de subirla (H24, ver utils/imagen.js).
@@ -42,6 +60,8 @@ const EditarCategoriaModal = ({
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', categoria.nombre || '');
     formDataToSend.append('categoria_padre_id', categoria.categoria_padre_id || '');
+    // A5: vacío = la categoría se queda sin código. Las referencias ya dadas no cambian.
+    formDataToSend.append('codigo', categoria.codigo || '');
     if (imagen) {
       formDataToSend.append('imagen', imagen);
     } else {
@@ -77,6 +97,19 @@ const EditarCategoriaModal = ({
               onChange={(e) => setCategoria({ ...categoria, nombre: e.target.value })}
               required
             />
+          </div>
+
+          <div className="field-group">
+            <label className="field-label">Código de 3 letras (opcional):</label>
+            <input
+              type="text"
+              className="cat-codigo-input"
+              placeholder="Ej: SOF"
+              value={categoria.codigo || ''}
+              onChange={(e) => setCategoria({ ...categoria, codigo: normalizarCodigo(e.target.value) })}
+              aria-describedby="editar-cat-codigo-nota"
+            />
+            <small id="editar-cat-codigo-nota" className="field-hint">Cambiarlo no toca las referencias que ya tienen sus muebles: solo las de los nuevos.</small>
           </div>
 
           <div className="field-group">

@@ -5,6 +5,12 @@ const pagos = require('../utils/pagos');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
 const { escaparIlike } = require('../utils/ilike');
+const {
+  obtenerCodigoCategoria,
+  calcularSiguienteReferencia,
+  MAX_REINTENTOS
+} = require('../utils/referencia');
+const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -22,14 +28,21 @@ const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
   return data.id;
 };
 
-// Columnas que devuelven las lecturas públicas de muebles (H26): las que usan la web y el panel
-// (que lee el catálogo con estas mismas rutas). Antes era select('*'): no había nada privado, pero
+// Columnas que devuelven las lecturas públicas de muebles (H26): las que usa la web (el panel lee
+// las suyas de GET /api/admin/muebles desde A5). Antes era select('*'): no había nada privado, pero
 // cualquier columna nueva (un precio de compra, el proveedor, notas internas...) habría salido al
 // público sin que nadie lo decidiera. No van `disponible` (se deriva de `estado`), `created_at`
 // (solo sirve para ordenar, y ordenar no necesita devolverla) ni `categoria_id` (la web usa
 // `categoria`; cuando cierre la migración A habrá que añadirla aquí).
+// `referencia` (NAV-SIL-001) sale también al público desde A6: el catálogo la enseña bajo el nombre.
 const COLUMNAS_PUBLICAS_MUEBLE =
-  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado';
+  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado, referencia';
+
+// Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores). Hoy son las
+// mismas que las públicas (en A5 añadía `referencia`, que desde A6 ya es pública), pero van aparte:
+// es la lectura que tiene siempre los precios reales, también cuando el catálogo público no los
+// enseña (MOSTRAR_PRECIOS, fase C), y una columna solo para el panel se añade aquí, no arriba.
+const COLUMNAS_ADMIN_MUEBLE = COLUMNAS_PUBLICAS_MUEBLE;
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -52,9 +65,29 @@ const obtenerMuebles = async (req, res) => {
     // El catálogo casi no cambia entre visitas: se puede cachear un par de minutos en
     // el navegador y en la CDN de Vercel para no volver a pedirlo en cada carga de página.
     res.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-    res.status(200).json(data);
+    // C1: sin MOSTRAR_PRECIOS=true, el público no ve los precios (utils/precios.js).
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al obtener muebles:', error.message);
+    res.status(500).json({ error: 'Error interno al obtener los muebles.' });
+  }
+};
+
+// 1b. Todos los muebles para el panel (GET /api/admin/muebles, con verificarAdmin; A5). Como
+// obtenerMuebles, pero con las columnas del panel y sin ninguna caché: el panel tiene que ver al
+// momento lo que acaba de guardar, y son datos de administración.
+const obtenerMueblesAdmin = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('muebles')
+      .select(COLUMNAS_ADMIN_MUEBLE)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error al obtener muebles para el panel:', error.message);
     res.status(500).json({ error: 'Error interno al obtener los muebles.' });
   }
 };
@@ -72,7 +105,7 @@ const obtenerMueblePorId = async (req, res) => {
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });
     }
-    res.status(200).json(data);
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al obtener mueble por ID:', error.message);
     res.status(500).json({ error: 'Error al buscar el detalle del mueble.' });
@@ -113,23 +146,78 @@ const crearMueble = async (req, res) => {
     // conozca categoria_id sigue funcionando igual que antes de esta migración.
     const categoriaIdFinal = categoria_id ?? (await resolverCategoriaIdPorNombre(categoria));
 
-    const { data, error } = await supabase
-      .from('muebles')
-      .insert([
-        {
-          nombre,
-          categoria,
-          categoria_id: categoriaIdFinal,
-          descripcion,
-          precio_venta: precio_venta ?? null,
-          precio_alquiler_dia: precio_alquiler ?? null,
-          imagenes,
-          estado: estado || 'disponible'
-        }
-      ])
-      .select();
+    // A4: referencia automática si la categoría tiene código (las 12 ya lo tienen tras A3).
+    // El código se obtiene UNA VEZ fuera del bucle — no cambia entre reintentos.
+    // Si la categoría no tiene código (nueva categoría aún sin código, o categoriaIdFinal null),
+    // codigoCategoria queda null y el mueble se crea sin referencia — no bloquea.
+    let codigoCategoria = null;
+    if (categoriaIdFinal) {
+      try {
+        codigoCategoria = await obtenerCodigoCategoria(categoriaIdFinal);
+      } catch (errRef) {
+        // SIN_CODIGO es esperado para categorías nuevas aún sin código asignado.
+        // Cualquier otro error (categoría no encontrada, fallo de red) sí debe subir.
+        if (errRef.code !== 'SIN_CODIGO') throw errRef;
+        console.warn(
+          `[crearMueble] Categoría ${categoriaIdFinal} sin código: mueble sin referencia.`
+        );
+      }
+    }
 
-    if (error) throw error;
+    // Bucle de inserción. Con código: MAX_REINTENTOS intentos con recálculo de referencia en
+    // cada iteración (calcularSiguienteReferencia siempre ve el MAX actualizado en la BD).
+    // Sin código: una sola inserción, sin bucle efectivo.
+    // 23505 = unique_violation en Postgres: dos admins coincidieron en el mismo MAX+1.
+    // El siguiente intento llama de nuevo a calcularSiguienteReferencia y ve la referencia
+    // del primero → devuelve MAX+1 correcto → la colisión se resuelve sola.
+    const intentosMaximos = codigoCategoria ? MAX_REINTENTOS : 1;
+    const payloadBase = {
+      nombre,
+      categoria,
+      categoria_id: categoriaIdFinal,
+      descripcion,
+      precio_venta: precio_venta ?? null,
+      precio_alquiler_dia: precio_alquiler ?? null,
+      imagenes,
+      estado: estado || 'disponible'
+    };
+
+    let data;
+    for (let intento = 0; intento < intentosMaximos; intento++) {
+      // Se recalcula en cada iteración: en el reintento por 23505, la BD ya tiene la referencia
+      // del admin que ganó la carrera, así que este verá un MAX más alto y no volverá a chocar.
+      const referencia = codigoCategoria
+        ? await calcularSiguienteReferencia(codigoCategoria)
+        : null;
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('muebles')
+        .insert([{ ...payloadBase, referencia }])
+        .select();
+
+      if (!insertError) {
+        data = insertData;
+        break;
+      }
+
+      // 23505 + mención al constraint de referencia = colisión concurrente en muebles.referencia.
+      // Se recalcula en el siguiente intento (calcularSiguienteReferencia verá el MAX actualizado).
+      // Si el 23505 es de otro constraint UNIQUE futuro (nombre, etc.), no reintentamos: throw.
+      if (
+        insertError.code === '23505' &&
+        insertError.message?.includes('referencia') &&
+        intento < intentosMaximos - 1
+      ) {
+        console.warn(
+          `[crearMueble] Colisión en referencia ${referencia} (intento ${intento + 1}/${intentosMaximos}). Recalculando...`
+        );
+        continue; // siguiente iteración recalcula desde la BD
+      }
+
+      // Cualquier otro error de BD, o colisión con reintentos agotados
+      throw insertError;
+    }
+
     res.status(201).json({ success: true, message: 'Mueble creado con éxito', data });
   } catch (error) {
     console.error('Error al crear mueble:', error.message);
@@ -243,7 +331,7 @@ const buscarMuebles = async (req, res) => {
       .select(COLUMNAS_PUBLICAS_MUEBLE)
       .ilike('nombre', `%${escaparIlike(q)}%`);
     if (error) throw error;
-    res.status(200).json(data);
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al buscar muebles:', error.message);
     res.status(500).json({ error: 'Error en el motor de búsqueda.' });
@@ -305,6 +393,13 @@ const construirLineasDesdeCarrito = async (items) => {
 // qué error se le puede contar tal cual al comprador y cuál no.
 const crearSesionPago = async (req, res) => {
   try {
+    // C1: con los precios ocultos no se puede comprar. Se corta aquí, en el servidor, y no solo
+    // quitando el botón: un carrito guardado de antes o una llamada directa a esta ruta cobraría
+    // el precio real, y la página de pago de Stripe lo enseñaría.
+    if (!preciosVisibles()) {
+      return res.status(403).json({ error: MENSAJE_COMPRA_CERRADA });
+    }
+
     const stripe = stripeUtil.getStripe();
     if (!stripe) {
       return res
@@ -405,6 +500,7 @@ const confirmarSesion = async (req, res) => {
 
 module.exports = {
   obtenerMuebles,
+  obtenerMueblesAdmin,
   obtenerMueblePorId,
   crearMueble,
   editarMueble,

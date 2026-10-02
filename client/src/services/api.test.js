@@ -34,12 +34,15 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     expect(fetch.mock.calls[0][0]).toMatch(/\/muebles\?limit=4$/);
   });
 
-  it('getMuebles({ fresco: true }) se salta la caché del navegador (no-store) y la de la CDN (Authorization)', async () => {
+  // CAMBIADO CON A5 (2 oct 2026): antes iba a /muebles, la ruta pública, con la sesión solo para
+  // saltarse la CDN. Ahora el panel lee su inventario de la ruta de administración, que trae la
+  // referencia de cada mueble y siempre los precios reales (mismo patrón que getCategorias).
+  it('getMuebles({ fresco: true }) pide el inventario a la ruta de administración, con sesión y sin caché', async () => {
     setAccessToken('token-del-admin'); // desde el bloque 3b, el access token vive en memoria
 
     await getMuebles({ fresco: true });
 
-    expect(fetch.mock.calls[0][0]).toMatch(/\/muebles$/);
+    expect(fetch.mock.calls[0][0]).toMatch(/\/admin\/muebles$/);
     expect(fetch.mock.calls[0][1]).toEqual({
       cache: 'no-store',
       headers: { Authorization: 'Bearer token-del-admin' }
@@ -63,7 +66,7 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
 
   it('sin token guardado, { fresco: true } sigue saltándose la caché del navegador (sin cabecera Authorization)', async () => {
     // Hoy el panel siempre tiene sesión, pero si algún día se usa `fresco` sin ella, no-store se
-    // mantiene. Ojo: sin Authorization, la CDN de Vercel sí puede servir su copia (ver lecturaFresca).
+    // mantiene (y la ruta de administración responderá 401).
     await getMuebles({ fresco: true });
 
     expect(fetch.mock.calls[0][1]).toEqual({ cache: 'no-store', headers: {} });
@@ -80,12 +83,13 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     });
   });
 
-  it('getMuebles({ fresco, limit }) combina las dos opciones', async () => {
+  // CAMBIADO CON A5: con `fresco`, el panel lee siempre el inventario entero; `limit` no se usa.
+  it('getMuebles({ fresco, limit }) ignora el límite: el panel lee el inventario entero', async () => {
     setAccessToken('tk');
 
     await getMuebles({ fresco: true, limit: 4 });
 
-    expect(fetch.mock.calls[0][0]).toMatch(/\/muebles\?limit=4$/);
+    expect(fetch.mock.calls[0][0]).toMatch(/\/admin\/muebles$/);
     expect(fetch.mock.calls[0][1]).toEqual({ cache: 'no-store', headers: { Authorization: 'Bearer tk' } });
   });
 

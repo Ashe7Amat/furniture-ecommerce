@@ -226,7 +226,7 @@ describe('Profile — favoritos', () => {
     expect(screen.getByText('Aún no has guardado ningún mueble en tus favoritos.')).toBeInTheDocument();
   });
 
-  it('enseña solo los muebles favoritos, con su precio de venta, de alquiler o "Consultar"', async () => {
+  it('enseña solo los muebles favoritos, con su precio de venta, de alquiler o "Consultar precio"', async () => {
     getMuebles.mockResolvedValue([
       { id: 'm1', nombre: 'Silla Tolix', precio_venta: 120, imagenes: ['https://img.test/silla.jpg'] },
       { id: 'm2', nombre: 'Mesa de roble', precio_alquiler_dia: 8, imagenes: [] },
@@ -239,7 +239,8 @@ describe('Profile — favoritos', () => {
     expect(silla).toHaveAttribute('href', '/mueble/m1');
     expect(within(silla).getByText('120 €')).toBeInTheDocument();
     expect(within(screen.getByRole('heading', { name: 'Mesa de roble' }).closest('a')).getByText('8 €/día')).toBeInTheDocument();
-    expect(within(screen.getByRole('heading', { name: 'Lámpara' }).closest('a')).getByText('Consultar')).toBeInTheDocument();
+    // CAMBIADO A PROPÓSITO (fase C, 2 oct 2026): el texto unificado es "Consultar precio" (antes, "Consultar").
+    expect(within(screen.getByRole('heading', { name: 'Lámpara' }).closest('a')).getByText('Consultar precio')).toBeInTheDocument();
     expect(screen.queryByText('No es favorito')).not.toBeInTheDocument();
   });
 

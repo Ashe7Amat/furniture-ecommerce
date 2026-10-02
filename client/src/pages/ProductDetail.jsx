@@ -1,12 +1,14 @@
 import { useEffect, useState, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice } from '../utils/format';
+import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
+import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
+import ReferenciaProducto from '../components/ReferenciaProducto';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -73,6 +75,11 @@ const ProductDetail = () => {
     addToCart(mueble, modalidad);
   };
 
+  // C3: disponible y sin precios a la vista (ocultos por MOSTRAR_PRECIOS, o sin ninguno), no se
+  // compra: se pregunta. Sin precios, "Cantidad" y "Modalidad" no dicen nada (el alquiler saldría
+  // "No disponible" aunque lo esté), así que tampoco se enseñan.
+  const preguntar = mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && !tienePrecio(mueble);
+
   return (
     <div className="pd-container">
       <div className="pd-breadcrumb">
@@ -120,13 +127,23 @@ const ProductDetail = () => {
               </svg>
             </button>
           </div>
-          <p className="pd-price font-display">{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : 'Consultar precio'}</p>
+          {/* A6: la referencia real (NAV-SIL-001). Sustituye a la "Ref. SKU-…" que había al final de
+              la ficha, inventada con los 6 primeros caracteres del id. */}
+          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref" />
+          {/* C2: antes, sin precio de venta salía "Consultar precio" aunque tuviera precio de alquiler */}
+          <p className="pd-price font-display">{textoPrecio(mueble)}</p>
           
           <div className="pd-description">
             <p>{mueble.descripcion}</p>
           </div>
 
           <div className="pd-actions-form">
+            {preguntar ? (
+              <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
+                {TEXTO_PREGUNTAR}
+              </Link>
+            ) : (
+            <>
             <div className="pd-quantity-wrapper">
               <label className="pd-label">Cantidad</label>
               <div className="pd-quantity-selector">
@@ -165,6 +182,8 @@ const ProductDetail = () => {
             >
               {mueble.estado === 'vendido' ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : 'Añadir a mi cesta')}
             </button>
+            </>
+            )}
           </div>
 
           {/* ACORDEON DE DETALLES */}
@@ -188,10 +207,6 @@ const ProductDetail = () => {
                 <p>Contamos con transporte especializado en muebles delicados (1-2 semanas aprox). Ofrecemos 14 días para devoluciones desde la recepción del producto, siempre conservando el embalaje original.</p>
               </div>
             </div>
-          </div>
-          
-          <div className="pd-sku">
-            Ref. SKU-{String(mueble.id).slice(0, 6).toUpperCase() || '0001A'}
           </div>
 
         </div>

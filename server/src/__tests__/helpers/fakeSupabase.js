@@ -1,7 +1,7 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / is / lt / ilike / contains / limit / order / insert / update /
+// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / limit / order / insert / update /
 // delete / single / maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
 // al bucle de eventos antes de ejecutarse, así dos flujos concurrentes se intercalan paso a
 // paso como harían contra una base de datos de verdad, y cada operación es atómica: un update()
@@ -99,10 +99,11 @@ const crearFakeSupabase = ({
   //   '%' y '*' (alias de PostgREST) = cualquier secuencia, incluida la vacía
   //   '_' = exactamente un carácter
   //   '\' = el carácter siguiente se toma literal
-  // ILIKE además no distingue mayúsculas. Antes solo entendía '%': tomaba '_' y '\' como
-  // literales, y eso ocultaba H17 (un '_' en el email de la cuenta coincidía con otro email).
+  // ILIKE además no distingue mayúsculas; LIKE sí (distingueMayusculas). Antes solo entendía '%':
+  // tomaba '_' y '\' como literales, y eso ocultaba H17 (un '_' en el email de la cuenta
+  // coincidía con otro email).
   const escaparRegex = (caracter) => caracter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const comodinARegex = (patron) => {
+  const comodinARegex = (patron, { distingueMayusculas = false } = {}) => {
     const texto = String(patron);
     let regex = '';
     for (let i = 0; i < texto.length; i++) {
@@ -112,7 +113,7 @@ const crearFakeSupabase = ({
       else if (caracter === '_') regex += '[\\s\\S]';
       else regex += escaparRegex(caracter);
     }
-    return new RegExp(`^${regex}$`, 'i');
+    return new RegExp(`^${regex}$`, distingueMayusculas ? '' : 'i');
   };
 
   // Triggers BEFORE INSERT OR UPDATE de la base de datos real, por tabla. Copia de
@@ -299,6 +300,16 @@ const crearFakeSupabase = ({
           (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) < valor
         );
         return usar('lt');
+      },
+      // LIKE: los mismos comodines que ILIKE, pero distinguiendo mayúsculas, como en Postgres. Lo
+      // usa utils/referencia.js para buscar la última referencia de un código (NAV-SIL-%).
+      like: (columna, patron) => {
+        const regex = comodinARegex(patron, { distingueMayusculas: true });
+        consulta.filtros.push((f) => {
+          const valor = valorDeColumna(f, columna);
+          return valor != null && regex.test(String(valor));
+        });
+        return usar('like');
       },
       // Comparación de texto sin distinguir mayúsculas/minúsculas, con los comodines de ILIKE
       // (ver comodinARegex). Admite columnas jsonb tipo 'cliente_info->>email'.

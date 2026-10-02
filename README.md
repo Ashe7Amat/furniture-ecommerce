@@ -103,6 +103,7 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `RESEND_FROM` | server | No (tiene un valor por defecto de pruebas) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
+| `MOSTRAR_PRECIOS` | server | No. **Sin poner, el catálogo público oculta los precios y no deja comprar**; `true` los enseña |
 | `VITE_API_URL` | client | No (por defecto `http://localhost:5000/api`) |
 | `VITE_GOOGLE_CLIENT_ID` | client | No (debe coincidir con `GOOGLE_CLIENT_ID` del servidor) |
 | `VITE_GA_MEASUREMENT_ID` | client | No (sin ella, no se carga Google Analytics) |

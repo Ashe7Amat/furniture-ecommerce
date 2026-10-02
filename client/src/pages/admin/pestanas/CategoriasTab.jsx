@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { createCategoria, deleteCategoria } from '../../../services/api';
 import Icon from '../Icon';
-import { generales, especificasDe } from '../categorias';
+import { generales, especificasDe, normalizarCodigo, errorDeCodigo } from '../categorias';
 import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
@@ -14,6 +14,7 @@ const CategoriasTab = ({
   categorias,
   nuevaCat, setNuevaCat,
   nuevaCatPadre, setNuevaCatPadre,
+  nuevaCatCodigo, setNuevaCatCodigo,
   categoriaFile, setCategoriaFile,
   recargarCategorias,
   confirmarBorrado,
@@ -26,6 +27,12 @@ const CategoriasTab = ({
     e.preventDefault();
     if (!nuevaCat) return;
     if (envio.enviando) return; // ya hay un envío en curso (p. ej. un doble clic o Intro)
+    const errorCodigo = errorDeCodigo(nuevaCatCodigo, categorias);
+    if (errorCodigo) {
+      envio.acabarMal(errorCodigo);
+      showToast(errorCodigo, 'error');
+      return;
+    }
 
     envio.empezar('Creando categoría...');
     // La foto se reduce antes de subirla (H24, ver utils/imagen.js): una sola foto de móvil ya
@@ -44,6 +51,7 @@ const CategoriasTab = ({
     const formDataToSend = new FormData();
     formDataToSend.append('nombre', nuevaCat);
     formDataToSend.append('categoria_padre_id', nuevaCatPadre);
+    if (nuevaCatCodigo) formDataToSend.append('codigo', nuevaCatCodigo);
     if (imagen) {
       formDataToSend.append('imagen', imagen);
     }
@@ -53,6 +61,7 @@ const CategoriasTab = ({
       showToast('Categoría creada correctamente', 'success');
       setNuevaCat('');
       setNuevaCatPadre('');
+      setNuevaCatCodigo('');
       setCategoriaFile(null);
       const fileInput = document.getElementById('categoria-file-input');
       if (fileInput) fileInput.value = '';
@@ -88,6 +97,18 @@ const CategoriasTab = ({
             onChange={(e) => setNuevaCat(e.target.value)}
             required
           />
+          <div className="field-group">
+            <label className="field-label">Código de 3 letras (opcional):</label>
+            <input
+              type="text"
+              className="cat-codigo-input"
+              placeholder="Ej: SOF"
+              value={nuevaCatCodigo}
+              onChange={(e) => setNuevaCatCodigo(normalizarCodigo(e.target.value))}
+              aria-describedby="nueva-cat-codigo-nota"
+            />
+            <small id="nueva-cat-codigo-nota" className="field-hint">Forma las referencias de sus muebles (NAV-SOF-001). Sin código, no llevan referencia.</small>
+          </div>
           <div className="field-group">
             <label className="field-label">Categoría general (opcional):</label>
             <select value={nuevaCatPadre} onChange={(e) => setNuevaCatPadre(e.target.value)}>
@@ -128,6 +149,9 @@ const CategoriasTab = ({
                       </button>
                     </div>
                   </div>
+                  <p className="cat-card-codigo">
+                    {cat.codigo ? <>Código: <span className="cat-codigo">{cat.codigo}</span></> : 'Sin código'}
+                  </p>
                   {cat.stats ? (
                     <div className="cat-card-stats">
                       <p>Productos totales: <strong>{cat.stats.totalProductos}</strong></p>

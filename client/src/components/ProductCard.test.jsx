@@ -86,9 +86,15 @@ describe('ProductCard', () => {
     expect(screen.queryByText('Vista rápida')).not.toBeInTheDocument();
   });
 
-  it('sin ningún precio, invita a "Consultar"', () => {
+  // CAMBIADO A PROPÓSITO (fase C, 2 oct 2026): el texto unificado es "Consultar precio" (antes, "Consultar").
+  it('sin ningún precio, invita a "Consultar precio"', () => {
     renderProductCard({ id: '6', nombre: 'Pieza sin tasar', estado: 'disponible' });
-    expect(screen.getByText('Consultar')).toBeInTheDocument();
+    expect(screen.getByText('Consultar precio')).toBeInTheDocument();
+  });
+
+  it('vendida y sin ningún precio: no enseña precio (ni "Consultar precio" ni "null €/día")', () => {
+    renderProductCard({ id: '7', nombre: 'Pieza vendida sin tasar', estado: 'vendido' });
+    expect(document.querySelector('.price-value')).toBeEmptyDOMElement();
   });
 
   it('el botón de favorito llama a toggleFavorite sin navegar a la ficha', async () => {

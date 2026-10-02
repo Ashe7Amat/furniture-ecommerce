@@ -13,12 +13,13 @@
 // cada columna tiene cabecera con nombre, aunque no se vea ("Foto", "Acción"): si faltara
 // alguna, el lector anunciaría cada celda con la cabecera de la columna siguiente.
 import { useState } from 'react';
-import { formatPrice } from '../utils/format';
+import { formatPrice, textoPrecio, tienePrecio, TEXTO_SIN_PRECIO } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 // Estilos en Catalog.css (archivo existente), no en una hoja nueva: esta tabla es una
 // vista alternativa DEL catálogo, no un componente independiente con identidad propia.
 import '../styles/Catalog.css';
+import ReferenciaProducto from './ReferenciaProducto';
 
 const ETIQUETA_ESTADO = {
   disponible: 'Disponible',
@@ -26,15 +27,11 @@ const ETIQUETA_ESTADO = {
   alquilado: 'Alquilado',
 };
 
-// Mismo criterio de respaldo que ya usan ProductCard/QuickViewModal: venta primero, si no
-// hay, alquiler por día, si no hay ninguno, "Consultar". Solo se usa en la tarjeta móvil
-// (columna única de precio); en la tabla de escritorio, venta y alquiler son dos columnas
-// literales que muestran "—" cuando no aplican, no se combinan entre sí.
-const precioMovil = (mueble) => {
-  if (mueble.precio_venta) return `${formatPrice(mueble.precio_venta)} €`;
-  if (mueble.precio_alquiler_dia) return `${formatPrice(mueble.precio_alquiler_dia)} €/día`;
-  return 'Consultar';
-};
+// Precio de la tarjeta móvil (columna única): textoPrecio, el mismo criterio que el resto del
+// catálogo (venta, si no alquiler, si no "Consultar precio"). En la tabla de escritorio, venta y
+// alquiler son dos columnas literales que muestran "—" cuando no aplican; si no hay ninguno de los
+// dos, la de venta dice "Consultar precio" (C2) y la de alquiler sigue con "—".
+const precioMovil = textoPrecio;
 
 const ProductsTable = ({ productos }) => {
   const [muebleActivo, setMuebleActivo] = useState(null);
@@ -71,10 +68,18 @@ const ProductsTable = ({ productos }) => {
                 <img src={imageUrl} alt={mueble.nombre || 'Mueble'} loading="lazy" decoding="async" />
               </div>
 
-              <div className="products-table-cell products-table-col-nombre" role="cell">{mueble.nombre}</div>
+              <div className="products-table-cell products-table-col-nombre" role="cell">
+                {/* Con referencia, el nombre va en su propio <span> y la referencia debajo (A6) */}
+                {mueble.referencia ? (
+                  <>
+                    <span>{mueble.nombre}</span>
+                    <ReferenciaProducto referencia={mueble.referencia} />
+                  </>
+                ) : mueble.nombre}
+              </div>
               <div className="products-table-cell products-table-col-categoria" role="cell">{mueble.categoria || '—'}</div>
               <div className="products-table-cell products-table-col-precio" role="cell">
-                {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : '—'}
+                {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (tienePrecio(mueble) ? '—' : TEXTO_SIN_PRECIO)}
               </div>
               <div className="products-table-cell products-table-col-alquiler" role="cell">
                 {mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : '—'}

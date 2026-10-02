@@ -28,7 +28,8 @@ afterEach(() => mock.restoreAll());
 
 // Datos comunes: dos categorías generales, dos específicas y cuatro muebles. Las categorías llevan
 // una columna que no existe hoy (`nota_interna`): si una lectura pública la devolviera, es que no
-// elige sus columnas (H26).
+// elige sus columnas (H26). "Sillas" lleva además su `codigo` (A5), que solo sale en la lectura
+// del panel.
 const tiendaDePrueba = () =>
   crearFakeSupabase({
     categorias: [
@@ -44,7 +45,8 @@ const tiendaDePrueba = () =>
         nombre: 'Sillas',
         categoria_padre_id: 1,
         imagen_url: 'https://img.test/s.jpg',
-        nota_interna: 'x'
+        nota_interna: 'x',
+        codigo: 'SIL'
       },
       { id: 3, nombre: 'Mesas', categoria_padre_id: 1, imagen_url: null, nota_interna: 'x' },
       { id: 4, nombre: 'Decoración', categoria_padre_id: null, imagen_url: null, nota_interna: 'x' }
@@ -177,17 +179,21 @@ describe('GET /api/admin/categorias/con-stats — estadísticas, solo para el pa
     assert.match(sillas.stats.valorTotalVenta, /€/);
   });
 
-  test('cada categoría lleva sus cuatro columnas y `stats`, nada más, y no se guarda en ninguna caché', async () => {
+  test('cada categoría lleva sus cuatro columnas, su `codigo` (A5) y `stats`, nada más, y no se guarda en ninguna caché', async () => {
     const res = await conAdmin(request(app).get(URL_STATS));
 
+    const sillas = res.body.find((c) => c.nombre === 'Sillas');
+    assert.deepEqual(Object.keys(sillas).sort(), [
+      'categoria_padre_id',
+      'codigo',
+      'id',
+      'imagen_url',
+      'nombre',
+      'stats'
+    ]);
+    assert.equal(sillas.codigo, 'SIL');
     for (const categoria of res.body) {
-      assert.deepEqual(Object.keys(categoria).sort(), [
-        'categoria_padre_id',
-        'id',
-        'imagen_url',
-        'nombre',
-        'stats'
-      ]);
+      assert.equal('nota_interna' in categoria, false);
     }
     assert.equal(res.headers['cache-control'], 'private, no-store');
   });

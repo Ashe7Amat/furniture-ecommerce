@@ -77,6 +77,21 @@ const EditarMuebleModal = ({
           <button className="admin-modal-close" onClick={onCerrar} aria-label="Cerrar"><Icon name="close" /></button>
         </div>
         <form onSubmit={handleSubmit} className="admin-form">
+          {/* A5: la referencia la puso el servidor al crear el mueble y no cambia nunca (ni al
+              cambiar de categoría). Solo se enseña: no va en el FormData que se guarda. */}
+          <div className="field-group">
+            <label className="field-label">Referencia:</label>
+            <input
+              type="text"
+              className="field-ref"
+              value={mueble.referencia || ''}
+              placeholder="Sin referencia"
+              readOnly
+              aria-describedby="editar-mueble-ref-nota"
+            />
+            <small id="editar-mueble-ref-nota" className="field-hint">No editable</small>
+          </div>
+
           <div className="field-group">
             <label className="field-label">Nombre del Mueble:</label>
             <input
