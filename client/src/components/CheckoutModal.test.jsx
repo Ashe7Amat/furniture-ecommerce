@@ -11,11 +11,14 @@ vi.mock('../services/api', () => ({
   crearSesionPago: vi.fn()
 }));
 
+// CAMBIADO A PROPÓSITO (fase C, 2 oct 2026): la línea lleva su precio, como cualquier línea real.
+// Sin precio (precios ocultos), el modal ya no deja pagar (C4; ver el test de abajo).
 const itemBase = (extra = {}) => ({
   id: 'silla-compra',
   productId: 'silla',
   nombre: 'Silla de roble',
   modalidad: 'compra',
+  precio: 90,
   cantidad: 1,
   ...extra
 });
@@ -197,5 +200,19 @@ describe('CheckoutModal — pago con tarjeta', () => {
     expect(await screen.findByText('Esa pieza ya no está disponible.')).toBeInTheDocument();
     // 1 al pulsar "Pagar" (cesta ok) + 1 al volver a comprobarla tras el rechazo del servidor
     expect(validateCart).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Fase C (C4): por si se llega a pagar con una línea sin precio (precios ocultos).
+describe('CheckoutModal — líneas sin precio (fase C)', () => {
+  it('no llama a crearSesionPago y explica por qué', async () => {
+    const user = userEvent.setup();
+    renderCheckout({ cartItems: [itemBase({ precio: null })], cartTotal: 0 });
+
+    await rellenarFormularioValido(user);
+    await user.click(screen.getByRole('button', { name: /Pagar/ }));
+
+    expect(screen.getByText('Hay piezas sin precio en tu cesta. Quítalas para pagar, o pregúntanos por ellas en la página de contacto.')).toBeInTheDocument();
+    expect(crearSesionPago).not.toHaveBeenCalled();
   });
 });

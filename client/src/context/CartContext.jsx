@@ -8,6 +8,14 @@ export const CartContext = createContext();
 
 const PIEZA_UNICA = 'Lo sentimos, esta es una pieza única restaurada y solo hay 1 unidad disponible.';
 
+// Fase C (C4): una línea de la cesta sin precio. Pasa con los precios ocultos (MOSTRAR_PRECIOS):
+// una cesta guardada de antes se queda sin precio al comprobarla (validateCart), y no se puede
+// pagar hasta quitarla (el servidor también lo rechaza: crear-sesion-pago responde 403).
+export const lineaSinPrecio = (item) => !(Number(item.precio) > 0);
+export const SIN_PRECIO_EN_CESTA =
+  'Hay piezas sin precio en tu cesta. Quítalas para pagar, o pregúntanos por ellas en la página de contacto.';
+const precioDe = (producto, modalidad) => (modalidad === 'compra' ? producto.precio_venta : producto.precio_alquiler_dia);
+
 export const CartProvider = ({ children }) => {
   const { user } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
@@ -36,6 +44,12 @@ export const CartProvider = ({ children }) => {
   // comprobarlo por si llegaran dos clics antes de volver a pintar.
   const addToCart = (product, modality) => {
     const estaEnLaCesta = (items) => items.some(item => item.productId === product.id && item.modalidad === modality);
+    // C4: sin precio para esa modalidad no se añade (no debería llegar aquí: sin precios, la web
+    // enseña "Preguntar por esta pieza" en vez del botón de la cesta).
+    if (!(Number(precioDe(product, modality)) > 0)) {
+      showToast('Esta pieza no tiene precio a la vista. Pregúntanos por ella en la página de contacto.', 'warning');
+      return;
+    }
     if (estaEnLaCesta(cartItems)) {
       showToast(PIEZA_UNICA, 'warning');
       return;
@@ -46,7 +60,7 @@ export const CartProvider = ({ children }) => {
       productId: product.id,
       nombre: product.nombre,
       imagen: product.imagenes && product.imagenes.length > 0 ? product.imagenes[0] : PLACEHOLDER_IMG,
-      precio: modality === 'compra' ? product.precio_venta : product.precio_alquiler_dia,
+      precio: precioDe(product, modality),
       modalidad: modality,
       cantidad: 1
     };
@@ -99,16 +113,30 @@ export const CartProvider = ({ children }) => {
         cartItems.map(item => getMuebleById(item.productId))
       );
 
+      // Se quitan las vendidas y las que ya no existen. Las demás se quedan con el precio que da hoy
+      // el catálogo (C4): con los precios ocultos llega null, y la línea pasa a "Consultar precio".
+      // Si la respuesta no trae el campo, el precio guardado se deja como estaba.
       const piezasCaidas = [];
-      const itemsValidos = cartItems.filter((item, i) => {
+      let preciosCambiados = false;
+      const itemsValidos = [];
+      cartItems.forEach((item, i) => {
         const producto = productos[i];
-        const disponible = producto && producto.estado !== 'vendido';
-        if (!disponible) piezasCaidas.push(item.nombre);
-        return disponible;
+        if (!producto || producto.estado === 'vendido') {
+          piezasCaidas.push(item.nombre);
+          return;
+        }
+        const actual = precioDe(producto, item.modalidad);
+        if (actual === undefined || actual === item.precio) {
+          itemsValidos.push(item);
+          return;
+        }
+        preciosCambiados = true;
+        itemsValidos.push({ ...item, precio: actual });
       });
 
+      if (piezasCaidas.length > 0 || preciosCambiados) setCartItems(itemsValidos);
+
       if (piezasCaidas.length > 0) {
-        setCartItems(itemsValidos);
         showToast(
           `Hemos quitado de tu cesta ${piezasCaidas.length === 1 ? 'una pieza que ya' : 'algunas piezas que ya'} no ${piezasCaidas.length === 1 ? 'está disponible' : 'están disponibles'} (${piezasCaidas.join(', ')}).`,
           'warning'
@@ -125,12 +153,14 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  const cartTotal = cartItems.reduce((acc, item) => acc + (item.precio * (item.cantidad || 1)), 0);
+  // C4: las líneas sin precio no suman (antes, un precio null contaba como 0 sin decir nada).
+  const cartTotal = cartItems.reduce((acc, item) => acc + (lineaSinPrecio(item) ? 0 : item.precio * (item.cantidad || 1)), 0);
+  const hayLineasSinPrecio = cartItems.some(lineaSinPrecio);
 
   return (
     <CartContext.Provider value={{
       cartItems, addToCart, removeFromCart, updateQuantity, emptyCart,
-      isCartOpen, toggleCart, setIsCartOpen, cartTotal, validateCart
+      isCartOpen, toggleCart, setIsCartOpen, cartTotal, validateCart, hayLineasSinPrecio
     }}>
       {children}
     </CartContext.Provider>

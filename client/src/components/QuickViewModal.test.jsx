@@ -214,3 +214,19 @@ describe('QuickViewModal — sin precios, "Preguntar por esta pieza" (fase C)', 
     expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
   });
 });
+
+describe('QuickViewModal — modalidad al añadir (fase C, C4)', () => {
+  it('con precio de venta, añade para comprar', async () => {
+    const user = userEvent.setup();
+    const { addToCart } = renderModal({ mueble: muebleBase({ precio_venta: 90, precio_alquiler_dia: 8 }) });
+    await user.click(screen.getByRole('button', { name: 'Añadir a la cesta' }));
+    expect(addToCart).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }), 'compra');
+  });
+
+  it('solo con precio de alquiler, añade para alquilar (antes, "compra" y llegaba a la cesta sin precio)', async () => {
+    const user = userEvent.setup();
+    const { addToCart } = renderModal({ mueble: muebleBase({ precio_venta: null, precio_alquiler_dia: 8 }) });
+    await user.click(screen.getByRole('button', { name: 'Añadir a la cesta' }));
+    expect(addToCart).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }), 'alquiler');
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useContext } from 'react';
-import { CartProvider, CartContext } from './CartContext';
+import { CartProvider, CartContext, lineaSinPrecio } from './CartContext';
 import { AuthContext } from './AuthContext';
 import { ToastContext } from './ToastContext';
 import { getMuebleById } from '../services/api';
@@ -241,5 +241,71 @@ describe('CartContext — validateCart, antes de pagar', () => {
 
     expect(await result.current.validateCart()).toBe(true);
     expect(result.current.cartItems).toHaveLength(1);
+  });
+});
+
+// Fase C (C4): con los precios ocultos (MOSTRAR_PRECIOS), una línea puede quedarse sin precio.
+describe('CartContext — líneas sin precio (fase C)', () => {
+  it('lineaSinPrecio: sin precio, null, 0 o un texto que no es número', () => {
+    expect(lineaSinPrecio({ precio: 120 })).toBe(false);
+    expect(lineaSinPrecio({ precio: '120' })).toBe(false);
+    for (const precio of [null, undefined, 0, 'abc']) expect(lineaSinPrecio({ precio })).toBe(true);
+  });
+
+  it('una pieza sin precio para esa modalidad no se añade, y avisa', () => {
+    const { result, showToast } = montar();
+    act(() => result.current.addToCart({ ...SILLA, precio_venta: null, precio_alquiler_dia: null }, 'compra'));
+    act(() => result.current.addToCart({ ...MESA, precio_alquiler_dia: null }, 'alquiler'));
+
+    expect(result.current.cartItems).toEqual([]);
+    expect(showToast).toHaveBeenCalledWith('Esta pieza no tiene precio a la vista. Pregúntanos por ella en la página de contacto.', 'warning');
+    expect(result.current.isCartOpen).toBe(false);
+  });
+
+  it('las líneas sin precio no suman al total, y hayLineasSinPrecio lo dice', () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify([
+      { id: 'm1-compra', productId: 'm1', nombre: 'Silla Tolix', precio: 120, cantidad: 1 },
+      { id: 'm2-compra', productId: 'm2', nombre: 'Mesa de roble', precio: null, cantidad: 1 }
+    ]));
+    const { result } = montar();
+    expect(result.current.cartTotal).toBe(120);
+    expect(result.current.hayLineasSinPrecio).toBe(true);
+  });
+
+  it('sin líneas sin precio, hayLineasSinPrecio es false', () => {
+    const { result } = montar();
+    act(() => result.current.addToCart(SILLA, 'compra'));
+    expect(result.current.hayLineasSinPrecio).toBe(false);
+  });
+
+  it('validateCart: si el catálogo ya no da precio (ocultos), la línea se queda sin él; no quita nada y deja seguir', async () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify([
+      { id: 'm1-compra', productId: 'm1', nombre: 'Silla Tolix', precio: 120, modalidad: 'compra', cantidad: 1 },
+      { id: 'm2-alquiler', productId: 'm2', nombre: 'Mesa de roble', precio: 20, modalidad: 'alquiler', cantidad: 1 }
+    ]));
+    getMuebleById.mockImplementation(async (id) => ({ id, estado: 'disponible', precio_venta: null, precio_alquiler_dia: null }));
+    const { result, showToast } = montar();
+
+    let valida;
+    await act(async () => { valida = await result.current.validateCart(); });
+
+    expect(valida).toBe(true);
+    expect(result.current.cartItems.map((i) => i.precio)).toEqual([null, null]);
+    expect(result.current.cartTotal).toBe(0);
+    expect(result.current.hayLineasSinPrecio).toBe(true);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('validateCart: si el precio ha cambiado, la línea se queda con el de hoy (el que cobraría el servidor)', async () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify([
+      { id: 'm1-compra', productId: 'm1', nombre: 'Silla Tolix', precio: 120, modalidad: 'compra', cantidad: 1 }
+    ]));
+    getMuebleById.mockResolvedValue({ id: 'm1', estado: 'disponible', precio_venta: 150, precio_alquiler_dia: 8 });
+    const { result } = montar();
+
+    await act(async () => { await result.current.validateCart(); });
+
+    expect(result.current.cartItems[0].precio).toBe(150);
+    expect(result.current.cartTotal).toBe(150);
   });
 });

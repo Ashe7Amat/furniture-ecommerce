@@ -31,8 +31,10 @@ const QuickViewModal = ({ mueble, onClose }) => {
     };
   }, [onClose]);
 
+  // C4: antes añadía siempre para comprar, también una pieza que solo se alquila (y llegaba a la
+  // cesta sin precio). Sin precio de venta, para alquilar, como la ficha.
   const handleAddToCart = () => {
-    addToCart(mueble, 'compra');
+    addToCart(mueble, mueble.precio_venta ? 'compra' : 'alquiler');
     onClose();
   };
 

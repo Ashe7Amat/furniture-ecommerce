@@ -382,6 +382,13 @@
 }
 
 /* Checkout CTA Button */
+.cart-sin-precio-msg {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+  line-height: 1.4;
+}
+
 .cart-checkout-btn {
   width: 100%;
   padding: 18px;
@@ -398,7 +405,14 @@
   transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
 }
 
-.cart-checkout-btn:hover {
+.cart-checkout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.cart-checkout-btn:hover:not(:disabled) {
   background-color: var(--accent-hover);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
   transform: translateY(-1px);
