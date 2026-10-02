@@ -16,7 +16,7 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | A2: `muebles.referencia` | `20261001212500` | `add_muebles_referencia` | ✅ Aplicada en BD |
 | A3: backfill códigos | `20261001220000` | `backfill_categorias_codigo` | ✅ Aplicada en BD |
 | A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
-| A8: rellenar referencias de los 114 muebles | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
+| A9 — backfill de referencias de muebles (los 114 existentes) | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
@@ -34,7 +34,7 @@ Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el 
 
 **Después del cierre (2 oct 2026), decisiones del usuario:**
 - Relleno de las referencias de los muebles existentes: **sí**. **Aplicado el 2 oct 2026 a las 12:18 UTC**, con
-  autorización expresa (A8, versión `20261002121823`, `backfill_muebles_referencia`): los 114 muebles tienen
+  autorización expresa (A9 — backfill de referencias de muebles, versión `20261002121823`, `backfill_muebles_referencia`): los 114 muebles tienen
   referencia, de 001 en adelante por categoría y por antigüedad, y las 5 comprobaciones salen bien. Detalle en
   `docs/propuesta-backfill-referencias.md`.
 - Celda vacía en el inventario cuando no hay referencia: se queda así (con el relleno no habrá ninguna).

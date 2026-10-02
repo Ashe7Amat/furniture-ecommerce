@@ -1,4 +1,4 @@
-# Propuesta: rellenar la referencia de los muebles existentes (A8)
+# Propuesta: rellenar la referencia de los muebles existentes (A9 — backfill de referencias de muebles)
 
 **Estado: APLICADA el 2 oct 2026 a las 12:18 UTC, con autorización expresa del usuario.** Versión real
 `20261002121823` (la asigna `apply_migration`; la `20261002115522` que figuraba en la propuesta era solo una
