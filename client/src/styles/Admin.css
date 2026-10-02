@@ -313,6 +313,23 @@
   display: flex;
   flex-direction: column;
 }
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--secondary-color);
+  margin-top: 4px;
+}
+/* Referencia del mueble (A5): solo lectura en el modal de edición, aviso en el alta */
+.admin-form input.field-ref {
+  font-family: var(--font-mono);
+  background: var(--surface-alt);
+  color: var(--secondary-color);
+  cursor: default;
+}
+.field-ref-auto {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--secondary-color);
+}
 .file-input-wrapper {
   display: flex;
   flex-direction: column;
@@ -508,11 +525,11 @@
 }
 .inventory-head-row, .inventory-list-item {
   display: grid;
-  grid-template-columns: 28px 52px 2fr 1.2fr 1fr 1fr auto;
+  grid-template-columns: 28px 52px 104px 2fr 1.2fr 1fr 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 12px 16px;
-  min-width: 640px;
+  min-width: 740px;
 }
 .inventory-head-row {
   background: var(--surface-alt);
@@ -564,6 +581,17 @@
 .inv-category, .inv-price {
   color: var(--secondary-color);
   font-size: 0.88rem;
+}
+/* Referencia (A5): ancho fijo y letra monoespaciada, para que las columnas de números cuadren */
+.inv-ref {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+  white-space: nowrap;
+}
+.inventory-head-row .inv-ref {
+  font-family: inherit;
+  font-size: inherit;
 }
 .inv-price {
   font-variant-numeric: tabular-nums;
@@ -753,6 +781,22 @@
 .cat-card-edit-btn svg, .cat-card-del-btn svg { width: 16px; height: 16px; }
 .cat-card-edit-btn:hover { color: var(--accent-color); }
 .cat-card-del-btn:hover { color: var(--danger-color); }
+/* Código de la categoría (A5) */
+.cat-card-codigo {
+  margin: -6px 0 12px;
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+}
+.cat-codigo,
+.cat-add-form input.cat-codigo-input,
+.admin-form input.cat-codigo-input {
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+}
+.cat-codigo {
+  color: var(--primary-color);
+  font-weight: 600;
+}
 .cat-card-stats {
   display: flex;
   flex-direction: column;
@@ -1045,7 +1089,7 @@
   .inventory-head-row, .inventory-list-item {
     grid-template-columns: 24px 44px 2fr 1fr auto;
   }
-  .inv-category, .inv-price { display: none; }
+  .inv-category, .inv-price, .inv-ref { display: none; }
 }
 
 @media (max-width: 768px) {

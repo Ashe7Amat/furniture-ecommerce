@@ -36,6 +36,7 @@ const Admin = () => {
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
   const [nuevaCatPadre, setNuevaCatPadre] = useState(''); // '' = categoría general (sin padre)
+  const [nuevaCatCodigo, setNuevaCatCodigo] = useState(''); // A5: '' = sin código
   const [categoriaFile, setCategoriaFile] = useState(null);
 
   // Estados para modales de edición (CMS)
@@ -143,6 +144,8 @@ const Admin = () => {
             setNuevaCat={setNuevaCat}
             nuevaCatPadre={nuevaCatPadre}
             setNuevaCatPadre={setNuevaCatPadre}
+            nuevaCatCodigo={nuevaCatCodigo}
+            setNuevaCatCodigo={setNuevaCatCodigo}
             categoriaFile={categoriaFile}
             setCategoriaFile={setCategoriaFile}
             recargarCategorias={cargarCategorias}

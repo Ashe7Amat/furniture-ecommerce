@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generales, especificasDe, primeraEspecifica, idDeCategoria } from './categorias';
+import { generales, especificasDe, primeraEspecifica, idDeCategoria, normalizarCodigo, errorDeCodigo } from './categorias';
 
 // En el orden de la API (por nombre): la primera específica ("Aparadores") es de la SEGUNDA general.
 const CATEGORIAS = [
@@ -29,5 +29,30 @@ describe('categorias.js', () => {
     expect(idDeCategoria(CATEGORIAS, 'Sillas')).toBe(12);
     expect(idDeCategoria(CATEGORIAS, 'sillas')).toBeUndefined();
     expect(idDeCategoria(CATEGORIAS, '')).toBeUndefined();
+  });
+
+  it('normalizarCodigo (A5): solo letras de la A a la Z, en mayúsculas y como mucho tres', () => {
+    expect(normalizarCodigo('sil')).toBe('SIL');
+    expect(normalizarCodigo(' s-1i l ')).toBe('SIL');
+    expect(normalizarCodigo('Ñandú')).toBe('AND');
+    expect(normalizarCodigo('SILLAS')).toBe('SIL');
+    expect(normalizarCodigo('')).toBe('');
+    expect(normalizarCodigo(undefined)).toBe('');
+  });
+
+  it('errorDeCodigo (A5): vacío vale; si no, 3 letras y que no lo use otra categoría', () => {
+    const conCodigos = [
+      { id: 12, nombre: 'Sillas', codigo: 'SIL' },
+      { id: 13, nombre: 'Mesas', codigo: null }
+    ];
+    expect(errorDeCodigo('', conCodigos)).toBeNull();
+    expect(errorDeCodigo(null, conCodigos)).toBeNull();
+    expect(errorDeCodigo('MES', conCodigos)).toBeNull();
+    expect(errorDeCodigo('SI', conCodigos)).toBe('El código tiene que ser de 3 letras (A-Z), por ejemplo SIL.');
+    expect(errorDeCodigo('sil', conCodigos)).toBe('El código tiene que ser de 3 letras (A-Z), por ejemplo SIL.');
+    expect(errorDeCodigo('SIL', conCodigos)).toBe('Ese código ya lo usa la categoría "Sillas".');
+    // Al editar, el código de la propia categoría no cuenta como repetido.
+    expect(errorDeCodigo('SIL', conCodigos, 12)).toBeNull();
+    expect(errorDeCodigo('SIL', conCodigos, 13)).toBe('Ese código ya lo usa la categoría "Sillas".');
   });
 });

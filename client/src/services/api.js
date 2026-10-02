@@ -105,22 +105,24 @@ export const cerrarSesionEnServidor = async (refreshToken) => {
   }
 };
 
-// El servidor deja cachear el catálogo y las categorías: el navegador los guarda hasta 1 minuto y
-// la CDN de Vercel unos minutos más. Para el público va bien, pero el panel tiene que ver al
-// momento lo que acaba de guardar. Con `fresco`, la lectura se salta las dos cachés:
-// `cache: 'no-store'` evita la del navegador, y la cabecera Authorization, la de la CDN (Vercel no
-// guarda respuestas a peticiones que la llevan). El servidor no la pide en estas rutas: solo sirve
-// para eso.
-const lecturaFresca = () => ({ cache: 'no-store', headers: authHeaders() });
-
+// Sin opciones: la lectura pública del catálogo. El servidor la deja cachear: el navegador la
+// guarda hasta 1 minuto y la CDN de Vercel unos minutos más. `limit` pide solo los N más recientes.
+// `fresco` es la del panel (la única que lo usa): desde A5 va a GET /api/admin/muebles, con sesión
+// de administrador, que trae además la referencia de cada mueble y siempre los precios reales. Esa
+// ruta no se guarda en ninguna caché (el panel tiene que ver al momento lo que acaba de guardar),
+// y apiFetch añade la sesión y la renueva si ha caducado. Con `fresco`, `limit` no se usa: el panel
+// lee siempre el inventario entero. Mismo patrón que getCategorias.
 export const getMuebles = async (opciones = {}) => {
   try {
-    const params = new URLSearchParams();
-    if (opciones.limit) params.set('limit', opciones.limit);
-    const query = params.toString() ? `?${params.toString()}` : '';
-
-    const url = `${API_URL}/muebles${query}`;
-    const response = opciones.fresco ? await fetch(url, lecturaFresca()) : await fetch(url);
+    let response;
+    if (opciones.fresco) {
+      response = await apiFetch(`${API_URL}/admin/muebles`, { cache: 'no-store' });
+    } else {
+      const params = new URLSearchParams();
+      if (opciones.limit) params.set('limit', opciones.limit);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      response = await fetch(`${API_URL}/muebles${query}`);
+    }
     if (!response.ok) {
       throw new Error('Error al obtener los muebles');
     }

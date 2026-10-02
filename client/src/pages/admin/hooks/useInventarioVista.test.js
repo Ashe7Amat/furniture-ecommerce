@@ -37,6 +37,24 @@ describe('useInventarioVista', () => {
     expect(nombres(result.current.muebleFiltrados)).toEqual(['Silla Tolix', 'Lámpara']);
   });
 
+  it('la búsqueda también encuentra por referencia (A5), sin mayúsculas; una pieza sin referencia no falla', () => {
+    const muebles = [
+      pieza(1, { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' }),
+      pieza(2, { nombre: 'Mesa', referencia: 'NAV-MES-012' }),
+      pieza(3, { nombre: 'Lámpara', referencia: null })
+    ];
+    const { result } = renderHook(() => useInventarioVista(muebles));
+
+    act(() => result.current.setBusqueda(' nav-mes '));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Mesa']);
+
+    act(() => result.current.setBusqueda('NAV-'));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Silla Tolix', 'Mesa']);
+
+    act(() => result.current.setBusqueda('lámpara'));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Lámpara']);
+  });
+
   it('ordena por nombre y por precio de venta (sin precio = 0)', () => {
     const muebles = [pieza(1, { nombre: 'B', precio_venta: 50 }), pieza(2, { nombre: 'A', precio_venta: null }), pieza(3, { nombre: 'C', precio_venta: 10 })];
     const { result } = renderHook(() => useInventarioVista(muebles));

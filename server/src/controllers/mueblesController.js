@@ -27,14 +27,19 @@ const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
   return data.id;
 };
 
-// Columnas que devuelven las lecturas públicas de muebles (H26): las que usan la web y el panel
-// (que lee el catálogo con estas mismas rutas). Antes era select('*'): no había nada privado, pero
+// Columnas que devuelven las lecturas públicas de muebles (H26): las que usa la web (el panel lee
+// las suyas de GET /api/admin/muebles desde A5). Antes era select('*'): no había nada privado, pero
 // cualquier columna nueva (un precio de compra, el proveedor, notas internas...) habría salido al
 // público sin que nadie lo decidiera. No van `disponible` (se deriva de `estado`), `created_at`
 // (solo sirve para ordenar, y ordenar no necesita devolverla) ni `categoria_id` (la web usa
 // `categoria`; cuando cierre la migración A habrá que añadirla aquí).
 const COLUMNAS_PUBLICAS_MUEBLE =
   'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado';
+
+// Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores): las públicas
+// más `referencia` (A5). Es la lectura que tendrá siempre los precios reales aunque el catálogo
+// público deje de mostrarlos (bloque C).
+const COLUMNAS_ADMIN_MUEBLE = `${COLUMNAS_PUBLICAS_MUEBLE}, referencia`;
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
 // recientes (p. ej. la portada, que solo enseña 4 piezas destacadas y antes se traía
@@ -60,6 +65,25 @@ const obtenerMuebles = async (req, res) => {
     res.status(200).json(data);
   } catch (error) {
     console.error('Error al obtener muebles:', error.message);
+    res.status(500).json({ error: 'Error interno al obtener los muebles.' });
+  }
+};
+
+// 1b. Todos los muebles para el panel (GET /api/admin/muebles, con verificarAdmin; A5). Como
+// obtenerMuebles, pero con las columnas del panel y sin ninguna caché: el panel tiene que ver al
+// momento lo que acaba de guardar, y son datos de administración.
+const obtenerMueblesAdmin = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('muebles')
+      .select(COLUMNAS_ADMIN_MUEBLE)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error al obtener muebles para el panel:', error.message);
     res.status(500).json({ error: 'Error interno al obtener los muebles.' });
   }
 };
@@ -465,6 +489,7 @@ const confirmarSesion = async (req, res) => {
 
 module.exports = {
   obtenerMuebles,
+  obtenerMueblesAdmin,
   obtenerMueblePorId,
   crearMueble,
   editarMueble,

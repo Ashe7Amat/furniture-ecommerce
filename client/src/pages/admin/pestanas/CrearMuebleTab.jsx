@@ -76,6 +76,12 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, re
       <form onSubmit={handleSubmit} className="admin-form">
         <input name="nombre" placeholder="Nombre del mueble" value={formData.nombre} onChange={handleInputChange} required />
         <SelectorCategoria categorias={categorias} name="categoria" value={formData.categoria} onChange={handleInputChange} />
+        {/* A5: la referencia la pone siempre el servidor, con el código de la categoría elegida
+            (utils/referencia.js); aquí solo se avisa. No se puede escribir a mano. */}
+        <div className="field-group">
+          <span className="field-label">Referencia:</span>
+          <p className="field-ref-auto">Se generará automáticamente (NAV-XXX-000)</p>
+        </div>
         <textarea name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
         <div className="admin-form-row">
           <input name="precio_venta" type="number" placeholder="Precio Venta (€)" value={formData.precio_venta} onChange={handleInputChange} />

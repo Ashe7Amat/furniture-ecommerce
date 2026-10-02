@@ -126,6 +126,7 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
             <div className="inventory-head-row">
               <input type="checkbox" className="inv-checkbox" checked={todosVisiblesSeleccionados} onChange={toggleSeleccionarPagina} aria-label="Seleccionar todos" />
               <span></span>
+              <span className="inv-ref">Referencia</span>
               <span>Nombre</span>
               <span className="inv-category">Categoría</span>
               <span>Estado</span>
@@ -144,6 +145,9 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
                 <div className="inv-thumb">
                   <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
                 </div>
+                {/* Sin referencia, la celda va vacía (no "—"): la raya ya marca la categoría y el
+                    precio que faltan, y Admin.inventario.test.jsx (congelado) las cuenta. */}
+                <span className="inv-ref">{m.referencia}</span>
                 <span className="inv-name">{m.nombre}</span>
                 <span className="inv-category">{m.categoria || '—'}</span>
                 <span>
