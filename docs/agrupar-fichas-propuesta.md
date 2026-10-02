@@ -1,6 +1,59 @@
 # Fichas que pueden ser el mismo objeto — propuesta para agrupar
 
-> **Borrador para revisar. No se ha cambiado nada en la web ni en la base de datos.**
+> **Aplicada el 2 oct 2026, con autorización del cliente.** El catálogo pasó de 114 a 77 fichas. Las fotos de
+> esta página siguen funcionando: las de las fichas borradas no se tocaron en el almacenamiento, ahora salen
+> en la ficha que se quedó. Lo que sigue debajo es la propuesta tal como se revisó.
+
+## Qué se decidió y qué se hizo
+
+- **Grupos 1-10 y 13-17: sí.** La ficha marcada "← se queda" recibió las fotos de las demás del grupo, en el
+  orden de la lista, y las demás se borraron. Los coches (grupo 8) quedaron en una sola ficha, "Lote Coches
+  Juguete" (NAV-JUG-001, 15 fotos), y los bidones turquesa (grupo 17) en una sola, NAV-BID-004 (14 fotos). El
+  grupo 7 pasó a llamarse "Lampara Globo Blanco Antigua" (NAV-ILU-003).
+- **Grupo 11 (percheros de latón, NAV-MES-001 y NAV-MES-003): borrados.** La foto es mala y no se quieren
+  vender.
+- **Grupo 12 (mesa sobre bidones, NAV-MES-002 y NAV-MES-009): borrados.** La mesa y los bidones no se venden
+  juntos.
+- Se borraron 37 fichas en total (33 juntadas y 4 que no se venden). Sus referencias no se reutilizan, así que
+  quedan huecos, como NAV-PUE-004. Ningún pedido apuntaba a una ficha borrada.
+
+Se hizo en tres pasos, porque `apply_migration` se colgaba (más de 60 s, sin llegar a la base) con la
+migración entera y con cualquier migración que llevara `DELETE`:
+
+| Paso | Cómo | Versión / nombre |
+|---|---|---|
+| 1. Copia de las 52 fichas afectadas en `public.respaldo_agrupacion_muebles_20261002` (RLS sin políticas) | `apply_migration` | `20261002193936` `respaldo_agrupacion_muebles` |
+| 2. Juntar las fotos en las 15 fichas que se quedan y cambiar 2 nombres | `apply_migration` | `20261002200855` `agrupar_fichas_juntar_fotos` |
+| 3. Borrar las otras 37 fichas de la copia | El cliente, en el SQL Editor de Supabase (no consta en `schema_migrations`) | — |
+
+Comprobado después del paso 3: 77 fichas, las 15 principales con las fotos previstas, la copia con sus 52
+fichas y ningún pedido apuntando a una ficha que ya no existe.
+
+SQL del paso 3, tal como se ejecutó:
+
+```sql
+DELETE FROM public.muebles m
+USING public.respaldo_agrupacion_muebles_20261002 r
+WHERE m.id = r.id
+  AND r.referencia NOT IN ('NAV-PUE-003', 'NAV-ILU-001', 'NAV-OBJ-004', 'NAV-OBJ-003', 'NAV-OBJ-009',
+    'NAV-OBJ-011', 'NAV-ILU-003', 'NAV-JUG-001', 'NAV-OBJ-006', 'NAV-OBJ-008', 'NAV-SIL-003',
+    'NAV-SIL-008', 'NAV-BAU-014', 'NAV-BAU-019', 'NAV-BID-004');
+```
+
+**Para deshacerlo**, en este orden: primero se vuelven a crear las fichas borradas (deshace el paso 3); luego
+el `.down.sql` del paso 2 devuelve sus fotos y su nombre a las 15 que se quedaron. El `.down.sql` del paso 1
+borra la copia, así que va el último y solo si ya no hace falta.
+
+```sql
+-- ADVERTENCIA: vuelve a crear las fichas borradas, con su id y su referencia, desde la copia. Si después se
+-- ha dado de alta otra ficha con alguna de esas referencias, fallará por el índice único.
+INSERT INTO public.muebles (id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, disponible, imagenes, created_at, estado, categoria_id, referencia)
+SELECT r.id, r.nombre, r.categoria, r.descripcion, r.precio_venta, r.precio_alquiler_dia, r.disponible, r.imagenes, r.created_at, r.estado, r.categoria_id, r.referencia
+FROM public.respaldo_agrupacion_muebles_20261002 r
+WHERE NOT EXISTS (SELECT 1 FROM public.muebles m WHERE m.id = r.id);
+```
+
+---
 
 Muchas piezas del catálogo están repetidas: se dio de alta una ficha por foto, y una misma pieza fotografiada
 desde varios ángulos aparece como productos distintos. Esta lista propone qué fichas juntar en una sola.
