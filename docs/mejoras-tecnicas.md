@@ -61,8 +61,8 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - La cesta no suma las líneas sin precio y no deja pagar con ellas.
 - **Antes del merge:** decidir con el cliente el valor de `MOSTRAR_PRECIOS` en Vercel y ponerlo. Sin él,
   producción deja de enseñar precios y de vender en cuanto se despliegue.
-- Pendiente: la comprobación en el navegador, y decidir qué hacer con "Ordenar por precio" con los precios
-  ocultos (hallazgo 6 del informe).
+- "Ordenar por precio" se oculta cuando ninguna pieza tiene precio (`45502c4`, hallazgo 6 del informe).
+- Pendiente: la comprobación en el navegador.
 
 ## Estado de las tareas
 

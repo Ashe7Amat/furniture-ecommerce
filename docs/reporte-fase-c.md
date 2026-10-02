@@ -155,9 +155,11 @@ ningún archivo del panel.
    cambio de precio, la cesta enseñaba el viejo y Stripe cobraba el nuevo. Arreglado en C4.
 4. **`ProductCard` enseñaba "null €/día" tachado** en una pieza vendida sin precio. Arreglado en C2.
 5. **`ProductDetail` decía "Consultar precio" con precio de alquiler.** Arreglado en C2.
-6. **"Ordenar por precio" del catálogo no hace nada con los precios ocultos** (`Catalog.jsx`): todas las piezas
-   llegan con `null` y el orden no cambia. No se ha tocado, porque no estaba en el encargo. Propuesta:
-   ocultar el selector cuando ninguna pieza tenga precio.
+6. **"Ordenar por precio" del catálogo no hacía nada con los precios ocultos** (`Catalog.jsx`): todas las piezas
+   llegan con `null` y el orden no cambiaba. **Resuelto después del cierre** (`45502c4`, con el OK del
+   usuario): si ninguna pieza del catálogo cargado tiene precio, el selector no sale. `Catalog.jsx` no tenía
+   tests; ahora tiene 4. Cliente: 636/636, cobertura 88,57 / 94,04 / 88,07 (sube en líneas y baja un punto
+   en ramas, al empezar a contar `Catalog.jsx`; todo por encima de los umbrales).
 7. **El panel ve los precios en el panel, no en el catálogo público:** un administrador que navegue por la web
    pública la ve como cualquier visitante, sin precios. Es a propósito: las lecturas públicas se guardan en la
    CDN (`Cache-Control: public`) y no pueden depender de quién las pide.
