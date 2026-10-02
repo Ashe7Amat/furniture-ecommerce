@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { textoPrecio } from '../utils/format';
+import { textoPrecio, tienePrecio } from '../utils/format';
+import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/QuickViewModal.css';
 import ReferenciaProducto from './ReferenciaProducto';
@@ -58,9 +59,16 @@ const QuickViewModal = ({ mueble, onClose }) => {
           </span>
 
           <div className="qv-actions">
-            <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado}>
-              {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : 'Añadir a la cesta'}
-            </button>
+            {/* C3: disponible y sin precios a la vista, se pregunta por ella en vez de comprarla */}
+            {!isSold && !isAlquilado && !tienePrecio(mueble) ? (
+              <Link to={rutaPreguntarPorPieza(mueble)} className="qv-btn qv-btn-solid" onClick={onClose}>
+                {TEXTO_PREGUNTAR}
+              </Link>
+            ) : (
+              <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado}>
+                {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : 'Añadir a la cesta'}
+              </button>
+            )}
             <button className={`qv-btn qv-btn-ghost ${isFav ? 'active' : ''}`} onClick={() => toggleFavorite(mueble.id)}>
               {isFav ? 'En favoritos ✓' : 'Añadir a favoritos'}
             </button>

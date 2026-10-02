@@ -1,10 +1,11 @@
 import { useEffect, useState, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice, textoPrecio } from '../utils/format';
+import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
+import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
@@ -74,6 +75,11 @@ const ProductDetail = () => {
     addToCart(mueble, modalidad);
   };
 
+  // C3: disponible y sin precios a la vista (ocultos por MOSTRAR_PRECIOS, o sin ninguno), no se
+  // compra: se pregunta. Sin precios, "Cantidad" y "Modalidad" no dicen nada (el alquiler saldría
+  // "No disponible" aunque lo esté), así que tampoco se enseñan.
+  const preguntar = mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && !tienePrecio(mueble);
+
   return (
     <div className="pd-container">
       <div className="pd-breadcrumb">
@@ -132,6 +138,12 @@ const ProductDetail = () => {
           </div>
 
           <div className="pd-actions-form">
+            {preguntar ? (
+              <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
+                {TEXTO_PREGUNTAR}
+              </Link>
+            ) : (
+            <>
             <div className="pd-quantity-wrapper">
               <label className="pd-label">Cantidad</label>
               <div className="pd-quantity-selector">
@@ -170,6 +182,8 @@ const ProductDetail = () => {
             >
               {mueble.estado === 'vendido' ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : 'Añadir a mi cesta')}
             </button>
+            </>
+            )}
           </div>
 
           {/* ACORDEON DE DETALLES */}

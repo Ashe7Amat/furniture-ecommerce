@@ -306,6 +306,13 @@
   border-radius: 4px;
   transition: background-color 0.2s ease;
 }
+/* "Preguntar por esta pieza" (C3) es un enlace con el aspecto del botón */
+.pd-cta-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
 .pd-cta-btn:hover:not(:disabled) {
   background-color: var(--accent-hover);
 }

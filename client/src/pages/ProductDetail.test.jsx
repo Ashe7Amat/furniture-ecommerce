@@ -36,6 +36,7 @@ const montar = async (mueble = MUEBLE, { favorites = [] } = {}) => {
           <Routes>
             <Route path="/" element={<p>Portada</p>} />
             <Route path="/mueble/:id" element={<ProductDetail />} />
+            <Route path="/contacto" element={<p>Página de contacto</p>} />
           </Routes>
         </FavoritesContext.Provider>
       </CartContext.Provider>
@@ -206,5 +207,42 @@ describe('ProductDetail', () => {
 
     await user.click(envios);
     expect(contenido(envios)).not.toHaveClass('open');
+  });
+});
+
+// C3: sin precios a la vista, la ficha no vende: pregunta.
+describe('ProductDetail — sin precios, "Preguntar por esta pieza" (fase C)', () => {
+  const SIN_PRECIOS = { ...MUEBLE, precio_venta: null, precio_alquiler_dia: null };
+
+  it('enlace a contacto con la pieza, sin "Añadir a mi cesta" ni las opciones de cantidad y modalidad', async () => {
+    await montar(SIN_PRECIOS);
+
+    const enlace = screen.getByRole('link', { name: 'Preguntar por esta pieza' });
+    expect(enlace).toHaveAttribute('href', '/contacto?pieza=Aparador+de+roble&ref=NAV-MES-004');
+    expect(enlace).toHaveClass('pd-cta-btn');
+    expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Modalidad')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cantidad')).not.toBeInTheDocument();
+    expect(document.querySelector('.pd-price')).toHaveTextContent('Consultar precio');
+  });
+
+  it('pulsarlo lleva a contacto y no añade nada a la cesta', async () => {
+    const { user, addToCart } = await montar(SIN_PRECIOS);
+    await user.click(screen.getByRole('link', { name: 'Preguntar por esta pieza' }));
+
+    expect(screen.getByText('Página de contacto')).toBeInTheDocument();
+    expect(addToCart).not.toHaveBeenCalled();
+  });
+
+  it('vendida sin precios: "Agotado", no se pregunta', async () => {
+    await montar({ ...SIN_PRECIOS, estado: 'vendido' });
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+  });
+
+  it('con precios (MOSTRAR_PRECIOS=true), "Añadir a mi cesta" como siempre', async () => {
+    await montar();
+    expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
+    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
   });
 });

@@ -174,3 +174,43 @@ describe('QuickViewModal — cierre y accesibilidad', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// C3: sin precios a la vista (ocultos por MOSTRAR_PRECIOS, o sin ninguno), no se compra: se pregunta.
+describe('QuickViewModal — sin precios, "Preguntar por esta pieza" (fase C)', () => {
+  const sinPrecios = (extra = {}) => muebleBase({ precio_venta: null, precio_alquiler_dia: null, referencia: 'NAV-SIL-003', ...extra });
+
+  it('en vez de "Añadir a la cesta", un enlace a contacto con la pieza', () => {
+    renderModal({ mueble: sinPrecios() });
+
+    const enlace = screen.getByRole('link', { name: 'Preguntar por esta pieza' });
+    expect(enlace).toHaveAttribute('href', '/contacto?pieza=Silla+de+roble&ref=NAV-SIL-003');
+    expect(enlace).toHaveClass('qv-btn', 'qv-btn-solid');
+    expect(screen.queryByRole('button', { name: 'Añadir a la cesta' })).not.toBeInTheDocument();
+  });
+
+  it('pulsarlo cierra la vista rápida y no añade nada a la cesta', async () => {
+    const user = userEvent.setup();
+    const { onClose, addToCart } = renderModal({ mueble: sinPrecios() });
+
+    await user.click(screen.getByRole('link', { name: 'Preguntar por esta pieza' }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(addToCart).not.toHaveBeenCalled();
+  });
+
+  it('vendida o alquilada, sin precios, sigue diciendo "Agotado" / "Alquilado" (no se pregunta por ella)', () => {
+    const { unmount } = renderModal({ mueble: sinPrecios({ estado: 'vendido' }) });
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+    unmount();
+
+    renderModal({ mueble: sinPrecios({ estado: 'alquilado' }) });
+    expect(screen.getByRole('button', { name: 'Alquilado' })).toBeDisabled();
+  });
+
+  it('con algún precio (MOSTRAR_PRECIOS=true), el botón sigue siendo "Añadir a la cesta"', () => {
+    renderModal({ mueble: muebleBase({ precio_venta: null, precio_alquiler_dia: 8 }) });
+    expect(screen.getByRole('button', { name: 'Añadir a la cesta' })).toBeEnabled();
+    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+  });
+});
