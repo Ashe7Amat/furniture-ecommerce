@@ -45,11 +45,24 @@ Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el 
 
 **Pendiente:**
 - La confirmación al cambiar el código de una categoría.
-- Bloque C: `MOSTRAR_PRECIOS` server-side (otra sesión; espera el texto del botón sustituto).
 - Comprobación en el navegador con sesión de administrador.
 
 **Nota:** No mergear a `main` sin decidir antes lo de las referencias de los muebles existentes y revisar el
 gate completo.
+
+## ✅ Fase C (ocultar precios al público): hecha, 2 oct 2026
+
+Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80` (C2), `b736e8b` (C3) y
+`9d97017` (C4).
+- `MOSTRAR_PRECIOS` (servidor): solo `true` enseña precios. **Sin poner, los precios quedan ocultos**: las
+  lecturas públicas devuelven los precios a null, la web pone "Consultar precio" y "Preguntar por esta pieza"
+  (lleva a contacto con la pieza en el mensaje), y `crear-sesion-pago` responde 403. El panel ve siempre los
+  precios reales.
+- La cesta no suma las líneas sin precio y no deja pagar con ellas.
+- **Antes del merge:** decidir con el cliente el valor de `MOSTRAR_PRECIOS` en Vercel y ponerlo. Sin él,
+  producción deja de enseñar precios y de vender en cuanto se despliegue.
+- Pendiente: la comprobación en el navegador, y decidir qué hacer con "Ordenar por precio" con los precios
+  ocultos (hallazgo 6 del informe).
 
 ## Estado de las tareas
 
