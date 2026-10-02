@@ -59,11 +59,11 @@ describe('Inventario — referencia', () => {
   it('el buscador encuentra por referencia, sin distinguir mayúsculas', async () => {
     const { user } = await abrirInventario();
 
-    await user.type(screen.getByPlaceholderText('Buscar por nombre...'), 'nav-mes');
+    await user.type(screen.getByPlaceholderText('Buscar por nombre o referencia...'), 'nav-mes');
     expect(nombresVisibles()).toEqual(['Mesa de roble']);
 
-    await user.clear(screen.getByPlaceholderText('Buscar por nombre...'));
-    await user.type(screen.getByPlaceholderText('Buscar por nombre...'), '-00');
+    await user.clear(screen.getByPlaceholderText('Buscar por nombre o referencia...'));
+    await user.type(screen.getByPlaceholderText('Buscar por nombre o referencia...'), '-00');
     expect(nombresVisibles()).toEqual(['Silla Tolix', 'Mesa de roble']);
   });
 

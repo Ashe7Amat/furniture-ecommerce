@@ -74,7 +74,7 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
           <Icon name="search" />
           <input
             type="text"
-            placeholder="Buscar por nombre..."
+            placeholder="Buscar por nombre o referencia..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
           />

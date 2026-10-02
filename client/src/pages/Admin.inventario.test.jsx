@@ -111,7 +111,8 @@ describe('Inventario — listado', () => {
 describe('Inventario — búsqueda y filtros', () => {
   it('la búsqueda filtra por nombre, sin distinguir mayúsculas y sin contar los espacios de los lados', async () => {
     const { user } = await abrirInventario();
-    const buscador = screen.getByPlaceholderText('Buscar por nombre...');
+    // CAMBIADO A PROPÓSITO (bloque A, 2 oct 2026): el buscador también busca por referencia, y su texto lo dice.
+    const buscador = screen.getByPlaceholderText('Buscar por nombre o referencia...');
 
     await user.type(buscador, 'LÁMPARA');
     expect(nombresVisibles()).toEqual(['Lámpara de pie']);
@@ -167,13 +168,14 @@ describe('Inventario — búsqueda y filtros', () => {
     const { user } = await abrirInventario();
     expect(screen.queryByRole('button', { name: 'Limpiar filtros' })).not.toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText('Buscar por nombre...'), 'a');
+    // CAMBIADO A PROPÓSITO (bloque A, 2 oct 2026): el buscador también busca por referencia, y su texto lo dice.
+    await user.type(screen.getByPlaceholderText('Buscar por nombre o referencia...'), 'a');
     await user.selectOptions(filtros().categoria, 'Mesas');
     await user.selectOptions(filtros().estado, 'vendido');
     await user.selectOptions(filtros().orden, 'nombre');
     await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
 
-    expect(screen.getByPlaceholderText('Buscar por nombre...')).toHaveValue('');
+    expect(screen.getByPlaceholderText('Buscar por nombre o referencia...')).toHaveValue('');
     expect(filtros().categoria).toHaveValue('');
     expect(filtros().estado).toHaveValue('');
     expect(filtros().orden).toHaveValue('recientes');

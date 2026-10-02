@@ -84,7 +84,8 @@ describe('Navegación — lo que se conserva al cambiar de pestaña y volver', (
   it('inventario: búsqueda, filtros, orden y página', async () => {
     const { user } = await abrirPanel();
     await irAPestana(user, 'Gestionar Inventario');
-    await user.type(screen.getByPlaceholderText('Buscar por nombre...'), 'pieza');
+    // CAMBIADO A PROPÓSITO (bloque A, 2 oct 2026): el buscador también busca por referencia, y su texto lo dice.
+    await user.type(screen.getByPlaceholderText('Buscar por nombre o referencia...'), 'pieza');
     await user.selectOptions(filtrosInventario().estado, 'disponible');
     await user.selectOptions(filtrosInventario().orden, 'precio_desc');
     await user.click(screen.getByRole('button', { name: 'Siguiente →' }));
@@ -93,7 +94,7 @@ describe('Navegación — lo que se conserva al cambiar de pestaña y volver', (
     await irAPestana(user, /^Pedidos/);
     await irAPestana(user, 'Gestionar Inventario');
 
-    expect(screen.getByPlaceholderText('Buscar por nombre...')).toHaveValue('pieza');
+    expect(screen.getByPlaceholderText('Buscar por nombre o referencia...')).toHaveValue('pieza');
     expect(filtrosInventario().estado).toHaveValue('disponible');
     expect(filtrosInventario().orden).toHaveValue('precio_desc');
     expect(screen.getByText('Página 2 de 3')).toBeInTheDocument();
