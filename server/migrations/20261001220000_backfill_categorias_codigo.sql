@@ -1,0 +1,12 @@
+UPDATE public.categorias SET codigo = 'ILU' WHERE id = 7;
+UPDATE public.categorias SET codigo = 'MOB' WHERE id = 17;
+UPDATE public.categorias SET codigo = 'DEC' WHERE id = 18;
+UPDATE public.categorias SET codigo = 'PIE' WHERE id = 19;
+UPDATE public.categorias SET codigo = 'SIL' WHERE id = 20;
+UPDATE public.categorias SET codigo = 'MES' WHERE id = 21;
+UPDATE public.categorias SET codigo = 'PUE' WHERE id = 22;
+UPDATE public.categorias SET codigo = 'OBJ' WHERE id = 23;
+UPDATE public.categorias SET codigo = 'PLA' WHERE id = 24;
+UPDATE public.categorias SET codigo = 'BAU' WHERE id = 25;
+UPDATE public.categorias SET codigo = 'BID' WHERE id = 26;
+UPDATE public.categorias SET codigo = 'JUG' WHERE id = 27;
