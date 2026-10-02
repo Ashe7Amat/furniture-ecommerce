@@ -8,9 +8,10 @@ número es el que empieza el nombre de cada foto (por ejemplo, `146-silla-coctel
 146). Puede que sean varias fotos del **mismo objeto** (y entonces está bien) o fotos de **piezas distintas** que
 se juntaron en un solo mueble (y entonces habría que separarlas).
 
-**Cómo revisarlo:** en cada fila, abre la ficha o las fotos y marca una casilla (cambia `[ ]` por `[x]`). Si son
-piezas distintas, en "Notas" indica cómo separarlas (por ejemplo: "146 y 141 son la misma silla; 153 y 155 son
-otra").
+**Un ejemplo:** en NAV-MES-010, "Banco Estructura Metalica", hay fotos de un banco, un carro con ruedas, una
+rejilla y una rueda. Probablemente son piezas distintas que se juntaron en una sola ficha.
+
+Las instrucciones para rellenarla están al final, en "Cómo usar esta lista".
 
 Cómo se ha sacado: de los 114 muebles, 31 tienen más de una foto; de esos, estos 25 mezclan fotos con números
 distintos. Los otros 6 tienen todas sus fotos con el mismo número y no salen aquí. La consulta, en solo lectura,
@@ -56,6 +57,15 @@ objeto, o una pieza con todas sus fotos con el mismo número pero que en realida
 |  |  |  |
 |  |  |  |
 |  |  |  |
+
+## Cómo usar esta lista
+
+1. Abre el enlace de la ficha de cada fila y, si hace falta, cada foto.
+2. Marca una sola casilla por fila: cambia `[ ]` por `[x]` en "Mismo objeto" o en "Piezas distintas".
+3. Si son piezas distintas, escribe en "Notas" cómo separarlas (por ejemplo: "146 y 141 son la misma silla; 153
+   y 155 son otra").
+4. Si encuentras más casos, añádelos en la tabla "Casos adicionales detectados por el cliente".
+5. Devuélvenos el documento relleno. Nosotros hacemos el resto.
 
 ## Consulta usada (solo lectura)
 
