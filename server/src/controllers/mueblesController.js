@@ -10,6 +10,7 @@ const {
   calcularSiguienteReferencia,
   MAX_REINTENTOS
 } = require('../utils/referencia');
+const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -39,8 +40,8 @@ const COLUMNAS_PUBLICAS_MUEBLE =
 
 // Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores). Hoy son las
 // mismas que las públicas (en A5 añadía `referencia`, que desde A6 ya es pública), pero van aparte:
-// es la lectura que tendrá siempre los precios reales aunque el catálogo público deje de
-// mostrarlos (bloque C), y una columna solo para el panel se añade aquí, no arriba.
+// es la lectura que tiene siempre los precios reales, también cuando el catálogo público no los
+// enseña (MOSTRAR_PRECIOS, fase C), y una columna solo para el panel se añade aquí, no arriba.
 const COLUMNAS_ADMIN_MUEBLE = COLUMNAS_PUBLICAS_MUEBLE;
 
 // 1. Obtener todos los muebles (Catálogo). Admite ?limit=N para pedir solo los N más
@@ -64,7 +65,8 @@ const obtenerMuebles = async (req, res) => {
     // El catálogo casi no cambia entre visitas: se puede cachear un par de minutos en
     // el navegador y en la CDN de Vercel para no volver a pedirlo en cada carga de página.
     res.set('Cache-Control', 'public, max-age=60, s-maxage=120, stale-while-revalidate=300');
-    res.status(200).json(data);
+    // C1: sin MOSTRAR_PRECIOS=true, el público no ve los precios (utils/precios.js).
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al obtener muebles:', error.message);
     res.status(500).json({ error: 'Error interno al obtener los muebles.' });
@@ -103,7 +105,7 @@ const obtenerMueblePorId = async (req, res) => {
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });
     }
-    res.status(200).json(data);
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al obtener mueble por ID:', error.message);
     res.status(500).json({ error: 'Error al buscar el detalle del mueble.' });
@@ -329,7 +331,7 @@ const buscarMuebles = async (req, res) => {
       .select(COLUMNAS_PUBLICAS_MUEBLE)
       .ilike('nombre', `%${escaparIlike(q)}%`);
     if (error) throw error;
-    res.status(200).json(data);
+    res.status(200).json(paraElPublico(data));
   } catch (error) {
     console.error('Error al buscar muebles:', error.message);
     res.status(500).json({ error: 'Error en el motor de búsqueda.' });
@@ -391,6 +393,13 @@ const construirLineasDesdeCarrito = async (items) => {
 // qué error se le puede contar tal cual al comprador y cuál no.
 const crearSesionPago = async (req, res) => {
   try {
+    // C1: con los precios ocultos no se puede comprar. Se corta aquí, en el servidor, y no solo
+    // quitando el botón: un carrito guardado de antes o una llamada directa a esta ruta cobraría
+    // el precio real, y la página de pago de Stripe lo enseñaría.
+    if (!preciosVisibles()) {
+      return res.status(403).json({ error: MENSAJE_COMPRA_CERRADA });
+    }
+
     const stripe = stripeUtil.getStripe();
     if (!stripe) {
       return res
