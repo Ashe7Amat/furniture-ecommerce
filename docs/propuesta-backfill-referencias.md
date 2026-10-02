@@ -1,8 +1,10 @@
 # Propuesta: rellenar la referencia de los muebles existentes (A8)
 
-**Estado: PREPARADA, NO APLICADA.** Pendiente de validación y de autorización expresa para aplicarla.
-No está en `server/migrations/`, porque esa carpeta es la copia exacta de lo que ya registra
-`supabase_migrations.schema_migrations`. Se copiará allí, tal cual, cuando se aplique.
+**Estado: APLICADA el 2 oct 2026 a las 12:18 UTC, con autorización expresa del usuario.** Versión real
+`20261002121823` (la asigna `apply_migration`; la `20261002115522` que figuraba en la propuesta era solo una
+previsión). Copia en `server/migrations/20261002121823_backfill_muebles_referencia.sql` (y su `.down.sql`),
+igual byte a byte que lo registrado: MD5 `85596bfc098e1d8a1e89cbff978a31a5`, 750 caracteres, sin salto de
+línea final, como A1-A3. Resultado, en "Comprobaciones después de aplicarla".
 
 ## Por qué
 
@@ -20,7 +22,7 @@ A1-A3 se aplicaron con `apply_migration` de Supabase, y así están registradas 
 - **No** se escribe `BEGIN; … INSERT INTO schema_migrations …; COMMIT;` a mano. Duplicaría el registro y la
   copia en `server/migrations/` dejaría de coincidir con lo registrado.
 - Se aplica con `apply_migration`, con estos datos:
-  - **version:** `20261002115522`
+  - **version:** la asigna `apply_migration` con la hora de aplicación (quedó `20261002121823`)
   - **name:** `backfill_muebles_referencia`
   - **query:** el bloque de abajo, tal cual.
 - Si algún día hubiera que lanzarlo a mano en el editor SQL de Supabase, sí habría que envolverlo en
@@ -29,7 +31,7 @@ A1-A3 se aplicaron con `apply_migration` de Supabase, y así están registradas 
 
 ## La migración
 
-Archivo, cuando se aplique: `server/migrations/20261002115522_backfill_muebles_referencia.sql`
+Archivo: `server/migrations/20261002121823_backfill_muebles_referencia.sql`
 
 ```sql
 WITH ultimos AS (
@@ -94,7 +96,7 @@ La misma consulta, cambiando el `UPDATE` por un `SELECT` agrupado, contra la bas
 
 ## Reversión
 
-Archivo, cuando se aplique: `server/migrations/20261002115522_backfill_muebles_referencia.down.sql`
+Archivo: `server/migrations/20261002121823_backfill_muebles_referencia.down.sql`
 
 ```sql
 -- ADVERTENCIA: borra TODAS las referencias de muebles, también las que el servidor haya dado después
@@ -125,11 +127,19 @@ SELECT count(*) FROM public.muebles WHERE referencia !~ '^NAV-[A-Z]{3}-[0-9]{3,}
 
 -- 5. Registrada en schema_migrations, y su texto igual al del archivo
 SELECT version, name, md5(array_to_string(statements, '')) FROM supabase_migrations.schema_migrations
-WHERE version = '20261002115522';
+WHERE name = 'backfill_muebles_referencia';
 ```
 
-Después: copiar los dos archivos a `server/migrations/` (el `.sql` byte a byte igual que lo registrado),
-anotarlo en `docs/mejoras-tecnicas.md` y commitearlo.
+**Resultado (2 oct 2026, 12:18 UTC, todas en solo lectura):**
+- Simulacro repetido justo antes: igual que el de la propuesta (114 muebles, 9 categorías, sin repetidos, 0 fuera).
+- 1. Muebles sin referencia: **0** (de 114).
+- 2. Por código: BAU 21 (001-021), BID 28 (001-028), ILU 5 (001-005), JUG 5 (001-005), MES 13 (001-013),
+  OBJ 16 (001-016), PLA 2 (001-002), PUE 9 (001-009), SIL 15 (001-015). **Igual que el simulacro.** 114
+  referencias distintas.
+- 3. Referencias con un código distinto del de su categoría: **0**.
+- 4. Referencias con formato incorrecto: **0**.
+- 5. Registrada como `20261002121823` / `backfill_muebles_referencia`, con 1 sentencia y MD5
+  `85596bfc098e1d8a1e89cbff978a31a5`: **el mismo** que el del archivo copiado a `server/migrations/`.
 
 ## Orden respecto al despliegue
 
