@@ -176,6 +176,7 @@ const Admin = () => {
           archivoNuevo={editCategoriaFile}
           setArchivoNuevo={setEditCategoriaFile}
           categorias={categorias}
+          muebles={muebles}
           confirmarBorrado={confirmarBorrado}
           onGuardado={cargarCategorias}
           onCerrar={() => setCategoriaAEditar(null)}
@@ -187,6 +188,7 @@ const Admin = () => {
         title={confirmConfig.title}
         message={confirmConfig.message}
         onConfirm={confirmConfig.onConfirm}
+        textoConfirmar={confirmConfig.textoConfirmar}
         onCancel={cerrarConfirmacion}
       />
     </div>

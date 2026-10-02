@@ -31,4 +31,14 @@ describe('useConfirmacion', () => {
     expect(result.current.confirmConfig.isOpen).toBe(false);
     expect(accion).not.toHaveBeenCalled();
   });
+
+  it('el cuarto argumento, opcional, es el texto del botón de aceptar', () => {
+    const { result } = renderHook(() => useConfirmacion());
+
+    act(() => result.current.confirmarBorrado('Eliminar', '¿Seguro?', vi.fn()));
+    expect(result.current.confirmConfig.textoConfirmar).toBeUndefined();
+
+    act(() => result.current.confirmarBorrado('Cambiar el código', '¿Continuar?', vi.fn(), 'Continuar'));
+    expect(result.current.confirmConfig.textoConfirmar).toBe('Continuar');
+  });
 });

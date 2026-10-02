@@ -30,3 +30,25 @@ export const errorDeCodigo = (codigo, categorias, idPropio) => {
   const otra = categorias.find(c => c.codigo === codigo && c.id !== idPropio);
   return otra ? `Ese código ya lo usa la categoría "${otra.nombre}".` : null;
 };
+
+// Bloque A: el aviso antes de cambiar el código de una categoría cuyos muebles ya tienen referencia
+// (los antiguos conservan la suya, con el código viejo; los nuevos usarán el nuevo). null si no hace
+// falta avisar: el código no cambia, o ningún mueble de la categoría tiene referencia.
+// - El código y el nombre de antes se toman de `categorias` (lo cargado), no de `editada`, que ya
+//   lleva lo que se está escribiendo en el modal.
+// - Los muebles se cuentan por el nombre de la categoría (`muebles.categoria`), como las estadísticas
+//   de categorias/con-stats: es el campo que trae la lectura del panel.
+export const avisoCambioDeCodigo = (editada, categorias, muebles) => {
+  const original = categorias.find(c => c.id === editada.id);
+  if (!original || (editada.codigo || null) === (original.codigo || null)) return null;
+  const referencias = muebles
+    .filter(m => m.categoria === original.nombre && m.referencia)
+    .map(m => m.referencia)
+    .sort();
+  if (referencias.length === 0) return null;
+  const n = referencias.length;
+  const cuales = n === 1
+    ? `${n} mueble con referencia ${referencias[0]}`
+    : `${n} muebles con referencias ${referencias[0]} a ${referencias[n - 1]}`;
+  return `Esta categoría tiene ${cuales}. Los nuevos usarán el código nuevo, los antiguos conservarán el viejo. ¿Continuar?`;
+};

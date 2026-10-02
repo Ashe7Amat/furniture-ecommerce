@@ -1,6 +1,8 @@
 import '../styles/ConfirmModal.css';
 
-const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
+// `textoConfirmar`: el botón de aceptar. Por defecto "Eliminar", porque casi todos los avisos del panel son de
+// borrado; uno que no borra nada (p. ej. cambiar el código de una categoría) pasa el suyo.
+const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel, textoConfirmar = 'Eliminar' }) => {
   if (!isOpen) return null;
 
   return (
@@ -10,7 +12,7 @@ const ConfirmModal = ({ isOpen, title, message, onConfirm, onCancel }) => {
         <p>{message}</p>
         <div className="confirm-actions">
           <button className="confirm-btn cancel" onClick={onCancel}>Cancelar</button>
-          <button className="confirm-btn danger" onClick={onConfirm}>Eliminar</button>
+          <button className="confirm-btn danger" onClick={onConfirm}>{textoConfirmar}</button>
         </div>
       </div>
     </div>

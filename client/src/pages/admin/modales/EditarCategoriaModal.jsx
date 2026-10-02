@@ -3,7 +3,7 @@ import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { ToastContext } from '../../../context/ToastContext';
 import { updateCategoria } from '../../../services/api';
 import Icon from '../Icon';
-import { generales, normalizarCodigo, errorDeCodigo } from '../categorias';
+import { generales, normalizarCodigo, errorDeCodigo, avisoCambioDeCodigo } from '../categorias';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
 // Modal "Editar Categoría". Lo pinta el contenedor, fuera de <main>, y su estado (la categoría
@@ -13,6 +13,7 @@ const EditarCategoriaModal = ({
   categoria, setCategoria,
   archivoNuevo, setArchivoNuevo,
   categorias,
+  muebles = [],
   confirmarBorrado,
   onGuardado,
   onCerrar
@@ -30,6 +31,17 @@ const EditarCategoriaModal = ({
       showToast(errorCodigo, 'error');
       return;
     }
+    // Bloque A: si cambia el código y la categoría ya tiene muebles con referencia, se pregunta antes.
+    // Cancelar no guarda nada y deja el modal como estaba.
+    const aviso = avisoCambioDeCodigo(categoria, categorias, muebles);
+    if (aviso) {
+      confirmarBorrado('Cambiar el código de la categoría', aviso, guardar, 'Continuar');
+      return;
+    }
+    await guardar();
+  };
+
+  const guardar = async () => {
     envio.empezar('Actualizando categoría...');
 
     // La foto nueva se reduce antes de subirla (H24, ver utils/imagen.js).

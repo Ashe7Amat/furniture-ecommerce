@@ -233,3 +233,90 @@ describe('Categorías — código', () => {
     });
   });
 });
+
+describe('Categorías — aviso al cambiar el código (bloque A)', () => {
+  const C = 'Editar Categoría';
+  const AVISO = 'Cambiar el código de la categoría';
+  const CON_REFERENCIAS = [
+    { ...SILLA, id: 's1', referencia: 'NAV-SIL-001' },
+    { ...SILLA, id: 's2', nombre: 'Silla Thonet', referencia: 'NAV-SIL-002' }
+  ];
+  const abrirEditor = async (nombre, muebles = CON_REFERENCIAS) => {
+    const user = userEvent.setup();
+    const utils = await renderAdmin({ muebles, categorias: CON_CODIGOS });
+    await irAPestana(user, 'Gestionar Categorías');
+    await user.click(tarjeta(nombre).getByRole('button', { name: 'Editar' }));
+    return { user, ...utils };
+  };
+  const cambiarCodigo = async (user, codigo) => {
+    await user.clear(campo(C, 'Código de 3 letras (opcional):'));
+    if (codigo) await user.type(campo(C, 'Código de 3 letras (opcional):'), codigo);
+    await user.click(modal(C).getByRole('button', { name: 'Guardar Cambios' }));
+  };
+  const dialogo = () => within(screen.getByRole('heading', { level: 3, name: AVISO }).closest('.confirm-box'));
+
+  it('cambiar el código de una categoría con muebles con referencia pide confirmación, sin guardar todavía', async () => {
+    const { user } = await abrirEditor('Sillas');
+    await cambiarCodigo(user, 'asi');
+
+    expect(dialogo().getByText(
+      'Esta categoría tiene 2 muebles con referencias NAV-SIL-001 a NAV-SIL-002. Los nuevos usarán el código nuevo, los antiguos conservarán el viejo. ¿Continuar?'
+    )).toBeInTheDocument();
+    expect(dialogo().getByRole('button', { name: 'Continuar' })).toBeInTheDocument();
+    expect(updateCategoria).not.toHaveBeenCalled();
+  });
+
+  it('confirmar guarda el código nuevo', async () => {
+    updateCategoria.mockResolvedValue({ success: true });
+    const { user, showToast } = await abrirEditor('Sillas');
+    await cambiarCodigo(user, 'asi');
+
+    await user.click(dialogo().getByRole('button', { name: 'Continuar' }));
+
+    await waitFor(() => expect(updateCategoria).toHaveBeenCalledTimes(1));
+    expect(updateCategoria.mock.calls[0][1].get('codigo')).toBe('ASI');
+    expect(showToast).toHaveBeenCalledWith('Categoría actualizada correctamente', 'success');
+    expect(screen.queryByRole('heading', { level: 3, name: AVISO })).not.toBeInTheDocument();
+  });
+
+  it('cancelar no guarda y deja el modal abierto con lo escrito', async () => {
+    const { user } = await abrirEditor('Sillas');
+    await cambiarCodigo(user, 'asi');
+
+    await user.click(dialogo().getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('heading', { level: 3, name: AVISO })).not.toBeInTheDocument();
+    expect(updateCategoria).not.toHaveBeenCalled();
+    expect(campo(C, 'Código de 3 letras (opcional):')).toHaveValue('ASI');
+  });
+
+  it('sin muebles con referencia en la categoría, guarda sin preguntar', async () => {
+    updateCategoria.mockResolvedValue({ success: true });
+    const { user } = await abrirEditor('Mesas'); // los muebles con referencia son de "Sillas"
+    await cambiarCodigo(user, 'msa');
+
+    await waitFor(() => expect(updateCategoria).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('heading', { level: 3, name: AVISO })).not.toBeInTheDocument();
+  });
+
+  it('cambiar otro campo (el nombre), sin tocar el código, guarda sin preguntar', async () => {
+    updateCategoria.mockResolvedValue({ success: true });
+    const { user } = await abrirEditor('Sillas');
+    await user.type(campo(C, 'Nombre de la Categoría:'), ' y asientos');
+    await user.click(modal(C).getByRole('button', { name: 'Guardar Cambios' }));
+
+    await waitFor(() => expect(updateCategoria).toHaveBeenCalledTimes(1));
+    expect(updateCategoria.mock.calls[0][1].get('codigo')).toBe('SIL');
+    expect(screen.queryByRole('heading', { level: 3, name: AVISO })).not.toBeInTheDocument();
+  });
+
+  it('el diálogo de borrar sigue diciendo "Eliminar"', async () => {
+    const user = userEvent.setup();
+    await renderAdmin({ categorias: CON_CODIGOS });
+    await irAPestana(user, 'Gestionar Categorías');
+    await user.click(tarjeta('Sillas').getByRole('button', { name: 'Eliminar' }));
+
+    const confirmar = within(screen.getByRole('heading', { level: 3, name: 'Eliminar Categoría' }).closest('.confirm-box'));
+    expect(confirmar.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
+  });
+});
