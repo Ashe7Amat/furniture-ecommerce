@@ -17,9 +17,12 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | A3: backfill códigos | `20261001220000` | `backfill_categorias_codigo` | ✅ Aplicada en BD |
 | A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
 | A9 — backfill de referencias de muebles (los 114 existentes) | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
+| Categoría nueva "Espejos" (ESP, id 28, dentro de "Decoración y hogar") | `20261002174749` | `add_categoria_espejos` | ✅ Aplicada en BD (2 oct, 17:47 UTC) |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
+El 2 oct se añadió una 13.ª, ESP (28) "Espejos", con autorización del usuario, para los 5 espejos del PDF
+`Espejos_Props_NAVE5_01_10_2026`. Hasta que se den de alta, sale vacía en el catálogo.
 
 **Formato de referencia:** `NAV-COD-NNN` (p. ej. `NAV-SIL-001`). Lógica en `server/src/utils/referencia.js`.
 Reintento en colisión UNIQUE (código Postgres 23505, constraint `muebles_referencia_key`), hasta 3 intentos.
