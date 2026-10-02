@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getMuebles, getCategorias } from '../services/api';
-import { formatPrice } from '../utils/format';
+import { textoPrecio } from '../utils/format';
 import { useScrollReveal } from '../utils/useScrollReveal';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/Home.css';
@@ -132,7 +132,7 @@ export default function Home() {
                                     <h3>{mueble.nombre}</h3>
                                     <p className="home-card-desc">{mueble.descripcion}</p>
                                     <span className="home-card-price">
-                                        {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar')}
+                                        {textoPrecio(mueble)}
                                     </span>
                                 </div>
                             </Link>

@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { getMuebles, updateProfile, getMisPedidos } from '../services/api';
-import { formatPrice } from '../utils/format';
+import { formatPrice, textoPrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import { Link, useSearchParams } from 'react-router-dom';
 import './Profile.css';
@@ -204,7 +204,7 @@ export default function Profile() {
                       <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
                       <div className="fav-mini-info">
                         <h4>{mueble.nombre}</h4>
-                        <p>{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar')}</p>
+                        <p>{textoPrecio(mueble)}</p>
                       </div>
                     </Link>
                   ))}

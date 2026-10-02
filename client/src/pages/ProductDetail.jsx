@@ -4,7 +4,7 @@ import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebleById } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice } from '../utils/format';
+import { formatPrice, textoPrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
@@ -124,7 +124,8 @@ const ProductDetail = () => {
           {/* A6: la referencia real (NAV-SIL-001). Sustituye a la "Ref. SKU-…" que había al final de
               la ficha, inventada con los 6 primeros caracteres del id. */}
           <ReferenciaProducto referencia={mueble.referencia} className="pd-ref" />
-          <p className="pd-price font-display">{mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : 'Consultar precio'}</p>
+          {/* C2: antes, sin precio de venta salía "Consultar precio" aunque tuviera precio de alquiler */}
+          <p className="pd-price font-display">{textoPrecio(mueble)}</p>
           
           <div className="pd-description">
             <p>{mueble.descripcion}</p>

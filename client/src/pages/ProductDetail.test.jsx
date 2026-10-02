@@ -157,10 +157,17 @@ describe('ProductDetail', () => {
     expect(opcion('Comprar pieza única')).toHaveClass('active');
   });
 
-  it('sin precio de venta empieza en alquiler y pide "Consultar precio"; sin alquiler, esa opción no está disponible', async () => {
+  // CAMBIADO A PROPÓSITO (fase C, 2 oct 2026): sin precio de venta enseña el de alquiler (antes, "Consultar precio"
+  // aunque lo tuviera), como el resto del catálogo.
+  it('sin precio de venta empieza en alquiler y enseña el precio de alquiler', async () => {
     await montar({ ...MUEBLE, precio_venta: null });
-    expect(document.querySelector('.pd-price')).toHaveTextContent('Consultar precio');
+    expect(document.querySelector('.pd-price')).toHaveTextContent(/^40 €\/día$/);
     expect(opcion('Alquilar por días')).toHaveClass('active');
+  });
+
+  it('sin ningún precio, "Consultar precio"', async () => {
+    await montar({ ...MUEBLE, precio_venta: null, precio_alquiler_dia: null });
+    expect(document.querySelector('.pd-price')).toHaveTextContent(/^Consultar precio$/);
   });
 
   it('sin precio de alquiler, esa opción está desactivada y dice "No disponible"', async () => {

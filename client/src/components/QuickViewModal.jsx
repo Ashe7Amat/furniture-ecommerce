@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { formatPrice } from '../utils/format';
+import { textoPrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/QuickViewModal.css';
 import ReferenciaProducto from './ReferenciaProducto';
@@ -54,7 +54,7 @@ const QuickViewModal = ({ mueble, onClose }) => {
           <ReferenciaProducto referencia={mueble.referencia} className="qv-ref" />
           {mueble.descripcion && <p className="qv-desc">{mueble.descripcion}</p>}
           <span className="qv-price font-display">
-            {mueble.precio_venta ? `${formatPrice(mueble.precio_venta)} €` : (mueble.precio_alquiler_dia ? `${formatPrice(mueble.precio_alquiler_dia)} €/día` : 'Consultar precio')}
+            {textoPrecio(mueble)}
           </span>
 
           <div className="qv-actions">
