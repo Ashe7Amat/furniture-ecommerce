@@ -4,6 +4,32 @@ Este documento recoge el estado de las mejoras técnicas de la rama, lo que qued
 hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
 "Hallazgos"), para que no dependan del historial de una conversación.
 
+## 🔄 Cierre parcial — Bloque A (referencias de muebles): 1 oct 2026
+
+Trabajo realizado en la sesión del 1-2 oct 2026. **A1-A4 completadas. A5-A7 y Bloque C pendientes.**
+
+| Migración | Version | Nombre | Estado |
+|-----------|---------|--------|--------|
+| A1: `categorias.codigo` | `20261001193100` | `add_categorias_codigo` | ✅ Aplicada en BD |
+| A2: `muebles.referencia` | `20261001212500` | `add_muebles_referencia` | ✅ Aplicada en BD |
+| A3: backfill códigos | `20261001220000` | `backfill_categorias_codigo` | ✅ Aplicada en BD |
+| A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
+
+**Códigos aplicados en las 12 categorías:**
+ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
+
+**Formato de referencia:** `NAV-COD-NNN` (p. ej. `NAV-SIL-001`). Lógica en `server/src/utils/referencia.js`.
+Reintento en colisión UNIQUE (código Postgres 23505, constraint `muebles_referencia_key`), hasta 3 intentos.
+Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el catálogo.
+
+**Pendiente (sesión siguiente):**
+- A5: admin — campo referencia en formulario/tabla, búsqueda, campo código en categorías.
+- A6: catálogo — referencia pequeña bajo el nombre del mueble.
+- A7: tests y cierre del bloque.
+- Bloque C: `MOSTRAR_PRECIOS` server-side.
+
+**Nota:** No mergear a `main` hasta cerrar A5-A7 y revisar gate completo.
+
 ## Estado de las tareas
 
 | # | Tarea | Estado |
