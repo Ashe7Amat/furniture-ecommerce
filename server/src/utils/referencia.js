@@ -63,9 +63,7 @@ const calcularSiguienteReferencia = async (codigo) => {
   if (error) throw new Error(`Error al calcular referencia para ${codigo}: ${error.message}`);
 
   const ultima = data?.[0]?.referencia;
-  const siguiente = ultima
-    ? String(Number(ultima.slice(-3)) + 1).padStart(3, '0')
-    : '001';
+  const siguiente = ultima ? String(Number(ultima.slice(-3)) + 1).padStart(3, '0') : '001';
 
   return `${prefijoCodigo}-${siguiente}`;
 };

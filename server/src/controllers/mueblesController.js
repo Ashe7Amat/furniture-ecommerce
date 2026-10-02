@@ -5,7 +5,11 @@ const pagos = require('../utils/pagos');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
 const { escaparIlike } = require('../utils/ilike');
-const { obtenerCodigoCategoria, calcularSiguienteReferencia, MAX_REINTENTOS } = require('../utils/referencia');
+const {
+  obtenerCodigoCategoria,
+  calcularSiguienteReferencia,
+  MAX_REINTENTOS
+} = require('../utils/referencia');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -126,7 +130,9 @@ const crearMueble = async (req, res) => {
         // SIN_CODIGO es esperado para categorías nuevas aún sin código asignado.
         // Cualquier otro error (categoría no encontrada, fallo de red) sí debe subir.
         if (errRef.code !== 'SIN_CODIGO') throw errRef;
-        console.warn(`[crearMueble] Categoría ${categoriaIdFinal} sin código: mueble sin referencia.`);
+        console.warn(
+          `[crearMueble] Categoría ${categoriaIdFinal} sin código: mueble sin referencia.`
+        );
       }
     }
 
