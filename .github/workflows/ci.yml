@@ -66,3 +66,33 @@ jobs:
       # Los umbrales suben tras cada tanda de tests y no se bajan nunca (historial en la tarea 7 de
       # docs/mejoras-tecnicas.md).
       - run: npm run test:coverage
+
+  e2e:
+    name: E2E (Playwright, no bloqueante)
+    runs-on: ubuntu-latest
+    # De momento no bloquea: si falla, el job sale en rojo pero el CI sigue en verde. Cuando lleven
+    # un tiempo estables, se quita esta línea (ver docs/testing-e2e.md).
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      # El Chromium de la misma versión que @playwright/test (fijada en package.json), con sus
+      # dependencias del sistema.
+      - run: npx playwright install --with-deps chromium
+      # Arranca la web con Vite (webServer en playwright.config.js) y simula la API en el navegador:
+      # no hace falta servidor ni base de datos.
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: informe-playwright
+          path: client/playwright-report/
+          retention-days: 7
