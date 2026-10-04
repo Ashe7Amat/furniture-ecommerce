@@ -155,10 +155,24 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Ejemplo:** `RESEND_FROM=Nave 5 Barcelona <onboarding@resend.dev>`
 
 ### `ADMIN_EMAIL`
-- **Qué hace:** dirección donde llegan las alertas de nueva venta.
+- **Qué hace:** dirección donde llegan los avisos de nueva venta y las alertas operativas (un
+  pago cobrado que no se pudo registrar, una doble venta...). También recibe los mensajes del
+  formulario de contacto cuando `CONTACT_EMAILS` no está puesta.
 - **Formato:** una dirección de email.
 - **Obligatoria:** no.
 - **Ejemplo:** `ADMIN_EMAIL=admin@nave5barcelona.com`
+
+### `CONTACT_EMAILS`
+- **Qué hace:** quién recibe los mensajes del formulario de contacto. Sirve para que lleguen a
+  varias personas sin tocar `ADMIN_EMAIL`, que sigue siendo solo para avisos de venta y alertas.
+- **Formato:** una o varias direcciones separadas por comas. Los espacios y las comas de sobra
+  se ignoran.
+- **Obligatoria:** no -- vacía o sin poner, los mensajes van a `ADMIN_EMAIL`, como antes.
+- **Importante:** con el remitente sandbox de Resend (`onboarding@resend.dev`, ver `RESEND_FROM`),
+  Resend solo entrega a la dirección con la que se verificó la cuenta de Resend. Las demás
+  direcciones de la lista no recibirán nada hasta que se verifique un dominio propio en Resend y
+  se cambie `RESEND_FROM`.
+- **Ejemplo:** `CONTACT_EMAILS=tienda@example.com,otra-persona@example.com`
 
 ### `GOOGLE_CLIENT_ID`
 - **Qué hace:** valida en el servidor el token que devuelve el botón "Continuar con Google" del

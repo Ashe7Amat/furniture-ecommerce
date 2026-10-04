@@ -7,6 +7,8 @@
 //   RESEND_API_KEY   - API key de Resend (Dashboard > API Keys). Empieza por "re_...".
 //   RESEND_FROM      - Dirección remitente verificada en Resend. Ver nota abajo.
 //   ADMIN_EMAIL      - Dirección donde quieres recibir el aviso de cada venta.
+//   CONTACT_EMAILS   - Opcional. Direcciones, separadas por comas, que reciben los mensajes
+//                      del formulario de contacto. Si no está, se usa ADMIN_EMAIL.
 //
 // Nota sobre el remitente ("from"):
 //   Con el plan gratuito de Resend, solo hay dos opciones para el campo "from":
@@ -311,22 +313,36 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
   }
 };
 
-// Envía a ADMIN_EMAIL el mensaje escrito en el formulario de "Contacto". A diferencia
-// de los correos anteriores, aquí sí importa que el controlador sepa si el envío
+// Quién recibe los mensajes del formulario de contacto: las direcciones de CONTACT_EMAILS
+// (separadas por comas, sin espacios ni huecos vacíos) o, si no hay ninguna, ADMIN_EMAIL, como
+// antes. Se lee en cada llamada. Los avisos de venta y las alertas siguen yendo solo a ADMIN_EMAIL.
+const destinatariosContacto = () => {
+  const lista = (process.env.CONTACT_EMAILS || '')
+    .split(',')
+    .map(direccion => direccion.trim())
+    .filter(Boolean);
+  return lista.length > 0 ? lista : [EMAIL_ADMIN];
+};
+
+// Envía a destinatariosContacto() el mensaje escrito en el formulario de "Contacto". A
+// diferencia de los correos anteriores, aquí sí importa que el controlador sepa si el envío
 // falló (para avisar al visitante de que lo intente de nuevo), así que devuelve
 // true/false en vez de tragarse el error.
 const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
   try {
+    const destinatarios = destinatariosContacto();
+
     if (!resend) {
-      registrarSimulacion('mensaje de contacto', () =>
-        console.log(`Contacto de ${nombre} <${email}>: ${mensaje}`)
-      );
+      registrarSimulacion('mensaje de contacto', () => {
+        console.log('Para:', destinatarios.join(', '));
+        console.log(`Contacto de ${nombre} <${email}>: ${mensaje}`);
+      });
       return true;
     }
 
     const { data, error } = await resend.emails.send({
       from: REMITENTE,
-      to: EMAIL_ADMIN,
+      to: destinatarios,
       replyTo: email,
       subject: `Nuevo mensaje de contacto — ${nombre}`,
       html: `

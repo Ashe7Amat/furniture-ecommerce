@@ -440,6 +440,9 @@
 }
 .admin-search input {
   width: 100%;
+  /* Sin esto, el 100% de ancho más el relleno (54 px) se salía de la caja y tapaba el principio del
+     primer desplegable de filtros (venía así desde 4c23c01). */
+  box-sizing: border-box;
   padding: 11px 14px 11px 40px;
   border: 1px solid var(--border-color);
   border-radius: 20px;

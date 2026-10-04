@@ -17,9 +17,15 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | A3: backfill códigos | `20261001220000` | `backfill_categorias_codigo` | ✅ Aplicada en BD |
 | A4: `generarReferencia` (servidor) | — (no toca BD) | — | ✅ Commiteado (`1fcef7c`) |
 | A9 — backfill de referencias de muebles (los 114 existentes) | `20261002121823` | `backfill_muebles_referencia` | ✅ Aplicada en BD (2 oct, 12:18 UTC) |
+| Categoría nueva "Espejos" (ESP, id 28, dentro de "Decoración y hogar") | `20261002174749` | `add_categoria_espejos` | ✅ Aplicada en BD (2 oct, 17:47 UTC) |
+| Agrupación (1/3): copia de seguridad de las 52 fichas afectadas | `20261002193936` | `respaldo_agrupacion_muebles` | ✅ Aplicada en BD (2 oct, 19:39 UTC) |
+| Agrupación (2/3): las 15 fichas principales reciben las fotos de su grupo; 2 cambian de nombre | `20261002200855` | `agrupar_fichas_juntar_fotos` | ✅ Aplicada en BD (2 oct, 20:08 UTC) |
+| Agrupación (3/3): borrar las 37 fichas restantes (114 → 77) | — (no consta en `schema_migrations`) | — | ✅ Ejecutada por el cliente en el SQL Editor (2 oct): `apply_migration` se colgaba con `DELETE`. SQL y reversión en `docs/agrupar-fichas-propuesta.md` |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
+El 2 oct se añadió una 13.ª, ESP (28) "Espejos", con autorización del usuario, para los 5 espejos del PDF
+`Espejos_Props_NAVE5_01_10_2026`. Hasta que se den de alta, sale vacía en el catálogo.
 
 **Formato de referencia:** `NAV-COD-NNN` (p. ej. `NAV-SIL-001`). Lógica en `server/src/utils/referencia.js`.
 Reintento en colisión UNIQUE (código Postgres 23505, constraint `muebles_referencia_key`), hasta 3 intentos.
@@ -62,7 +68,19 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **Antes del merge:** decidir con el cliente el valor de `MOSTRAR_PRECIOS` en Vercel y ponerlo. Sin él,
   producción deja de enseñar precios y de vender en cuanto se despliegue.
 - "Ordenar por precio" se oculta cuando ninguna pieza tiene precio (`45502c4`, hallazgo 6 del informe).
-- Pendiente: la comprobación en el navegador.
+- **Comprobado en el navegador** (Chromium, en el contenedor, con el servidor de la rama y una muestra real de
+  9 muebles y las 12 categorías en memoria, porque el contenedor no llega a Supabase): 21 comprobaciones con
+  `MOSTRAR_PRECIOS=false` y 14 con `true`, todas bien, y la API respondiendo 403 al pago con los precios
+  ocultos.
+- **`MOSTRAR_PRECIOS=false` en Vercel** (`nave5-api`, Production, tipo *Encrypted* para poder ver el valor).
+- **Merge a `main` y despliegue:** `7fa8ff2` (merge `--no-ff` de `feature/mejoras-tecnicas`, padres `80ed786` y
+  `fc7123f`, sin conflictos; gate completo en verde justo antes: servidor 442/442, cliente 636/636). Push a las
+  14:04:54 UTC del 2 oct 2026. `nave5-demo` READY a las 14:05:11 UTC y `nave5-api` a las 14:05:36 UTC.
+- **En producción, comprobado a las 14:06 UTC** (lectura por la conexión de Vercel; el contenedor no llega a la
+  web): `GET /api/muebles` y `/api/muebles/:id` devuelven los precios a `null` y la referencia
+  (`NAV-SIL-010`...), sin servir de caché (`x-vercel-cache: MISS`), y la web carga. Lo que se ve en pantalla
+  (tarjetas, ficha, "Preguntar por esta pieza", panel con sesión) queda para la comprobación en el navegador
+  del usuario.
 
 ## Estado de las tareas
 
@@ -836,6 +854,9 @@ número.
 | H4 · límites de peticiones en memoria | El límite es por instancia de Vercel, no un total. Vale también para los límites nuevos de H28 y H29 |
 | H5 · límite de la detección de doble venta | Se cierra con el diseño de reservas |
 | H20 · código de B sin comprobar de extremo a extremo | Se reabre si un pedido real llega sin `cliente_id` (sección 7 de `docs/verificacion-3b.md`) |
+
+**Deuda aceptada (2 oct):** H33 · dos secretos legibles en el panel de Vercel; se cambia si entra un
+colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por página en el HTML servido.
 
 **Pendientes de una decisión del cliente (negocio o UX):**
 
@@ -1930,6 +1951,38 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Tests:** la ficha no tenía ninguno. `ProductDetail.test.jsx` (16 tests) la cubre entera, con uno que comprueba
   que ya no sale ningún "SKU".
 - **Nota:** no hay ningún H31 anotado en este documento; la numeración salta de H30 a H32.
+
+### H33 · BAJA · DEUDA ACEPTADA (2 oct 2026) · Dos secretos del servidor se pueden leer en el panel de Vercel
+
+- **Qué:** en el proyecto `nave5-api` de Vercel, `JWT_SECRET` y `STRIPE_SECRET_KEY` están guardadas como
+  *Encrypted*, no como *Sensitive*. Vercel las marca como `readable-secret`: cualquiera con acceso al
+  proyecto puede leer su valor en el panel o por la API. (Las demás claves de verdad, como
+  `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY` y `REFRESH_TOKEN_HASH_SECRET`, ya son *Sensitive*.)
+- **Por qué se acepta hoy:** el proyecto es individual; solo su dueño tiene acceso, así que "legible" no abre
+  nada nuevo.
+- **Cuándo hay que hacerlo:** el día que se añada un colaborador al proyecto de Vercel. Pasar una variable a
+  *Sensitive* obliga a borrarla y crearla de nuevo, y conviene aprovechar para rotarla:
+  - `JWT_SECRET`: al cambiarla, todas las sesiones abiertas se cierran (hay que volver a iniciar sesión);
+  - `STRIPE_SECRET_KEY`: se genera una nueva en Stripe, se pone en Vercel y en `server/.env` local, y se
+    vuelve a probar el pago.
+- **No confundir:** `MOSTRAR_PRECIOS` es *Encrypted* a propósito; no es un secreto, y así se puede ver si está
+  en `true` o en `false`.
+
+### H34 · BAJA · SEO · DECIDIDO: PENDIENTE (2 oct 2026) · Sin `canonical` ni `og:url`, y el SEO por página solo existe con JavaScript
+
+- **Estado real (comprobado el 2 oct en el código y en el HTML de producción):** no hay ninguna etiqueta
+  `<link rel="canonical">` ni `og:url`, ni en `client/index.html` ni en el código. Antes no estaba anotado en
+  ningún hallazgo (se habló de él como "H31", número que no existe).
+- **El SEO por página es solo de cliente:** `useDocumentMeta` (`client/src/utils/useDocumentMeta.js`) cambia con
+  JavaScript el `<title>`, la descripción y las etiquetas Open Graph y Twitter de cada página. Quien no ejecuta
+  JavaScript (las vistas previas de WhatsApp, Facebook o LinkedIn, y en parte los buscadores) solo ve las del
+  `index.html` compartido, que son las de la portada: un enlace a una ficha se previsualiza como la portada.
+- **Por qué no se añade ahora:** con un único `index.html` para todas las rutas, un `canonical` (o un `og:url`)
+  fijo apuntaría siempre a la portada, y eso le diría a los buscadores que todas las páginas son la portada.
+  Peor que no tenerlo.
+- **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
+  de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
+  por página, junto con el resto de etiquetas.
 
 ## Decisiones de diseño a recordar
 
