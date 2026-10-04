@@ -117,6 +117,30 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## 🔄 Bloque de trabajo autónomo (4 oct 2026): CSV, mensajes, auditoría, E2E y estilos
+
+En `feature/mejoras-tecnicas`, sin merge (producción sigue en `fd9e5ab`). Informe completo en
+`docs/reporte-trabajo-autonomo.md`.
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. Exportar el catálogo a CSV (`GET /api/admin/muebles/export` + botón en el inventario) | ✅ Hecha | `ab71e84` |
+| 2. Importar el catálogo desde CSV (`POST /api/admin/muebles/import`, previsualizar y aplicar, + modal) | ✅ Hecha | `8787838` |
+| 3. Panel de mensajes de contacto | ⏸️ Código hecho; **migración `mensajes_contacto` SIN aplicar** (`server/migrations/PENDIENTE_create_mensajes_contacto.sql`, pasos en `docs/propuesta-mensajes-contacto.md`) | `c4076cb` |
+| 4. Auditoría técnica (solo lectura) | ✅ Hecha: `docs/auditoria-tecnica.md` | `d9e0920` |
+| 5. Tests E2E con Playwright (10 tests, job de CI no bloqueante) | ✅ Hecha: `docs/testing-e2e.md` | `5ef4801` |
+| 6. Mejoras visuales, solo CSS (4 bloques) | ✅ Hecha, con lo que no se puede sin JSX anotado en H40 | `3eb38f2`, `3afa24f`, `b258ea6`, `ed06140` |
+
+- **Antes de mergear:** aplicar la migración de `mensajes_contacto` (con permiso). Sin ella, el formulario de
+  contacto funciona igual que hoy, pero la pestaña "Mensajes" dice que no puede cargarlos.
+- **Mutantes del panel:** 127 (126 detectados + 1 esperado), igual que antes, comprobado después de las tareas
+  1-3 (`c4076cb`).
+- **Cambios de comportamiento a propósito:**
+  - el formulario de contacto responde 200 si el mensaje se guardó aunque falle el correo (antes, 502);
+  - la barra lateral del panel tiene una pestaña más ("Mensajes", tras "Pedidos").
+  Los dos tests que lo fijaban llevan `CAMBIADO A PROPÓSITO`.
+- **Hallazgos nuevos:** H35-H40, abajo en "Hallazgos".
+
 ## Estado de las tareas
 
 | # | Tarea | Estado |
@@ -2018,6 +2042,63 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
   de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
   por página, junto con el resto de etiquetas.
+
+### H35 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
+
+- `schemaCarritoPago` (`server/src/schemas/muebles.js`) solo pide una pieza como mínimo. Con el límite del cuerpo
+  JSON (100 KB) caben unos miles.
+- `construirLineasDesdeCarrito` (`mueblesController.js`) lee cada pieza con su propia consulta, una tras otra,
+  antes de llegar a Stripe. Es una ruta pública: el limitador de H29 (20 por IP cada 15 min) lo frena, pero
+  no lo evita.
+- **Propuesta:**
+  - leer todas las piezas en una consulta (`.in('id', ids)`);
+  - poner `.max(...)` al carrito (una tienda de piezas únicas no necesita más de unas decenas).
+- Detalle en `docs/auditoria-tecnica.md`, puntos 7 y 9.
+
+### H36 · MEDIA · DATOS · PENDIENTE (4 oct 2026) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
+
+- Usa `select('*')`: cualquier columna interna que se añada a `pedidos` saldría al cliente sin que nadie lo
+  decida.
+- Es lo mismo que H26 arregló en `muebles` y `categorias`.
+- **Propuesta:** elegir las columnas, y de paso las del panel (`GET /api/pedidos`).
+
+### H37 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El panel trae todos los pedidos de la historia en cada carga
+
+- `GET /api/pedidos` no tiene límite ni paginación, y crece con cada venta.
+- **Propuesta:** los últimos N, con "ver más", o paginar.
+
+### H38 · MEDIA · MIGRACIONES · PENDIENTE (4 oct 2026) · Faltan en el repositorio las 7 primeras migraciones y las tablas base
+
+- Las migraciones del 3 al 5 de septiembre no tienen copia en `server/migrations/`:
+  - `enable_rls_public_read_only`;
+  - `sync_disponible_from_estado_trigger`;
+  - `fix_search_path_sync_disponible_trigger`;
+  - `add_categoria_padre_id`;
+  - `pedidos_soporte_checkout_multiproducto`;
+  - `cleanup_pedidos_phantom_columns_and_indexes`;
+  - `move_http_extension_out_of_public`.
+- Tampoco está el `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`.
+- No se puede reconstruir la base de datos desde el repositorio, ni comprobar sus índices sin consultarla.
+- **Propuesta:** volcar el esquema actual (solo lectura) y guardarlo como migración de partida.
+
+### H39 · MEDIA · USABILIDAD · PENDIENTE (4 oct 2026) · En el móvil no se puede abrir la búsqueda
+
+- El panel de búsqueda solo se abre pulsando `.header-search-bar` (`Header.jsx`), y por debajo de 768 px esa
+  barra está oculta (`display: none`): en el móvil no hay ninguna forma de buscar.
+- Además es un `div` con `onClick`: no se llega a él con el teclado ni lo anuncia un lector de pantalla.
+- **Por qué no se arregló en la tarea 6:** solo con CSS habría que enseñar un quinto icono, y a 375 px la
+  cabecera ya no tiene sitio.
+- **Propuesta (JSX):** un botón de lupa con `aria-label="Buscar"`, visible en el móvil, y convertir la barra en
+  un `<button>`.
+
+### H40 · BAJA · USABILIDAD · PENDIENTE (4 oct 2026) · Estados vacíos sin acción y 404 sin enlace a contacto
+
+Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
+- el catálogo vacío ("No hay productos en esta categoría", y "Aún no tienes favoritos") no tiene un botón para
+  volver al catálogo completo;
+- las pestañas vacías de Mi cuenta tampoco tienen acción. Favoritos vacíos y "Cargando tus pedidos..." tienen el
+  mismo marcado, así que el corazón solo se puede poner con una clase propia;
+- la 404 tiene "Volver al inicio" y "Ver el catálogo completo", pero no "Contacto".
 
 ## Decisiones de diseño a recordar
 
