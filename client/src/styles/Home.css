@@ -1,5 +1,8 @@
 .home-page {
     width: 100%;
+    /* Sin esto, el 100% más el relleno lateral (80 px, 40 en móvil) se salía de la pantalla y la
+       portada tenía scroll horizontal en todos los anchos. */
+    box-sizing: border-box;
     max-width: 1440px;
     margin: 0 auto;
     padding: 0 40px;

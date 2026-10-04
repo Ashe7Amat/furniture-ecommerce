@@ -209,6 +209,9 @@
 .search-panel {
   background: var(--bg-color);
   width: 100%;
+  /* Sin esto, el 100% más el relleno lateral (8vw) se salía por la derecha y, aun con el panel
+     cerrado, daba scroll horizontal a toda la página (medido en 375, 414, 768 y 1280 px). */
+  box-sizing: border-box;
   padding: 20px 4vw 40px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   border-bottom: 1px solid var(--border-color);
@@ -682,5 +685,24 @@
   .footer-links { flex-direction: column; gap: 30px; }
   .footer-bottom { flex-direction: column; gap: 15px; text-align: center; }
   .search-panel-content { flex-direction: column; }
-  .search-suggestions { width: 100%; }
+  .search-suggestions { width: 100%; box-sizing: border-box; }
+}
+
+/* Móvil estrecho con sesión iniciada: "Hola, Ana" empujaba los iconos fuera de la pantalla (375 px).
+   Se queda solo el icono; el botón ya se llama "Cuenta" para los lectores de pantalla. */
+@media (max-width: 480px) {
+  .user-name { display: none; }
+}
+
+/* Objetivos táctiles en móvil: los iconos de la cabecera medían 20×20 px (el mínimo recomendado es
+   24, mejor 40-44). Se agranda la zona que se puede pulsar, no el icono, y se reduce el hueco entre
+   ellos para que la cabecera se vea igual. */
+@media (max-width: 768px) {
+  .hamburger-btn,
+  .header-right .icon-btn {
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+  .header-right { gap: 2px; }
 }

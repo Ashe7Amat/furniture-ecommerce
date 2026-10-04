@@ -1,5 +1,11 @@
 /* Contenedor Principal */
 .profile-page-wrapper {
+  /* Con margin: auto dentro de .app-container (flex en columna), sin un ancho propio el contenedor
+     tomaba el de su contenido: en móvil, las pestañas sin salto de línea lo ensanchaban a ~470 px
+     y la página entera se salía por la derecha. Con ancho definido, las pestañas se desplazan
+     dentro de su barra (overflow-x: auto, abajo), como estaba pensado. */
+  width: 100%;
+  box-sizing: border-box;
   max-width: 1200px;
   margin: 60px auto;
   padding: 0 4vw;
