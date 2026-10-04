@@ -102,6 +102,7 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `EMAIL_DEBUG_DATOS` | server | No. Solo en local, para ver el contenido de los emails simulados; en producción no hace nada |
 | `RESEND_FROM` | server | No (tiene un valor por defecto de pruebas) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
+| `CONTACT_EMAILS` | server | No (destinatarios del formulario de contacto, separados por comas; si no está, `ADMIN_EMAIL`) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
 | `MOSTRAR_PRECIOS` | server | No. **Sin poner, el catálogo público oculta los precios y no deja comprar**; `true` los enseña |
 | `VITE_API_URL` | client | No (por defecto `http://localhost:5000/api`) |

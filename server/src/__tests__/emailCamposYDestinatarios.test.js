@@ -134,6 +134,15 @@ describe('enviarEmailBienvenida', () => {
 });
 
 describe('enviarMensajeContacto', () => {
+  const contactEmailsOriginal = process.env.CONTACT_EMAILS;
+  beforeEach(() => delete process.env.CONTACT_EMAILS);
+  afterEach(() => {
+    if (contactEmailsOriginal === undefined) delete process.env.CONTACT_EMAILS;
+    else process.env.CONTACT_EMAILS = contactEmailsOriginal;
+  });
+  const enviarContacto = () =>
+    email.enviarMensajeContacto({ nombre: 'Carlos', email: 'carlos@example.com', mensaje: 'Hola' });
+
   test('envía al ADMIN_EMAIL con replyTo puesto al email de quien escribió, y asunto con su nombre', async () => {
     const resultado = await email.enviarMensajeContacto({
       nombre: 'Carlos',
@@ -141,7 +150,9 @@ describe('enviarMensajeContacto', () => {
       mensaje: 'Hola'
     });
     const envio = enviar.mock.calls[0].arguments[0];
-    assert.equal(envio.to, 'admin@example.com');
+    // CAMBIADO A PROPÓSITO (CONTACT_EMAILS, 4 oct 2026): "to" es ahora siempre una lista; sin
+    // CONTACT_EMAILS, la lista es solo ADMIN_EMAIL, como antes.
+    assert.deepEqual(envio.to, ['admin@example.com']);
     assert.equal(envio.replyTo, 'carlos@example.com');
     assert.equal(envio.subject, 'Nuevo mensaje de contacto — Carlos');
     assert.equal(resultado, true);
@@ -167,5 +178,35 @@ describe('enviarMensajeContacto', () => {
       mensaje: 'Hola'
     });
     assert.equal(resultado, false);
+  });
+
+  test('con CONTACT_EMAILS, envía a todas sus direcciones (y no al ADMIN_EMAIL)', async () => {
+    process.env.CONTACT_EMAILS = 'a@x.com,b@x.com';
+    assert.equal(await enviarContacto(), true);
+    assert.deepEqual(enviar.mock.calls[0].arguments[0].to, ['a@x.com', 'b@x.com']);
+  });
+
+  test('CONTACT_EMAILS admite espacios y comas de sobra', async () => {
+    process.env.CONTACT_EMAILS = ' a@x.com , ,b@x.com, ';
+    await enviarContacto();
+    assert.deepEqual(enviar.mock.calls[0].arguments[0].to, ['a@x.com', 'b@x.com']);
+  });
+
+  for (const vacio of ['', ' ', ' , ,']) {
+    test(`CONTACT_EMAILS=${JSON.stringify(vacio)} cuenta como no puesta: va al ADMIN_EMAIL`, async () => {
+      process.env.CONTACT_EMAILS = vacio;
+      await enviarContacto();
+      assert.deepEqual(enviar.mock.calls[0].arguments[0].to, ['admin@example.com']);
+    });
+  }
+
+  test('CONTACT_EMAILS no cambia a quién van los avisos de venta ni las alertas', async () => {
+    process.env.CONTACT_EMAILS = 'a@x.com,b@x.com';
+    await email.enviarNotificacionVenta({ items: [], clienteInfo: {}, total: 0 });
+    await email.enviarAlertaAdmin({ asunto: 'Prueba', detalles: [] });
+    assert.deepEqual(
+      enviar.mock.calls.map((llamada) => llamada.arguments[0].to),
+      ['admin@example.com', 'admin@example.com']
+    );
   });
 });
