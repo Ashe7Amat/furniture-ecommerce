@@ -471,3 +471,34 @@ export const enviarContacto = async ({ nombre, email, mensaje, web }) => {
     return { error: error.message };
   }
 };
+
+// Mensajes del formulario de contacto, para el panel (GET /api/admin/mensajes, con sesión de
+// administrador). Devuelve la lista, o null si falla (p. ej. mientras no esté creada la tabla
+// mensajes_contacto en la base de datos): el panel lo distingue de "no hay ningún mensaje".
+export const getMensajes = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/mensajes`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Error al obtener los mensajes');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getMensajes:', error);
+    return null;
+  }
+};
+
+// Marca un mensaje como leído (PATCH /api/admin/mensajes/:id/leido). Devuelve el mensaje
+// actualizado, o null si falla.
+export const marcarMensajeLeido = async (id) => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/mensajes/${encodeURIComponent(id)}/leido`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leido: true })
+    });
+    if (!response.ok) throw new Error('Error al marcar el mensaje como leído');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en marcarMensajeLeido:', error);
+    return null;
+  }
+};

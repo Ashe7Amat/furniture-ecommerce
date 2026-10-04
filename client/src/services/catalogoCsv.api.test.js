@@ -1,6 +1,7 @@
-// Exportar el catálogo a CSV desde el panel: la llamada a la API y la descarga del archivo.
+// Llamadas a la API de las herramientas nuevas del panel: exportar e importar el catálogo en CSV
+// (con la descarga del archivo) y los mensajes del formulario de contacto.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportarCatalogoCsv, importarCatalogoCsv } from './api';
+import { exportarCatalogoCsv, importarCatalogoCsv, getMensajes, marcarMensajeLeido } from './api';
 import { setAccessToken, limpiarTokens } from '../utils/authToken';
 import { descargarArchivo } from '../utils/descargarArchivo';
 
@@ -100,6 +101,43 @@ describe('importarCatalogoCsv', () => {
     expect(await importarCatalogoCsv(new File([''], 'c.csv'), 'apply')).toEqual({
       error: 'No se pudo conectar con el servidor. Inténtalo de nuevo.'
     });
+  });
+});
+
+describe('mensajes de contacto', () => {
+  const respuestaJson = (status, cuerpo) => ({ ok: status < 400, status, json: async () => cuerpo });
+
+  it('getMensajes los pide a la ruta de administración, con sesión y sin caché', async () => {
+    setAccessToken('token-del-admin');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(200, [{ id: 'c1' }])));
+
+    expect(await getMensajes()).toEqual([{ id: 'c1' }]);
+    expect(fetch.mock.calls[0][0]).toMatch(/\/admin\/mensajes$/);
+    expect(fetch.mock.calls[0][1]).toEqual({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer token-del-admin' }
+    });
+  });
+
+  it('getMensajes devuelve null si falla (para distinguirlo de "no hay mensajes")', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(500, { error: 'x' })));
+    expect(await getMensajes()).toBeNull();
+  });
+
+  it('marcarMensajeLeido manda un PATCH con { leido: true } y devuelve el mensaje', async () => {
+    setAccessToken('token-del-admin');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(200, { id: 'c 1', leido: true })));
+
+    expect(await marcarMensajeLeido('c 1')).toEqual({ id: 'c 1', leido: true });
+    const [url, opciones] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/admin\/mensajes\/c%201\/leido$/);
+    expect(opciones.method).toBe('PATCH');
+    expect(JSON.parse(opciones.body)).toEqual({ leido: true });
+  });
+
+  it('marcarMensajeLeido devuelve null si falla', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(404, { error: 'no' })));
+    expect(await marcarMensajeLeido('c1')).toBeNull();
   });
 });
 

@@ -153,7 +153,10 @@ describe('categorías (admin)', () => {
 });
 
 describe('contacto', () => {
-  test('POST /api/contacto: si el correo no sale, 502 y el visitante puede reintentar', async () => {
+  // CAMBIADO A PROPÓSITO (panel de mensajes, 4 oct 2026): el mensaje se guarda en mensajes_contacto
+  // antes del correo, y si se guardó ya no se pierde. El 502 queda para cuando fallan las dos cosas.
+  test('POST /api/contacto: si no se puede guardar ni sale el correo, 502 y el visitante puede reintentar', async () => {
+    conFallo({ 'mensajes_contacto.insert': ERROR_BD });
     const enviar = mock.method(email, 'enviarMensajeContacto', async () => false);
 
     const res = await request(app).post('/api/contacto').send({
@@ -170,6 +173,7 @@ describe('contacto', () => {
   });
 
   test('POST /api/contacto: si sale, 200 { success: true }', async () => {
+    conFallo({});
     mock.method(email, 'enviarMensajeContacto', async () => true);
 
     const res = await request(app).post('/api/contacto').send({

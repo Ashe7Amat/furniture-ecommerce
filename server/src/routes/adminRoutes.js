@@ -7,6 +7,7 @@ const {
   exportarCatalogoCsv,
   importarCatalogoCsv
 } = require('../controllers/catalogoCsvController');
+const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
 const { verificarAdmin } = require('../middleware/auth');
 
 // Lecturas que solo necesita el panel de administración (H26): lo que no debe salir en las rutas
@@ -36,5 +37,9 @@ const recibirCsv = (req, res, next) =>
       .json({ error: 'No se pudo leer el archivo: sube un único CSV en el campo "archivo".' });
   });
 router.post('/muebles/import', verificarAdmin, recibirCsv, importarCatalogoCsv);
+
+// Mensajes del formulario de contacto (pendiente de la migración mensajes_contacto).
+router.get('/mensajes', verificarAdmin, obtenerMensajes);
+router.patch('/mensajes/:id/leido', verificarAdmin, marcarLeido);
 
 module.exports = router;

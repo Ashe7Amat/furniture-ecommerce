@@ -25,7 +25,7 @@
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
-//   muebles, pedidos, categorias, clientes, refresh_tokens  filas iniciales
+//   muebles, pedidos, categorias, clientes, refresh_tokens, mensajes_contacto  filas iniciales
 //   indiceUnicoStripe    emula el índice único de pedidos.stripe_session_id (código 23505)
 //   fallos               { 'tabla.accion': error | (consulta) => error|null } hace fallar esa
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
@@ -37,6 +37,7 @@ const crearFakeSupabase = ({
   categorias = [],
   clientes = [],
   refresh_tokens = [],
+  mensajes_contacto = [],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -45,7 +46,8 @@ const crearFakeSupabase = ({
     pedidos: pedidos.map((fila) => ({ ...fila })),
     categorias: categorias.map((fila) => ({ ...fila })),
     clientes: clientes.map((fila) => ({ ...fila })),
-    refresh_tokens: refresh_tokens.map((fila) => ({ ...fila }))
+    refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
+    mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };

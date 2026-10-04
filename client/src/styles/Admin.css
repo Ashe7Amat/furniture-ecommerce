@@ -881,6 +881,67 @@
 .admin-modal-close:hover { color: var(--primary-color); }
 .admin-modal-close svg { width: 18px; height: 18px; }
 
+/* ─── Mensajes del formulario de contacto ─── */
+.mensajes-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+.mensajes-tabla th,
+.mensajes-tabla td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+.mensajes-tabla th { color: var(--secondary-color); font-weight: 500; font-size: 0.8rem; }
+.mensajes-tabla tbody tr { cursor: pointer; transition: background-color 0.2s ease; }
+.mensajes-tabla tbody tr:hover { background: var(--bg-color); }
+.mensajes-tabla tr.is-no-leido td { font-weight: 600; color: var(--primary-color); }
+.mensajes-abrir {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.mensajes-abrir:hover { text-decoration: underline; }
+.mensaje-estado {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.mensaje-estado.no-leido { background: var(--accent-color); color: #fff; }
+.mensaje-estado.leido { background: var(--bg-color); color: var(--secondary-color); }
+.mensajes-error { padding: 20px; border: 1px solid var(--danger-color); border-radius: 6px; }
+.mensajes-error p { margin: 0 0 12px; color: var(--danger-color); }
+.mensaje-modal { max-width: 600px; }
+.mensaje-datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+}
+.mensaje-datos dt { color: var(--secondary-color); }
+.mensaje-datos dd { margin: 0; overflow-wrap: anywhere; }
+.mensaje-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  padding: 14px 16px;
+  background: var(--bg-color);
+  border-radius: 6px;
+  margin: 0 0 20px;
+}
+.mensaje-acciones { display: flex; gap: 10px; }
+
 /* ─── Importar catálogo (CSV) ─── */
 .importar-modal { max-width: 720px; }
 .importar-ayuda {

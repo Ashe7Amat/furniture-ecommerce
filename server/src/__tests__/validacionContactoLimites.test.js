@@ -1,7 +1,7 @@
 // Límites de longitud de /api/contacto (task 2, punto 6): en su propio archivo/proceso para no
 // compartir el contador del limitador (5 mensajes por IP cada 15 min) con
 // validacionContacto.test.js. Aquí caben 3 peticiones.
-const { test, describe, afterEach, mock } = require('node:test');
+const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 require('./helpers/testEnv');
@@ -9,7 +9,9 @@ require('./helpers/testEnv');
 process.env.RESEND_API_KEY = ''; // por si algún test no llegara a mockear enviarMensajeContacto
 
 const email = require('../utils/email');
+const supabase = require('../data/supabase');
 const app = require('../index');
+const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
 const mensajeValido = {
   nombre: 'Ana',
@@ -17,6 +19,9 @@ const mensajeValido = {
   mensaje: 'Hola, quería preguntar algo.'
 };
 
+// El controlador guarda cada mensaje en mensajes_contacto antes del correo: aquí, en el doble de
+// Supabase, para no salir a la red.
+beforeEach(() => mock.method(supabase, 'from', crearFakeSupabase().from));
 afterEach(() => mock.restoreAll());
 
 describe('POST /api/contacto — límites de longitud', () => {
