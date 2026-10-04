@@ -5,11 +5,7 @@ const pagos = require('../utils/pagos');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
 const { escaparIlike } = require('../utils/ilike');
-const {
-  obtenerCodigoCategoria,
-  calcularSiguienteReferencia,
-  MAX_REINTENTOS
-} = require('../utils/referencia');
+const { insertarMuebleConReferencia } = require('../utils/altaMueble');
 const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
@@ -146,32 +142,9 @@ const crearMueble = async (req, res) => {
     // conozca categoria_id sigue funcionando igual que antes de esta migración.
     const categoriaIdFinal = categoria_id ?? (await resolverCategoriaIdPorNombre(categoria));
 
-    // A4: referencia automática si la categoría tiene código (las 12 ya lo tienen tras A3).
-    // El código se obtiene UNA VEZ fuera del bucle — no cambia entre reintentos.
-    // Si la categoría no tiene código (nueva categoría aún sin código, o categoriaIdFinal null),
-    // codigoCategoria queda null y el mueble se crea sin referencia — no bloquea.
-    let codigoCategoria = null;
-    if (categoriaIdFinal) {
-      try {
-        codigoCategoria = await obtenerCodigoCategoria(categoriaIdFinal);
-      } catch (errRef) {
-        // SIN_CODIGO es esperado para categorías nuevas aún sin código asignado.
-        // Cualquier otro error (categoría no encontrada, fallo de red) sí debe subir.
-        if (errRef.code !== 'SIN_CODIGO') throw errRef;
-        console.warn(
-          `[crearMueble] Categoría ${categoriaIdFinal} sin código: mueble sin referencia.`
-        );
-      }
-    }
-
-    // Bucle de inserción. Con código: MAX_REINTENTOS intentos con recálculo de referencia en
-    // cada iteración (calcularSiguienteReferencia siempre ve el MAX actualizado en la BD).
-    // Sin código: una sola inserción, sin bucle efectivo.
-    // 23505 = unique_violation en Postgres: dos admins coincidieron en el mismo MAX+1.
-    // El siguiente intento llama de nuevo a calcularSiguienteReferencia y ve la referencia
-    // del primero → devuelve MAX+1 correcto → la colisión se resuelve sola.
-    const intentosMaximos = codigoCategoria ? MAX_REINTENTOS : 1;
-    const payloadBase = {
+    // A4: la referencia automática (y el reintento si dos administradores coinciden en el mismo
+    // número) la pone insertarMuebleConReferencia, compartida con la importación desde CSV.
+    const data = await insertarMuebleConReferencia({
       nombre,
       categoria,
       categoria_id: categoriaIdFinal,
@@ -180,43 +153,7 @@ const crearMueble = async (req, res) => {
       precio_alquiler_dia: precio_alquiler ?? null,
       imagenes,
       estado: estado || 'disponible'
-    };
-
-    let data;
-    for (let intento = 0; intento < intentosMaximos; intento++) {
-      // Se recalcula en cada iteración: en el reintento por 23505, la BD ya tiene la referencia
-      // del admin que ganó la carrera, así que este verá un MAX más alto y no volverá a chocar.
-      const referencia = codigoCategoria
-        ? await calcularSiguienteReferencia(codigoCategoria)
-        : null;
-
-      const { data: insertData, error: insertError } = await supabase
-        .from('muebles')
-        .insert([{ ...payloadBase, referencia }])
-        .select();
-
-      if (!insertError) {
-        data = insertData;
-        break;
-      }
-
-      // 23505 + mención al constraint de referencia = colisión concurrente en muebles.referencia.
-      // Se recalcula en el siguiente intento (calcularSiguienteReferencia verá el MAX actualizado).
-      // Si el 23505 es de otro constraint UNIQUE futuro (nombre, etc.), no reintentamos: throw.
-      if (
-        insertError.code === '23505' &&
-        insertError.message?.includes('referencia') &&
-        intento < intentosMaximos - 1
-      ) {
-        console.warn(
-          `[crearMueble] Colisión en referencia ${referencia} (intento ${intento + 1}/${intentosMaximos}). Recalculando...`
-        );
-        continue; // siguiente iteración recalcula desde la BD
-      }
-
-      // Cualquier otro error de BD, o colisión con reintentos agotados
-      throw insertError;
-    }
+    });
 
     res.status(201).json({ success: true, message: 'Mueble creado con éxito', data });
   } catch (error) {

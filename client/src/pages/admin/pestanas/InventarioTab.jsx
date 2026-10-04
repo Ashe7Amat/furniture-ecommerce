@@ -5,6 +5,7 @@ import { formatPrice } from '../../../utils/format';
 import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
+import ImportarCatalogoModal from '../modales/ImportarCatalogoModal';
 
 // Pestaña "Gestionar Inventario". El estado de la vista (búsqueda, filtros, orden, página,
 // selección) llega en `vista` desde el contenedor (useInventarioVista), para que se conserve al
@@ -29,6 +30,7 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
   } = vista;
   const totalMuebles = muebles.length;
   const [exportando, setExportando] = useState(false);
+  const [importando, setImportando] = useState(false);
 
   // El catálogo entero (no solo lo filtrado), con los precios reales, en un CSV para Excel.
   const handleExportar = async () => {
@@ -119,6 +121,9 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
           <button className="admin-btn-ghost" onClick={handleExportar} disabled={exportando}>
             {exportando ? 'Exportando…' : 'Exportar catálogo (CSV)'}
           </button>
+          <button className="admin-btn-ghost" onClick={() => setImportando(true)}>
+            Importar catálogo (CSV)
+          </button>
         </div>
       </div>
 
@@ -202,6 +207,10 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
           </div>
         )}
       </div>
+
+      {importando && (
+        <ImportarCatalogoModal onCerrar={() => setImportando(false)} onImportado={recargarMuebles} />
+      )}
 
       {totalPaginas > 1 && (
         <div className="admin-pagination">

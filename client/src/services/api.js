@@ -249,6 +249,27 @@ export const exportarCatalogoCsv = async () => {
   }
 };
 
+// Importar el catálogo desde un CSV (POST /api/admin/muebles/import, con sesión de administrador).
+// `modo` es 'preview' (solo comprueba) o 'apply' (da de alta las filas válidas). Devuelve
+// { datos } con la respuesta del servidor, o { error } con un mensaje para enseñar tal cual.
+export const importarCatalogoCsv = async (archivo, modo) => {
+  try {
+    const formulario = new FormData();
+    formulario.append('modo', modo);
+    formulario.append('archivo', archivo);
+    const response = await apiFetch(`${API_URL}/admin/muebles/import`, {
+      method: 'POST',
+      body: formulario
+    });
+    const cuerpo = await response.json().catch(() => ({}));
+    if (!response.ok) return { error: cuerpo.error || 'No se pudo importar el catálogo.' };
+    return { datos: cuerpo };
+  } catch (error) {
+    console.error('Error en importarCatalogoCsv:', error);
+    return { error: 'No se pudo conectar con el servidor. Inténtalo de nuevo.' };
+  }
+};
+
 // Sin opciones: la lectura pública, cacheable, sin estadísticas.
 // `fresco` es la del panel (la única que lo usa): va a GET /api/admin/categorias/con-stats, con
 // sesión de administrador, que es la única que trae las estadísticas de cada categoría (H26). Esa

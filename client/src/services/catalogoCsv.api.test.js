@@ -1,6 +1,6 @@
 // Exportar el catálogo a CSV desde el panel: la llamada a la API y la descarga del archivo.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportarCatalogoCsv } from './api';
+import { exportarCatalogoCsv, importarCatalogoCsv } from './api';
 import { setAccessToken, limpiarTokens } from '../utils/authToken';
 import { descargarArchivo } from '../utils/descargarArchivo';
 
@@ -63,6 +63,43 @@ describe('exportarCatalogoCsv', () => {
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('sin red')));
     expect(await exportarCatalogoCsv()).toBeNull();
+  });
+});
+
+describe('importarCatalogoCsv', () => {
+  const respuestaJson = (status, cuerpo) => ({ ok: status < 400, status, json: async () => cuerpo });
+
+  it('manda el archivo y el modo en un formulario, con sesión', async () => {
+    setAccessToken('token-del-admin');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(200, { total: 1 })));
+    const archivo = new File(['nombre;categoria\n'], 'c.csv', { type: 'text/csv' });
+
+    const resultado = await importarCatalogoCsv(archivo, 'preview');
+
+    expect(resultado).toEqual({ datos: { total: 1 } });
+    const [url, opciones] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/admin\/muebles\/import$/);
+    expect(opciones.method).toBe('POST');
+    expect(opciones.headers).toEqual({ Authorization: 'Bearer token-del-admin' });
+    expect(opciones.body.get('modo')).toBe('preview');
+    expect(opciones.body.get('archivo').name).toBe('c.csv');
+  });
+
+  it('un 4xx devuelve el mensaje del servidor; sin mensaje, uno genérico', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaJson(400, { error: 'Faltan las cabeceras' })));
+    expect(await importarCatalogoCsv(new File([''], 'c.csv'), 'apply')).toEqual({ error: 'Faltan las cabeceras' });
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => { throw new Error('html'); } }));
+    expect(await importarCatalogoCsv(new File([''], 'c.csv'), 'apply')).toEqual({
+      error: 'No se pudo importar el catálogo.'
+    });
+  });
+
+  it('sin red, avisa de que no hay conexión', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('sin red')));
+    expect(await importarCatalogoCsv(new File([''], 'c.csv'), 'apply')).toEqual({
+      error: 'No se pudo conectar con el servidor. Inténtalo de nuevo.'
+    });
   });
 });
 
