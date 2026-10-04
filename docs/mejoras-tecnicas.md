@@ -82,6 +82,41 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
   (tarjetas, ficha, "Preguntar por esta pieza", panel con sesión) queda para la comprobación en el navegador
   del usuario.
 
+## ✅ Merge a `main` del 4 oct 2026: agrupación de fichas, espejos y `CONTACT_EMAILS`
+
+- **Merge:** `fd9e5ab` (`--no-ff` de `feature/mejoras-tecnicas` sobre `7fa8ff2`, sin conflictos). Gate en
+  verde justo antes: servidor 448/448 (cobertura 96,04 / 87,00 / 98,77), cliente 636/636 (88,57 / 94,04 /
+  88,07) y build. Push a las **16:29:37 UTC**. `nave5-demo` READY a las **16:29:51 UTC**
+  (`dpl_AZKSQDHXsYStMRvDz2K2fToXSyZG`) y `nave5-api` a las **16:30:14 UTC**
+  (`dpl_Chx1ZiyR6PdSTYW4i4czji6nk5H4`).
+- **Qué llevaba (10 commits):** el buscador del inventario alineado (`7fe0972`, CSS), `CONTACT_EMAILS`
+  (`37f21f3`) y documentación: H33, H34, la lista de duplicados, la propuesta de agrupación y las migraciones
+  del 2 oct (que ya estaban aplicadas en la base de datos antes del merge).
+- **Comprobado en producción a las 16:30 UTC** (lectura por la conexión de Vercel; el contenedor no llega a la
+  web): la portada y `/admin` sirven el build nuevo (200); `GET /api/categorias` incluye "Espejos";
+  `GET /api/muebles/buscar?q=Lote` devuelve "Lote Coches Juguete" (NAV-JUG-001) con 15 fotos y los precios a
+  `null`. La base de datos tiene 77 fichas. **Sin comprobar:** lo que se ve en pantalla (la redirección de
+  `/admin` a `/login` se hace en el navegador) y el buscador del inventario con sesión iniciada; queda para
+  el navegador del usuario.
+- **Correo en producción (visto en Vercel el 4 oct):** `nave5-api` no tiene `RESEND_FROM` ni `ADMIN_EMAIL`, así
+  que se usan los valores por defecto del código: remitente `onboarding@resend.dev` (sandbox) y destinatario
+  el email del dueño. `CONTACT_EMAILS` **no se ha puesto a propósito**: con el remitente sandbox, Resend
+  rechaza con 403 cualquier envío con un destinatario que no sea el de la cuenta, así que añadir el email
+  del cliente haría fallar el formulario de contacto entero. Primero hay que verificar `nave5barcelona.com`
+  en Resend y poner `RESEND_FROM` con ese dominio; después, `CONTACT_EMAILS`.
+
+### Pendiente (4 oct 2026)
+
+- **Verificar el dominio en Resend** y poner `RESEND_FROM` (y luego `CONTACT_EMAILS`) en Vercel. Lo decide
+  el cliente.
+- **Dar de alta 5 espejos** (categoría "Espejos", ESP, ya creada) y **14 sillas** de los PDF del 1 oct. Hay
+  que subir las fotos desde el panel; antes, mirar si alguna silla ya está en la tienda (SIL-001, SIL-011,
+  SIL-014...).
+- **Revisar `docs/duplicados-candidatos.md` con el cliente:** 9 de las 25 filas ya están anotadas tras la
+  agrupación; las otras 16 siguen pendientes.
+- **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
+- Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
+
 ## Estado de las tareas
 
 | # | Tarea | Estado |
