@@ -1,5 +1,12 @@
 .catalog-container {
-  max-width: 1200px;
+  /* Con margin auto dentro de .app-container (flex en columna), sin ancho propio el catálogo tomaba
+     el ancho de su contenido en vez de llegar a su máximo: con fotos pequeñas o pocas piezas, la
+     rejilla se quedaba en una o dos columnas en pleno escritorio (medido: 621 px de rejilla en una
+     pantalla de 1280, también en main). Con width 100% y border-box ocupa lo que debe; el máximo
+     sube a 1240 para que el contenido siga llegando a 1200 px, como antes, con su relleno. */
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 1240px;
   margin: 0 auto;
   padding: 40px 20px;
 }

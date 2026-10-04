@@ -941,6 +941,14 @@
   margin: 0 0 20px;
 }
 .mensaje-acciones { display: flex; gap: 10px; }
+/* En móvil la tabla no cabe: se desplaza dentro de su caja en vez de ensanchar la página. */
+@media (max-width: 768px) {
+  .mensajes-tabla {
+    display: block;
+    overflow-x: auto;
+  }
+  .mensajes-tabla td:nth-child(4) { white-space: nowrap; }
+}
 
 /* ─── Importar catálogo (CSV) ─── */
 .importar-modal { max-width: 720px; }
