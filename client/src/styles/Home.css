@@ -395,3 +395,71 @@
         height: 300px;
     }
 }
+/* ─── Portada pulida (tarea 6, bloque D) ───────────────────────────────────────────────────────────
+   La portada enseña siempre 4 piezas destacadas: con auto-fill de 280 px salían en 3 columnas y la
+   cuarta quedaba sola en otra fila. Ahora 4 en escritorio y 2 en tableta y móvil (en móvil, dos
+   columnas: menos scroll que una sola de fotos cuadradas). */
+.home-products-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 28px;
+}
+@media (max-width: 1023px) {
+    .home-products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px 16px;
+    }
+}
+
+/* Cabecera de las secciones: título que crece con la pantalla y una línea fina debajo, como el
+   resto de la tienda (la ficha, Mi cuenta). */
+.home-section-title {
+    font-size: clamp(24px, 2.2vw, 30px);
+}
+.featured-header-flex {
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
+}
+.featured-header-flex .home-section-title {
+    margin: 0;
+}
+.link-underline-clean {
+    white-space: nowrap;
+}
+
+/* Las tarjetas destacadas: nombre con la tipografía de la marca, la etiqueta de estado con esquinas
+   suaves y algo de sombra al pasar el ratón, como las del catálogo. */
+.home-card-meta h3 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1.25;
+    margin-top: 0;
+}
+.card-state-tag {
+    border-radius: var(--radius-sm, 4px);
+}
+.home-card-img-holder {
+    transition: box-shadow 0.3s ease;
+}
+.home-product-card:hover .home-card-img-holder,
+.home-product-card:focus-visible .home-card-img-holder {
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* Ritmo vertical: en móvil, 56 px entre secciones en vez de 80 (se veían huecos grandes). */
+@media (max-width: 768px) {
+    .home-slider-section,
+    .home-gallery-section,
+    .home-products-grid {
+        margin-bottom: 56px;
+    }
+    .home-card-meta h3 {
+        font-size: 15px;
+    }
+    .card-state-tag {
+        top: 10px;
+        left: 10px;
+    }
+}
