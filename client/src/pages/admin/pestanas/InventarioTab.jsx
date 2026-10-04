@@ -1,7 +1,8 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { updateMueble, deleteMueble } from '../../../services/api';
+import { updateMueble, deleteMueble, exportarCatalogoCsv } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
+import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
 
@@ -27,6 +28,20 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
     limpiarFiltros
   } = vista;
   const totalMuebles = muebles.length;
+  const [exportando, setExportando] = useState(false);
+
+  // El catálogo entero (no solo lo filtrado), con los precios reales, en un CSV para Excel.
+  const handleExportar = async () => {
+    setExportando(true);
+    const resultado = await exportarCatalogoCsv();
+    setExportando(false);
+    if (!resultado) {
+      showToast('No se pudo exportar el catálogo', 'error');
+      return;
+    }
+    descargarArchivo(resultado.blob, resultado.nombreArchivo);
+    showToast('Catálogo exportado', 'success');
+  };
 
   const handleDeleteMueble = (id) => {
     confirmarBorrado(
@@ -100,6 +115,11 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
         {(busqueda || filtroCategoria || filtroEstado || orden !== 'recientes') && (
           <button className="admin-btn-ghost" onClick={limpiarFiltros}>Limpiar filtros</button>
         )}
+        <div className="admin-toolbar-acciones">
+          <button className="admin-btn-ghost" onClick={handleExportar} disabled={exportando}>
+            {exportando ? 'Exportando…' : 'Exportar catálogo (CSV)'}
+          </button>
+        </div>
       </div>
 
       {seleccionados.length > 0 && (

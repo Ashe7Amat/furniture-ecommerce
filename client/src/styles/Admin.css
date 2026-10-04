@@ -455,6 +455,16 @@
 .admin-search input:focus {
   border-color: var(--accent-color);
 }
+/* Exportar / importar el catálogo: al final de la barra, a la derecha. */
+.admin-toolbar-acciones {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+.admin-btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .admin-toolbar select {
   flex: 1;
   min-width: 150px;

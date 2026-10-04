@@ -230,6 +230,25 @@ export const deleteMueble = async (id) => {
   }
 };
 
+// El catálogo entero en CSV, para Excel (GET /api/admin/muebles/export, con sesión de
+// administrador). Devuelve { blob, nombreArchivo }, o null si falla. El nombre lo pone el servidor
+// (catalogo-nave5-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
+// cabecera si el servidor no la expone por CORS: entonces se arma aquí con el mismo formato.
+export const exportarCatalogoCsv = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/muebles/export`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Error al exportar el catálogo');
+    const disposicion = response.headers.get('Content-Disposition') || '';
+    const nombreArchivo =
+      /filename="([^"]+)"/.exec(disposicion)?.[1] ||
+      `catalogo-nave5-${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date())}.csv`;
+    return { blob: await response.blob(), nombreArchivo };
+  } catch (error) {
+    console.error('Error en exportarCatalogoCsv:', error);
+    return null;
+  }
+};
+
 // Sin opciones: la lectura pública, cacheable, sin estadísticas.
 // `fresco` es la del panel (la única que lo usa): va a GET /api/admin/categorias/con-stats, con
 // sesión de administrador, que es la única que trae las estadísticas de cada categoría (H26). Esa
