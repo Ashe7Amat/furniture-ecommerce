@@ -121,6 +121,41 @@
   color: var(--secondary-color);
 }
 
+/* Estado vacío del catálogo (tarea 6, bloque C): un panel con un icono decorativo, en vez de texto
+   suelto en medio de la página. El icono es una máscara SVG: toma el color de acento del tema. */
+.empty-state {
+  height: auto;
+  min-height: 40vh;
+  box-sizing: border-box;
+  margin: 24px auto 60px;
+  padding: 56px 24px;
+  max-width: 560px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card-bg);
+}
+.empty-state h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.6rem;
+  text-wrap: balance;
+}
+.empty-state p {
+  max-width: 36ch;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+.empty-state::before {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  background-color: var(--accent-color);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpath d='M3.27 6.96 12 12l8.73-5.04M12 22.08V12'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpath d='M3.27 6.96 12 12l8.73-5.04M12 22.08V12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 /* --- PANEL DE FILTROS MINIMALISTA --- */
 .catalog-filter-panel {
   display: flex;

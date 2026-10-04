@@ -139,8 +139,9 @@ body {
 }
 
 /* Foco visible al moverse con el teclado (no al hacer clic): un anillo del color de acento. Los
-   campos de texto que ya marcan su foco con el borde lo siguen haciendo (su regla pesa más). */
-:where(a, button, select, input, textarea, summary, [tabindex]):focus-visible:not(.admin-layout *) {
+   campos de texto se quedan fuera: en ellos :focus-visible salta también al pulsarlos con el ratón,
+   y ya marcan su foco con el borde (el buscador de la cabecera salía con una caja encima). */
+:where(a, button, select, summary, [tabindex], input[type='checkbox'], input[type='radio']):focus-visible:not(.admin-layout *) {
   outline: 2px solid var(--accent-color);
   outline-offset: 3px;
 }

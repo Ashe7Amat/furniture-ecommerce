@@ -330,6 +330,22 @@
 .no-results-text {
   color: var(--secondary-color);
   font-size: 1rem;
+  /* Tarea 6, bloque C: centrado, con aire y un icono de lupa, para que se lea como un estado y no
+     como una línea perdida en el panel. */
+  text-align: center;
+  padding: 32px 16px;
+  line-height: 1.6;
+}
+.no-results-text strong { color: var(--primary-color); font-weight: 500; }
+.no-results-text::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 18px;
+  background-color: var(--accent-color);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.6-4.6M8.5 11h5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.6-4.6M8.5 11h5'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* LIVE SEARCH RESULTS LIST */

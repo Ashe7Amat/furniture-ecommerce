@@ -222,6 +222,18 @@
   font-size: 1rem;
 }
 
+/* Pestañas vacías de Mi cuenta (tarea 6, bloque C): un panel suave en vez de una línea suelta. Sin
+   icono: favoritos vacíos y "Cargando tus pedidos..." tienen el mismo marcado (h2 + p.empty-tab-text)
+   y un icono de corazón saldría también en los pedidos; para ponerlo hace falta una clase en el JSX. */
+.tab-pane-animate > h2 + .empty-tab-text {
+  text-align: center;
+  padding: 40px 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card-bg);
+  line-height: 1.6;
+}
+
 /* Historial de Pedidos */
 .orders-mock-list {
   display: flex;
