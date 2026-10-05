@@ -30,18 +30,26 @@ const CategorySlider = () => {
   return (
     <div className="category-slider-wrapper">
       <div className="category-slider">
-        {categories.map((cat) => (
-          <div
-            key={cat.id}
-            className={`category-item ${currentCategory === cat.nombre ? 'active' : ''}`}
-            onClick={() => handleCategoryClick(cat.nombre)}
-          >
-            <div className="category-img-container">
-              <img src={cat.imagen_url || PLACEHOLDER_IMG} alt={cat.nombre} loading="lazy" decoding="async" />
-            </div>
-            <span className="category-name">{cat.nombre}</span>
-          </div>
-        ))}
+        {categories.map((cat) => {
+          const activa = currentCategory === cat.nombre;
+          // Un botón, no un div con onClick (H41): se llega con el tabulador, se activa con Enter o
+          // Espacio, y aria-pressed dice si es el filtro puesto (pulsarlo otra vez lo quita). La foto
+          // no repite el nombre (alt vacío): ya lo dice la etiqueta, como en la portada (A9).
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={`category-item ${activa ? 'active' : ''}`}
+              aria-pressed={activa}
+              onClick={() => handleCategoryClick(cat.nombre)}
+            >
+              <span className="category-img-container">
+                <img src={cat.imagen_url || PLACEHOLDER_IMG} alt="" loading="lazy" decoding="async" />
+              </span>
+              <span className="category-name">{cat.nombre}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
