@@ -89,6 +89,11 @@
   height: 45px;
   cursor: text;
   transition: background 0.2s;
+  /* Es un <button> (H39): sin el borde, el relleno ni la fuente que el navegador pone a los botones. */
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
 }
 .header-search-bar:hover {
   background: var(--border-color);
@@ -209,6 +214,9 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+  /* Al abrir, visible al instante (solo la opacidad hace el fundido): un elemento con visibility
+     hidden no puede recibir el foco, y el campo de búsqueda lo recibe nada más abrirse (H39). */
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
 }
 .search-backdrop {
   position: absolute;
@@ -704,10 +712,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* La lupa del móvil (H39) solo se ve cuando la barra de búsqueda está oculta. */
+.header-search-mobile-btn { display: none; }
+
 @media (max-width: 768px) {
   .hamburger-btn { display: block; }
   .header-center { display: none; }
   .header-search-bar { display: none; }
+  .header-search-mobile-btn { display: flex; }
   .footer-top { grid-template-columns: 1fr; }
   .footer-links { flex-direction: column; gap: 30px; }
   .footer-bottom { flex-direction: column; gap: 15px; text-align: center; }
@@ -732,4 +744,18 @@
     justify-content: center;
   }
   .header-right { gap: 2px; }
+}
+
+/* Con la lupa del buscador (H39), la cabecera tiene cinco iconos a la derecha. Para que quepa sin
+   scroll horizontal se juntan un poco los grupos (medido: a 375 px se salía 7 px; a 320, 60). */
+@media (max-width: 480px) {
+  .kave-header { gap: 8px; }
+  .header-left { gap: 6px; }
+}
+@media (max-width: 360px) {
+  .hamburger-btn,
+  .header-right .icon-btn {
+    min-width: 34px;
+  }
+  .logo-svg { height: 21px; }
 }

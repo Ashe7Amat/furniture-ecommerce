@@ -40,6 +40,10 @@ const Header = () => {
   });
 
   const dropdownRef = useRef(null);
+  // Buscador (H39): el campo recibe el foco al abrirse y, al cerrarlo, el foco vuelve al botón
+  // que lo abrió (la barra en escritorio o la lupa en el móvil).
+  const searchInputRef = useRef(null);
+  const searchOpenerRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -104,11 +108,29 @@ const Header = () => {
     navigate(path);
   };
 
+  const openSearch = (event) => {
+    searchOpenerRef.current = event?.currentTarget || null;
+    setIsSearchOpen(true);
+  };
+
   const closeSearch = () => {
     setIsSearchOpen(false);
     setSearchTerm('');
     setSearchResults([]);
+    searchOpenerRef.current?.focus();
+    searchOpenerRef.current = null;
   };
+
+  // Al abrir, el foco va al campo; con Escape se cierra, como cualquier panel superpuesto.
+  useEffect(() => {
+    if (!isSearchOpen) return undefined;
+    searchInputRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeSearch();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchOpen]);
 
   const handleLogout = () => {
     logout();
@@ -130,16 +152,28 @@ const Header = () => {
         </div>
         
         <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <div className="header-search-bar" onClick={() => setIsSearchOpen(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-color)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }}>
+          <button type="button" className="header-search-bar" onClick={openSearch}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-color)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }} aria-hidden="true">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <span className="search-placeholder">¿Qué estás buscando?</span>
-          </div>
+          </button>
         </div>
 
         <div className="header-right">
+          {/* Solo en el móvil (CSS): ahí la barra de búsqueda no cabe y está oculta (H39). */}
+          <button
+            type="button"
+            className="icon-btn header-search-mobile-btn"
+            onClick={openSearch}
+            aria-label="Buscar"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
 
           <button
             className="icon-btn theme-toggle-btn"
@@ -212,7 +246,13 @@ const Header = () => {
       </header>
 
       {/* --- SEARCH OVERLAY (always in DOM, toggled via CSS class) --- */}
-      <div className={`search-overlay${isSearchOpen ? ' open' : ''}`}>
+      <div
+        className={`search-overlay${isSearchOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar en el catálogo"
+        aria-hidden={!isSearchOpen}
+      >
         <div className="search-backdrop" onClick={closeSearch}></div>
         <div className="search-panel">
           <div className="search-panel-header">
@@ -222,9 +262,11 @@ const Header = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               tabIndex={isSearchOpen ? 0 : -1}
+              ref={searchInputRef}
+              aria-label="Buscar en el catálogo"
               autoComplete="off"
             />
-            <button className="close-search-btn" onClick={closeSearch}>✕ Cerrar</button>
+            <button className="close-search-btn" onClick={closeSearch} tabIndex={isSearchOpen ? 0 : -1}>✕ Cerrar</button>
           </div>
           <div className="search-panel-content">
             <div className="search-suggestions">
