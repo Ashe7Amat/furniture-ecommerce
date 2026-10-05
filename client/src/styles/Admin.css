@@ -455,6 +455,16 @@
 .admin-search input:focus {
   border-color: var(--accent-color);
 }
+/* Exportar / importar el catálogo: al final de la barra, a la derecha. */
+.admin-toolbar-acciones {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+.admin-btn-ghost:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .admin-toolbar select {
   flex: 1;
   min-width: 150px;
@@ -870,6 +880,159 @@
 }
 .admin-modal-close:hover { color: var(--primary-color); }
 .admin-modal-close svg { width: 18px; height: 18px; }
+
+/* ─── Mensajes del formulario de contacto ─── */
+.mensajes-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+.mensajes-tabla th,
+.mensajes-tabla td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+}
+.mensajes-tabla th { color: var(--secondary-color); font-weight: 500; font-size: 0.8rem; }
+.mensajes-tabla tbody tr { cursor: pointer; transition: background-color 0.2s ease; }
+.mensajes-tabla tbody tr:hover { background: var(--bg-color); }
+.mensajes-tabla tr.is-no-leido td { font-weight: 600; color: var(--primary-color); }
+.mensajes-abrir {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.mensajes-abrir:hover { text-decoration: underline; }
+.mensaje-estado {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.mensaje-estado.no-leido { background: var(--accent-color); color: #fff; }
+.mensaje-estado.leido { background: var(--bg-color); color: var(--secondary-color); }
+.mensajes-error { padding: 20px; border: 1px solid var(--danger-color); border-radius: 6px; }
+.mensajes-error p { margin: 0 0 12px; color: var(--danger-color); }
+.mensaje-modal { max-width: 600px; }
+.mensaje-datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+  font-size: 0.88rem;
+}
+.mensaje-datos dt { color: var(--secondary-color); }
+.mensaje-datos dd { margin: 0; overflow-wrap: anywhere; }
+.mensaje-texto {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  padding: 14px 16px;
+  background: var(--bg-color);
+  border-radius: 6px;
+  margin: 0 0 20px;
+}
+.mensaje-acciones { display: flex; gap: 10px; }
+/* En móvil la tabla no cabe: se desplaza dentro de su caja en vez de ensanchar la página. */
+@media (max-width: 768px) {
+  .mensajes-tabla {
+    display: block;
+    overflow-x: auto;
+  }
+  .mensajes-tabla td:nth-child(4) { white-space: nowrap; }
+}
+
+/* ─── Importar catálogo (CSV) ─── */
+.importar-modal { max-width: 720px; }
+.importar-ayuda {
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+.importar-ayuda code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+}
+.importar-zona {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  padding: 18px;
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.importar-zona:hover,
+.importar-zona.is-arrastrando {
+  border-color: var(--accent-color);
+  background: var(--bg-color);
+}
+.importar-zona:focus-within {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+/* El selector de archivos ocupa toda la zona, invisible: así se puede pulsar en cualquier sitio. */
+.importar-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.importar-botones {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.importar-error,
+.importar-errores {
+  color: var(--danger-color);
+  font-size: 0.85rem;
+}
+.importar-error { margin: 12px 0 0; }
+.importar-errores { padding-left: 18px; margin: 0 0 16px; }
+.importar-confirmacion {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-color);
+  border-radius: 6px;
+  background: var(--bg-color);
+  font-size: 0.9rem;
+}
+.importar-confirmacion p { margin: 0; }
+.importar-resumen { font-weight: 500; margin: 20px 0 6px; }
+.importar-aviso { font-size: 0.85rem; color: var(--secondary-color); margin: 0 0 8px; }
+.importar-previa { overflow-x: auto; }
+.importar-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.importar-tabla th,
+.importar-tabla td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  text-align: left;
+  vertical-align: top;
+}
+.importar-tabla th { color: var(--secondary-color); font-weight: 500; }
+.importar-tabla tr.is-error td:last-child { color: var(--danger-color); }
+.importar-tabla tr.is-valida td:last-child { color: var(--success-color, #3c7a4a); }
+.importar-exito { font-weight: 500; }
 
 .modal-form-row {
   display: flex;

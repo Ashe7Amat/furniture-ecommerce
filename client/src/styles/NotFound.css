@@ -16,6 +16,31 @@
   line-height: 1;
 }
 
+/* Tarea 6, bloque C: el 404 más grande, sobre un círculo suave, y la página con más presencia. */
+.not-found-page {
+  box-sizing: border-box;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.not-found-code {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 12px;
+  font-size: clamp(4.5rem, 14vw, 6rem);
+  letter-spacing: -0.04em;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--surface-alt) 0%, var(--surface-alt) 58%, transparent 60%);
+}
+.not-found-page h1 {
+  font-size: clamp(1.6rem, 5vw, 2.2rem);
+}
+.not-found-page p {
+  line-height: 1.6;
+}
+
 .not-found-page h1 {
   font-family: var(--font-display);
   font-size: 2rem;

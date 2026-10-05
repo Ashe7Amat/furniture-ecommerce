@@ -230,6 +230,46 @@ export const deleteMueble = async (id) => {
   }
 };
 
+// El catálogo entero en CSV, para Excel (GET /api/admin/muebles/export, con sesión de
+// administrador). Devuelve { blob, nombreArchivo }, o null si falla. El nombre lo pone el servidor
+// (catalogo-nave5-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
+// cabecera si el servidor no la expone por CORS: entonces se arma aquí con el mismo formato.
+export const exportarCatalogoCsv = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/muebles/export`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Error al exportar el catálogo');
+    const disposicion = response.headers.get('Content-Disposition') || '';
+    const nombreArchivo =
+      /filename="([^"]+)"/.exec(disposicion)?.[1] ||
+      `catalogo-nave5-${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date())}.csv`;
+    return { blob: await response.blob(), nombreArchivo };
+  } catch (error) {
+    console.error('Error en exportarCatalogoCsv:', error);
+    return null;
+  }
+};
+
+// Importar el catálogo desde un CSV (POST /api/admin/muebles/import, con sesión de administrador).
+// `modo` es 'preview' (solo comprueba) o 'apply' (da de alta las filas válidas). Devuelve
+// { datos } con la respuesta del servidor, o { error } con un mensaje para enseñar tal cual.
+export const importarCatalogoCsv = async (archivo, modo) => {
+  try {
+    const formulario = new FormData();
+    formulario.append('modo', modo);
+    formulario.append('archivo', archivo);
+    const response = await apiFetch(`${API_URL}/admin/muebles/import`, {
+      method: 'POST',
+      body: formulario
+    });
+    const cuerpo = await response.json().catch(() => ({}));
+    if (!response.ok) return { error: cuerpo.error || 'No se pudo importar el catálogo.' };
+    return { datos: cuerpo };
+  } catch (error) {
+    console.error('Error en importarCatalogoCsv:', error);
+    return { error: 'No se pudo conectar con el servidor. Inténtalo de nuevo.' };
+  }
+};
+
 // Sin opciones: la lectura pública, cacheable, sin estadísticas.
 // `fresco` es la del panel (la única que lo usa): va a GET /api/admin/categorias/con-stats, con
 // sesión de administrador, que es la única que trae las estadísticas de cada categoría (H26). Esa
@@ -429,5 +469,36 @@ export const enviarContacto = async ({ nombre, email, mensaje, web }) => {
   } catch (error) {
     console.error('Error en enviarContacto:', error);
     return { error: error.message };
+  }
+};
+
+// Mensajes del formulario de contacto, para el panel (GET /api/admin/mensajes, con sesión de
+// administrador). Devuelve la lista, o null si falla (p. ej. mientras no esté creada la tabla
+// mensajes_contacto en la base de datos): el panel lo distingue de "no hay ningún mensaje".
+export const getMensajes = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/mensajes`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Error al obtener los mensajes');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getMensajes:', error);
+    return null;
+  }
+};
+
+// Marca un mensaje como leído (PATCH /api/admin/mensajes/:id/leido). Devuelve el mensaje
+// actualizado, o null si falla.
+export const marcarMensajeLeido = async (id) => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/mensajes/${encodeURIComponent(id)}/leido`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leido: true })
+    });
+    if (!response.ok) throw new Error('Error al marcar el mensaje como leído');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en marcarMensajeLeido:', error);
+    return null;
   }
 };

@@ -169,9 +169,10 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   se ignoran.
 - **Obligatoria:** no -- vacía o sin poner, los mensajes van a `ADMIN_EMAIL`, como antes.
 - **Importante:** con el remitente sandbox de Resend (`onboarding@resend.dev`, ver `RESEND_FROM`),
-  Resend solo entrega a la dirección con la que se verificó la cuenta de Resend. Las demás
-  direcciones de la lista no recibirán nada hasta que se verifique un dominio propio en Resend y
-  se cambie `RESEND_FROM`.
+  Resend rechaza con un 403 cualquier envío con un destinatario que no sea el de la cuenta de Resend,
+  y lo rechaza entero: no llega a nadie y el formulario le dice al visitante que lo intente de nuevo.
+  Por eso esta variable solo se pone después de verificar un dominio propio en Resend y cambiar
+  `RESEND_FROM` (https://resend.com/docs/knowledge-base/403-error-resend-dev-domain).
 - **Ejemplo:** `CONTACT_EMAILS=tienda@example.com,otra-persona@example.com`
 
 ### `GOOGLE_CLIENT_ID`

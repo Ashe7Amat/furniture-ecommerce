@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getMuebles, getCategorias, getPedidos } from '../../../services/api';
+import { getMuebles, getCategorias, getPedidos, getMensajes } from '../../../services/api';
 
-// Los tres listados del panel y cómo se recargan. Viven en el contenedor (Admin.jsx) porque los
-// usan varias pestañas y la insignia de pedidos pendientes de la barra lateral.
+// Los listados del panel y cómo se recargan. Viven en el contenedor (Admin.jsx) porque los usan
+// varias pestañas y las insignias de la barra lateral (pedidos pendientes, mensajes sin leer).
 const useAdminDatos = (user) => {
   const [muebles, setMuebles] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [mensajes, setMensajes] = useState([]);
+  // true si la última carga de mensajes falló (p. ej. sin la tabla mensajes_contacto): la pestaña
+  // lo dice en vez de enseñar una lista vacía como si no hubiera ninguno.
+  const [errorMensajes, setErrorMensajes] = useState(false);
 
   // `fresco`: el panel tiene que ver al momento lo que acaba de guardar, sin las cachés que sí
   // usa el catálogo público (ver getMuebles en services/api.js).
@@ -25,17 +29,27 @@ const useAdminDatos = (user) => {
     setPedidos(Array.isArray(data) ? data : []);
   };
 
+  const cargarMensajes = async () => {
+    const data = await getMensajes();
+    setErrorMensajes(!Array.isArray(data));
+    setMensajes(Array.isArray(data) ? data : []);
+  };
+
   // Solo debe recargarse cuando cambia el usuario (login/logout), no en cada render --
-  // las tres funciones se redefinen en cada render pero no son las que queremos vigilar.
+  // las funciones se redefinen en cada render pero no son las que queremos vigilar.
   useEffect(() => {
     if (user) {
       cargarCategorias();
       cargarMuebles();
       cargarPedidos();
+      cargarMensajes();
     }
   }, [user]);
 
-  return { muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos };
+  return {
+    muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    mensajes, setMensajes, errorMensajes, cargarMensajes
+  };
 };
 
 export default useAdminDatos;

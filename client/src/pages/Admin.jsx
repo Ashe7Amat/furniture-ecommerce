@@ -12,6 +12,7 @@ import CrearMuebleTab from './admin/pestanas/CrearMuebleTab';
 import InventarioTab from './admin/pestanas/InventarioTab';
 import PedidosTab from './admin/pestanas/PedidosTab';
 import CategoriasTab from './admin/pestanas/CategoriasTab';
+import MensajesTab from './admin/pestanas/MensajesTab';
 import EditarMuebleModal from './admin/modales/EditarMuebleModal';
 import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
 
@@ -22,6 +23,7 @@ const PESTANAS = [
   { id: 'crear', etiqueta: 'Añadir Mueble', icono: 'add' },
   { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },
   { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },
+  { id: 'mensajes', etiqueta: 'Mensajes', icono: 'mail' },
   { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' }
 ];
 
@@ -30,7 +32,10 @@ const Admin = () => {
 
   const [vistaActiva, setVistaActiva] = useState('resumen');
 
-  const { muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos } = useAdminDatos(user);
+  const {
+    muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    mensajes, setMensajes, errorMensajes, cargarMensajes
+  } = useAdminDatos(user);
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
 
   // Estados para creación de categorías
@@ -81,6 +86,8 @@ const Admin = () => {
 
   // Pedidos por procesar: la insignia de la barra lateral y una tarjeta del resumen.
   const pedidosPendientes = pedidos.filter(p => p.estado === 'procesando').length;
+  // Mensajes del formulario de contacto sin leer: la insignia de "Mensajes".
+  const mensajesNoLeidos = mensajes.filter(m => !m.leido).length;
 
   return (
     <div className="admin-layout">
@@ -92,6 +99,7 @@ const Admin = () => {
             <button key={pestana.id} className={`sidebar-btn ${vistaActiva === pestana.id ? 'active' : ''}`} onClick={() => setVistaActiva(pestana.id)}>
               <Icon name={pestana.icono} /> {pestana.etiqueta}
               {pestana.id === 'pedidos' && pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
+              {pestana.id === 'mensajes' && mensajesNoLeidos > 0 && <span className="sidebar-badge">{mensajesNoLeidos}</span>}
             </button>
           ))}
         </nav>
@@ -134,6 +142,15 @@ const Admin = () => {
             filtroEstadoPedido={filtroEstadoPedido}
             setFiltroEstadoPedido={setFiltroEstadoPedido}
             cargarPedidos={cargarPedidos}
+          />
+        )}
+
+        {vistaActiva === 'mensajes' && (
+          <MensajesTab
+            mensajes={mensajes}
+            setMensajes={setMensajes}
+            errorMensajes={errorMensajes}
+            recargarMensajes={cargarMensajes}
           />
         )}
 

@@ -7,6 +7,7 @@ import { CartContext } from '../context/CartContext';
 import { getCategorias, getMuebles } from '../services/api';
 import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
+import Logo from './Logo';
 import '../styles/HeaderFooter.css';
 
 const getSystemPrefersDark = () =>
@@ -125,7 +126,7 @@ const Header = () => {
       <header className="kave-header">
         <div className="header-left">
           <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)}>☰</button>
-          <Link to="/" className="logo">Nave 5 Barcelona</Link>
+          <Link to="/" className="logo" aria-label="Nave 5, ir al inicio"><Logo className="logo-svg" /></Link>
         </div>
         
         <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -288,7 +289,7 @@ const Header = () => {
         {/* Primera capa (Main Menu) */}
         <div className={`mega-menu-panel primary-panel${isMenuOpen ? ' open' : ''}${isProductsMenuOpen ? ' shifted' : ''}`}>
           <div className="mega-menu-header">
-            <Link to="/" className="logo" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>Nave 5 Barcelona</Link>
+            <Link to="/" className="logo" aria-label="Nave 5, ir al inicio" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}><Logo className="logo-svg" /></Link>
             <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
           </div>
           <ul className="mega-menu-list">

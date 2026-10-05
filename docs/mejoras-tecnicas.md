@@ -21,6 +21,7 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | Agrupación (1/3): copia de seguridad de las 52 fichas afectadas | `20261002193936` | `respaldo_agrupacion_muebles` | ✅ Aplicada en BD (2 oct, 19:39 UTC) |
 | Agrupación (2/3): las 15 fichas principales reciben las fotos de su grupo; 2 cambian de nombre | `20261002200855` | `agrupar_fichas_juntar_fotos` | ✅ Aplicada en BD (2 oct, 20:08 UTC) |
 | Agrupación (3/3): borrar las 37 fichas restantes (114 → 77) | — (no consta en `schema_migrations`) | — | ✅ Ejecutada por el cliente en el SQL Editor (2 oct): `apply_migration` se colgaba con `DELETE`. SQL y reversión en `docs/agrupar-fichas-propuesta.md` |
+| Tabla `mensajes_contacto` (panel de mensajes de contacto) | `20261005002322` | `create_mensajes_contacto` | ✅ Aplicada en BD (5 oct, 00:23 UTC) |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
@@ -81,6 +82,66 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
   (`NAV-SIL-010`...), sin servir de caché (`x-vercel-cache: MISS`), y la web carga. Lo que se ve en pantalla
   (tarjetas, ficha, "Preguntar por esta pieza", panel con sesión) queda para la comprobación en el navegador
   del usuario.
+
+## ✅ Merge a `main` del 4 oct 2026: agrupación de fichas, espejos y `CONTACT_EMAILS`
+
+- **Merge:** `fd9e5ab` (`--no-ff` de `feature/mejoras-tecnicas` sobre `7fa8ff2`, sin conflictos). Gate en
+  verde justo antes: servidor 448/448 (cobertura 96,04 / 87,00 / 98,77), cliente 636/636 (88,57 / 94,04 /
+  88,07) y build. Push a las **16:29:37 UTC**. `nave5-demo` READY a las **16:29:51 UTC**
+  (`dpl_AZKSQDHXsYStMRvDz2K2fToXSyZG`) y `nave5-api` a las **16:30:14 UTC**
+  (`dpl_Chx1ZiyR6PdSTYW4i4czji6nk5H4`).
+- **Qué llevaba (10 commits):** el buscador del inventario alineado (`7fe0972`, CSS), `CONTACT_EMAILS`
+  (`37f21f3`) y documentación: H33, H34, la lista de duplicados, la propuesta de agrupación y las migraciones
+  del 2 oct (que ya estaban aplicadas en la base de datos antes del merge).
+- **Comprobado en producción a las 16:30 UTC** (lectura por la conexión de Vercel; el contenedor no llega a la
+  web): la portada y `/admin` sirven el build nuevo (200); `GET /api/categorias` incluye "Espejos";
+  `GET /api/muebles/buscar?q=Lote` devuelve "Lote Coches Juguete" (NAV-JUG-001) con 15 fotos y los precios a
+  `null`. La base de datos tiene 77 fichas. **Sin comprobar:** lo que se ve en pantalla (la redirección de
+  `/admin` a `/login` se hace en el navegador) y el buscador del inventario con sesión iniciada; queda para
+  el navegador del usuario.
+- **Correo en producción (visto en Vercel el 4 oct):** `nave5-api` no tiene `RESEND_FROM` ni `ADMIN_EMAIL`, así
+  que se usan los valores por defecto del código: remitente `onboarding@resend.dev` (sandbox) y destinatario
+  el email del dueño. `CONTACT_EMAILS` **no se ha puesto a propósito**: con el remitente sandbox, Resend
+  rechaza con 403 cualquier envío con un destinatario que no sea el de la cuenta, así que añadir el email
+  del cliente haría fallar el formulario de contacto entero. Primero hay que verificar `nave5barcelona.com`
+  en Resend y poner `RESEND_FROM` con ese dominio; después, `CONTACT_EMAILS`.
+
+### Pendiente (4 oct 2026)
+
+- **Verificar el dominio en Resend** y poner `RESEND_FROM` (y luego `CONTACT_EMAILS`) en Vercel. Lo decide
+  el cliente.
+- **Dar de alta 5 espejos** (categoría "Espejos", ESP, ya creada) y **14 sillas** de los PDF del 1 oct. Hay
+  que subir las fotos desde el panel; antes, mirar si alguna silla ya está en la tienda (SIL-001, SIL-011,
+  SIL-014...).
+- **Revisar `docs/duplicados-candidatos.md` con el cliente:** 9 de las 25 filas ya están anotadas tras la
+  agrupación; las otras 16 siguen pendientes.
+- **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
+- Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
+
+## 🔄 Bloque de trabajo autónomo (4 oct 2026): CSV, mensajes, auditoría, E2E y estilos
+
+En `feature/mejoras-tecnicas`, sin merge (producción sigue en `fd9e5ab`). Informe completo en
+`docs/reporte-trabajo-autonomo.md`.
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. Exportar el catálogo a CSV (`GET /api/admin/muebles/export` + botón en el inventario) | ✅ Hecha | `ab71e84` |
+| 2. Importar el catálogo desde CSV (`POST /api/admin/muebles/import`, previsualizar y aplicar, + modal) | ✅ Hecha | `8787838` |
+| 3. Panel de mensajes de contacto | ✅ Hecha. Migración `mensajes_contacto` aplicada el 5 oct 2026, versión `20261005002322` (`server/migrations/20261005002322_create_mensajes_contacto.sql`; detalles en `docs/propuesta-mensajes-contacto.md`) | `c4076cb`, `45cdc96` |
+| 4. Auditoría técnica (solo lectura) | ✅ Hecha: `docs/auditoria-tecnica.md` | `d9e0920` |
+| 5. Tests E2E con Playwright (10 tests, job de CI no bloqueante) | ✅ Hecha: `docs/testing-e2e.md` | `5ef4801` |
+| 6. Mejoras visuales, solo CSS (4 bloques) | ✅ Hecha, con lo que no se puede sin JSX anotado en H40 | `3eb38f2`, `3afa24f`, `b258ea6`, `ed06140` |
+
+- **Migración `mensajes_contacto`:** aplicada el 5 oct 2026 con permiso, versión `20261005002322`. La copia del
+  repositorio coincide byte a byte con `schema_migrations` (mismo MD5). RLS activa, sin políticas, con sus dos
+  índices.
+- **Mutantes del panel:** 127 (126 detectados + 1 esperado), igual que antes, comprobado después de las tareas
+  1-3 (`c4076cb`).
+- **Cambios de comportamiento a propósito:**
+  - el formulario de contacto responde 200 si el mensaje se guardó aunque falle el correo (antes, 502);
+  - la barra lateral del panel tiene una pestaña más ("Mensajes", tras "Pedidos").
+  Los dos tests que lo fijaban llevan `CAMBIADO A PROPÓSITO`.
+- **Hallazgos nuevos:** H35-H40, abajo en "Hallazgos".
 
 ## Estado de las tareas
 
@@ -1983,6 +2044,63 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
   de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
   por página, junto con el resto de etiquetas.
+
+### H35 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
+
+- `schemaCarritoPago` (`server/src/schemas/muebles.js`) solo pide una pieza como mínimo. Con el límite del cuerpo
+  JSON (100 KB) caben unos miles.
+- `construirLineasDesdeCarrito` (`mueblesController.js`) lee cada pieza con su propia consulta, una tras otra,
+  antes de llegar a Stripe. Es una ruta pública: el limitador de H29 (20 por IP cada 15 min) lo frena, pero
+  no lo evita.
+- **Propuesta:**
+  - leer todas las piezas en una consulta (`.in('id', ids)`);
+  - poner `.max(...)` al carrito (una tienda de piezas únicas no necesita más de unas decenas).
+- Detalle en `docs/auditoria-tecnica.md`, puntos 7 y 9.
+
+### H36 · MEDIA · DATOS · PENDIENTE (4 oct 2026) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
+
+- Usa `select('*')`: cualquier columna interna que se añada a `pedidos` saldría al cliente sin que nadie lo
+  decida.
+- Es lo mismo que H26 arregló en `muebles` y `categorias`.
+- **Propuesta:** elegir las columnas, y de paso las del panel (`GET /api/pedidos`).
+
+### H37 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El panel trae todos los pedidos de la historia en cada carga
+
+- `GET /api/pedidos` no tiene límite ni paginación, y crece con cada venta.
+- **Propuesta:** los últimos N, con "ver más", o paginar.
+
+### H38 · MEDIA · MIGRACIONES · PENDIENTE (4 oct 2026) · Faltan en el repositorio las 7 primeras migraciones y las tablas base
+
+- Las migraciones del 3 al 5 de septiembre no tienen copia en `server/migrations/`:
+  - `enable_rls_public_read_only`;
+  - `sync_disponible_from_estado_trigger`;
+  - `fix_search_path_sync_disponible_trigger`;
+  - `add_categoria_padre_id`;
+  - `pedidos_soporte_checkout_multiproducto`;
+  - `cleanup_pedidos_phantom_columns_and_indexes`;
+  - `move_http_extension_out_of_public`.
+- Tampoco está el `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`.
+- No se puede reconstruir la base de datos desde el repositorio, ni comprobar sus índices sin consultarla.
+- **Propuesta:** volcar el esquema actual (solo lectura) y guardarlo como migración de partida.
+
+### H39 · MEDIA · USABILIDAD · PENDIENTE (4 oct 2026) · En el móvil no se puede abrir la búsqueda
+
+- El panel de búsqueda solo se abre pulsando `.header-search-bar` (`Header.jsx`), y por debajo de 768 px esa
+  barra está oculta (`display: none`): en el móvil no hay ninguna forma de buscar.
+- Además es un `div` con `onClick`: no se llega a él con el teclado ni lo anuncia un lector de pantalla.
+- **Por qué no se arregló en la tarea 6:** solo con CSS habría que enseñar un quinto icono, y a 375 px la
+  cabecera ya no tiene sitio.
+- **Propuesta (JSX):** un botón de lupa con `aria-label="Buscar"`, visible en el móvil, y convertir la barra en
+  un `<button>`.
+
+### H40 · BAJA · USABILIDAD · PENDIENTE (4 oct 2026) · Estados vacíos sin acción y 404 sin enlace a contacto
+
+Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
+- el catálogo vacío ("No hay productos en esta categoría", y "Aún no tienes favoritos") no tiene un botón para
+  volver al catálogo completo;
+- las pestañas vacías de Mi cuenta tampoco tienen acción. Favoritos vacíos y "Cargando tus pedidos..." tienen el
+  mismo marcado, así que el corazón solo se puede poner con una clase propia;
+- la 404 tiene "Volver al inicio" y "Ver el catálogo completo", pero no "Contacto".
 
 ## Decisiones de diseño a recordar
 

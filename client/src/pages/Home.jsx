@@ -50,12 +50,13 @@ export default function Home() {
     }, []);
 
     return (
-        <div className="home-page">
-            {/* HERO BANNER - ESTILO KAVE HOME */}
+        <>
+            {/* HERO A PANTALLA COMPLETA: fuera de .home-page para no quedar limitado a su ancho máximo
+                ni a su relleno lateral. En móvil, foto arriba y texto debajo sobre fondo oscuro. */}
             <section className="home-hero">
                 <div className="hero-content">
                     <span className="hero-subtitle">Almacén de ideas</span>
-                    <h1 className="hero-title">Nave 5 Barcelona</h1>
+                    <h1 className="hero-title">Nave 5{' '}<span className="hero-title-ciudad">Barcelona</span></h1>
                     <p className="hero-description">
                         Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios.
                     </p>
@@ -91,74 +92,76 @@ export default function Home() {
                 </div>
             </section>
 
-            {/* SLIDER DE CATEGORÍAS REALES */}
-            <section className="home-slider-section">
-                <h2 className="home-section-title">Compra por categoría</h2>
-                <div className="category-horizontal-slider">
-                    {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
-                        <div
-                            key={cat.id}
-                            className="slider-item-circle"
-                            onClick={() => navigate(`/catalogo?categoria=${cat.nombre}`)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <div className="circle-wrapper">
-                                <img src={cat.imagen_url} alt={cat.nombre} loading="lazy" decoding="async" />
+            <div className="home-page">
+                {/* SLIDER DE CATEGORÍAS REALES */}
+                <section className="home-slider-section">
+                    <h2 className="home-section-title">Compra por categoría</h2>
+                    <div className="category-horizontal-slider">
+                        {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
+                            <div
+                                key={cat.id}
+                                className="slider-item-circle"
+                                onClick={() => navigate(`/catalogo?categoria=${cat.nombre}`)}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div className="circle-wrapper">
+                                    <img src={cat.imagen_url} alt={cat.nombre} loading="lazy" decoding="async" />
+                                </div>
+                                <span className="circle-label">{cat.nombre}</span>
                             </div>
-                            <span className="circle-label">{cat.nombre}</span>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* FEED DE PIEZAS DESTACADAS */}
-            <section className="home-featured-section">
-                <div className="featured-header-flex">
-                    <h2 className="home-section-title">Piezas destacadas</h2>
-                    <Link to="/catalogo" className="link-underline-clean">Ver catálogo completo →</Link>
-                </div>
-
-                {loading ? (
-                    <div className="home-loading-feed">Cargando colecciones de Supabase...</div>
-                ) : (
-                    <div className="home-products-grid">
-                        {destacados.map(mueble => (
-                            <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
-                                <div className="home-card-img-holder">
-                                    <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
-                                    {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
-                                </div>
-                                <div className="home-card-meta">
-                                    <h3>{mueble.nombre}</h3>
-                                    <p className="home-card-desc">{mueble.descripcion}</p>
-                                    <span className="home-card-price">
-                                        {textoPrecio(mueble)}
-                                    </span>
-                                </div>
-                            </Link>
                         ))}
                     </div>
-                )}
-            </section>
+                </section>
 
-            {/* GALERÍA DE AMBIENTE */}
-            <section className="home-gallery-section reveal-init" ref={galleryRef}>
-                <div className="gallery-grid">
-                    <img src="/img/galeria-rincon.webp" alt="Rincón de decoración en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
-                    <div className="gallery-text-block">
-                        <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
+                {/* FEED DE PIEZAS DESTACADAS */}
+                <section className="home-featured-section">
+                    <div className="featured-header-flex">
+                        <h2 className="home-section-title">Piezas destacadas</h2>
+                        <Link to="/catalogo" className="link-underline-clean">Ver catálogo completo →</Link>
                     </div>
-                    <img src="/img/galeria-butacas.webp" alt="Butacas de cine restauradas en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
-                </div>
-            </section>
 
-            {/* SOSTENIBILIDAD BANNER */}
-            <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
-                <div className="sustainability-content">
-                    <h2>Diseño con impacto positivo</h2>
-                    <p>Muebles creados pensando en el mañana. Trabajamos con madera certificada FSC y materiales reciclados para reducir nuestra huella de carbono sin renunciar a la estética.</p>
-                </div>
-            </section>
-        </div>
+                    {loading ? (
+                        <div className="home-loading-feed">Cargando colecciones de Supabase...</div>
+                    ) : (
+                        <div className="home-products-grid">
+                            {destacados.map(mueble => (
+                                <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
+                                    <div className="home-card-img-holder">
+                                        <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
+                                        {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
+                                    </div>
+                                    <div className="home-card-meta">
+                                        <h3>{mueble.nombre}</h3>
+                                        <p className="home-card-desc">{mueble.descripcion}</p>
+                                        <span className="home-card-price">
+                                            {textoPrecio(mueble)}
+                                        </span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
+                </section>
+
+                {/* GALERÍA DE AMBIENTE */}
+                <section className="home-gallery-section reveal-init" ref={galleryRef}>
+                    <div className="gallery-grid">
+                        <img src="/img/galeria-rincon.webp" alt="Rincón de decoración en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                        <div className="gallery-text-block">
+                            <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
+                        </div>
+                        <img src="/img/galeria-butacas.webp" alt="Butacas de cine restauradas en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                    </div>
+                </section>
+
+                {/* SOSTENIBILIDAD BANNER */}
+                <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
+                    <div className="sustainability-content">
+                        <h2>Diseño con impacto positivo</h2>
+                        <p>Muebles creados pensando en el mañana. Trabajamos con madera certificada FSC y materiales reciclados para reducir nuestra huella de carbono sin renunciar a la estética.</p>
+                    </div>
+                </section>
+            </div>
+        </>
     );
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { getMuebles, getCategorias, getPedidos } from '../../../services/api';
+import { getMuebles, getCategorias, getPedidos, getMensajes } from '../../../services/api';
 import useAdminDatos from './useAdminDatos';
 
 vi.mock('../../../services/api');
@@ -10,6 +10,7 @@ beforeEach(() => {
   getMuebles.mockResolvedValue([{ id: 'm1' }]);
   getCategorias.mockResolvedValue([{ id: 1 }]);
   getPedidos.mockResolvedValue([{ id: 'p1' }]);
+  getMensajes.mockResolvedValue([{ id: 'c1', leido: false }]);
 });
 
 const montar = async (user) => {
@@ -30,6 +31,20 @@ describe('useAdminDatos', () => {
     expect(getMuebles).toHaveBeenCalledWith({ fresco: true });
     expect(getCategorias).toHaveBeenCalledWith({ fresco: true });
     expect(getPedidos).toHaveBeenCalledTimes(1);
+    expect(result.current.mensajes).toEqual([{ id: 'c1', leido: false }]);
+    expect(result.current.errorMensajes).toBe(false);
+  });
+
+  it('si los mensajes no se pueden cargar (p. ej. sin la tabla), lista vacía y errorMensajes', async () => {
+    getMensajes.mockResolvedValue(null);
+    const { result } = await montar({ email: 'a@a.com' });
+
+    expect(result.current.mensajes).toEqual([]);
+    expect(result.current.errorMensajes).toBe(true);
+
+    getMensajes.mockResolvedValue([]);
+    await act(() => result.current.cargarMensajes());
+    expect(result.current.errorMensajes).toBe(false);
   });
 
   it('sin usuario no carga nada', async () => {

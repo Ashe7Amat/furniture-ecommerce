@@ -8,6 +8,10 @@ client/dist/
 # Informes de cobertura (npm run test:coverage en client/)
 client/coverage/
 
+# Resultados de los tests E2E (npm run test:e2e en client/)
+client/test-results/
+client/playwright-report/
+
 # Variables de entorno y credenciales (CRÍTICO)
 .env
 client/.env
