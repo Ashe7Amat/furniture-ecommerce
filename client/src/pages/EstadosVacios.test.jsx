@@ -1,7 +1,7 @@
 // H40: los estados vacíos del catálogo tienen una salida y la 404 enlaza a Contacto. Los de Mi
 // cuenta están en Profile.test.jsx, y "Limpiar búsqueda" en Header.test.jsx.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Catalog from './Catalog';
@@ -26,17 +26,20 @@ const RutaActual = () => {
 const montarCatalogo = async (ruta, { muebles = MUEBLES } = {}) => {
   getMuebles.mockResolvedValue(muebles);
   getCategorias.mockResolvedValue([]);
-  render(
-    <MemoryRouter initialEntries={[ruta]}>
-      <CartContext.Provider value={{ addToCart: vi.fn() }}>
-        <FavoritesContext.Provider value={{ favorites: [], toggleFavorite: vi.fn(), isFavorite: () => false }}>
-          <Routes>
-            <Route path="*" element={<><Catalog /><RutaActual /></>} />
-          </Routes>
-        </FavoritesContext.Provider>
-      </CartContext.Provider>
-    </MemoryRouter>
-  );
+  // act async: el catálogo y su CategorySlider cargan al montar; se deja que esas promesas se asienten.
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[ruta]}>
+        <CartContext.Provider value={{ addToCart: vi.fn() }}>
+          <FavoritesContext.Provider value={{ favorites: [], toggleFavorite: vi.fn(), isFavorite: () => false }}>
+            <Routes>
+              <Route path="*" element={<><Catalog /><RutaActual /></>} />
+            </Routes>
+          </FavoritesContext.Provider>
+        </CartContext.Provider>
+      </MemoryRouter>
+    );
+  });
 };
 
 beforeEach(() => {

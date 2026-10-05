@@ -257,6 +257,26 @@ describe('crear-sesion-pago: rechazos con un mensaje claro y sin llegar a Stripe
     );
   });
 
+  test('una pieza alquilada no se puede comprar, y una modalidad sin precio se rechaza', async () => {
+    prepararTienda(2);
+    fake.tablas.muebles[0].estado = 'alquilado';
+
+    const alquilada = await pedirPago({ items: carrito(1), clienteInfo: comprador() });
+    assert.equal(alquilada.status, 400);
+    assert.equal(
+      alquilada.body.error,
+      'Lo sentimos, la pieza única "Pieza 0" está alquilada y no se puede comprar.'
+    );
+
+    const sinPrecio = await pedirPago({
+      items: [{ productId: uuid(1), modalidad: 'alquiler' }],
+      clienteInfo: comprador()
+    });
+    assert.equal(sinPrecio.status, 400);
+    assert.equal(sinPrecio.body.error, '"Pieza 1" no tiene precio disponible para esa modalidad.');
+    assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
   test('H35: una pieza que no está en el catálogo se rechaza con su id, como antes', async () => {
     prepararTienda(2);
     const items = [...carrito(2), { productId: uuid(99), modalidad: 'compra' }];
