@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { getMuebleById } from '../services/api';
-import { CartContext } from '../context/CartContext';
+import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
 import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
@@ -15,7 +15,7 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   // addToCart ya muestra su propio toast de confirmación (ver CartContext), así que no
   // hace falta duplicar el aviso aquí.
-  const { addToCart } = useContext(CartContext);
+  const { addToCart, cestaLlena } = useContext(CartContext);
   const { favorites, toggleFavorite } = useContext(FavoritesContext);
   const [mueble, setMueble] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -177,11 +177,15 @@ const ProductDetail = () => {
 
             <button 
               className="pd-cta-btn" 
-              disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado'}
+              disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado' || cestaLlena}
               onClick={handleAddToCart}
             >
-              {mueble.estado === 'vendido' ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : 'Añadir a mi cesta')}
+              {mueble.estado === 'vendido' ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : (cestaLlena ? 'Cesta llena' : 'Añadir a mi cesta'))}
             </button>
+            {/* H35: con la cesta en el máximo de piezas, se dice por qué no se puede añadir. */}
+            {cestaLlena && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && (
+              <p className="pd-cesta-llena" role="status">{CESTA_LLENA}</p>
+            )}
             </>
             )}
           </div>

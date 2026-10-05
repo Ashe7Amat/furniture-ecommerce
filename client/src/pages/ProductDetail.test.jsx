@@ -24,14 +24,14 @@ const MUEBLE = {
   referencia: 'NAV-MES-004'
 };
 
-const montar = async (mueble = MUEBLE, { favorites = [] } = {}) => {
+const montar = async (mueble = MUEBLE, { favorites = [], cestaLlena = false } = {}) => {
   getMuebleById.mockResolvedValue(mueble);
   const addToCart = vi.fn();
   const toggleFavorite = vi.fn();
   const user = userEvent.setup();
   render(
     <MemoryRouter initialEntries={['/', `/mueble/${MUEBLE.id}`]} initialIndex={1}>
-      <CartContext.Provider value={{ addToCart }}>
+      <CartContext.Provider value={{ addToCart, cestaLlena }}>
         <FavoritesContext.Provider value={{ favorites, toggleFavorite }}>
           <Routes>
             <Route path="/" element={<p>Portada</p>} />
@@ -50,6 +50,30 @@ const opcion = (texto) => screen.getByText(texto).closest('button');
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+describe('ProductDetail — cesta llena (H35)', () => {
+  it('con la cesta en el máximo, el botón queda desactivado y se explica por qué', async () => {
+    await montar(MUEBLE, { cestaLlena: true });
+
+    const boton = screen.getByRole('button', { name: 'Cesta llena' });
+    expect(boton).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(/el máximo por pedido/);
+  });
+
+  it('sin la cesta llena, ni aviso ni botón desactivado', async () => {
+    await montar();
+
+    expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
+    expect(screen.queryByText(/el máximo por pedido/)).not.toBeInTheDocument();
+  });
+
+  it('una pieza vendida dice "Agotado" aunque la cesta esté llena, sin el aviso', async () => {
+    await montar({ ...MUEBLE, estado: 'vendido' }, { cestaLlena: true });
+
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    expect(screen.queryByText(/el máximo por pedido/)).not.toBeInTheDocument();
+  });
 });
 
 describe('ProductDetail', () => {

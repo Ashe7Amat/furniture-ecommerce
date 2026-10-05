@@ -22,11 +22,12 @@ const renderModal = ({
   onClose = vi.fn(),
   addToCart = vi.fn(),
   toggleFavorite = vi.fn(),
-  isFavorite = () => false
+  isFavorite = () => false,
+  cestaLlena = false
 } = {}) => {
   const utils = render(
     <MemoryRouter>
-      <CartContext.Provider value={{ addToCart }}>
+      <CartContext.Provider value={{ addToCart, cestaLlena }}>
         <FavoritesContext.Provider value={{ toggleFavorite, isFavorite }}>
           <QuickViewModal mueble={mueble} onClose={onClose} />
         </FavoritesContext.Provider>
@@ -38,6 +39,13 @@ const renderModal = ({
 
 beforeEach(() => {
   document.body.style.overflow = '';
+});
+
+describe('QuickViewModal — cesta llena (H35)', () => {
+  it('con la cesta en el máximo, "Cesta llena" desactivado', () => {
+    renderModal({ cestaLlena: true });
+    expect(screen.getByRole('button', { name: 'Cesta llena' })).toBeDisabled();
+  });
 });
 
 describe('QuickViewModal — contenido', () => {

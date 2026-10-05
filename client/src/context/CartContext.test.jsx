@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useContext } from 'react';
-import { CartProvider, CartContext, lineaSinPrecio } from './CartContext';
+import { CartProvider, CartContext, lineaSinPrecio, MAX_PIEZAS_CESTA, CESTA_LLENA } from './CartContext';
 import { AuthContext } from './AuthContext';
 import { ToastContext } from './ToastContext';
 import { getMuebleById } from '../services/api';
@@ -78,6 +78,52 @@ describe('CartContext — añadir', () => {
     act(() => result.current.addToCart(SILLA, 'alquiler'));
 
     expect(result.current.cartItems.map((i) => i.id)).toEqual(['m1-compra', 'm1-alquiler']);
+  });
+});
+
+describe('CartContext — tope de piezas (H35)', () => {
+  const cestaDe = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `p${i}-compra`, productId: `p${i}`, nombre: `Pieza ${i}`, imagen: PLACEHOLDER_IMG, precio: 10, modalidad: 'compra', cantidad: 1
+    }));
+
+  it('el tope es 20, el mismo que el servidor', () => {
+    expect(MAX_PIEZAS_CESTA).toBe(20);
+  });
+
+  it('con 19 piezas aún se puede añadir una más, y entonces la cesta queda llena', () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify(cestaDe(19)));
+    const { result } = montar();
+    expect(result.current.cestaLlena).toBe(false);
+
+    act(() => result.current.addToCart(SILLA, 'compra'));
+
+    expect(result.current.cartItems).toHaveLength(20);
+    expect(result.current.cestaLlena).toBe(true);
+  });
+
+  it('con 20 piezas no añade la 21.ª: avisa de que la cesta está llena y no la abre', () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify(cestaDe(20)));
+    const { result, showToast } = montar();
+
+    act(() => result.current.addToCart(SILLA, 'compra'));
+
+    expect(result.current.cartItems).toHaveLength(20);
+    expect(showToast).toHaveBeenCalledWith(CESTA_LLENA, 'warning');
+    expect(result.current.isCartOpen).toBe(false);
+  });
+
+  it('dos clics seguidos sobre la pieza 20 y la 21 antes de volver a pintar: solo entra la 20', () => {
+    localStorage.setItem('kaveCart_guest', JSON.stringify(cestaDe(19)));
+    const { result } = montar();
+
+    act(() => {
+      result.current.addToCart(SILLA, 'compra');
+      result.current.addToCart(MESA, 'compra');
+    });
+
+    expect(result.current.cartItems).toHaveLength(20);
+    expect(result.current.cartItems.some((i) => i.productId === 'm2')).toBe(false);
   });
 });
 

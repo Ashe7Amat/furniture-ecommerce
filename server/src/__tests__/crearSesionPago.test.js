@@ -125,11 +125,13 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
     assert.equal(correos.cliente.mock.callCount(), 1);
   });
 
-  test('30 piezas con notas de 500 caracteres (el máximo que admite el servidor) también se pagan', async () => {
-    prepararTienda(30);
+  // CAMBIADO A PROPÓSITO (5 oct 2026, H35): el carrito admite como máximo 20 piezas (antes, 30
+  // pasaban). El caso límite es ahora el de 20.
+  test('20 piezas (el máximo por pedido) con notas de 500 caracteres (el máximo que admite el servidor) también se pagan', async () => {
+    prepararTienda(20);
 
     const res = await pedirPago({
-      items: carrito(30),
+      items: carrito(20),
       clienteInfo: comprador({ notas: 'n'.repeat(500) })
     });
 
@@ -140,14 +142,14 @@ describe('crear-sesion-pago con carritos grandes y notas largas', () => {
 
     const webhook = await enviarWebhook(
       crearEventoCompletado({
-        id: 'cs_test_30',
+        id: 'cs_test_20',
         payment_status: 'paid',
-        amount_total: 30 * PRECIO * 100,
+        amount_total: 20 * PRECIO * 100,
         metadata
       })
     );
     assert.equal(webhook.body.estado, 'procesada');
-    assert.equal(fake.tablas.pedidos[0].items.length, 30);
+    assert.equal(fake.tablas.pedidos[0].items.length, 20);
   });
 
   test('una sola pieza con una nota larga (el caso más sencillo que fallaba) se paga', async () => {
@@ -209,13 +211,73 @@ describe('crear-sesion-pago: rechazos con un mensaje claro y sin llegar a Stripe
     assert.equal(crearSesionDeStripe.mock.callCount(), 0);
   });
 
-  test('un carrito imposible de repartir en la metadata pide dividir el pedido', async () => {
+  // CAMBIADO A PROPÓSITO (5 oct 2026, H35): con el tope de 20 piezas, un carrito de 400 ya no llega a
+  // construir la metadata (antes respondía "demasiado grande... Divide el pedido"): lo rechaza la
+  // validación, antes de consultar nada. El mensaje de la metadata sigue probado en
+  // metadataStripe.test.js.
+  test('un carrito de más de 20 piezas se rechaza con un mensaje claro, sin consultar el catálogo', async () => {
     prepararTienda(1);
-    const res = await pedirPago({ items: carrito(400), clienteInfo: comprador() });
+    let consultas = 0;
+    const original = fake.from;
+    mock.method(supabase, 'from', (tabla) => {
+      consultas++;
+      return original(tabla);
+    });
+
+    for (const piezas of [21, 400]) {
+      const res = await pedirPago({ items: carrito(piezas), clienteInfo: comprador() });
+      assert.equal(res.status, 400);
+      assert.equal(
+        res.body.error,
+        'Como máximo 20 piezas por pedido. Si necesitas más, divide el pedido en varios o escríbenos.'
+      );
+    }
+    assert.equal(consultas, 0);
+    assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
+  test('H35: las piezas del carrito se leen en una sola consulta, aunque haya varias', async () => {
+    prepararTienda(5);
+    let consultasMuebles = 0;
+    const original = fake.from;
+    mock.method(supabase, 'from', (tabla) => {
+      if (tabla === 'muebles') consultasMuebles++;
+      return original(tabla);
+    });
+
+    const res = await pedirPago({ items: carrito(5), clienteInfo: comprador() });
+
+    assert.equal(res.status, 200);
+    assert.equal(consultasMuebles, 1);
+    const lineas = crearSesionDeStripe.mock.calls[0].arguments[0].line_items;
+    assert.deepEqual(
+      lineas.map((l) => l.price_data.product_data.name),
+      ['Pieza 0', 'Pieza 1', 'Pieza 2', 'Pieza 3', 'Pieza 4'],
+      'en el orden del carrito'
+    );
+  });
+
+  test('H35: una pieza que no está en el catálogo se rechaza con su id, como antes', async () => {
+    prepararTienda(2);
+    const items = [...carrito(2), { productId: uuid(99), modalidad: 'compra' }];
+
+    const res = await pedirPago({ items, clienteInfo: comprador() });
 
     assert.equal(res.status, 400);
-    assert.match(res.body.error, /demasiado grande/);
-    assert.match(res.body.error, /Divide el pedido/);
+    assert.equal(res.body.error, `La pieza con ID ${uuid(99)} no existe en catálogo.`);
+    assert.equal(crearSesionDeStripe.mock.callCount(), 0);
+  });
+
+  test('H35: si falla la base de datos, 500 genérico (ya no se confunde con "no existe")', async () => {
+    prepararTienda(1);
+    mock.method(supabase, 'from', () => ({
+      select: () => ({ in: async () => ({ data: null, error: { message: 'conexión perdida' } }) })
+    }));
+
+    const res = await pedirPago({ items: carrito(1), clienteInfo: comprador() });
+
+    assert.equal(res.status, 500);
+    assert.doesNotMatch(res.body.error, /conexión perdida|no existe/);
     assert.equal(crearSesionDeStripe.mock.callCount(), 0);
   });
 
