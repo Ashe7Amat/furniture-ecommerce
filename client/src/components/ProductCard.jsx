@@ -54,7 +54,7 @@ const ProductCard = ({ mueble }) => {
           )}
         </div>
         <div className="product-info">
-          <h3 className="product-title">{mueble.nombre}</h3>
+          <h2 className="product-title">{mueble.nombre}</h2>
           <ReferenciaProducto referencia={mueble.referencia} />
           <p className="product-description">{mueble.descripcion}</p>
           <span className="price-value">

@@ -53,7 +53,7 @@ const Contact = () => {
       <div className="contact-grid">
         <div className="contact-details">
           <div className="contact-detail-block">
-            <h3>El Almacén</h3>
+            <h2>El Almacén</h2>
             <p>
               Carrer del Plom, 32-34, interior<br />
               08038 Barcelona
@@ -62,7 +62,7 @@ const Contact = () => {
           </div>
 
           <div className="contact-detail-block">
-            <h3>Horario de Visitas</h3>
+            <h2>Horario de Visitas</h2>
             <p>
               De lunes a viernes<br />
               Bajo cita previa personalizada
@@ -70,7 +70,7 @@ const Contact = () => {
           </div>
 
           <div className="contact-detail-block">
-            <h3>Correo Electrónico</h3>
+            <h2>Correo Electrónico</h2>
             <a href="mailto:hola@nave5barcelona.com" className="contact-email-link">
               hola@nave5barcelona.com
             </a>
@@ -78,7 +78,7 @@ const Contact = () => {
         </div>
 
         <div className="contact-form-card">
-          <h3>Escríbenos tu idea</h3>
+          <h2>Escríbenos tu idea</h2>
 
           <form onSubmit={handleSubmit} className="contact-form">
             {/* Honeypot anti-spam: oculto para personas, visible para bots que rellenan todo */}

@@ -1,9 +1,10 @@
 import { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, adminOnly = false }) {
   const { user, loading, reconectando, reintentarSesion, logout } = useContext(AuthContext);
+  const location = useLocation();
 
   // Mientras se confirma la sesión (el refresh silencioso al cargar), no se pinta nada: sin access
   // token, las lecturas del panel saldrían sin la cabecera Authorization (ver AuthContext).
@@ -27,9 +28,10 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
     );
   }
 
-  // REGLA 1: Si no está logueado nadie, todos van al Login
+  // REGLA 1: Si no está logueado nadie, todos van al Login. La ruta pedida (con su ?tab=...) viaja en
+  // el state, no en la URL, para volver a ella tras iniciar sesión (H45; Login la valida).
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   }
 
   // REGLA 2: Si la ruta pide SER ADMIN y el usuario es un cliente normal, fuera a la portada

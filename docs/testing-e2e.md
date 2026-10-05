@@ -38,6 +38,7 @@ Los tests **no arrancan el servidor ni tocan la base de datos**. La web apunta a
   se pierde, así que los tests no recargan después de entrar.
 - **Panel:** `/admin/muebles`, `/admin/categorias/con-stats`, `/admin/mensajes` y `/pedidos` solo responden con
   el token del administrador (`Bearer access-u-admin`), como `verificarAdmin`.
+- **Mi cuenta:** `GET /pedidos/mios` responde una lista vacía con cualquier sesión abierta (H45).
 - **Lo que no está previsto** responde 404 y queda en `sinSimular`. Los tests principales comprueban que la
   lista está vacía: si la web empieza a llamar a una ruta nueva, el test lo dice.
 - **Las fuentes de Google** se responden vacías, para no depender de la red ni ensuciar la consola.
@@ -46,15 +47,15 @@ Ayudantes:
 - `vigilarConsola(page)` recoge los errores de la consola y las excepciones sin capturar.
 - `cerrarCookies(page)` elige "Solo esenciales" en el banner de cookies.
 
-## Qué cubren (19 tests)
+## Qué cubren (26 tests)
 
 | Archivo | Flujo |
 |---|---|
 | `e2e/home.spec.js` | La portada carga, enseña las 4 piezas destacadas (pide `?limit=4`, no el catálogo entero) y no deja errores en la consola. |
 | `e2e/catalogo.spec.js` | El catálogo enseña todas las piezas y no ofrece ordenar por precio si no hay precios. Filtra por categoría (y lo pone en la URL) y por "Disponible". Pulsar una pieza abre su ficha, con la referencia y "Consultar precio". |
-| `e2e/login.spec.js` | Con las credenciales buenas entra, saluda y guarda la sesión. Con una contraseña mala se queda con el error del servidor. Sin sesión, `/admin` manda al login. |
+| `e2e/login.spec.js` | Con las credenciales buenas entra, saluda y guarda la sesión. Con una contraseña mala se queda con el error del servidor. Sin sesión, `/admin` manda al login. H45: sin sesión, `/cuenta?tab=pedidos` manda al login y, al entrar, vuelve ahí, sin dejar el login en el historial. |
 | `e2e/busqueda.spec.js` | H39. A 375 px, la barra de búsqueda está oculta y se busca con la lupa: abre el buscador con el foco en el campo, encuentra piezas, Escape lo cierra y devuelve el foco, y no hay scroll horizontal. En escritorio, la barra se abre con el teclado y la lupa no se ve. |
-| `e2e/accesibilidad.spec.js` | axe-core (`@axe-core/playwright`) en la portada, el catálogo, una ficha, el inicio de sesión, contacto y la 404, y con el buscador y el menú lateral abiertos: falla si hay algún problema grave o crítico de WCAG 2.1 A/AA. Ver `docs/auditoria-accesibilidad.md`. |
+| `e2e/accesibilidad.spec.js` | axe-core (`@axe-core/playwright`) en la portada, el catálogo, una ficha, el inicio de sesión, contacto y la 404, y con el buscador y el menú lateral abiertos: falla si hay algún problema grave o crítico de WCAG 2.1 A/AA. H43: en esas mismas páginas, un solo `h1` y `heading-order` y `page-has-heading-one` de axe sin avisos, aunque sean moderados. Ver `docs/auditoria-accesibilidad.md`. |
 | `e2e/admin.spec.js` | El administrador entra al panel desde el menú de su cuenta, recorre las 6 pestañas, ve el inventario con referencias y la insignia de mensajes, sin llamadas sin simular ni errores en la consola. Un cliente no ve el enlace al panel. |
 
 Comprobado el 4 oct 2026: 10 de 10 en verde, y 30 de 30 repitiéndolos 3 veces (`--repeat-each=3`) para

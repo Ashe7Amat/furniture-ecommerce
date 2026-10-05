@@ -7,12 +7,18 @@ import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/Home.css';
 
 // Fotos reales del almacén para el slider del hero (estilo banner rotativo tipo IKEA/Kave Home).
+// H42: cada foto en tres tamaños. El hero ocupa todo el ancho de la pantalla: en el móvil (la foto
+// arriba, en 4:3) va la de 800 px; hasta 1200 px de pantalla, la de 1200; por encima, el original de
+// 1600. hero-showroom es vertical y ya mide 1200 de ancho: no tiene versión de 1200.
 const HERO_SLIDES = [
-    { src: '/img/hero-almacen.webp', alt: 'Vista general del almacén de Nave 5 Barcelona' },
-    { src: '/img/hero-aerea.webp', alt: 'Vista aérea del almacén de Nave 5 Barcelona' },
-    { src: '/img/hero-sillones.webp', alt: 'Butacas de cine rojas de época en el almacén de Nave 5' },
-    { src: '/img/hero-showroom.webp', alt: 'Rincón de showroom con sofás y decoración en Nave 5' },
+    { src: '/img/hero-almacen.webp', movil: '/img/hero-almacen-800.webp', tableta: '/img/hero-almacen-1200.webp', alt: 'Vista general del almacén de Nave 5 Barcelona' },
+    { src: '/img/hero-aerea.webp', movil: '/img/hero-aerea-800.webp', tableta: '/img/hero-aerea-1200.webp', alt: 'Vista aérea del almacén de Nave 5 Barcelona' },
+    { src: '/img/hero-sillones.webp', movil: '/img/hero-sillones-800.webp', tableta: '/img/hero-sillones-1200.webp', alt: 'Butacas de cine rojas de época en el almacén de Nave 5' },
+    { src: '/img/hero-showroom.webp', movil: '/img/hero-showroom-800.webp', alt: 'Rincón de showroom con sofás y decoración en Nave 5' },
 ];
+// El mismo corte que el CSS del hero (Home.css): por debajo de 768 px, foto arriba y texto debajo.
+const HERO_MEDIA_MOVIL = '(max-width: 767.98px)';
+const HERO_MEDIA_TABLETA = '(max-width: 1200px)';
 const HERO_SLIDE_INTERVAL_MS = 5500;
 
 export default function Home() {
@@ -63,18 +69,22 @@ export default function Home() {
                 </div>
                 <div className="hero-image-box">
                     {HERO_SLIDES.map((slide, i) => (
-                        <img
-                            key={slide.src}
-                            src={slide.src}
-                            alt={slide.alt}
-                            decoding="async"
-                            // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
-                            // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
-                            // eslint-disable-next-line react/no-unknown-property
-                            fetchpriority={i === 0 ? 'high' : undefined}
-                            loading={i === 0 ? undefined : 'lazy'}
-                            className={`hero-slide-img${i === heroSlide ? ' is-active' : ''}`}
-                        />
+                        // <picture> no cambia la maqueta: la <img> sigue posicionada respecto a .hero-image-box.
+                        <picture key={slide.src}>
+                            <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />
+                            {slide.tableta && <source media={HERO_MEDIA_TABLETA} srcSet={slide.tableta} />}
+                            <img
+                                src={slide.src}
+                                alt={slide.alt}
+                                decoding="async"
+                                // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                                // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                                // eslint-disable-next-line react/no-unknown-property
+                                fetchpriority={i === 0 ? 'high' : undefined}
+                                loading={i === 0 ? undefined : 'lazy'}
+                                className={`hero-slide-img${i === heroSlide ? ' is-active' : ''}`}
+                            />
+                        </picture>
                     ))}
                     <div className="hero-slide-dots">
                         {HERO_SLIDES.map((slide, i) => (

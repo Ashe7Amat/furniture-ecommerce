@@ -16,6 +16,8 @@
   display: none; /* Chrome, Safari and Opera */
 }
 
+/* Cada categoría es un <button> (H41): se le quita el aspecto de botón del navegador para que se vea
+   igual que cuando era un div. */
 .category-item {
   display: flex;
   flex-direction: column;
@@ -24,13 +26,23 @@
   cursor: pointer;
   min-width: 90px;
   transition: transform 0.2s ease;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
 }
 
-.category-item:hover {
+/* Con el teclado, la categoría se eleva y resalta como con el ratón; el anillo de foco lo pone la regla
+   común de index.css (:focus-visible). */
+.category-item:hover,
+.category-item:focus-visible {
   transform: translateY(-5px);
 }
 
 .category-img-container {
+  display: block;
   width: 85px;
   height: 85px;
   border-radius: 50%;
@@ -52,7 +64,8 @@
   transition: transform 0.3s ease;
 }
 
-.category-item:hover .category-img-container img {
+.category-item:hover .category-img-container img,
+.category-item:focus-visible .category-img-container img {
   transform: scale(1.1);
 }
 
@@ -64,7 +77,8 @@
   transition: color 0.3s ease;
 }
 .category-item.active .category-name,
-.category-item:hover .category-name {
+.category-item:hover .category-name,
+.category-item:focus-visible .category-name {
   font-weight: 600;
   color: var(--primary-color);
 }

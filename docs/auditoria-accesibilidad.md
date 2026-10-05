@@ -40,9 +40,14 @@ Quedan avisos de buenas prácticas:
 
 | # | Dónde | Aviso de axe | Por qué no se ha tocado |
 |---|---|---|---|
-| A10 | Catálogo (nombre de cada pieza), Contacto (bloques de datos), pie (boletín) | `heading-order`: se pasa de un `h1` o `h2` a un `h3` | Cambiar el nivel de un título cambia su tamaño en el CSS. Hay que revisarlo página a página con el diseño |
-| A11 | Inicio de sesión | `page-has-heading-one`: no tiene `h1` | Lo mismo: el título de la página es otro nivel y su estilo depende de él |
+| A10 | Catálogo (nombre de cada pieza), Contacto (bloques de datos), pie (boletín) | `heading-order`: se pasa de un `h1` o `h2` a un `h3` | **Arreglado el 5 oct (H43, `329a947`)**, sin cambios a la vista: medido antes y después. El E2E lo exige |
+| A11 | Inicio de sesión | `page-has-heading-one`: no tiene `h1` | **Arreglado el 5 oct (H43, `329a947`)**: el título es el `h1`. El E2E lo exige |
 | A12 | Cesta lateral | `region`: está fuera de `<main>` (va después del pie) | Es un diálogo, y cerrada ya está oculta (A5). Moverla dentro de `<main>` no aporta nada |
+
+**Encontrado después (5 oct, noche), sin arreglar:** en Mi cuenta (`/cuenta`, que el E2E no recorre porque
+hace falta sesión), dos campos sin etiqueta asociada (crítico), una etiqueta con poco contraste (grave) y dos
+`<main>` (moderado): H47. Y el enlace del aviso de cookies, con 2,97:1 (grave): el E2E cierra el aviso antes de
+pasar axe. Es H48. Los dos están en `docs/mejoras-tecnicas.md`.
 
 **No revisado a fondo:** el panel de administración. Lo usa una sola persona y tiene sus propios tests congelados
 (ver `docs/tarea4-diseno.md`); merece su propia pasada.

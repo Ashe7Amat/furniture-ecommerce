@@ -41,6 +41,26 @@ for (const [nombre, ruta] of PAGINAS) {
   });
 }
 
+// H43: el orden de los títulos y el h1 son avisos moderados de axe (no entran en GRAVES), pero ya
+// están arreglados en todas estas páginas: se exigen aparte para que no vuelvan.
+const TITULOS = ['heading-order', 'page-has-heading-one'];
+const analizarTitulos = async (page) => {
+  const { violations } = await new AxeBuilder({ page }).withRules(TITULOS).analyze();
+  return violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+};
+
+for (const [nombre, ruta] of PAGINAS) {
+  test(`${nombre}: un solo h1 y los títulos en orden (H43)`, async ({ page }) => {
+    await simularApi(page);
+    await page.goto(ruta);
+    await cerrarCookies(page);
+    await page.waitForLoadState('networkidle');
+
+    await expect(page.locator('h1')).toHaveCount(1);
+    expect(await analizarTitulos(page)).toEqual([]);
+  });
+}
+
 test('el buscador y el menú lateral abiertos: sin problemas graves', async ({ page }) => {
   await simularApi(page);
   await page.goto('/');
@@ -49,9 +69,11 @@ test('el buscador y el menú lateral abiertos: sin problemas graves', async ({ p
   await page.getByRole('button', { name: '¿Qué estás buscando?' }).click();
   await page.getByRole('textbox', { name: 'Buscar en el catálogo' }).fill('mesa');
   expect(await analizar(page)).toEqual([]);
+  expect(await analizarTitulos(page)).toEqual([]);
   await page.keyboard.press('Escape');
 
   await page.setViewportSize({ width: 375, height: 740 });
   await page.getByRole('button', { name: 'Abrir el menú' }).click();
   expect(await analizar(page)).toEqual([]);
+  expect(await analizarTitulos(page)).toEqual([]);
 });

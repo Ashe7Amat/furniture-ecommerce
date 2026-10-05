@@ -118,6 +118,33 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## 🔄 Sesión UX del 5 oct 2026 (noche): H41, H43, H45, H38 y H42
+
+En `feature/mejoras-tecnicas`, sin merge: producción sigue en `035cffa`. Informe completo en
+`docs/reporte-sesion-ux.md`.
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. H41, categorías del catálogo con el teclado | ✅ | `5babdb3` |
+| 2. H43, orden de los títulos y `h1` en el inicio de sesión | ✅ (sin cambios a la vista, medido) | `329a947` |
+| 3. H45, volver a la página pedida tras iniciar sesión | ✅ | `a49c25d` |
+| 4. H38, migraciones antiguas en el repositorio | ✅ las 7 migraciones; quedan las tablas base | `f5070b8` |
+| 5. H42, fotos del hero para el móvil | ✅ | `498e0c3` |
+
+- **Cobertura (líneas / ramas / funciones):**
+  - cliente: de 98,39 / 95,67 / 93,02 a 98,63 / 95,71 / 93,06 (796 tests, antes 737);
+  - servidor: igual, 99,06 / 91,82 / 99,54 (556 tests; esta sesión no ha tocado el servidor).
+- **Umbrales:** sin cambios (cliente 97 / 95 / 92; servidor 98 / 91 / 99).
+- **E2E:** 26 (antes 19): 6 de títulos con axe y 1 de H45.
+- **Mutantes del panel:** 127 (126 detectados y 1 superviviente esperado), comprobado al final de la sesión.
+- **Base de datos:** solo lectura (`schema_migrations`, para H38). No se ha escrito nada.
+- **Cambios de comportamiento a propósito:**
+  - los nombres de las piezas del catálogo son `h2` (antes `h3`); los tests que los buscaban como `h3` llevan
+    `CAMBIADO A PROPÓSITO`;
+  - la foto de cada categoría del catálogo lleva `alt=""` (el nombre ya lo da el botón);
+  - tras iniciar sesión, se vuelve a la página pedida (antes, siempre a la portada).
+- **Hallazgos nuevos:** H47, H48, H49 y H50, abajo en "Hallazgos".
+
 ## 🔄 Sesión autónoma del 5 oct 2026: emails, H35-H40, accesibilidad, rendimiento y cobertura
 
 En `feature/mejoras-tecnicas`, sin merge: producción sigue en `87359d6`. Informe completo en
@@ -2132,7 +2159,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   - **Tests y mutantes:** los de caracterización afectados llevan `CAMBIADO A PROPÓSITO`. Se reescribieron
     4 mutantes; siguen siendo 127 (126 detectados y 1 superviviente esperado).
 
-### H38 · MEDIA · MIGRACIONES · PENDIENTE (4 oct 2026) · Faltan en el repositorio las 7 primeras migraciones y las tablas base
+### H38 · MEDIA · MIGRACIONES · RESUELTO EN PARTE (5 oct 2026, `f5070b8`) · Faltan en el repositorio las 7 primeras migraciones y las tablas base
 
 - Las migraciones del 3 al 5 de septiembre no tienen copia en `server/migrations/`:
   - `enable_rls_public_read_only`;
@@ -2145,6 +2172,20 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - Tampoco está el `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`.
 - No se puede reconstruir la base de datos desde el repositorio, ni comprobar sus índices sin consultarla.
 - **Propuesta:** volcar el esquema actual (solo lectura) y guardarlo como migración de partida.
+- **Resuelto en parte (5 oct, `f5070b8`):**
+  - las 7 migraciones están en `server/migrations/`, sacadas de `schema_migrations` solo leyendo. Cada una tenía
+    una sola sentencia, y las 7 tienen el mismo MD5 que lo registrado. No llevan `.down.sql`: el estado de
+    antes no consta, y escribir su reversión sería inventarla;
+  - `server/migrations/README.md`: la convención, cómo se aplica, cómo se comprueba y la tabla de las 23 con su
+    MD5. Base de datos, archivos y tabla coinciden, 23/23;
+  - al comprobarlo salieron dos diferencias antiguas, documentadas en el README y sin tocar. Las 10 de
+    `20260922115443` a `20261001212500` tienen un salto de línea final de más. A3 (`20261001220000`) se
+    registró con `\r\n` (fines de línea de Windows), y git la guarda con `\n` por `.gitattributes`. El texto
+    es el mismo.
+- **Queda:** el `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`. Ninguna migración las crea
+  (ya existían el 3 sep). Hace falta volcar el esquema con `supabase db dump` o `pg_dump --schema-only`, y
+  para eso la cadena de conexión de la base de datos: lo tiene que hacer el usuario, o darla.
+  - **Decisión del usuario (5 oct):** no se hace. Queda cerrado como no prioritario en H52.
 
 ### H39 · MEDIA · USABILIDAD · RESUELTO (5 oct 2026, `6b53791`) · En el móvil no se puede abrir la búsqueda
 
@@ -2176,7 +2217,7 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - Mi cuenta: favoritos y pedidos vacíos con icono y "Explorar catálogo";
 - 404: con enlace a Contacto.
 
-### H41 · BAJA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Las categorías de encima del catálogo no se pueden usar con el teclado
+### H41 · BAJA · ACCESIBILIDAD · RESUELTO (5 oct 2026, `5babdb3`) · Las categorías de encima del catálogo no se pueden usar con el teclado
 
 - `CategorySlider.jsx` pinta cada categoría como un `div` con `onClick`: no se llega con el tabulador ni lo
   anuncia un lector de pantalla. Es lo mismo que A9 de `docs/auditoria-accesibilidad.md` (los círculos de la
@@ -2184,21 +2225,52 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - Encontrado al escribir sus tests (tarea 5 de la sesión del 5 oct). No se cambió ahí porque era un commit
   solo de tests.
 - **Propuesta:** `<button type="button" aria-pressed={activa}>` en cada categoría, con el mismo CSS.
+- **Resuelto (5 oct, `5babdb3`):**
+  - cada categoría es un `<button type="button" aria-pressed>`: se llega con el tabulador y se activa con
+    Enter o Espacio;
+  - la foto lleva `alt=""`, como los círculos de la portada (A9);
+  - el CSS quita el aspecto de botón del navegador. Con el foco, la categoría se eleva como con el ratón; el
+    anillo lo pone la regla común de `index.css`;
+  - tests de Enter, Espacio, el tabulador y las reglas de foco del CSS.
 
-### H42 · MEDIA · RENDIMIENTO · PENDIENTE (5 oct 2026) · Las fotos del hero se descargan a 1600 px también en el móvil
+### H42 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `498e0c3`) · Las fotos del hero se descargan a 1600 px también en el móvil
 
 - Las cuatro fotos del slider pesan de 197 a 405 KB. La primera (367 KB) es la imagen más grande de la
   portada, y en el móvil se enseña a 375 px.
 - **Propuesta:** versiones de 800 px con `srcset`/`sizes`, y una versión apaisada de `hero-showroom.webp`.
 - **Por qué no se hizo:** el ImageMagick del contenedor no escribe WebP. Detalle en
   `docs/auditoria-rendimiento.md`.
+- **Resuelto (5 oct, `498e0c3`):**
+  - cada foto va en un `<picture>`: la de 800 px en el móvil (< 768 px), la de 1200 px hasta 1200 px de
+    pantalla, y el original por encima;
+  - generadas con `sharp` 0.35, el del servidor (WebP, calidad 80, `effort` 6), y revisadas a ojo junto al
+    original;
+  - van en `client/public/img`, con las demás. No van al bucket de Supabase: así las sigue sirviendo Vercel, y
+    no hay que escribir en Supabase ni cambiar la CSP;
+  - las 4 fotos pesan 400 KB en el móvil (antes 1 223 KB) y 805 KB hasta 1200 px;
+  - comprobado en Chromium a 7 anchos: a cada uno se pide su versión, y la foto ocupa la caja como antes.
+- **Queda:** la versión apaisada de `hero-showroom.webp` (recomendación 2 de la auditoría de rendimiento). Es
+  una decisión de diseño: recortarla cambia lo que se ve en una tableta en vertical. Ver también H49.
+  - **Decisión del usuario (5 oct):** recorte al centro por defecto. Si en algún dispositivo real queda mal, se
+    ajusta `object-position` (por ejemplo, `30% center`).
 
-### H43 · BAJA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Orden de los títulos y login sin `h1`
+### H43 · BAJA · ACCESIBILIDAD · RESUELTO (5 oct 2026, `329a947`) · Orden de los títulos y login sin `h1`
 
 - **Qué es:** avisos moderados de axe (A10 y A11 de `docs/auditoria-accesibilidad.md`):
   - se salta de `h1`/`h2` a `h3` en las tarjetas del catálogo, en Contacto y en el pie;
   - el inicio de sesión no tiene `h1`.
 - **Por qué no se tocó:** cambiar el nivel cambia el tamaño en el CSS, así que hay que revisarlo con el diseño.
+- **Resuelto (5 oct, `329a947`):**
+  - inicio de sesión: el título es el `h1`;
+  - pie: el boletín y las columnas pasan a `h2` (antes `h3` y `h4`);
+  - catálogo: el nombre de cada pieza pasa a `h2`;
+  - Contacto: los bloques y el formulario pasan a `h2`;
+  - Mi cuenta (favoritos), cesta, y buscador y menú de la cabecera: un nivel menos, para seguir a su título;
+  - **sin cambios a la vista:** los selectores siguen a su etiqueta, y se fija el `margin-top` que ponía el
+    navegador (y la tipografía en Contacto). Medido con Playwright: 16 propiedades calculadas de cada título,
+    iguales antes y después, a 1280 y a 375 px;
+  - tests: un `h1` y sin saltos en 8 páginas (con cabecera, pie y cesta), y `heading-order` y
+    `page-has-heading-one` de axe en el E2E de accesibilidad.
 
 ### H44 · MEDIA · DEPENDENCIAS · PENDIENTE (5 oct 2026) · `npm audit` del cliente: 8 avisos, uno en una librería que llega al navegador
 
@@ -2216,6 +2288,9 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
     `to=` y `navigate()` del cliente empiezan por una ruta fija (`/catalogo?…`, `/mueble/…`, `/contacto?…`, o
     `navigate(-1)`). Ninguno toma el principio de la ruta de la URL ni de lo que escribe quien visita.
     No hay redirección "volver a" con un parámetro.
+    *(Desde H45, 5 oct, `a49c25d`: sí hay "volver a" tras iniciar sesión, pero la ruta va en el `state` de la
+    navegación, no en la URL, y `utils/rutaInterna.js` solo deja pasar rutas de la web: ni `//`, ni `\`, ni
+    caracteres de control.)*
   - [GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg): inyección en
     `deserializeErrors()` al hidratar con render en el servidor (de 6.4.0 a 7.18). **No aplica:** la web usa
     `<BrowserRouter>`, solo en el navegador, sin render en el servidor ni datos de hidratación.
@@ -2226,7 +2301,7 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - **Dependencias de desarrollo** (vite, vitest, esbuild): subirlas en su propio commit, con el gate.
 - **Por qué no se hizo:** `npm audit fix --force` cambia de versión mayor. Hay que hacerlo a propósito.
 
-### H45 · BAJA · USABILIDAD · PENDIENTE (5 oct 2026) · Volver a la página pedida después de iniciar sesión
+### H45 · BAJA · USABILIDAD · RESUELTO (5 oct 2026, `a49c25d`) · Volver a la página pedida después de iniciar sesión
 
 - **Qué pasa:**
   - Si alguien sin sesión intenta entrar en `/cuenta`, `ProtectedRoute` lo manda a `/login`
@@ -2245,6 +2320,117 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
   - Si va en un parámetro de la URL, hay que validar que sea una ruta interna (que empiece por `/` y no por
     `//` ni `/\`). Si no, sería justo la redirección abierta de H44.
 - **Cuándo:** en la sesión de usabilidad, junto con H41 y H43.
+- **Resuelto (5 oct, `a49c25d`):**
+  - `ProtectedRoute` manda al login con la ruta pedida (con su `?tab=...`) en el `state`, nunca en la URL;
+  - `Login` vuelve a ella con `replace` al entrar con contraseña, al crear la cuenta y con Google;
+  - `utils/rutaInterna.js` valida el `state`, que también se puede manipular: solo rutas que empiezan por
+    una sola `/`, sin `\`, espacios ni caracteres de control. Si no, la portada;
+  - E2E: `/cuenta?tab=pedidos` → login → de vuelta, sin dejar el login en el historial.
+- **Queda:** los enlaces "Mi cuenta" y "Mis pedidos" del pie, sin sesión, van directos a `/login` y no llevan
+  la ruta: ver H50.
+
+### H46 · BAJA · CI · PENDIENTE (5 oct 2026) · `actions/checkout@v4` y `actions/setup-node@v4` usan Node 20
+
+- **Qué avisa GitHub** (CI #14, la del merge `035cffa`): esas dos acciones usan Node 20, que está obsoleto
+  en los runners.
+- **Por qué funciona igual:** GitHub las está ejecutando con Node 24, y los tres jobs salieron en verde.
+- **Qué hacer:** cuando se toque `.github/workflows/ci.yml`, subirlas a la v5. Antes, comprobar que la v5
+  existe y qué cambia.
+- **Cuándo:** no corre prisa. Va en el bloque de actualización de dependencias, junto con H44 (react-router 7)
+  y vite/vitest. Es un hallazgo aparte de H44.
+
+### H47 · MEDIA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Mi cuenta: campos sin etiqueta, poco contraste y dos `<main>`
+
+Encontrado al revisar H43 con axe en `/cuenta`. El E2E de accesibilidad no pasa por esta página, porque hace
+falta una sesión.
+- **Crítico (`label`):** en "Mis Datos", los campos "Nombre completo" y "Correo electrónico" tienen un
+  `<label>` sin `htmlFor`, y el campo no tiene `id`: un lector de pantalla los anuncia sin nombre. Los de
+  contraseña se salvan por el `placeholder`. **Arreglo:** `id` en cada campo y `htmlFor` en su etiqueta.
+- **Grave (`color-contrast`):** la etiqueta "Contraseña actual (Solo requerida si…)" usa `--accent-color`
+  (#B38A70): 2,76:1 sobre el fondo (AA pide 4,5). **Arreglo:** `--accent-text`, como en el resto de la web
+  (`Profile.css`, `.form-group-clean.form-group-security label`). En oscuro pasa.
+- **Moderado (`landmark-*`):** `Profile.jsx` tiene un `<main className="profile-tab-content">` dentro del
+  `<main id="contenido">` de `App.jsx`. **Arreglo:** cambiarlo por un `<div>` o un `<section>`, comprobando
+  antes el CSS.
+- **Además:** añadir `/cuenta` (con sesión simulada) al E2E de accesibilidad.
+
+### H48 · MEDIA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · El enlace del aviso de cookies tiene poco contraste
+
+- El enlace "Política de Privacidad" del aviso de cookies usa `--accent-color` (#B38A70) sobre `--card-bg`:
+  2,97:1 en modo claro (AA pide 4,5). axe lo marca como grave.
+- Lo ve toda persona que entra por primera vez. Se escapó porque el E2E de accesibilidad cierra el aviso
+  antes de pasar axe.
+- **Arreglo:** `color: var(--accent-text)` en `.cookie-banner p a` (`CookieConsent.css`). Y pasar axe una
+  vez con el aviso abierto.
+
+### H49 · BAJA · RENDIMIENTO · PENDIENTE (5 oct 2026) · Las cuatro fotos del hero se descargan al cargar la portada
+
+- Las tres fotos que no se ven llevan `loading="lazy"`, pero están apiladas dentro de la pantalla (con
+  `opacity: 0`), así que el navegador las pide igualmente. Comprobado en Chromium al hacer H42: a cualquier
+  ancho se piden las cuatro.
+- Con H42 son 400 KB en el móvil (antes 1 223 KB), pero tres de las cuatro fotos no se ven hasta pasados
+  5,5 s, 11 s y 16,5 s.
+- **Propuesta:** poner la foto de cada diapositiva solo cuando le toque, o cuando le toque a la anterior,
+  para que esté lista. Ojo con el fundido: la siguiente tiene que estar descargada antes de mostrarse.
+
+### H50 · BAJA · USABILIDAD · PENDIENTE (5 oct 2026) · "Mis pedidos" del pie, sin sesión, acaba en la portada
+
+- Sin sesión, los enlaces "Mi cuenta" y "Mis pedidos" del pie apuntan a `/login`, no a `/cuenta`. Así no
+  pasan por `ProtectedRoute` y no llevan la ruta (H45): tras entrar, se va a la portada.
+- **Arreglo:** que apunten siempre a `/cuenta` y `/cuenta?tab=pedidos`. Sin sesión, `ProtectedRoute` ya manda
+  al login con la vuelta preparada. Hay que cambiar los tests del pie que esperan `/login`.
+
+**Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la próxima sesión.
+
+### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
+
+- **Qué pasa:**
+  - Algunas copias antiguas de `server/migrations/` no coinciden byte a byte con `schema_migrations`.
+  - A3 (`20261001220000`) se registró con `\r\n`, y el repositorio la guarda con `\n`.
+  - Los 10 archivos de `20260922115443` a `20261001212500` tienen un salto de línea final que lo registrado no
+    tiene.
+  - El contenido es idéntico: solo cambian los finales de línea. Lo explica `server/migrations/README.md`.
+- **Los archivos copia que ya existen no se tocan:** tienen que coincidir con lo registrado en Supabase, y lo
+  registrado no se puede cambiar.
+- **Solución propuesta:** un `.gitattributes` en la raíz con `* text=auto eol=lf` y patrones binarios para las
+  imágenes (`*.png`, `*.jpg`, `*.webp`, `*.ico binary`).
+  - Las migraciones nuevas, con `\n`. Si Supabase guarda otra cosa, el archivo copia lo sigue.
+- **Comprobado el 5 oct:** el `.gitattributes` de la raíz ya existe desde la tarea 7 (`cf024c1`), con
+  `* text=auto eol=lf`. Por eso A3 no puede guardarse con `\r\n` en el repositorio.
+  - Lo que falta es solo añadir los patrones binarios explícitos. Hoy `text=auto` ya los detecta, así que es un
+    seguro, no un arreglo.
+- **Cuándo:** tarea pequeña, en la próxima sesión técnica.
+- **Cerrado sin cambios (decisión del usuario, 5 oct):**
+  - el `.gitattributes` ya funciona;
+  - los 10 archivos con un salto final de más son ruido irrelevante: el texto es el mismo, y el README explica
+    cómo comprobarlos;
+  - no se añaden los patrones binarios.
+
+### H52 · MANUAL · CERRADO, NO PRIORITARIO (5 oct 2026) · Recuperar el `CREATE TABLE` de las tablas base
+
+- **Qué falta:** las migraciones iniciales, es decir, la creación de `muebles`, `categorias`, `clientes` y
+  `pedidos` (lo que queda de H38).
+- **Cómo:** lo hace el usuario a mano, con permisos de lectura de la estructura de la base de datos.
+  - Desde el Table Editor de Supabase, el SQL de cada tabla.
+  - O con una consulta.
+  - La cadena de conexión de la base de datos no se pasa a los agentes: da acceso total. Para lo demás ya está el
+    MCP de Supabase.
+- **Ojo, comprobado al anotarlo:**
+  - **`pg_get_tabledef` no es una función de PostgreSQL estándar.** Existen `pg_get_indexdef`,
+    `pg_get_constraintdef`, `pg_get_triggerdef` y `pg_get_viewdef`, pero no hay una para la tabla entera.
+    Salvo que el proyecto tenga una extensión que la añada, esa consulta dará error. El Table Editor sí sirve.
+  - **Estas tablas no tienen fila en `schema_migrations`:** ya existían antes de la primera migración
+    (`20260903091725`), así que no tienen "timestamp real".
+    - Para guardarlas en `server/migrations/` con nombre ordenado, haría falta una versión anterior, por
+      ejemplo `20260903000000_esquema_base.sql`.
+    - Y documentarlas en el README como no registradas: no se pueden comprobar por MD5.
+- **No bloquea nada.**
+- **Cerrado como no prioritario (decisión del usuario, 5 oct):**
+  - las cuatro tablas funcionan, y sus columnas están documentadas en `docs/tarea3-diseno.md` y en los informes;
+  - el `CREATE TABLE` exacto no aporta nada nuevo, y no se puede comprobar contra nada;
+  - se hará cuando alguien tenga la conexión delante.
+- **No van a `server/migrations/`:** no tienen versión en `schema_migrations`, y meterlas llenaría el historial
+  de archivos que no se pueden comprobar. El esquema base vive en Supabase.
 
 ## Decisiones de diseño a recordar
 

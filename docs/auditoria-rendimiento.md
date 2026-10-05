@@ -60,6 +60,9 @@ sale al pulsar "Confirmar Pedido". Los tests de `CartDrawer` siguen en verde sin
      quedar en unos 80-120 KB cada una.
    - **Por qué no se ha hecho:** el ImageMagick del contenedor no escribe WebP, y no se han querido subir
      imágenes generadas con otra herramienta sin verlas.
+   - **Hecho el 5 oct (H42, `498e0c3`):** con `sharp` (el del servidor), versiones de 800 y 1200 px revisadas a
+     ojo, en un `<picture>`. En el móvil, las cuatro fotos pasan de 1 223 a 400 KB. Las cuatro se siguen
+     descargando al cargar, aunque tres no se vean: H49.
 2. **`hero-showroom.webp` es vertical** (1200×1600), pero el hero de escritorio es apaisado: se recorta más de
    la mitad de la foto, y se descarga entera. Mejor una versión apaisada.
 3. **Fuentes:** van desde Google Fonts con `preconnect` y `display=swap`, que es lo correcto. Se piden

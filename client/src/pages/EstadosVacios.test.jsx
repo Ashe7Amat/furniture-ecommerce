@@ -47,6 +47,7 @@ beforeEach(() => {
   localStorage.clear();
 });
 
+// CAMBIADO A PROPÓSITO (5 oct 2026, H43): el nombre de cada pieza del catálogo es un h2 (antes h3).
 describe('Catálogo — estados vacíos (H40)', () => {
   it('una categoría sin piezas ofrece "Ver todo el catálogo", que quita el filtro y enseña todo', async () => {
     const user = userEvent.setup();
@@ -56,8 +57,8 @@ describe('Catálogo — estados vacíos (H40)', () => {
     await user.click(screen.getByRole('button', { name: 'Ver todo el catálogo' }));
 
     expect(screen.getByTestId('ruta')).toHaveTextContent(/^\/catalogo$/);
-    expect(await screen.findByRole('heading', { level: 3, name: 'Aparador' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: 'Banco' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Aparador' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Banco' })).toBeInTheDocument();
   });
 
   it('sin favoritos: corazón en vez de caja y "Explorar catálogo", que lleva al catálogo completo', async () => {
@@ -69,20 +70,20 @@ describe('Catálogo — estados vacíos (H40)', () => {
     await user.click(screen.getByRole('button', { name: 'Explorar catálogo' }));
 
     expect(screen.getByTestId('ruta')).toHaveTextContent(/^\/catalogo$/);
-    expect(await screen.findByRole('heading', { level: 3, name: 'Aparador' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Aparador' })).toBeInTheDocument();
   });
 
   it('"Ver todo el catálogo" también quita el filtro "Disponible"', async () => {
     const user = userEvent.setup();
     await montarCatalogo('/catalogo?categoria=Sillas');
-    expect(await screen.findByRole('heading', { level: 3, name: 'Banco' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 2, name: 'Banco' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: 'Disponible' }));
     expect(screen.getByRole('heading', { name: 'No hay productos en esta categoría' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Ver todo el catálogo' }));
 
     expect(screen.getByRole('checkbox', { name: 'Disponible' })).not.toBeChecked();
-    expect(screen.getByRole('heading', { level: 3, name: 'Banco' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Banco' })).toBeInTheDocument();
   });
 
   it('si el catálogo entero está vacío no hay filtro que quitar: sin botón', async () => {

@@ -206,7 +206,7 @@ export default function Profile() {
                     <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="favorite-mini-card">
                       <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
                       <div className="fav-mini-info">
-                        <h4>{mueble.nombre}</h4>
+                        <h3>{mueble.nombre}</h3>
                         <p>{textoPrecio(mueble)}</p>
                       </div>
                     </Link>
