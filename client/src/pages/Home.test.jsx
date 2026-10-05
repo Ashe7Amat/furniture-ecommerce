@@ -56,6 +56,44 @@ describe('Home — hero', () => {
   });
 });
 
+describe('Home — fotos del hero por tamaño de pantalla (H42)', () => {
+  it('cada foto es un <picture>: 800 px en el móvil, 1200 px hasta 1200 de pantalla y el original por encima', async () => {
+    await renderHome();
+    const fotos = [...document.querySelectorAll('.hero-image-box picture')].map((picture) => ({
+      fuentes: [...picture.querySelectorAll('source')].map((s) => [s.getAttribute('media'), s.getAttribute('srcset')]),
+      img: picture.querySelector('img.hero-slide-img').getAttribute('src')
+    }));
+
+    const MOVIL = '(max-width: 767.98px)';
+    const TABLETA = '(max-width: 1200px)';
+    expect(fotos).toEqual([
+      {
+        fuentes: [[MOVIL, '/img/hero-almacen-800.webp'], [TABLETA, '/img/hero-almacen-1200.webp']],
+        img: '/img/hero-almacen.webp'
+      },
+      {
+        fuentes: [[MOVIL, '/img/hero-aerea-800.webp'], [TABLETA, '/img/hero-aerea-1200.webp']],
+        img: '/img/hero-aerea.webp'
+      },
+      {
+        fuentes: [[MOVIL, '/img/hero-sillones-800.webp'], [TABLETA, '/img/hero-sillones-1200.webp']],
+        img: '/img/hero-sillones.webp'
+      },
+      // Vertical y de 1200 de ancho: sin versión de 1200, hasta 1200 de pantalla sirve el original.
+      { fuentes: [[MOVIL, '/img/hero-showroom-800.webp']], img: '/img/hero-showroom.webp' }
+    ]);
+  });
+
+  it('la primera foto sigue pidiéndose con prioridad alta y sin carga diferida; las demás, diferidas', async () => {
+    await renderHome();
+    const imgs = [...document.querySelectorAll('.hero-slide-img')];
+
+    expect(imgs[0]).toHaveAttribute('fetchpriority', 'high');
+    expect(imgs[0]).not.toHaveAttribute('loading');
+    expect(imgs.slice(1).every((img) => img.getAttribute('loading') === 'lazy')).toBe(true);
+  });
+});
+
 describe('Home — categorías (accesibilidad)', () => {
   it('cada categoría general es un enlace a su catálogo, con su nombre (la foto no lo repite)', async () => {
     getCategorias.mockResolvedValue([
