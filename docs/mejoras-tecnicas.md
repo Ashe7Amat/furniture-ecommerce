@@ -21,6 +21,7 @@ bloque C (`MOSTRAR_PRECIOS`), en otra sesión.
 | Agrupación (1/3): copia de seguridad de las 52 fichas afectadas | `20261002193936` | `respaldo_agrupacion_muebles` | ✅ Aplicada en BD (2 oct, 19:39 UTC) |
 | Agrupación (2/3): las 15 fichas principales reciben las fotos de su grupo; 2 cambian de nombre | `20261002200855` | `agrupar_fichas_juntar_fotos` | ✅ Aplicada en BD (2 oct, 20:08 UTC) |
 | Agrupación (3/3): borrar las 37 fichas restantes (114 → 77) | — (no consta en `schema_migrations`) | — | ✅ Ejecutada por el cliente en el SQL Editor (2 oct): `apply_migration` se colgaba con `DELETE`. SQL y reversión en `docs/agrupar-fichas-propuesta.md` |
+| Tabla `mensajes_contacto` (panel de mensajes de contacto) | `20261005002322` | `create_mensajes_contacto` | ✅ Aplicada en BD (5 oct, 00:23 UTC) |
 
 **Códigos aplicados en las 12 categorías:**
 ILU (7), MOB (17), DEC (18), PIE (19), SIL (20), MES (21), PUE (22), OBJ (23), PLA (24), BAU (25), BID (26), JUG (27).
@@ -126,13 +127,14 @@ En `feature/mejoras-tecnicas`, sin merge (producción sigue en `fd9e5ab`). Infor
 |---|---|---|
 | 1. Exportar el catálogo a CSV (`GET /api/admin/muebles/export` + botón en el inventario) | ✅ Hecha | `ab71e84` |
 | 2. Importar el catálogo desde CSV (`POST /api/admin/muebles/import`, previsualizar y aplicar, + modal) | ✅ Hecha | `8787838` |
-| 3. Panel de mensajes de contacto | ⏸️ Código hecho; **migración `mensajes_contacto` SIN aplicar** (`server/migrations/PENDIENTE_create_mensajes_contacto.sql`, pasos en `docs/propuesta-mensajes-contacto.md`) | `c4076cb` |
+| 3. Panel de mensajes de contacto | ✅ Hecha. Migración `mensajes_contacto` aplicada el 5 oct 2026, versión `20261005002322` (`server/migrations/20261005002322_create_mensajes_contacto.sql`; detalles en `docs/propuesta-mensajes-contacto.md`) | `c4076cb`, `45cdc96` |
 | 4. Auditoría técnica (solo lectura) | ✅ Hecha: `docs/auditoria-tecnica.md` | `d9e0920` |
 | 5. Tests E2E con Playwright (10 tests, job de CI no bloqueante) | ✅ Hecha: `docs/testing-e2e.md` | `5ef4801` |
 | 6. Mejoras visuales, solo CSS (4 bloques) | ✅ Hecha, con lo que no se puede sin JSX anotado en H40 | `3eb38f2`, `3afa24f`, `b258ea6`, `ed06140` |
 
-- **Antes de mergear:** aplicar la migración de `mensajes_contacto` (con permiso). Sin ella, el formulario de
-  contacto funciona igual que hoy, pero la pestaña "Mensajes" dice que no puede cargarlos.
+- **Migración `mensajes_contacto`:** aplicada el 5 oct 2026 con permiso, versión `20261005002322`. La copia del
+  repositorio coincide byte a byte con `schema_migrations` (mismo MD5). RLS activa, sin políticas, con sus dos
+  índices.
 - **Mutantes del panel:** 127 (126 detectados + 1 esperado), igual que antes, comprobado después de las tareas
   1-3 (`c4076cb`).
 - **Cambios de comportamiento a propósito:**

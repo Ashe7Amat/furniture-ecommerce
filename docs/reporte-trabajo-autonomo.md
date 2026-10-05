@@ -2,6 +2,11 @@
 
 Rama `feature/mejoras-tecnicas`, desde `8d3cc34`. Trabajo sin el usuario, que estaba con un tema de DNS.
 
+> **Actualización (5 oct 2026):** la migración `mensajes_contacto` ya está aplicada, con autorización del
+> usuario, como versión `20261005002322`. Los archivos se llaman ahora
+> `server/migrations/20261005002322_create_mensajes_contacto.sql` y `.down.sql`. Con eso, la tarea 3 queda
+> completa. El resto del informe describe el estado al cerrar el bloque, el 4 oct.
+
 ## En resumen
 
 - **Hechas:** 6 de las 7 tareas.
@@ -50,7 +55,7 @@ f451247 docs: ejemplo e instrucciones de uso en la lista de duplicados
 |---|---|---|---|
 | 1 | Exportar catálogo a CSV | ✅ | `ab71e84` |
 | 2 | Importar catálogo desde CSV | ✅ | `8787838` |
-| 3 | Panel de mensajes de contacto | ⏸️ Código y tests hechos; **migración sin aplicar** | `c4076cb` |
+| 3 | Panel de mensajes de contacto | ✅ Código y tests hechos; migración aplicada el 5 oct (`20261005002322`) | `c4076cb` |
 | 4 | Auditoría técnica | ✅ | `d9e0920` |
 | 5 | Tests E2E con Playwright | ✅ | `5ef4801` |
 | 6 | Mejoras visuales (solo CSS) | ✅ (lo que necesita JSX, anotado en H39 y H40) | `3eb38f2`, `3afa24f`, `b258ea6`, `ed06140` |
@@ -97,10 +102,10 @@ f451247 docs: ejemplo e instrucciones de uso en la lista de duplicados
 
 ### 3. Panel de mensajes de contacto (`c4076cb`): parada en la migración
 
-- **Migración preparada y SIN aplicar:** `server/migrations/PENDIENTE_create_mensajes_contacto.sql` y
-  `.down.sql`, con exactamente lo pedido (tabla, RLS sin políticas y dos índices).
-  - Pasos para aplicarla y comprobarla: `docs/propuesta-mensajes-contacto.md`.
-  - Después de aplicarla, los dos archivos se renombran con la versión que asigne Supabase.
+- **Migración:** con exactamente lo pedido (tabla, RLS sin políticas y dos índices). Al cerrar el bloque quedó sin
+  aplicar, con el prefijo `PENDIENTE_`. Se aplicó el 5 oct, con autorización, como versión `20261005002322`.
+  - Ahora: `server/migrations/20261005002322_create_mensajes_contacto.sql` y `.down.sql`.
+  - Comprobaciones y resultado: `docs/propuesta-mensajes-contacto.md`.
 - **Servidor:**
   - `POST /api/contacto` guarda el mensaje antes del correo.
   - `GET /api/admin/mensajes` devuelve los 500 más recientes. El tope es decisión mía, para que la respuesta no
@@ -114,9 +119,9 @@ f451247 docs: ejemplo e instrucciones de uso en la lista de duplicados
   - el formulario responde 200 si el mensaje se guardó, aunque falle el correo. Antes, 502; ahora el 502 queda
     para cuando fallan las dos cosas;
   - el orden de la barra lateral tiene una pestaña más.
-- **Si se despliega sin la migración:** el formulario de contacto funciona igual que hoy (el guardado falla, se
-  apunta en el log sin datos personales y el correo sale). La pestaña "Mensajes" dice "No se pudieron cargar los
-  mensajes."
+- **Si faltara la tabla:** el formulario de contacto seguiría funcionando (el guardado falla, se apunta en el log
+  sin datos personales y el correo sale), y la pestaña "Mensajes" diría "No se pudieron cargar los mensajes."
+  Desde el 5 oct la tabla existe.
 - **De paso:** los tests que llegan al controlador de contacto ahora usan el doble de Supabase. Sin eso, el
   insert nuevo habría salido a la red en los tests. La CI dice, con razón, que ningún test toca la base de datos.
 - **Commit:** con la nota "pendiente de migración" en el título, como permitía el encargo, para no perder el
@@ -242,8 +247,7 @@ Los umbrales no se han tocado.
 
 ## Lo que necesita al usuario
 
-1. **Autorizar la migración `mensajes_contacto`** (`docs/propuesta-mensajes-contacto.md`), mejor antes del próximo
-   merge a `main`. Son 486 bytes, sin `DELETE`; debería entrar con `apply_migration` a la primera.
+1. ~~**Autorizar la migración `mensajes_contacto`**~~. Hecho: autorizada y aplicada el 5 oct (`20261005002322`).
 2. **Decidir el merge** de estos 10 commits. Llevan código nuevo de servidor (las rutas del CSV y de los mensajes)
    y de cliente (dos modales, una pestaña y los estilos).
 3. **Revisar las decisiones de la importación CSV** (tarea 2): rechazar las filas con referencia, aceptar solo
@@ -258,6 +262,7 @@ Los umbrales no se han tocado.
 - **`main` no se ha tocado:** `origin/main` y `main` siguen en `fd9e5ab`, el merge del 4 oct a las 16:29 UTC.
   Desde entonces no hay ningún commit nuevo en `main`. Todos los push de este bloque han ido a
   `feature/mejoras-tecnicas`.
-- **La migración `mensajes_contacto` NO se ha aplicado:** en este bloque no se ha hecho ninguna llamada a Supabase,
-  ni `apply_migration` ni `execute_sql`, ni siquiera de lectura. Los archivos llevan el prefijo `PENDIENTE_`.
+- **La migración `mensajes_contacto` no se aplicó durante el bloque:** en el bloque no se hizo ninguna llamada a
+  Supabase, ni `apply_migration` ni `execute_sql`, ni siquiera de lectura. Se aplicó después, el 5 oct, con
+  autorización (`20261005002322`).
 - **Vercel tampoco se ha tocado:** ni variables ni despliegues.

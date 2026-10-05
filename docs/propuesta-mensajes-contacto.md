@@ -1,7 +1,7 @@
-# Panel de mensajes de contacto — migración pendiente
+# Panel de mensajes de contacto
 
-> **Estado (4 oct 2026): código hecho y probado en la rama; migración SIN aplicar.** No se ha tocado la base de
-> datos. Hace falta la autorización expresa del usuario para aplicarla.
+> **Estado (5 oct 2026): migración aplicada**, con autorización del usuario, como versión `20261005002322`
+> (`create_mensajes_contacto`). El resultado de las comprobaciones está al final de este documento.
 
 ## Qué hace
 
@@ -19,20 +19,19 @@
   - Al pulsar una fila se abre el mensaje entero, con el email como enlace para responder y el botón "Marcar
     como leído".
 
-## Qué pasa si se despliega sin la migración
+## Si la tabla faltara
 
-- **El formulario de contacto funciona igual que hoy.** El guardado falla, se apunta en el log y el correo sale
-  como siempre.
-- **La pestaña "Mensajes" dice "No se pudieron cargar los mensajes."** Cada vez que se abre el panel hay una
-  petición que responde 500 (con un error en el log de Vercel).
-
-Por eso **conviene aplicar la migración antes del merge a `main`**.
+Ya no es el caso: la migración se aplicó antes del merge a `main`. Si la tabla faltara (por ejemplo, en una base
+de datos nueva sin esta migración):
+- **El formulario de contacto seguiría funcionando.** El guardado fallaría, se apuntaría en el log y el correo
+  saldría como siempre.
+- **La pestaña "Mensajes" diría "No se pudieron cargar los mensajes."**
 
 ## La migración
 
-Archivo: `server/migrations/PENDIENTE_create_mensajes_contacto.sql`, y su reversión en `.down.sql`. Al
-aplicarla con `apply_migration`, Supabase pone la versión. Después hay que renombrar los dos archivos a
-`<versión>_create_mensajes_contacto.sql` y comprobar que la copia coincide byte a byte con
+Archivo: `server/migrations/20261005002322_create_mensajes_contacto.sql`, y su reversión en `.down.sql`. Se
+aplicó con `apply_migration`, que asignó la versión `20261005002322`. Después se renombraron los dos archivos
+(antes llevaban el prefijo `PENDIENTE_`). La copia coincide byte a byte con
 `supabase_migrations.schema_migrations`, como las demás.
 
 ```sql
@@ -53,7 +52,7 @@ ALTER TABLE public.mensajes_contacto ENABLE ROW LEVEL SECURITY;
 `service_role`. Es el mismo patrón que `refresh_tokens`.
 
 Ocupa 486 bytes. Las migraciones de más de unos 2 KB se colgaban con `apply_migration` (ver
-`docs/agrupar-fichas-propuesta.md`), pero esta cabe y no lleva `DELETE`.
+`docs/agrupar-fichas-propuesta.md`), pero esta cabía y no lleva `DELETE`: entró a la primera.
 
 ## Comprobaciones después de aplicarla (solo lectura)
 
@@ -68,3 +67,12 @@ Ocupa 486 bytes. Las migraciones de más de unos 2 KB se colgaban con `apply_mig
    MD5 coincide con el archivo del repositorio.
 5. **Funciona de extremo a extremo** (después del merge): un mensaje de prueba desde `/contacto` aparece en la
    pestaña "Mensajes" sin leer, y al marcarlo como leído cambia la insignia.
+
+**Resultado (5 oct 2026):**
+- **RLS:** activa.
+- **Políticas:** 0.
+- **Índices:** `mensajes_contacto_pkey`, `mensajes_contacto_leido_idx` y `mensajes_contacto_created_at_idx`.
+- **Columnas:** 6.
+- **Registro:** consta en `schema_migrations` como `20261005002322` / `create_mensajes_contacto`. Su MD5,
+  `142abae3532f1684e28c8a940acb3d9b`, es el mismo que el del archivo.
+- **Prueba de extremo a extremo (punto 5):** queda para después del despliegue.

@@ -2,8 +2,8 @@ const supabase = require('../data/supabase');
 
 // Panel "Mensajes": los mensajes del formulario de contacto guardados en mensajes_contacto (ver
 // contactoController.js). Solo para administradores (verificarAdmin en adminRoutes.js).
-// PENDIENTE DE MIGRACIÓN: la tabla se crea con server/migrations/PENDIENTE_create_mensajes_contacto.sql,
-// que todavía no se ha aplicado. Mientras tanto, estas rutas responden 500 y el panel lo dice.
+// La tabla se crea con server/migrations/20261005002322_create_mensajes_contacto.sql (aplicada el
+// 5 oct 2026).
 
 const COLUMNAS_MENSAJE = 'id, nombre, email, mensaje, leido, created_at';
 // Los más recientes primero, y un tope para que la lista no crezca sin fin en una sola respuesta.
