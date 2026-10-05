@@ -155,7 +155,9 @@ describe('CartDrawer — confirmar pedido', () => {
 
     await user.click(screen.getByText('Confirmar Pedido'));
 
-    expect(screen.getByText('Iniciar Sesión')).toBeInTheDocument();
+    // Los modales se cargan bajo demanda (React.lazy, auditoría de rendimiento del 5 oct): se espera
+    // a que llegue el chunk en vez de dar por hecho que ya está.
+    expect(await screen.findByText('Iniciar Sesión')).toBeInTheDocument();
     expect(screen.queryByText('Finalizar Pago')).not.toBeInTheDocument();
   });
 
@@ -165,7 +167,7 @@ describe('CartDrawer — confirmar pedido', () => {
 
     await user.click(screen.getByText('Confirmar Pedido'));
 
-    expect(screen.getByText('Finalizar Pago')).toBeInTheDocument();
+    expect(await screen.findByText('Finalizar Pago')).toBeInTheDocument();
     expect(screen.queryByText('Iniciar Sesión')).not.toBeInTheDocument();
   });
 });
