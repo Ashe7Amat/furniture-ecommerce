@@ -6,17 +6,21 @@ import { formatPrice } from '../../../utils/format';
 const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
 const ETIQUETA_ESTADO_PEDIDO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
 
-// Pestaña "Pedidos". La lista y el filtro viven en el contenedor: la lista la usa también la
-// insignia de pendientes de la barra lateral, y el filtro se conserva al cambiar de pestaña.
-const PedidosTab = ({ pedidos, setPedidos, filtroEstadoPedido, setFiltroEstadoPedido, cargarPedidos }) => {
+// Pestaña "Pedidos". La lista y el filtro viven en el contenedor: el filtro se conserva al cambiar
+// de pestaña. H37: la lista es una página (20 pedidos) que el servidor ya ha filtrado por estado;
+// `infoPedidos` trae el total de ese filtro y la página. El filtro se aplica también aquí para que
+// un pedido que cambia a otro estado salga de la lista al momento, sin recargar.
+const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstado, filtroEstadoPedido, setFiltroEstadoPedido, cargarPedidos }) => {
   const { showToast } = useContext(ToastContext);
   const pedidosFiltrados = filtroEstadoPedido ? pedidos.filter(p => p.estado === filtroEstadoPedido) : pedidos;
 
   const handleCambiarEstadoPedido = async (id, nuevoEstado) => {
+    const estadoAnterior = pedidos.find(p => p.id === id)?.estado;
     const res = await actualizarEstadoPedido(id, nuevoEstado);
     if (res) {
       showToast('Estado del pedido actualizado', 'success');
       setPedidos(prev => prev.map(p => (p.id === id ? { ...p, estado: nuevoEstado } : p)));
+      ajustarTrasCambioDeEstado(estadoAnterior, nuevoEstado);
     } else {
       showToast('Error al actualizar el estado del pedido', 'error');
     }
@@ -26,7 +30,7 @@ const PedidosTab = ({ pedidos, setPedidos, filtroEstadoPedido, setFiltroEstadoPe
     <div className="admin-view fade-in">
       <div className="admin-view-head">
         <h2>Pedidos</h2>
-        <p>{pedidosFiltrados.length} de {pedidos.length} pedidos</p>
+        <p>{pedidosFiltrados.length} de {infoPedidos.total} pedidos</p>
       </div>
 
       <div className="admin-toolbar">
@@ -41,7 +45,7 @@ const PedidosTab = ({ pedidos, setPedidos, filtroEstadoPedido, setFiltroEstadoPe
 
       {pedidosFiltrados.length === 0 ? (
         <p className="admin-empty-note">
-          {pedidos.length === 0
+          {!filtroEstadoPedido && infoPedidos.total === 0
             ? 'Todavía no se ha registrado ningún pedido.'
             : 'No hay pedidos que coincidan con este filtro.'}
         </p>
@@ -100,6 +104,14 @@ const PedidosTab = ({ pedidos, setPedidos, filtroEstadoPedido, setFiltroEstadoPe
               </div>
             );
           })}
+        </div>
+      )}
+
+      {infoPedidos.totalPaginas > 1 && (
+        <div className="admin-pagination">
+          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina - 1 })} disabled={infoPedidos.pagina <= 1}>← Anterior</button>
+          <span>Página {infoPedidos.pagina} de {infoPedidos.totalPaginas}</span>
+          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
         </div>
       )}
     </div>

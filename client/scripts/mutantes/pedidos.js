@@ -15,22 +15,25 @@ export const MUTANTES = [
     reemplazo: 'const pedidosFiltrados = pedidos;'
   },
   {
+    // H37 (5 oct 2026): el total viene del servidor; el primer número sigue siendo el de la lista filtrada.
     nombre: 'el recuento de la cabecera no tiene en cuenta el filtro',
     archivo: 'src/pages/admin/pestanas/PedidosTab.jsx',
-    buscar: '<p>{pedidosFiltrados.length} de {pedidos.length} pedidos</p>',
-    reemplazo: '<p>{pedidos.length} de {pedidos.length} pedidos</p>'
+    buscar: '<p>{pedidosFiltrados.length} de {infoPedidos.total} pedidos</p>',
+    reemplazo: '<p>{pedidos.length} de {infoPedidos.total} pedidos</p>'
   },
   {
+    // H37 (5 oct 2026): getPedidos devuelve una página ({ pedidos, total, ... }) o null.
     nombre: 'si getPedidos no devuelve una lista, se guarda tal cual',
     archivo: 'src/pages/admin/hooks/useAdminDatos.js',
-    buscar: 'setPedidos(Array.isArray(data) ? data : []);',
-    reemplazo: 'setPedidos(data);'
+    buscar: 'setPedidos(Array.isArray(data?.pedidos) ? data.pedidos : []);',
+    reemplazo: 'setPedidos(data?.pedidos ?? data);'
   },
   {
+    // H37 (5 oct 2026): sin filtro y con total 0 es "todavía no hay pedidos"; con filtro, no.
     nombre: 'con un filtro vacío dice "todavía no hay pedidos"',
     archivo: 'src/pages/admin/pestanas/PedidosTab.jsx',
-    buscar: '{pedidos.length === 0\n',
-    reemplazo: '{pedidosFiltrados.length === 0\n'
+    buscar: '{!filtroEstadoPedido && infoPedidos.total === 0\n',
+    reemplazo: '{infoPedidos.total === 0\n'
   },
   {
     nombre: 'el orden de los estados cambia',

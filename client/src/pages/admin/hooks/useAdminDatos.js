@@ -1,12 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getMuebles, getCategorias, getPedidos, getMensajes } from '../../../services/api';
 
 // Los listados del panel y cómo se recargan. Viven en el contenedor (Admin.jsx) porque los usan
 // varias pestañas y las insignias de la barra lateral (pedidos pendientes, mensajes sin leer).
-const useAdminDatos = (user) => {
+// H37: los pedidos llegan por páginas, ya filtrados por estado en el servidor. `infoPedidos` guarda
+// lo que no está en la página: el total de ese filtro, la página y los pendientes de toda la
+// historia (la insignia y el Resumen no pueden contarlos solo con la página que se ve).
+const SIN_PEDIDOS = { total: 0, pagina: 1, totalPaginas: 1, pendientes: 0 };
+
+const useAdminDatos = (user, filtroEstadoPedido = '') => {
   const [muebles, setMuebles] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [pedidos, setPedidos] = useState([]);
+  const [infoPedidos, setInfoPedidos] = useState(SIN_PEDIDOS);
+  const paginaPedidos = useRef(1);
   const [mensajes, setMensajes] = useState([]);
   // true si la última carga de mensajes falló (p. ej. sin la tabla mensajes_contacto): la pestaña
   // lo dice en vez de enseñar una lista vacía como si no hubiera ninguno.
@@ -24,9 +31,30 @@ const useAdminDatos = (user) => {
     setCategorias(data);
   };
 
-  const cargarPedidos = async () => {
-    const data = await getPedidos();
-    setPedidos(Array.isArray(data) ? data : []);
+  // Sin página (el botón "Actualizar" pasa el evento del clic), vuelve a pedir la que se ve.
+  const cargarPedidos = async (opciones) => {
+    const pagina = Number.isInteger(opciones?.pagina) ? opciones.pagina : paginaPedidos.current;
+    const data = await getPedidos({ pagina, estado: filtroEstadoPedido });
+    setPedidos(Array.isArray(data?.pedidos) ? data.pedidos : []);
+    paginaPedidos.current = data?.pagina || pagina;
+    setInfoPedidos(data && Array.isArray(data.pedidos) ? {
+      total: data.total ?? 0,
+      pagina: data.pagina || pagina,
+      totalPaginas: data.totalPaginas || 1,
+      pendientes: data.pendientes ?? 0
+    } : SIN_PEDIDOS);
+  };
+
+  // Tras cambiar el estado de un pedido sin recargar (PedidosTab): los pendientes suben o bajan
+  // uno, y con un filtro puesto, un pedido que sale de ese estado deja de contar en el total.
+  const ajustarTrasCambioDeEstado = (antes, despues) => {
+    setInfoPedidos(info => ({
+      ...info,
+      pendientes: Math.max(0, info.pendientes + (despues === 'procesando' ? 1 : 0) - (antes === 'procesando' ? 1 : 0)),
+      total: filtroEstadoPedido && antes === filtroEstadoPedido && despues !== filtroEstadoPedido
+        ? Math.max(0, info.total - 1)
+        : info.total
+    }));
   };
 
   const cargarMensajes = async () => {
@@ -41,13 +69,20 @@ const useAdminDatos = (user) => {
     if (user) {
       cargarCategorias();
       cargarMuebles();
-      cargarPedidos();
       cargarMensajes();
     }
   }, [user]);
 
+  // Los pedidos, también al cambiar el filtro de estado: se vuelve a la primera página. Como arriba,
+  // lo que se vigila es el usuario y el filtro; cargarPedidos se redefine en cada render.
+  useEffect(() => {
+    if (user) cargarPedidos({ pagina: 1 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, filtroEstadoPedido]);
+
   return {
     muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
   };
 };

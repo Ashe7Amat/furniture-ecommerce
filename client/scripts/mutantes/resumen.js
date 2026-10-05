@@ -30,10 +30,12 @@ export const MUTANTES = [
     reemplazo: 'acc + (m.precio_venta || 0)'
   },
   {
+    // H37 (5 oct 2026): los pendientes los cuenta el servidor (infoPedidos.pendientes); contar todos
+    // los pedidos del filtro sería contar también los de otros estados.
     nombre: 'pedidos por procesar cuenta también otros estados',
     archivo: 'src/pages/Admin.jsx',
-    buscar: "pedidos.filter(p => p.estado === 'procesando').length",
-    reemplazo: "pedidos.filter(p => p.estado !== 'entregado').length"
+    buscar: 'const pedidosPendientes = infoPedidos.pendientes;',
+    reemplazo: 'const pedidosPendientes = infoPedidos.total;'
   },
   {
     nombre: 'desaparece la insignia de pedidos de la barra lateral',

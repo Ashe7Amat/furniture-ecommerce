@@ -37,16 +37,43 @@ const obtenerMisPedidos = async (req, res) => {
   }
 };
 
-// 1. Listar todos los pedidos, más recientes primero. Solo administradores.
+// 1. Listar los pedidos para el panel, más recientes primero, por páginas. Solo administradores.
+//    H37: antes devolvía toda la historia en cada carga. Ahora `page`, `limit` (20 por defecto, como
+//    mucho 100) y un `estado` opcional, ya validados en schemas/pedidos.js. Junto a la página van
+//    el total (con el filtro) y los pendientes ("procesando", sin filtro): la insignia de la barra
+//    lateral y el Resumen los necesitan de toda la historia, no solo de la página que se ve.
+//    Columnas: las que enseña la pestaña Pedidos (PedidosTab.jsx), no select('*') (H36).
+const COLUMNAS_PEDIDOS_PANEL =
+  'id, created_at, estado, total, items, cliente_info, direccion_envio';
+
 const obtenerPedidos = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('pedidos')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { page, limit, estado } = req.query;
+    const desde = (page - 1) * limit;
 
+    let consulta = supabase
+      .from('pedidos')
+      .select(COLUMNAS_PEDIDOS_PANEL, { count: 'exact' })
+      .order('created_at', { ascending: false });
+    if (estado) consulta = consulta.eq('estado', estado);
+    const { data, error, count } = await consulta.range(desde, desde + limit - 1);
     if (error) throw error;
-    res.status(200).json(data);
+
+    const { count: pendientes, error: errorPendientes } = await supabase
+      .from('pedidos')
+      .select('id', { count: 'exact', head: true })
+      .eq('estado', 'procesando');
+    if (errorPendientes) throw errorPendientes;
+
+    const total = count ?? 0;
+    res.status(200).json({
+      pedidos: data || [],
+      total,
+      pagina: page,
+      porPagina: limit,
+      totalPaginas: Math.max(1, Math.ceil(total / limit)),
+      pendientes: pendientes ?? 0
+    });
   } catch (error) {
     console.error('Error al obtener pedidos:', error.message);
     res.status(500).json({ error: 'Error interno al obtener los pedidos.' });

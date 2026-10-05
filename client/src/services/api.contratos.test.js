@@ -101,7 +101,8 @@ describe('contrato C: si falla, []', () => {
     ['getCategorias', () => api.getCategorias()],
     ['buscarMuebles', () => api.buscarMuebles('silla')],
     ['getMisPedidos', () => api.getMisPedidos()],
-    ['getPedidos', () => api.getPedidos()],
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): getPedidos ya no devuelve una lista sino una página
+    // ({ pedidos, total, ... }), y si falla, null: tiene sus tests más abajo.
   ];
 
   it.each(casos)('%s: si va bien, devuelve la lista', async (_nombre, llamar) => {
@@ -117,6 +118,33 @@ describe('contrato C: si falla, []', () => {
   it.each(casos)('%s: si falla la red, []', async (_nombre, llamar) => {
     fetch.mockRejectedValue(new TypeError('Failed to fetch'));
     expect(await llamar()).toEqual([]);
+  });
+});
+
+describe('getPedidos (H37): una página de pedidos del panel, o null si falla', () => {
+  const PAGINA = { pedidos: [{ id: 'p1' }], total: 31, pagina: 2, porPagina: 20, totalPaginas: 2, pendientes: 4 };
+
+  it('si va bien, devuelve la página tal cual', async () => {
+    fetch.mockResolvedValue(respuesta(200, PAGINA));
+    expect(await api.getPedidos({ pagina: 2 })).toEqual(PAGINA);
+  });
+
+  it('pide la página y, si hay, el estado; sin argumentos, la primera sin filtro', async () => {
+    fetch.mockResolvedValue(respuesta(200, PAGINA));
+
+    await api.getPedidos();
+    expect(ultimaPeticion().url).toMatch(/\/pedidos\?page=1$/);
+
+    await api.getPedidos({ pagina: 3, estado: 'enviado' });
+    expect(ultimaPeticion().url).toMatch(/\/pedidos\?page=3&estado=enviado$/);
+  });
+
+  it('si el servidor responde con error o falla la red, null', async () => {
+    fetch.mockResolvedValue(respuesta(500, { error: 'x' }));
+    expect(await api.getPedidos()).toBeNull();
+
+    fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+    expect(await api.getPedidos()).toBeNull();
   });
 });
 
@@ -198,7 +226,8 @@ describe('qué se pide a cada ruta', () => {
     expect(ultimaPeticion().headers.Authorization).toBe('Bearer tk-admin');
 
     await api.getPedidos();
-    expect(ultimaPeticion().url).toMatch(/\/pedidos$/);
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): con la página en la URL.
+    expect(ultimaPeticion().url).toMatch(/\/pedidos\?page=1$/);
     expect(ultimaPeticion().headers.Authorization).toBe('Bearer tk-admin');
   });
 

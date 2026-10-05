@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { getPedidos, actualizarEstadoPedido } from '../services/api';
-import { renderAdmin, irAPestana, barraLateral } from './adminTestUtils';
+import { renderAdmin, irAPestana, barraLateral, respuestaPedidos } from './adminTestUtils';
 
 vi.mock('../services/api');
 
@@ -155,7 +155,10 @@ describe('Pedidos — filtro y recarga', () => {
     await user.selectOptions(filtroEstado(), 'enviado');
 
     expect(referencias()).toEqual(['Ref. FFEE0011']);
-    expect(screen.getByText('1 de 3 pedidos')).toBeInTheDocument();
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): el filtro lo aplica el servidor y el total es el de ese
+    // estado ("1 de 1"), no el de todos los pedidos ("1 de 3").
+    expect(getPedidos).toHaveBeenLastCalledWith({ pagina: 1, estado: 'enviado' });
+    expect(screen.getByText('1 de 1 pedidos')).toBeInTheDocument();
   });
 
   it('si el filtro no deja ninguno, lo dice (distinto de "todavía no hay pedidos")', async () => {
@@ -164,18 +167,108 @@ describe('Pedidos — filtro y recarga', () => {
     await user.selectOptions(filtroEstado(), 'cancelado');
 
     expect(screen.getByText('No hay pedidos que coincidan con este filtro.')).toBeInTheDocument();
-    expect(screen.getByText('0 de 3 pedidos')).toBeInTheDocument();
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): el total es el del filtro ("0 de 0"), no "0 de 3".
+    expect(screen.getByText('0 de 0 pedidos')).toBeInTheDocument();
   });
 
   it('"Actualizar" vuelve a pedir los pedidos a la API', async () => {
     const { user } = await abrirPedidos();
     expect(getPedidos).toHaveBeenCalledTimes(1);
 
-    getPedidos.mockResolvedValue([PEDIDO_MINIMO]);
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): la API devuelve una página, no la lista.
+    getPedidos.mockResolvedValue(respuestaPedidos([PEDIDO_MINIMO]));
     await user.click(screen.getByRole('button', { name: 'Actualizar' }));
 
     await waitFor(() => expect(referencias()).toEqual(['Ref. FFEE0011']));
     expect(getPedidos).toHaveBeenCalledTimes(2);
+  });
+});
+
+// H37: el panel pide los pedidos por páginas de 20 (tests nuevos, no de caracterización).
+describe('Pedidos — paginación (H37)', () => {
+  const muchos = (n) =>
+    Array.from({ length: n }, (_, i) => ({
+      ...PEDIDO_MINIMO,
+      id: `${String(i + 1).padStart(8, '0')}-0000-4000-8000-000000000000`,
+      estado: i % 5 === 0 ? 'procesando' : 'enviado'
+    }));
+
+  it('con 45 pedidos enseña 20, el total y los botones de página; "Siguiente" pide la página 2', async () => {
+    const { user } = await abrirPedidos(muchos(45));
+
+    expect(referencias()).toHaveLength(20);
+    expect(screen.getByText('20 de 45 pedidos')).toBeInTheDocument();
+    expect(screen.getByText('Página 1 de 3')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '← Anterior' })).toBeDisabled();
+    // La insignia cuenta los pendientes de los 45, no los de la página.
+    expect(barraLateral().getByRole('button', { name: /^Pedidos/ })).toHaveTextContent('9');
+
+    await user.click(screen.getByRole('button', { name: 'Siguiente →' }));
+
+    expect(getPedidos).toHaveBeenLastCalledWith({ pagina: 2, estado: '' });
+    await waitFor(() => expect(screen.getByText('Página 2 de 3')).toBeInTheDocument());
+    expect(referencias()[0]).toBe('Ref. 00000021');
+
+    await user.click(screen.getByRole('button', { name: 'Siguiente →' }));
+    await waitFor(() => expect(screen.getByText('Página 3 de 3')).toBeInTheDocument());
+    expect(referencias()).toHaveLength(5);
+    expect(screen.getByRole('button', { name: 'Siguiente →' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: '← Anterior' }));
+    expect(getPedidos).toHaveBeenLastCalledWith({ pagina: 2, estado: '' });
+  });
+
+  it('"Actualizar" recarga la página que se está viendo, no la primera', async () => {
+    const { user } = await abrirPedidos(muchos(45));
+    await user.click(screen.getByRole('button', { name: 'Siguiente →' }));
+    await waitFor(() => expect(screen.getByText('Página 2 de 3')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+    expect(getPedidos).toHaveBeenLastCalledWith({ pagina: 2, estado: '' });
+  });
+
+  it('cambiar el filtro vuelve a la primera página', async () => {
+    const { user } = await abrirPedidos(muchos(45));
+    await user.click(screen.getByRole('button', { name: 'Siguiente →' }));
+    await waitFor(() => expect(screen.getByText('Página 2 de 3')).toBeInTheDocument());
+
+    await user.selectOptions(filtroEstado(), 'procesando');
+
+    expect(getPedidos).toHaveBeenLastCalledWith({ pagina: 1, estado: 'procesando' });
+    await waitFor(() => expect(screen.getByText('9 de 9 pedidos')).toBeInTheDocument());
+    expect(screen.queryByText(/^Página/)).not.toBeInTheDocument();
+  });
+
+  it('con un filtro, un pedido que sale de ese estado deja de contar en la cabecera', async () => {
+    actualizarEstadoPedido.mockResolvedValue({ ...PEDIDO_COMPLETO, estado: 'enviado' });
+    const { user } = await abrirPedidos();
+    await user.selectOptions(filtroEstado(), 'procesando');
+    expect(screen.getByText('1 de 1 pedidos')).toBeInTheDocument();
+
+    await user.selectOptions(tarjeta('A1B2C3D4').getByRole('combobox'), 'enviado');
+
+    await waitFor(() => expect(screen.getByText('0 de 0 pedidos')).toBeInTheDocument());
+  });
+
+  it('pasar un pedido a "procesando" sube la insignia', async () => {
+    actualizarEstadoPedido.mockResolvedValue({ ...PEDIDO_MINIMO, estado: 'procesando' });
+    const { user } = await abrirPedidos();
+    expect(barraLateral().getByRole('button', { name: /^Pedidos/ })).toHaveTextContent('1');
+
+    await user.selectOptions(tarjeta('FFEE0011').getByRole('combobox'), 'procesando');
+
+    await waitFor(() =>
+      expect(barraLateral().getByRole('button', { name: /^Pedidos/ })).toHaveTextContent('2')
+    );
+  });
+
+  it('con un filtro y sin ningún pedido de ese estado, dice que no hay coincidencias aunque no haya pedidos', async () => {
+    const { user } = await abrirPedidos([]);
+
+    await user.selectOptions(filtroEstado(), 'cancelado');
+
+    await waitFor(() => expect(screen.getByText('No hay pedidos que coincidan con este filtro.')).toBeInTheDocument());
   });
 });
 
