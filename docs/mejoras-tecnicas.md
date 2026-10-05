@@ -2246,6 +2246,16 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
     `//` ni `/\`). Si no, sería justo la redirección abierta de H44.
 - **Cuándo:** en la sesión de usabilidad, junto con H41 y H43.
 
+### H46 · BAJA · CI · PENDIENTE (5 oct 2026) · `actions/checkout@v4` y `actions/setup-node@v4` usan Node 20
+
+- **Qué avisa GitHub** (CI #14, la del merge `035cffa`): esas dos acciones usan Node 20, que está obsoleto
+  en los runners.
+- **Por qué funciona igual:** GitHub las está ejecutando con Node 24, y los tres jobs salieron en verde.
+- **Qué hacer:** cuando se toque `.github/workflows/ci.yml`, subirlas a la v5. Antes, comprobar que la v5
+  existe y qué cambia.
+- **Cuándo:** no corre prisa. Va en el bloque de actualización de dependencias, junto con H44 (react-router 7)
+  y vite/vitest. Es un hallazgo aparte de H44.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
