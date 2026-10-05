@@ -1,16 +1,22 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import { AuthContext } from '../context/AuthContext';
 
 // ProtectedRoute no pinta nada privado hasta que la sesión está confirmada (H16: sin access token,
 // las lecturas del panel saldrían sin Authorization).
-const renderRuta = (valor, { adminOnly = false } = {}) =>
+// El login de prueba enseña lo que le llega en el state (H45).
+const LoginDePrueba = () => {
+  const { state } = useLocation();
+  return <p>página de login (desde: {state?.from ?? 'ninguna'})</p>;
+};
+
+const renderRuta = (valor, { adminOnly = false, ruta = '/privada' } = {}) =>
   render(
     <AuthContext.Provider value={{ login: vi.fn(), logout: vi.fn(), reintentarSesion: vi.fn(), ...valor }}>
-      <MemoryRouter initialEntries={['/privada']}>
+      <MemoryRouter initialEntries={[ruta]}>
         <Routes>
           <Route
             path="/privada"
@@ -20,7 +26,7 @@ const renderRuta = (valor, { adminOnly = false } = {}) =>
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<p>página de login</p>} />
+          <Route path="/login" element={<LoginDePrueba />} />
           <Route path="/" element={<p>portada</p>} />
         </Routes>
       </MemoryRouter>
@@ -61,7 +67,13 @@ describe('ProtectedRoute', () => {
   it('sin sesión, lleva al login', () => {
     renderRuta({ user: null, loading: false });
 
-    expect(screen.getByText('página de login')).toBeInTheDocument();
+    expect(screen.getByText(/^página de login/)).toBeInTheDocument();
+  });
+
+  it('sin sesión, lleva al login con la ruta pedida (y su ?tab=...) en el state, no en la URL (H45)', () => {
+    renderRuta({ user: null, loading: false }, { ruta: '/privada?tab=pedidos' });
+
+    expect(screen.getByText('página de login (desde: /privada?tab=pedidos)')).toBeInTheDocument();
   });
 
   it('una ruta de administración con una cuenta de cliente lleva a la portada', () => {

@@ -86,6 +86,14 @@ export const simularApi = async (page, { usuarios = [ADMIN, CLIENTE] } = {}) => 
     if (metodo === 'POST' && ruta === '/auth/refresh') return json(route, { error: 'Sesión caducada.' }, 401);
     if (metodo === 'POST' && ruta === '/auth/logout') return json(route, { success: true });
 
+    // "Mis pedidos" de la cuenta (H45): con cualquier sesión abierta, sin pedidos.
+    if (metodo === 'GET' && ruta === '/pedidos/mios') {
+      if (!peticion.headers().authorization?.startsWith('Bearer access-')) {
+        return json(route, { error: 'No autorizado.' }, 401);
+      }
+      return json(route, []);
+    }
+
     // Panel de administración: solo con el token del administrador (como verificarAdmin).
     if (ruta.startsWith('/admin/') || ruta === '/pedidos') {
       if (peticion.headers().authorization !== `Bearer access-${ADMIN.id}`) {

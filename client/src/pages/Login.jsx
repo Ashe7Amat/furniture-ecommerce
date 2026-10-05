@@ -1,8 +1,9 @@
 import { useState, useContext, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser, loginConGoogle } from '../services/api';
+import { rutaInterna } from '../utils/rutaInterna';
 import '../styles/Login.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -19,6 +20,10 @@ const Login = () => {
   const { login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  // H45: tras iniciar sesión, de vuelta a la página que se pedía (la pone ProtectedRoute en el state) o,
+  // si no hay ninguna o no es de esta web, a la portada. Con replace, "atrás" no vuelve al login.
+  const irTrasEntrar = () => navigate(rutaInterna(location.state?.from), { replace: true });
 
   // Login real con Google: recibe el token verificado que devuelve el botón oficial
   // de Google y lo manda al servidor para que compruebe la firma y abra la sesión.
@@ -30,7 +35,7 @@ const Login = () => {
     if (res?.success) {
       login(res.user, res.token, res.refreshToken);
       showToast(`¡Hola, ${res.user.nombre}!`, 'success');
-      navigate('/');
+      irTrasEntrar();
     } else {
       showToast(res?.error || 'No se pudo iniciar sesión con Google.', 'error');
     }
@@ -86,7 +91,7 @@ const Login = () => {
       if (res.success) {
         login(res.user, res.token, res.refreshToken);
         showToast(`¡Cuenta creada con éxito! Bienvenido, ${res.user.nombre}`, 'success');
-        navigate('/');
+        irTrasEntrar();
       } else {
         setError(res.error || 'Error al crear la cuenta.');
       }
@@ -95,7 +100,7 @@ const Login = () => {
       if (res.success) {
         login(res.user, res.token, res.refreshToken);
         showToast(`¡Hola de nuevo, ${res.user.nombre}!`, 'success');
-        navigate('/');
+        irTrasEntrar();
       } else {
         setError(res.error || 'Credenciales incorrectas.');
       }
