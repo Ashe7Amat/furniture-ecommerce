@@ -20,13 +20,24 @@
   display: none;
   font-size: 1.5rem;
 }
+/* El logotipo es un SVG (components/Logo.jsx) en el color del texto: ya no usa Fraunces. */
 .logo {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
   color: var(--primary-color);
   text-decoration: none;
-  letter-spacing: -0.5px;
+  line-height: 0;
+}
+.logo-svg {
+  display: block;
+  height: 30px;
+  width: auto;
+  aspect-ratio: 584 / 218; /* el del viewBox */
+}
+@media (max-width: 480px) {
+  .logo-svg {
+    height: 24px;
+  }
 }
 
 /* Nav */

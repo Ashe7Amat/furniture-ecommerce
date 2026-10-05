@@ -8,65 +8,103 @@
     padding: 0 40px;
 }
 
-/* Layout del Hero */
+/* Hero a pantalla completa. En escritorio y tableta (desde 768 px), la foto del almacén ocupa todo
+   el ancho, con un velo negro al 35 %, y el texto va abajo a la izquierda. En móvil, foto arriba y
+   texto debajo sobre fondo oscuro (ver el bloque @media del final de este hero). El hero está fuera
+   de .home-page (Home.jsx) para no quedar limitado a sus 1440 px ni a su relleno lateral. */
 .home-hero {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 60px;
-    align-items: center;
-    margin: 40px 0 80px 0;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    min-height: 85vh;
+    margin-bottom: 80px;
+    overflow: hidden;
+    background: #221B16; /* el fondo del modo oscuro; se ve mientras carga la foto */
+}
+
+.hero-image-box {
+    position: absolute;
+    inset: 0;
+}
+
+/* Velo negro al 35 % en toda la foto y, encima, un degradado desde abajo que oscurece solo la zona
+   del texto: con el velo solo, la descripción bajaba a 2,5:1 sobre las partes claras de las fotos
+   (paredes blancas, suelo). Con el degradado pasa el AA en las cuatro fotos (ver
+   docs/capturas-hero/README.md). */
+.hero-image-box::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background:
+        linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0) 90%),
+        rgba(0, 0, 0, 0.35);
 }
 
 .hero-content {
-    padding-right: 20px;
+    position: relative;
+    z-index: 2;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0 6vw 10vh;
+    color: #fff;
 }
 
 .hero-subtitle {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--secondary-color);
     display: block;
-    margin-bottom: 12px;
+    margin-bottom: 18px;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    color: #F5F2EC;
 }
 
 .hero-title {
-    font-family: var(--font-display);
-    font-size: 52px;
-    font-weight: 500;
-    margin-bottom: 24px;
-    letter-spacing: -1px;
+    margin: 0 0 24px;
+    font-family: var(--font-body);
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    color: #fff;
+}
+
+.hero-title-ciudad {
+    display: block;
+    margin-top: 0.4rem;
+    font-size: clamp(1.2rem, 2.4vw, 2.2rem);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: 0;
 }
 
 .hero-description {
-    font-size: 15px;
+    max-width: 500px;
+    margin: 0 0 32px;
+    font-size: clamp(1rem, 1.25vw, 1.125rem);
     line-height: 1.6;
-    color: var(--secondary-color);
-    margin-bottom: 36px;
+    color: #fff;
 }
 
 .btn-hero-black {
     display: inline-block;
-    padding: 14px 36px;
-    background: var(--primary-color);
-    color: var(--bg-color);
+    padding: 15px 38px;
+    background: #F5F2EC;
+    color: #1a1a1a;
     text-decoration: none;
     font-size: 12px;
-    letter-spacing: 1px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    transition: background 0.3s;
+    transition: background 0.3s, transform 0.3s;
 }
 
 .btn-hero-black:hover {
-    background: var(--accent-color);
-}
-
-.hero-image-box {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 4/3;
-    overflow: hidden;
-    background: var(--surface-alt);
+    background: #fff;
+    transform: translateY(-1px);
 }
 
 /* Slider del hero: las fotos se apilan y hacen crossfade, estilo IKEA/Kave Home */
@@ -84,12 +122,12 @@
     opacity: 1;
 }
 
+/* Abajo a la derecha, para no pisar el texto. */
 .hero-slide-dots {
     position: absolute;
-    z-index: 2;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    z-index: 3;
+    bottom: 32px;
+    right: 6vw;
     display: flex;
     gap: 10px;
 }
@@ -117,6 +155,52 @@
 @media (prefers-reduced-motion: reduce) {
     .hero-slide-img {
         transition: none;
+    }
+}
+
+/* Hero en móvil: foto arriba (4:3) y texto debajo, sobre el fondo oscuro de .home-hero. */
+@media (max-width: 767.98px) {
+    .home-hero {
+        flex-direction: column;
+        align-items: stretch;
+        min-height: 0;
+        margin-bottom: 40px;
+    }
+
+    .hero-image-box {
+        position: relative;
+        inset: auto;
+        order: -1; /* en el HTML va después del texto */
+        aspect-ratio: 4 / 3;
+    }
+
+    /* El texto ya no va sobre la foto: sin velo. */
+    .hero-image-box::after {
+        content: none;
+    }
+
+    .hero-content {
+        padding: 32px 20px 40px;
+    }
+
+    .hero-title {
+        font-size: clamp(2rem, 8vw, 3rem);
+        margin-bottom: 20px;
+    }
+
+    .hero-title-ciudad {
+        font-size: clamp(1rem, 4vw, 1.4rem);
+    }
+
+    .hero-description {
+        margin-bottom: 28px;
+    }
+
+    .hero-slide-dots {
+        bottom: 16px;
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
     }
 }
 
@@ -366,25 +450,6 @@
 @media (max-width: 768px) {
     .home-page {
         padding: 0 20px;
-    }
-
-    .home-hero {
-        grid-template-columns: 1fr;
-        gap: 24px;
-        margin-bottom: 40px;
-    }
-
-    .hero-content {
-        padding-right: 0;
-        order: 2;
-    }
-
-    .hero-image-box {
-        order: 1;
-    }
-
-    .hero-title {
-        font-size: 34px;
     }
 
     .gallery-grid {

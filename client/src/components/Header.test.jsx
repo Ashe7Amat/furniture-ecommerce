@@ -60,6 +60,21 @@ beforeEach(() => {
   getMuebles.mockResolvedValue([]);
 });
 
+describe('Header — logotipo', () => {
+  it('el logo es el SVG de "NAVE 5" (sin "Barcelona" en texto) y lleva al inicio', async () => {
+    await renderHeader({ ruta: '/catalogo' });
+    // Uno en la cabecera y otro en el menú lateral, los dos con el mismo nombre accesible.
+    const logos = screen.getAllByRole('link', { name: 'Nave 5, ir al inicio' });
+    expect(logos).toHaveLength(2);
+    for (const logo of logos) {
+      expect(logo).toHaveAttribute('href', '/');
+      expect(logo.querySelector('svg.logo-svg')).toHaveAttribute('aria-hidden', 'true');
+      expect(logo.textContent).toBe('');
+    }
+    expect(screen.queryByText('Nave 5 Barcelona')).not.toBeInTheDocument();
+  });
+});
+
 describe('Header — sesión', () => {
   it('sin usuario logueado, muestra el enlace a "Cuenta" (login), no un nombre', async () => {
     await renderHeader({ user: null });
