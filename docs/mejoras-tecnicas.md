@@ -2095,6 +2095,17 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   - como máximo 20 piezas por pedido, con un 400 claro antes de consultar nada;
   - una sola consulta `.in()`, solo con las columnas necesarias;
   - en el cliente, la cesta no admite la pieza 21 y el botón pasa a "Cesta llena".
+- **Aprobado por el usuario (5 oct): 20 como máximo, configurable.** Si algún cliente necesita más, se sube.
+  Hay que cambiar el número en dos sitios, que tienen que coincidir:
+  - `MAX_PIEZAS_CARRITO` en `server/src/schemas/muebles.js`;
+  - `MAX_PIEZAS_CESTA` en `client/src/context/CartContext.jsx`.
+
+  Cuidado con dos tests que fallarán a propósito al cambiarlo:
+  - `crearSesionPago.test.js` prueba el caso de 20 piezas y el de 21;
+  - `CartContext.test.jsx` comprueba que el tope es 20.
+
+  No se ha pasado a variable de entorno: haría falta una en Vercel para cada proyecto (`nave5-api` y
+  `nave5-demo`), y que no se desincronizaran.
 
 ### H36 · MEDIA · DATOS · RESUELTO (5 oct 2026, `6e3b682`) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
 
@@ -2195,8 +2206,22 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
   `esbuild`. Afectan al servidor de desarrollo y a la interfaz de Vitest, no a la web publicada.
 - **En el navegador:** `react-router` / `react-router-dom` (moderado). Entre otros, una redirección abierta
   con una barra invertida en `<Link>`/`useNavigate`.
-- **Propuesta:** subir `react-router-dom` a la versión corregida de la rama 6, y vite/vitest en su propio
-  commit, con el gate.
+- **Comprobado el 5 oct, `react-router`:** instaladas `react-router` y `react-router-dom` 6.30.6 y
+  `@remix-run/router` 1.23.4 (la versión de H23). Hay dos advisories nuevos, publicados después de H23, que
+  afectan a toda la rama 6 y se corrigen solo en la 7.18 (versión mayor):
+  - [GHSA-wrjc-x8rr-h8h6](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6): redirección abierta con una
+    barra invertida en `<Link>`/`useNavigate` (afecta de 6.0.0 a 7.18). **No es explotable aquí:** todos los
+    `to=` y `navigate()` del cliente empiezan por una ruta fija (`/catalogo?…`, `/mueble/…`, `/contacto?…`, o
+    `navigate(-1)`). Ninguno toma el principio de la ruta de la URL ni de lo que escribe quien visita.
+    No hay redirección "volver a" con un parámetro.
+  - [GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg): inyección en
+    `deserializeErrors()` al hidratar con render en el servidor (de 6.4.0 a 7.18). **No aplica:** la web usa
+    `<BrowserRouter>`, solo en el navegador, sin render en el servidor ni datos de hidratación.
+- **Decisión propuesta:**
+  - aceptar el aviso de `react-router` hasta migrar a la v7, que es un cambio de versión mayor, en su propia
+    sesión;
+  - si se añade alguna redirección con una ruta que venga de la URL, hay que validarla o migrar antes.
+- **Dependencias de desarrollo** (vite, vitest, esbuild): subirlas en su propio commit, con el gate.
 - **Por qué no se hizo:** `npm audit fix --force` cambia de versión mayor. Hay que hacerlo a propósito.
 
 ## Decisiones de diseño a recordar
