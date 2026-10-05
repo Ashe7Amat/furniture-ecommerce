@@ -2226,6 +2226,26 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - **Dependencias de desarrollo** (vite, vitest, esbuild): subirlas en su propio commit, con el gate.
 - **Por qué no se hizo:** `npm audit fix --force` cambia de versión mayor. Hay que hacerlo a propósito.
 
+### H45 · BAJA · USABILIDAD · PENDIENTE (5 oct 2026) · Volver a la página pedida después de iniciar sesión
+
+- **Qué pasa:**
+  - Si alguien sin sesión intenta entrar en `/cuenta`, `ProtectedRoute` lo manda a `/login`
+    (`<Navigate to="/login" replace />`).
+  - Al iniciar sesión, `Login.jsx` hace siempre `navigate('/')`: no vuelve a la ruta que se pedía y la persona
+    acaba en la portada.
+- **A qué afecta:**
+  - al botón "Ver mi pedido" del email de confirmación (`/cuenta?tab=pedidos`, ver `f110fb0`);
+  - a cualquier acceso directo a `/cuenta` sin sesión.
+- **Por qué no corre prisa:** el email de confirmación solo sale al comprar, y con `MOSTRAR_PRECIOS=false`
+  nadie puede comprar.
+- **Arreglo:**
+  - guardar la ruta original (con su `?tab=…`) al redirigir, en el `state` de `<Navigate>` o en un parámetro
+    de la URL;
+  - usarla en el `navigate()` tras el login.
+  - Si va en un parámetro de la URL, hay que validar que sea una ruta interna (que empiece por `/` y no por
+    `//` ni `/\`). Si no, sería justo la redirección abierta de H44.
+- **Cuándo:** en la sesión de usabilidad, junto con H41 y H43.
+
 ## Decisiones de diseño a recordar
 
 - **Id del pedido derivado de la sesión de Stripe** (`idPedidoDeSesion`, UUID v5): hace atómica la
