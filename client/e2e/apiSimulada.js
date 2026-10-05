@@ -107,7 +107,10 @@ export const simularApi = async (page, { usuarios = [ADMIN, CLIENTE] } = {}) => 
           }
         ]);
       }
-      if (ruta === '/pedidos') return json(route, []);
+      // H37: el panel pide los pedidos por páginas, con el total y los pendientes.
+      if (ruta === '/pedidos') {
+        return json(route, { pedidos: [], total: 0, pagina: 1, porPagina: 20, totalPaginas: 1, pendientes: 0 });
+      }
     }
 
     sinSimular.push(`${metodo} ${ruta}`);

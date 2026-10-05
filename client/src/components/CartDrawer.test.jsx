@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import CartDrawer from './CartDrawer';
@@ -155,7 +155,9 @@ describe('CartDrawer — confirmar pedido', () => {
 
     await user.click(screen.getByText('Confirmar Pedido'));
 
-    expect(screen.getByText('Iniciar Sesión')).toBeInTheDocument();
+    // Los modales se cargan bajo demanda (React.lazy, auditoría de rendimiento del 5 oct): se espera
+    // a que llegue el chunk en vez de dar por hecho que ya está.
+    expect(await screen.findByText('Iniciar Sesión')).toBeInTheDocument();
     expect(screen.queryByText('Finalizar Pago')).not.toBeInTheDocument();
   });
 
@@ -165,7 +167,7 @@ describe('CartDrawer — confirmar pedido', () => {
 
     await user.click(screen.getByText('Confirmar Pedido'));
 
-    expect(screen.getByText('Finalizar Pago')).toBeInTheDocument();
+    expect(await screen.findByText('Finalizar Pago')).toBeInTheDocument();
     expect(screen.queryByText('Iniciar Sesión')).not.toBeInTheDocument();
   });
 });
@@ -207,5 +209,44 @@ describe('CartDrawer — líneas sin precio (fase C)', () => {
     renderDrawer({ cartItems: [itemBase()], cartTotal: 90, hayLineasSinPrecio: false });
     expect(screen.queryByText(mensaje)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirmar Pedido' })).toBeEnabled();
+  });
+});
+
+// Accesibilidad (auditoría del 5 oct 2026): cerrada, la cesta no se puede alcanzar con el teclado;
+// abierta, es un diálogo con el foco en "Cerrar cesta" y se cierra con Escape.
+describe('CartDrawer — accesibilidad', () => {
+  it('cerrada, está oculta para los lectores de pantalla (aria-hidden)', () => {
+    renderDrawer({ isCartOpen: false });
+    expect(document.querySelector('.cart-drawer')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('abierta, es un diálogo con nombre y el foco en "Cerrar cesta"', () => {
+    renderDrawer({ cartItems: [] });
+    expect(screen.getByRole('dialog', { name: 'Tu Cesta (0)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cerrar cesta' })).toHaveFocus();
+  });
+
+  it('Escape la cierra; cerrada, Escape no hace nada', () => {
+    const { toggleCart } = renderDrawer({ cartItems: [] });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(toggleCart).toHaveBeenCalledTimes(1);
+
+    const cerrada = renderDrawer({ isCartOpen: false });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(cerrada.toggleCart).not.toHaveBeenCalled();
+  });
+
+  it('al cerrarse, el foco vuelve a donde estaba antes de abrirla', () => {
+    const boton = document.createElement('button');
+    document.body.appendChild(boton);
+    boton.focus();
+
+    const { rerender } = renderDrawer({ cartItems: [] });
+    expect(boton).not.toHaveFocus();
+    rerender(<span />);
+
+    expect(boton).toHaveFocus();
+    boton.remove();
   });
 });

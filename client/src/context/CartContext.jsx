@@ -14,6 +14,10 @@ const PIEZA_UNICA = 'Lo sentimos, esta es una pieza única restaurada y solo hay
 export const lineaSinPrecio = (item) => !(Number(item.precio) > 0);
 export const SIN_PRECIO_EN_CESTA =
   'Hay piezas sin precio en tu cesta. Quítalas para pagar, o pregúntanos por ellas en la página de contacto.';
+// H35: el mismo tope que el servidor (MAX_PIEZAS_CARRITO en server/src/schemas/muebles.js), que
+// rechaza los pedidos de más piezas.
+export const MAX_PIEZAS_CESTA = 20;
+export const CESTA_LLENA = `Tu cesta ya tiene ${MAX_PIEZAS_CESTA} piezas, el máximo por pedido. Termina este pedido o quita alguna pieza para añadir otra.`;
 const precioDe = (producto, modalidad) => (modalidad === 'compra' ? producto.precio_venta : producto.precio_alquiler_dia);
 
 export const CartProvider = ({ children }) => {
@@ -54,6 +58,10 @@ export const CartProvider = ({ children }) => {
       showToast(PIEZA_UNICA, 'warning');
       return;
     }
+    if (cartItems.length >= MAX_PIEZAS_CESTA) {
+      showToast(CESTA_LLENA, 'warning');
+      return;
+    }
 
     const newItem = {
       id: `${product.id}-${modality}`,
@@ -64,7 +72,7 @@ export const CartProvider = ({ children }) => {
       modalidad: modality,
       cantidad: 1
     };
-    setCartItems(prev => (estaEnLaCesta(prev) ? prev : [...prev, newItem]));
+    setCartItems(prev => (estaEnLaCesta(prev) || prev.length >= MAX_PIEZAS_CESTA ? prev : [...prev, newItem]));
     showToast('Producto añadido a la cesta.', 'success');
     setIsCartOpen(true);
   };
@@ -156,11 +164,12 @@ export const CartProvider = ({ children }) => {
   // C4: las líneas sin precio no suman (antes, un precio null contaba como 0 sin decir nada).
   const cartTotal = cartItems.reduce((acc, item) => acc + (lineaSinPrecio(item) ? 0 : item.precio * (item.cantidad || 1)), 0);
   const hayLineasSinPrecio = cartItems.some(lineaSinPrecio);
+  const cestaLlena = cartItems.length >= MAX_PIEZAS_CESTA;
 
   return (
     <CartContext.Provider value={{
       cartItems, addToCart, removeFromCart, updateQuantity, emptyCart,
-      isCartOpen, toggleCart, setIsCartOpen, cartTotal, validateCart, hayLineasSinPrecio
+      isCartOpen, toggleCart, setIsCartOpen, cartTotal, validateCart, hayLineasSinPrecio, cestaLlena
     }}>
       {children}
     </CartContext.Provider>

@@ -52,6 +52,100 @@ const escaparHtml = (texto) => String(texto ?? '')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
 
+// ─── Maqueta de los correos rediseñados (contacto y confirmación al cliente) ─────────────────────
+// HTML de tablas con estilos en línea: Outlook y Gmail ignoran o recortan <style>, flexbox y grid.
+// Ancho máximo de 600 px, centrado, sobre fondo blanco. Colores de la web (client/src/styles/
+// index.css): #221B16 (fondo oscuro, el del hero), #F5F2EC (blanco roto), #6E5D51 (texto
+// secundario) y #E2DCD0 (bordes). Sin imágenes externas: la cabecera es "NAVE 5" en texto.
+const WEB_PUBLICA = 'https://nave5barcelona.com';
+const COLOR_OSCURO = '#221B16';
+const COLOR_CLARO = '#F5F2EC';
+const COLOR_SECUNDARIO = '#6E5D51';
+const COLOR_BORDE = '#E2DCD0';
+const FUENTE = 'Arial, Helvetica, sans-serif';
+
+// Para poner el logo como imagen cuando haya una URL pública (sin ella, Gmail y Outlook lo
+// bloquean o lo enseñan roto), cambiar el texto de la celda de la cabecera por:
+//   <img src="https://nave5barcelona.com/img/logo-email.png" width="120" height="45" alt="NAVE 5"
+//        style="display: block; border: 0; outline: none; text-decoration: none;">
+// con un PNG de fondo transparente en color claro. Ese archivo aún no existe.
+const cabeceraEmail = () => `
+          <tr>
+            <td style="background-color: ${COLOR_OSCURO}; padding: 32px 40px; font-family: ${FUENTE}; font-size: 26px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: ${COLOR_CLARO};">
+              NAVE 5
+            </td>
+          </tr>`;
+
+const pieEmail = () => `
+          <tr>
+            <td style="padding: 24px 40px 32px 40px; border-top: 1px solid ${COLOR_BORDE}; font-family: ${FUENTE}; font-size: 12px; line-height: 18px; color: ${COLOR_SECUNDARIO};">
+              Nave 5 Barcelona · <a href="${WEB_PUBLICA}" style="color: ${COLOR_SECUNDARIO}; text-decoration: underline;">nave5barcelona.com</a>
+            </td>
+          </tr>`;
+
+// Botón "a prueba de Outlook": una celda con fondo y un enlace dentro. Debajo va la dirección
+// en texto, por si el cliente de correo no enseña el botón.
+const botonEmail = ({ href, texto, textoAlternativo }) => `
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 28px 0 8px 0;">
+                <tr>
+                  <td style="background-color: ${COLOR_OSCURO};">
+                    <a href="${href}" style="display: inline-block; padding: 14px 28px; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: ${COLOR_CLARO}; text-decoration: none;">${texto}</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0; font-family: ${FUENTE}; font-size: 12px; line-height: 18px; color: ${COLOR_SECUNDARIO};">${textoAlternativo}</p>`;
+
+// Une cabecera, cuerpo y pie en la tabla de 600 px. `titulo` y `cuerpo` ya vienen escapados.
+const maquetarEmail = ({ titulo, cuerpo }) => `<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${titulo}</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #FFFFFF;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFFFF;">
+      <tr>
+        <td align="center" style="padding: 24px 12px;">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid ${COLOR_BORDE};">${cabeceraEmail()}
+          <tr>
+            <td style="padding: 36px 40px 32px 40px; font-family: ${FUENTE}; font-size: 15px; line-height: 23px; color: ${COLOR_OSCURO};">
+              <h1 style="margin: 0 0 20px 0; font-family: ${FUENTE}; font-size: 22px; line-height: 28px; font-weight: bold; color: ${COLOR_OSCURO};">${titulo}</h1>${cuerpo}
+            </td>
+          </tr>${pieEmail()}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+// Una fila "Etiqueta: valor" dentro de un bloque de datos (fondo blanco roto).
+const filaDato = (etiqueta, valorHtml) => `
+                <tr>
+                  <td style="padding: 6px 0; width: 150px; vertical-align: top; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; color: ${COLOR_SECUNDARIO};">${etiqueta}</td>
+                  <td style="padding: 6px 0; vertical-align: top; font-family: ${FUENTE}; font-size: 15px; color: ${COLOR_OSCURO};">${valorHtml}</td>
+                </tr>`;
+
+const bloqueDatos = (filasHtml) => `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${COLOR_CLARO}; margin: 4px 0 0 0;">
+                <tr>
+                  <td style="padding: 16px 20px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${filasHtml}
+                    </table>
+                  </td>
+                </tr>
+              </table>`;
+
+// Referencia corta del pedido, la misma que ve el cliente en "Mis pedidos" (Profile.jsx):
+// los 8 primeros caracteres del id, en mayúsculas.
+const referenciaPedido = (id) => (id ? `#${String(id).slice(0, 8).toUpperCase()}` : null);
+
+// mailto con el email del remitente: se codifica todo salvo la arroba, para que ninguna
+// letra rara del email pueda romper el enlace ni añadir parámetros.
+const enlaceMailto = (direccion, asunto) =>
+  `mailto:${encodeURIComponent(String(direccion ?? '')).replace(/%40/g, '@')}?subject=${encodeURIComponent(asunto)}`;
+
 // Construye el HTML del correo de aviso de venta. Estilos en línea (inline) porque
 // la mayoría de clientes de correo ignoran o recortan <style> en el <head>.
 const construirHtmlVenta = (pedido) => {
@@ -144,61 +238,88 @@ const enviarNotificacionVenta = async (pedido) => {
   }
 };
 
-// Construye el HTML del correo de confirmación que recibe el propio comprador.
-// Mismo estilo visual que el aviso al admin, pero con tono y contenido de cara al cliente.
+// Construye el HTML del correo de confirmación que recibe el propio comprador. Mismo texto que
+// antes, con la maqueta común: referencia del pedido, piezas (con su referencia de catálogo si la
+// hay), total, dirección de envío y, si el comprador tiene cuenta, un botón a "Mis pedidos".
 const construirHtmlConfirmacionCliente = (pedido) => {
-  const { items = [], clienteInfo = {}, total = 0, fecha = new Date() } = pedido;
+  const { id, items = [], clienteInfo = {}, total = 0, fecha = new Date(), urlMisPedidos = null } = pedido;
 
   const fechaFormateada = new Date(fecha).toLocaleString('es-ES', {
     dateStyle: 'long',
     timeStyle: 'short',
   });
+  const referencia = referenciaPedido(id);
 
   const filasProductos = items.map(item => `
-    <tr>
-      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #3E322A;">
-        ${escaparHtml(item.nombre)}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
-      </td>
-      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #857468; text-align: right;">
-        ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
-      </td>
-    </tr>
-  `).join('');
+                <tr>
+                  <td style="padding: 10px 0; border-bottom: 1px solid ${COLOR_BORDE}; font-family: ${FUENTE}; font-size: 15px; color: ${COLOR_OSCURO};">
+                    ${escaparHtml(item.nombre)}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}${item.referencia ? `<br><span style="font-size: 12px; color: ${COLOR_SECUNDARIO};">Ref. ${escaparHtml(item.referencia)}</span>` : ''}
+                  </td>
+                  <td style="padding: 10px 0; border-bottom: 1px solid ${COLOR_BORDE}; font-family: ${FUENTE}; font-size: 15px; color: ${COLOR_SECUNDARIO}; text-align: right; white-space: nowrap; vertical-align: top;">
+                    ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
+                  </td>
+                </tr>`).join('');
 
-  return `
-    <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
-      <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
-        ¡Gracias por tu compra, ${escaparHtml(clienteInfo.nombre)}!
-      </h2>
+  const notas = clienteInfo.notas && clienteInfo.notas !== 'Ninguna'
+    ? filaDato('Notas', escaparHtml(clienteInfo.notas))
+    : '';
 
-      <p style="color: #857468;">
-        Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.
-      </p>
+  const cuerpo = `
+              <p style="margin: 0 0 8px 0;">¡Gracias por tu compra, ${escaparHtml(clienteInfo.nombre)}!</p>
+              <p style="margin: 0 0 24px 0; color: ${COLOR_SECUNDARIO};">
+                Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.
+              </p>
+${bloqueDatos(`${referencia ? filaDato('Pedido', `<strong>${referencia}</strong>`) : ''}${filaDato('Fecha', escaparHtml(fechaFormateada))}`)}
+              <h2 style="margin: 28px 0 4px 0; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: ${COLOR_SECUNDARIO};">Piezas</h2>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${filasProductos}
+                <tr>
+                  <td style="padding: 14px 0 0 0; font-family: ${FUENTE}; font-size: 16px; font-weight: bold; color: ${COLOR_OSCURO};">Total</td>
+                  <td style="padding: 14px 0 0 0; font-family: ${FUENTE}; font-size: 16px; font-weight: bold; color: ${COLOR_OSCURO}; text-align: right; white-space: nowrap;">${Number(total).toFixed(2)} €</td>
+                </tr>
+              </table>
+              <h2 style="margin: 28px 0 4px 0; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: ${COLOR_SECUNDARIO};">Envío a</h2>
+${bloqueDatos(`${filaDato('Dirección', escaparHtml(clienteInfo.direccion) || 'Dirección no provista')}${notas}`)}
+              <p style="margin: 24px 0 0 0; color: ${COLOR_SECUNDARIO};">
+                Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados
+                en cuanto esté listo para el envío. Si tienes cualquier duda, simplemente responde a este
+                correo.
+              </p>${urlMisPedidos ? botonEmail({
+    href: escaparHtml(urlMisPedidos),
+    texto: 'Ver mi pedido',
+    textoAlternativo: `Si el botón no funciona, entra en ${escaparHtml(urlMisPedidos)}`
+  }) : ''}`;
 
-      <h3 style="color: #857468; margin-bottom: 6px;">Productos</h3>
-      <table style="width: 100%; border-collapse: collapse;">
-        ${filasProductos}
-      </table>
+  return maquetarEmail({ titulo: 'Tu pedido está confirmado', cuerpo });
+};
 
-      <div style="margin-top: 16px; padding: 14px 16px; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 4px; text-align: right;">
-        <strong style="font-size: 1.1rem;">Total: ${Number(total).toFixed(2)} €</strong>
-      </div>
-
-      <h3 style="color: #857468; margin-top: 24px; margin-bottom: 6px;">Envío a</h3>
-      <p style="margin: 4px 0;">${escaparHtml(clienteInfo.direccion) || 'Dirección no provista'}</p>
-      ${clienteInfo.notas && clienteInfo.notas !== 'Ninguna' ? `<p style="margin: 4px 0; color: #857468;"><strong>Notas:</strong> ${escaparHtml(clienteInfo.notas)}</p>` : ''}
-
-      <p style="color: #857468; margin-top: 24px;">
-        Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados
-        en cuanto esté listo para el envío. Si tienes cualquier duda, simplemente responde a este
-        correo.
-      </p>
-
-      <p style="font-size: 0.85rem; color: #857468; margin-top: 32px; border-top: 1px solid #E2DCD0; padding-top: 10px; text-align: center;">
-        ${fechaFormateada} · Nave 5 Barcelona · Almacén de ideas
-      </p>
-    </div>
-  `;
+// Versión en texto plano del mismo correo, para los clientes que no enseñan HTML.
+const construirTextoConfirmacionCliente = (pedido) => {
+  const { id, items = [], clienteInfo = {}, total = 0, urlMisPedidos = null } = pedido;
+  const referencia = referenciaPedido(id);
+  const lineas = [
+    'NAVE 5',
+    '',
+    'Tu pedido está confirmado',
+    '',
+    `¡Gracias por tu compra, ${clienteInfo.nombre || ''}!`,
+    'Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.',
+    ''
+  ];
+  if (referencia) lineas.push(`Pedido: ${referencia}`, '');
+  items.forEach(item => {
+    const alquiler = item.modalidad === 'alquiler' ? ' (alquiler / día)' : '';
+    const ref = item.referencia ? ` [Ref. ${item.referencia}]` : '';
+    lineas.push(`- ${item.nombre}${alquiler}${ref}: ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €`);
+  });
+  lineas.push(`Total: ${Number(total).toFixed(2)} €`, '', `Envío a: ${clienteInfo.direccion || 'Dirección no provista'}`);
+  if (clienteInfo.notas && clienteInfo.notas !== 'Ninguna') lineas.push(`Notas: ${clienteInfo.notas}`);
+  lineas.push(
+    '',
+    'Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados en cuanto esté listo para el envío. Si tienes cualquier duda, simplemente responde a este correo.'
+  );
+  if (urlMisPedidos) lineas.push('', `Ver mi pedido: ${urlMisPedidos}`);
+  lineas.push('', `Nave 5 Barcelona · ${WEB_PUBLICA}`);
+  return lineas.join('\n');
 };
 
 // Envía al COMPRADOR la confirmación de que su pedido se ha registrado con éxito.
@@ -230,11 +351,19 @@ const enviarConfirmacionCliente = async (pedido) => {
       (acc, item) => acc + Number(item.precio) * (item.cantidad || 1), 0
     );
 
+    // El botón "Ver mi pedido" lleva a "Mis pedidos" de la web, que pide iniciar sesión: solo se
+    // pone si el comprador tiene cuenta (pagos.js lo indica con `conCuenta`) y si se conoce la URL
+    // pública de la web (CLIENT_URL, la misma que usan las páginas de vuelta de Stripe).
+    const urlWeb = (process.env.CLIENT_URL || '').replace(/\/+$/, '');
+    const urlMisPedidos = pedido.conCuenta && /^https?:\/\//.test(urlWeb) ? `${urlWeb}/cuenta?tab=pedidos` : null;
+    const datos = { ...pedido, total, urlMisPedidos };
+
     const { data, error } = await resend.emails.send({
       from: REMITENTE,
       to: destinatario,
       subject: 'Hemos recibido tu pedido - Nave 5 Barcelona',
-      html: construirHtmlConfirmacionCliente({ ...pedido, total }),
+      html: construirHtmlConfirmacionCliente(datos),
+      text: construirTextoConfirmacionCliente(datos),
     });
 
     if (error) {
@@ -324,6 +453,40 @@ const destinatariosContacto = () => {
   return lista.length > 0 ? lista : [EMAIL_ADMIN];
 };
 
+// Correo del formulario de contacto para el equipo: datos del remitente, el mensaje y un botón
+// para responderle. El email del remitente también va en replyTo, así que "Responder" funciona igual.
+const ASUNTO_RESPUESTA_CONTACTO = 'Re: tu mensaje a Nave 5 Barcelona';
+
+const construirHtmlContacto = ({ nombre, email, mensaje }) => {
+  const mailto = escaparHtml(enlaceMailto(email, ASUNTO_RESPUESTA_CONTACTO));
+  const cuerpo = `
+${bloqueDatos(`${filaDato('Nombre', escaparHtml(nombre))}${filaDato('Email', `<a href="${mailto}" style="color: ${COLOR_OSCURO}; text-decoration: underline;">${escaparHtml(email)}</a>`)}`)}
+              <h2 style="margin: 28px 0 8px 0; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: ${COLOR_SECUNDARIO};">Mensaje</h2>
+              <p style="margin: 0; white-space: pre-wrap; color: ${COLOR_OSCURO};">${escaparHtml(mensaje)}</p>${botonEmail({
+    href: mailto,
+    texto: 'Responder al cliente',
+    textoAlternativo: `O escribe a ${escaparHtml(email)}`
+  })}`;
+
+  return maquetarEmail({ titulo: 'Nuevo mensaje desde el formulario de contacto', cuerpo });
+};
+
+const construirTextoContacto = ({ nombre, email, mensaje }) => [
+  'NAVE 5',
+  '',
+  'Nuevo mensaje desde el formulario de contacto',
+  '',
+  `Nombre: ${nombre}`,
+  `Email: ${email}`,
+  '',
+  'Mensaje:',
+  mensaje,
+  '',
+  `Responder al cliente: ${enlaceMailto(email, ASUNTO_RESPUESTA_CONTACTO)}`,
+  '',
+  `Nave 5 Barcelona · ${WEB_PUBLICA}`
+].join('\n');
+
 // Envía a destinatariosContacto() el mensaje escrito en el formulario de "Contacto". A
 // diferencia de los correos anteriores, aquí sí importa que el controlador sepa si el envío
 // falló (para avisar al visitante de que lo intente de nuevo), así que devuelve
@@ -345,16 +508,8 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
       to: destinatarios,
       replyTo: email,
       subject: `Nuevo mensaje de contacto — ${nombre}`,
-      html: `
-        <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
-          <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
-            Nuevo mensaje desde el formulario de contacto
-          </h2>
-          <p style="color: #857468;"><strong>Nombre:</strong> ${escaparHtml(nombre)}</p>
-          <p style="color: #857468;"><strong>Email:</strong> ${escaparHtml(email)}</p>
-          <p style="color: #3E322A; white-space: pre-wrap;">${escaparHtml(mensaje)}</p>
-        </div>
-      `,
+      html: construirHtmlContacto({ nombre, email, mensaje }),
+      text: construirTextoContacto({ nombre, email, mensaje }),
     });
 
     if (error) {

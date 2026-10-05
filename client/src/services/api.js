@@ -426,16 +426,20 @@ export const getMisPedidos = async () => {
   }
 };
 
-// Lista todos los pedidos para el panel de administración (nombre, dirección, teléfono,
-// productos y total de cada venta, para poder prepararla y enviarla)
-export const getPedidos = async () => {
+// Una página de pedidos para el panel de administración (nombre, dirección, teléfono, productos y
+// total de cada venta, para poder prepararla y enviarla). H37: antes traía toda la historia de
+// golpe. Devuelve { pedidos, total, pagina, porPagina, totalPaginas, pendientes }, con `total` el
+// de ese filtro y `pendientes` los "procesando" de toda la historia; o null si falla.
+export const getPedidos = async ({ pagina = 1, estado = '' } = {}) => {
   try {
-    const response = await apiFetch(`${API_URL}/pedidos`);
+    const params = new URLSearchParams({ page: String(pagina) });
+    if (estado) params.set('estado', estado);
+    const response = await apiFetch(`${API_URL}/pedidos?${params}`);
     if (!response.ok) throw new Error('Error al obtener los pedidos');
     return await response.json();
   } catch (error) {
     console.error('Error en getPedidos:', error);
-    return [];
+    return null;
   }
 };
 

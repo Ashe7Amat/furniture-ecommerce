@@ -207,6 +207,20 @@ describe('Profile — historial de pedidos', () => {
     expect(await screen.findByText(/Todavía no has hecho ninguna compra\. Cuando compres algo con este correo \(ana@correo\.es\)/)).toBeInTheDocument();
   });
 
+  it('sin pedidos, también un enlace a "Explorar catálogo"; mientras carga, no (H40)', async () => {
+    let responder;
+    getMisPedidos.mockReturnValue(new Promise((r) => { responder = r; }));
+    abrir({ ruta: '/cuenta?tab=pedidos' });
+
+    expect(screen.getByText('Cargando tus pedidos...')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Explorar catálogo' })).not.toBeInTheDocument();
+
+    await act(async () => responder([]));
+    const enlace = screen.getByRole('link', { name: 'Explorar catálogo' });
+    expect(enlace).toHaveAttribute('href', '/catalogo');
+    expect(enlace.closest('.empty-tab')).toHaveClass('empty-tab--pedidos');
+  });
+
   it('se llega también desde el menú lateral', async () => {
     getMisPedidos.mockResolvedValue([]);
     abrir();
@@ -224,6 +238,15 @@ describe('Profile — favoritos', () => {
     abrir({ ruta: '/cuenta?tab=favoritos' });
 
     expect(screen.getByText('Aún no has guardado ningún mueble en tus favoritos.')).toBeInTheDocument();
+  });
+
+  it('sin favoritos, un panel con corazón y "Explorar catálogo" (H40)', () => {
+    getMuebles.mockResolvedValue([]);
+    abrir({ ruta: '/cuenta?tab=favoritos' });
+
+    const enlace = screen.getByRole('link', { name: 'Explorar catálogo' });
+    expect(enlace).toHaveAttribute('href', '/catalogo');
+    expect(enlace.closest('.empty-tab')).toHaveClass('empty-tab--favoritos');
   });
 
   it('enseña solo los muebles favoritos, con su precio de venta, de alquiler o "Consultar precio"', async () => {

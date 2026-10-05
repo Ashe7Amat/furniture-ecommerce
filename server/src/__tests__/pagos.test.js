@@ -99,6 +99,33 @@ describe('procesarSesionPagada — compra normal', () => {
     assert.equal(enviado.items.length, 1);
   });
 
+  test('la confirmación al comprador lleva el id del pedido, la referencia de cada pieza y si tiene cuenta; el pedido guardado no', async () => {
+    instalarDobles({
+      muebles: MUEBLES_DE_PRUEBA().map((m) =>
+        m.id === 'mueble-1' ? { ...m, referencia: 'NAV-SOF-001' } : m
+      ),
+      clientes: [{ id: 'cliente-ana', email: 'ana@example.com' }]
+    });
+    await procesarSesionPagada(crearSesion());
+
+    const enviado = correos.cliente.mock.calls[0].arguments[0];
+    assert.equal(enviado.id, idPedidoDeSesion('cs_test_123'));
+    assert.equal(enviado.items[0].referencia, 'NAV-SOF-001');
+    assert.equal(enviado.conCuenta, true);
+    assert.equal(
+      'referencia' in fake.tablas.pedidos[0].items[0],
+      false,
+      'los items guardados conservan su forma'
+    );
+  });
+
+  test('un comprador sin cuenta: la confirmación sale con conCuenta false (sin botón a "Mis pedidos")', async () => {
+    await procesarSesionPagada(crearSesion());
+    const enviado = correos.cliente.mock.calls[0].arguments[0];
+    assert.equal(enviado.conCuenta, false);
+    assert.equal(enviado.items[0].referencia, null);
+  });
+
   test('el total del pedido es lo que cobró Stripe, no la suma de los precios actuales del catálogo', async () => {
     await procesarSesionPagada(crearSesion({ amount_total: 99900 }));
     assert.equal(fake.tablas.pedidos[0].total, 999);

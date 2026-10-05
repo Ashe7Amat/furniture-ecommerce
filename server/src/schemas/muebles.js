@@ -76,6 +76,10 @@ const schemaMuebleEditar = schemaMuebleCrear.partial();
 // como "compra" -- si aquí se exigiera un enum, se rechazaría un caso que el resto del código
 // tolera a propósito (ver el test "una modalidad desconocida se trata como compra").
 const MENSAJE_CARRITO_VACIO = 'El carrito de compras está vacío.';
+// H35: una tienda de piezas únicas no necesita carritos de cientos de piezas, y cada pieza es una
+// consulta y una línea de Stripe. El cliente (CartContext) aplica el mismo tope.
+const MAX_PIEZAS_CARRITO = 20;
+const MENSAJE_CARRITO_GRANDE = `Como máximo ${MAX_PIEZAS_CARRITO} piezas por pedido. Si necesitas más, divide el pedido en varios o escríbenos.`;
 const schemaCarritoPago = z
   .object({
     items: z
@@ -86,7 +90,8 @@ const schemaCarritoPago = z
         }),
         { error: () => MENSAJE_CARRITO_VACIO }
       )
-      .min(1, MENSAJE_CARRITO_VACIO),
+      .min(1, MENSAJE_CARRITO_VACIO)
+      .max(MAX_PIEZAS_CARRITO, MENSAJE_CARRITO_GRANDE),
     clienteInfo: z
       .object({
         nombre: z.string().optional(),
@@ -99,4 +104,11 @@ const schemaCarritoPago = z
   })
   .passthrough();
 
-module.exports = { schemaMuebleCrear, schemaMuebleEditar, schemaCarritoPago, ESTADOS_MUEBLE };
+module.exports = {
+  schemaMuebleCrear,
+  schemaMuebleEditar,
+  schemaCarritoPago,
+  ESTADOS_MUEBLE,
+  MAX_PIEZAS_CARRITO,
+  MENSAJE_CARRITO_GRANDE
+};

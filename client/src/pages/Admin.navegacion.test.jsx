@@ -176,7 +176,9 @@ describe('Navegación — lo que se conserva al cambiar de pestaña y volver', (
     await irAPestana(user, /^Pedidos/);
 
     expect(document.querySelector('.admin-toolbar select')).toHaveValue('enviado');
-    expect(screen.getByText('1 de 2 pedidos')).toBeInTheDocument();
+    // CAMBIADO A PROPÓSITO (5 oct 2026, H37): el filtro lo aplica el servidor y el total es el de ese
+    // estado ("1 de 1"), no el de todos los pedidos ("1 de 2").
+    expect(screen.getByText('1 de 1 pedidos')).toBeInTheDocument();
   });
 });
 

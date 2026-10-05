@@ -222,16 +222,55 @@
   font-size: 1rem;
 }
 
-/* Pestañas vacías de Mi cuenta (tarea 6, bloque C): un panel suave en vez de una línea suelta. Sin
-   icono: favoritos vacíos y "Cargando tus pedidos..." tienen el mismo marcado (h2 + p.empty-tab-text)
-   y un icono de corazón saldría también en los pedidos; para ponerlo hace falta una clase en el JSX. */
-.tab-pane-animate > h2 + .empty-tab-text {
+/* Pestañas vacías de Mi cuenta (tarea 6, bloque C): un panel suave en vez de una línea suelta. El
+   mismo panel para "Cargando tus pedidos..." (h2 + p.empty-tab-text) y para los estados vacíos, que
+   desde H40 van en su propio .empty-tab con un icono y un enlace al catálogo. */
+.tab-pane-animate > h2 + .empty-tab-text,
+.empty-tab {
   text-align: center;
   padding: 40px 24px;
   border: 1px dashed var(--border-color);
   border-radius: var(--radius-md, 8px);
   background: var(--card-bg);
   line-height: 1.6;
+}
+.empty-tab .empty-tab-text {
+  margin: 0 auto;
+  max-width: 44ch;
+}
+.empty-tab::before {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  background-color: var(--accent-color);
+  -webkit-mask: center / contain no-repeat;
+  mask: center / contain no-repeat;
+}
+.empty-tab--favoritos::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'/%3E%3C/svg%3E");
+}
+.empty-tab--pedidos::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cline x1='3' y1='6' x2='21' y2='6'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E");
+}
+.empty-tab-btn {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 12px 28px;
+  border-radius: 4px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  text-decoration: none;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: background 0.2s ease;
+}
+.empty-tab-btn:hover {
+  background: var(--accent-color);
 }
 
 /* Historial de Pedidos */

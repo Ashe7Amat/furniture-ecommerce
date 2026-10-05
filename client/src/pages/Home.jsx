@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getMuebles, getCategorias } from '../services/api';
 import { textoPrecio } from '../utils/format';
 import { useScrollReveal } from '../utils/useScrollReveal';
@@ -20,7 +20,6 @@ export default function Home() {
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
     const [heroSlide, setHeroSlide] = useState(0);
-    const navigate = useNavigate();
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
 
@@ -98,17 +97,18 @@ export default function Home() {
                     <h2 className="home-section-title">Compra por categoría</h2>
                     <div className="category-horizontal-slider">
                         {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
-                            <div
+                            // Un enlace, no un div con onClick: se llega con el teclado y se puede abrir en otra
+                            // pestaña. La foto no repite el nombre (alt vacío): ya lo dice la etiqueta.
+                            <Link
                                 key={cat.id}
+                                to={`/catalogo?categoria=${cat.nombre}`}
                                 className="slider-item-circle"
-                                onClick={() => navigate(`/catalogo?categoria=${cat.nombre}`)}
-                                style={{ cursor: 'pointer' }}
                             >
                                 <div className="circle-wrapper">
-                                    <img src={cat.imagen_url} alt={cat.nombre} loading="lazy" decoding="async" />
+                                    <img src={cat.imagen_url} alt="" loading="lazy" decoding="async" />
                                 </div>
                                 <span className="circle-label">{cat.nombre}</span>
-                            </div>
+                            </Link>
                         ))}
                     </div>
                 </section>

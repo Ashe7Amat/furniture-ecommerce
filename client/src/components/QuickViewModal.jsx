@@ -10,7 +10,7 @@ import '../styles/QuickViewModal.css';
 import ReferenciaProducto from './ReferenciaProducto';
 
 const QuickViewModal = ({ mueble, onClose }) => {
-  const { addToCart } = useContext(CartContext);
+  const { addToCart, cestaLlena } = useContext(CartContext);
   const { toggleFavorite, isFavorite } = useContext(FavoritesContext);
   const closeBtnRef = useRef(null);
   const isFav = isFavorite(mueble.id);
@@ -67,8 +67,8 @@ const QuickViewModal = ({ mueble, onClose }) => {
                 {TEXTO_PREGUNTAR}
               </Link>
             ) : (
-              <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado}>
-                {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : 'Añadir a la cesta'}
+              <button className="qv-btn qv-btn-solid" onClick={handleAddToCart} disabled={isSold || isAlquilado || cestaLlena}>
+                {isSold ? 'Agotado' : isAlquilado ? 'Alquilado' : cestaLlena ? 'Cesta llena' : 'Añadir a la cesta'}
               </button>
             )}
             <button className={`qv-btn qv-btn-ghost ${isFav ? 'active' : ''}`} onClick={() => toggleFavorite(mueble.id)}>

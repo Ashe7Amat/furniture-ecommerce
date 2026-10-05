@@ -290,6 +290,10 @@
   color: var(--primary-color);
   outline: none;
   width: 100%;
+  /* Con content-box, el 100% más el relleno y el borde medían 32 px más que el formulario: en el
+     móvil daban scroll horizontal a "Añadir Mueble" (12 px a 375) y en escritorio no se alineaban
+     con los desplegables, que Chrome ya pinta en border-box. */
+  box-sizing: border-box;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .admin-form input:focus,
@@ -1264,6 +1268,11 @@
   }
   .admin-sidebar {
     width: 100%;
+    /* Sin border-box, el 100% más los 20 px de relleno a cada lado se salían 40 px de la pantalla
+       y todo el panel tenía scroll horizontal en el móvil (medido de 320 a 768 px, en las seis
+       pestañas). min-width: 0 anula los 240 px de escritorio, que no caben en 320. */
+    box-sizing: border-box;
+    min-width: 0;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
     padding: 20px;

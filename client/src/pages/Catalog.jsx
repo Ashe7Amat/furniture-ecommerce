@@ -244,9 +244,16 @@ export default function Catalog() {
           </div>
         )
       ) : (
-        <div className="empty-state">
+        <div className={`empty-state${showFavorites ? ' empty-state--favoritos' : ''}`}>
           <h2>{showFavorites ? 'Aún no tienes favoritos' : 'No hay productos en esta categoría'}</h2>
           <p>Explora nuestro catálogo para encontrar piezas únicas.</p>
+          {/* H40: una salida en vez de un callejón. Quita la categoría, los favoritos y el filtro de
+              disponibles; si no había ninguno (el catálogo entero está vacío), no hay nada que quitar. */}
+          {(showFavorites || categoriaUrl || soloDisponibles) && (
+            <button type="button" className="empty-state-btn" onClick={limpiarFiltros}>
+              {showFavorites ? 'Explorar catálogo' : 'Ver todo el catálogo'}
+            </button>
+          )}
         </div>
       )}
     </div>

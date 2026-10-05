@@ -14,6 +14,10 @@ const NotFound = () => {
         <Link to="/" className="not-found-btn">Volver al inicio</Link>
         <Link to="/catalogo" className="not-found-link">Ver el catálogo completo →</Link>
       </div>
+      {/* H40: si buscaba una pieza concreta que ya no está, que pueda preguntar por ella. */}
+      <p className="not-found-contacto">
+        ¿Buscabas una pieza concreta? <Link to="/contacto">Escríbenos</Link> y te decimos si sigue en el almacén.
+      </p>
     </div>
   );
 };

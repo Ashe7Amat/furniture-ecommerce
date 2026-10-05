@@ -35,6 +35,22 @@ export const CATEGORIAS = [
   { id: 11, nombre: 'Sillas', categoria_padre_id: 1, imagen_url: null, stats: statsVacias }
 ];
 
+// Lo que respondería GET /api/pedidos (H37) con estos pedidos: la página pedida (20 por página),
+// filtrada por estado, con el total de ese filtro y los "procesando" de todos. Si `pedidos` no es
+// una lista, devuelve eso tal cual (como una respuesta rota de la API).
+export const respuestaPedidos = (pedidos, { pagina = 1, estado = '' } = {}) => {
+  if (!Array.isArray(pedidos)) return pedidos;
+  const filtrados = estado ? pedidos.filter((p) => p.estado === estado) : pedidos;
+  return {
+    pedidos: filtrados.slice((pagina - 1) * 20, pagina * 20),
+    total: filtrados.length,
+    pagina,
+    porPagina: 20,
+    totalPaginas: Math.max(1, Math.ceil(filtrados.length / 20)),
+    pendientes: pedidos.filter((p) => p.estado === 'procesando').length
+  };
+};
+
 // Monta <Admin /> con sus dos contextos y con las tres cargas iniciales (getMuebles,
 // getCategorias, getPedidos) devolviendo los datos que se pasen. Las cargas son promesas ya
 // resueltas: el act async deja que se asienten antes de comprobar nada.
@@ -50,7 +66,7 @@ export const renderAdmin = async ({
   }
   api.getMuebles.mockResolvedValue(muebles);
   api.getCategorias.mockResolvedValue(categorias);
-  api.getPedidos.mockResolvedValue(pedidos);
+  api.getPedidos.mockImplementation(async (opciones) => respuestaPedidos(pedidos, opciones));
 
   let utils;
   await act(async () => {

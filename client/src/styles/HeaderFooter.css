@@ -89,6 +89,11 @@
   height: 45px;
   cursor: text;
   transition: background 0.2s;
+  /* Es un <button> (H39): sin el borde, el relleno ni la fuente que el navegador pone a los botones. */
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
 }
 .header-search-bar:hover {
   background: var(--border-color);
@@ -209,6 +214,9 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
+  /* Al abrir, visible al instante (solo la opacidad hace el fundido): un elemento con visibility
+     hidden no puede recibir el foco, y el campo de búsqueda lo recibe nada más abrirse (H39). */
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s;
 }
 .search-backdrop {
   position: absolute;
@@ -247,6 +255,9 @@
 }
 .search-panel-header input {
   flex: 1;
+  /* Sin esto, el campo no encoge por debajo de su ancho por defecto y en el móvil (375 px) empujaba
+     "✕ Cerrar" fuera del panel. */
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
@@ -259,6 +270,8 @@
   opacity: 0.7;
 }
 .close-search-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
   background: none;
   border: none;
   font-size: 0.9rem;
@@ -298,14 +311,19 @@
   flex-direction: column;
   gap: 15px;
 }
-.search-suggestions li {
+.search-suggestion-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
   font-size: 1.05rem;
   font-weight: 400;
+  text-align: left;
   cursor: pointer;
   color: var(--primary-color);
   transition: color 0.2s ease, transform 0.2s ease;
 }
-.search-suggestions li:hover {
+.search-suggestion-btn:hover {
   color: var(--accent-color);
   transform: translateX(3px);
 }
@@ -704,10 +722,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* La lupa del móvil (H39) solo se ve cuando la barra de búsqueda está oculta. */
+.header-search-mobile-btn { display: none; }
+
 @media (max-width: 768px) {
   .hamburger-btn { display: block; }
   .header-center { display: none; }
   .header-search-bar { display: none; }
+  .header-search-mobile-btn { display: flex; }
   .footer-top { grid-template-columns: 1fr; }
   .footer-links { flex-direction: column; gap: 30px; }
   .footer-bottom { flex-direction: column; gap: 15px; text-align: center; }
@@ -732,4 +754,43 @@
     justify-content: center;
   }
   .header-right { gap: 2px; }
+}
+
+/* Con la lupa del buscador (H39), la cabecera tiene cinco iconos a la derecha. Para que quepa sin
+   scroll horizontal se juntan un poco los grupos (medido: a 375 px se salía 7 px; a 320, 60). */
+@media (max-width: 480px) {
+  .kave-header { gap: 8px; }
+  .header-left { gap: 6px; }
+}
+@media (max-width: 360px) {
+  .hamburger-btn,
+  .header-right .icon-btn {
+    min-width: 34px;
+  }
+  .logo-svg { height: 21px; }
+}
+
+/* H40: sin resultados, un botón para borrar el término y escribir otro. */
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.clear-search-btn {
+  padding: 10px 22px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.clear-search-btn:hover {
+  background: var(--primary-color);
+  color: var(--bg-color);
 }

@@ -161,3 +161,12 @@ describe('Contact — llegando desde "Preguntar por esta pieza" (fase C)', () =>
     }));
   });
 });
+
+describe('Contact — accesibilidad', () => {
+  it('cada campo tiene su etiqueta asociada (se encuentra por su nombre)', () => {
+    montar();
+    expect(screen.getByLabelText('Nombre:')).toHaveAttribute('autocomplete', 'name');
+    expect(screen.getByLabelText('Email:')).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByLabelText('Mensaje:').tagName).toBe('TEXTAREA');
+  });
+});

@@ -1,8 +1,10 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / limit / order / insert / update /
-// delete / single / maybeSingle, y se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
+// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / limit / range / order / insert /
+// update / delete / single / maybeSingle, y select(columnas, { count: 'exact', head }) para contar
+// (como supabase-js, devuelve `count` con el total de filas que cumplen los filtros, sin contar
+// limit ni range; con head: true, data es null). Se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
 // al bucle de eventos antes de ejecutarse, así dos flujos concurrentes se intercalan paso a
 // paso como harían contra una base de datos de verdad, y cada operación es atómica: un update()
 // busca las filas que cumplen sus filtros y las modifica en el mismo paso síncrono, así que dos
@@ -219,8 +221,13 @@ const crearFakeSupabase = ({
         return ascendente ? mayor : -mayor;
       });
     }
+    const total = encontradas.length;
+    if (consulta.rango)
+      encontradas = encontradas.slice(consulta.rango.desde, consulta.rango.hasta + 1);
     if (consulta.limite !== null) encontradas = encontradas.slice(0, consulta.limite);
-    return aplicarSalida(encontradas, consulta.salida);
+    const resultado = aplicarSalida(encontradas, consulta.salida);
+    if (!consulta.contar) return resultado;
+    return { ...resultado, data: consulta.soloCabecera ? null : resultado.data, count: total };
   };
 
   // Deja en cada fila del resultado solo las columnas pedidas en select() (ver select, abajo).
@@ -255,7 +262,9 @@ const crearFakeSupabase = ({
       // update). Sin argumento o con '*', todas. Lo que no sea una lista de nombres simples
       // (relaciones, alias, 'columna->>clave'...) se deja pasar entero. Hace falta para comprobar
       // que un endpoint no expone una columna que no ha pedido (H26).
-      select: (columnas) => {
+      select: (columnas, opciones = {}) => {
+        if (opciones.count) consulta.contar = true;
+        if (opciones.head) consulta.soloCabecera = true;
         const texto = typeof columnas === 'string' ? columnas.trim() : '';
         consulta.columnas =
           !texto || texto === '*' || /[():>]/.test(texto)
@@ -269,6 +278,11 @@ const crearFakeSupabase = ({
       limit: (n) => {
         consulta.limite = n;
         return usar('limit');
+      },
+      // Como PostgREST: desde y hasta son posiciones (empezando en 0) e incluyen las dos puntas.
+      range: (desde, hasta) => {
+        consulta.rango = { desde, hasta };
+        return usar('range');
       },
       order: (columna, opciones = {}) => {
         consulta.orden = { columna, ascendente: opciones.ascending !== false };

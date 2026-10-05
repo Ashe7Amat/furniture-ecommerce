@@ -32,11 +32,13 @@ const Admin = () => {
 
   const [vistaActiva, setVistaActiva] = useState('resumen');
 
+  // El filtro de pedidos vive aquí (se conserva al cambiar de pestaña) y lo aplica el servidor (H37).
+  const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
   const {
     muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
-  } = useAdminDatos(user);
-  const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
+  } = useAdminDatos(user, filtroEstadoPedido);
 
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
@@ -84,8 +86,9 @@ const Admin = () => {
     return <div className="admin-msg">Acceso denegado. Inicia sesión primero.</div>;
   }
 
-  // Pedidos por procesar: la insignia de la barra lateral y una tarjeta del resumen.
-  const pedidosPendientes = pedidos.filter(p => p.estado === 'procesando').length;
+  // Pedidos por procesar: la insignia de la barra lateral y una tarjeta del resumen. Los cuenta el
+  // servidor en toda la historia (H37): la lista que hay aquí es solo una página.
+  const pedidosPendientes = infoPedidos.pendientes;
   // Mensajes del formulario de contacto sin leer: la insignia de "Mensajes".
   const mensajesNoLeidos = mensajes.filter(m => !m.leido).length;
 
@@ -139,6 +142,8 @@ const Admin = () => {
           <PedidosTab
             pedidos={pedidos}
             setPedidos={setPedidos}
+            infoPedidos={infoPedidos}
+            ajustarTrasCambioDeEstado={ajustarTrasCambioDeEstado}
             filtroEstadoPedido={filtroEstadoPedido}
             setFiltroEstadoPedido={setFiltroEstadoPedido}
             cargarPedidos={cargarPedidos}

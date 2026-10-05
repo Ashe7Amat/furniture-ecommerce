@@ -217,4 +217,105 @@ describe('Header — buscador', () => {
     expect(screen.getByText(/No se encontraron resultados/)).toBeInTheDocument();
     expect(screen.getByText('armario')).toBeInTheDocument();
   });
+
+  it('sin coincidencias, "Limpiar búsqueda" vacía el campo y deja el foco en él (H40)', async () => {
+    getMuebles.mockResolvedValue([{ id: 'm1', nombre: 'Silla de roble', categoria: 'Sillas' }]);
+    const user = userEvent.setup();
+    await renderHeader();
+
+    await user.click(screen.getByText('¿Qué estás buscando?'));
+    const campo = screen.getByPlaceholderText('¿Qué estás buscando?');
+    await user.type(campo, 'armario');
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+
+    expect(campo).toHaveValue('');
+    expect(campo).toHaveFocus();
+    expect(screen.queryByText(/No se encontraron resultados/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument();
+  });});
+
+// H39: en el móvil la barra de búsqueda está oculta (CSS, ver e2e/busqueda.spec.js); ahí se busca
+// con la lupa. Las dos son botones de verdad, así que se llega a ellas con el teclado.
+describe('Header — buscador accesible (H39)', () => {
+  const panel = () => document.querySelector('.search-overlay');
+
+  it('la lupa es un botón con nombre "Buscar"; al pulsarla se abre el buscador con el foco en el campo', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+
+    const lupa = screen.getByRole('button', { name: 'Buscar' });
+    expect(panel()).not.toHaveClass('open');
+    expect(panel()).toHaveAttribute('aria-hidden', 'true');
+
+    await user.click(lupa);
+
+    expect(panel()).toHaveClass('open');
+    expect(screen.getByRole('dialog', { name: 'Buscar en el catálogo' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Buscar en el catálogo' })).toHaveFocus();
+  });
+
+  it('"✕ Cerrar" lo oculta, vacía la búsqueda y devuelve el foco a la lupa', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+    const lupa = screen.getByRole('button', { name: 'Buscar' });
+
+    await user.click(lupa);
+    await user.type(screen.getByRole('textbox', { name: 'Buscar en el catálogo' }), 'mesa');
+    await user.click(screen.getByRole('button', { name: '✕ Cerrar' }));
+
+    expect(panel()).not.toHaveClass('open');
+    expect(screen.getByPlaceholderText('¿Qué estás buscando?')).toHaveValue('');
+    expect(lupa).toHaveFocus();
+  });
+
+  it('con el teclado: Tab hasta la barra, Enter la abre y Escape la cierra devolviendo el foco', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+    const barra = screen.getByRole('button', { name: '¿Qué estás buscando?' });
+
+    barra.focus();
+    await user.keyboard('{Enter}');
+    const campo = screen.getByRole('textbox', { name: 'Buscar en el catálogo' });
+    expect(campo).toHaveFocus();
+    expect(campo).toHaveAttribute('tabindex', '0');
+
+    await user.keyboard('{Escape}');
+
+    expect(panel()).not.toHaveClass('open');
+    expect(barra).toHaveFocus();
+    expect(screen.getByPlaceholderText('¿Qué estás buscando?')).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('cerrado, ni el campo ni "✕ Cerrar" están en el orden de tabulación', async () => {
+    await renderHeader();
+    expect(screen.getByPlaceholderText('¿Qué estás buscando?')).toHaveAttribute('tabindex', '-1');
+    expect(document.querySelector('.close-search-btn')).toHaveAttribute('tabindex', '-1');
+  });
+});
+
+// Accesibilidad (auditoría del 5 oct 2026): los botones de icono tienen nombre y las sugerencias del
+// buscador son botones (antes, <li> con onClick: no se llegaba a ellas con el teclado).
+describe('Header — accesibilidad', () => {
+  it('el botón del menú lateral se llama "Abrir el menú" y dice si está abierto; las ✕ se llaman "Cerrar el menú"', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+
+    const menu = screen.getByRole('button', { name: 'Abrir el menú' });
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await user.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('button', { name: 'Cerrar el menú' })).toHaveLength(2);
+  });
+
+  it('las sugerencias del buscador son botones que llevan a su categoría', async () => {
+    getCategorias.mockResolvedValue([{ id: 1, nombre: 'Mobiliario', categoria_padre_id: null }]);
+    const user = userEvent.setup();
+    await renderHeader();
+
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await user.click(within(document.querySelector('.search-suggestions')).getByRole('button', { name: 'Mobiliario' }));
+
+    expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/catalogo');
+    expect(document.querySelector('.search-overlay')).not.toHaveClass('open');
+  });
 });

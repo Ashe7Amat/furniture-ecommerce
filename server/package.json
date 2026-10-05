@@ -10,7 +10,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "node --test src/**/*.test.js",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"src/__tests__/**\" --test-coverage-lines=94 --test-coverage-branches=83 --test-coverage-functions=98 src/**/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"src/__tests__/**\" --test-coverage-lines=98 --test-coverage-branches=91 --test-coverage-functions=99 src/**/*.test.js",
     "test:stripe": "node --test src/__tests__/contract/stripe.contract.js",
     "test:supabase-ilike": "node --test src/__tests__/contract/supabaseIlike.contract.js",
     "test:supabase-rls": "node --test src/__tests__/contract/rlsPedidos.contract.js",

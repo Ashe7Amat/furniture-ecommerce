@@ -118,6 +118,38 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## 🔄 Sesión autónoma del 5 oct 2026: emails, H35-H40, accesibilidad, rendimiento y cobertura
+
+En `feature/mejoras-tecnicas`, sin merge: producción sigue en `87359d6`. Informe completo en
+`docs/reporte-sesion-autonoma.md`.
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. Rediseño de los emails de contacto y de confirmación al comprador | ✅ (`docs/capturas-emails/`) | `f110fb0` |
+| 2.1 H39, búsqueda en el móvil | ✅ | `6b53791` |
+| 2.2 H40, estados vacíos y 404 | ✅ | `aaa6ee8` |
+| 2.3 Desbordamiento del panel en el móvil | ✅ (barra lateral, 40 px, y campos de "Añadir Mueble", 12 px) | `32a8761` |
+| 3.1 H35, tope del carrito y consulta única | ✅ | `72393f0` |
+| 3.2 H36, columnas de "Mis pedidos" | ✅ | `6e3b682` |
+| 3.3 H37, paginación de pedidos | ✅ | `9849118` |
+| 4.1 Accesibilidad | ✅ (`docs/auditoria-accesibilidad.md`) | `5db945b` |
+| 4.2 Rendimiento | ✅ (`docs/auditoria-rendimiento.md`) | `72c8b2e` |
+| 5. Cobertura | ✅ | `ab0c623` |
+
+- **Cobertura (líneas / ramas / funciones):**
+  - cliente: de 91,44 / 94,17 / 89,47 a 98,39 / 95,67 / 93,02;
+  - servidor: de 96,49 / 88,41 / 99,00 a 99,06 / 91,82 / 99,54.
+- **Umbrales**, subidos a lo medido menos medio punto:
+  - cliente: 97 / 95 / 92 (antes 81 / 93 / 86);
+  - servidor: 98 / 91 / 99 (antes 94 / 83 / 98).
+- **Mutantes del panel:** 127 (126 detectados y 1 superviviente esperado), comprobado después de H37.
+- **Hallazgos nuevos:** H41, H42, H43 y H44, abajo en "Hallazgos".
+- **Cambios de comportamiento a propósito:**
+  - carrito de 20 piezas como máximo;
+  - `GET /api/pedidos` paginado;
+  - `getPedidos`, `null` si falla;
+  - `--danger-color` algo más oscuro en modo claro.
+
 ## 🔄 Bloque de trabajo autónomo (4 oct 2026): CSV, mensajes, auditoría, E2E y estilos
 
 En `feature/mejoras-tecnicas`, sin merge (producción sigue en `fd9e5ab`). Informe completo en
@@ -1177,6 +1209,9 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   | B | `{ error: mensaje }`, con el mensaje del servidor | `loginUser`, `registerUser`, `loginConGoogle`, `updateProfile`, `crearSesionPago`, `confirmarSesionPago`, `enviarContacto` |
   | C | `[]`: **un error no se distingue de "no hay datos"** | `getMuebles`, `getCategorias`, `buscarMuebles`, `getMisPedidos`, `getPedidos` |
 
+  *(5 oct 2026, H37: `getPedidos` sale del contrato C. Ahora devuelve una página
+  `{ pedidos, total, ... }` o `null` si falla; ver `api.contratos.test.js`.)*
+
 - **Sitios afectados** (grep de todas las llamadas a funciones de escritura en `client/src/`, sin contar tests ni
   el propio `api.js`: 19 llamadas, 10 de ellas en el panel). **4 no comprueban el resultado, y las 4 están en el
   panel.** Ubicaciones actualizadas el 28 sep: tras la tarea 4, el panel está repartido en `client/src/pages/admin/`
@@ -2045,7 +2080,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
   por página, junto con el resto de etiquetas.
 
-### H35 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
+### H35 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `72393f0`) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
 
 - `schemaCarritoPago` (`server/src/schemas/muebles.js`) solo pide una pieza como mínimo. Con el límite del cuerpo
   JSON (100 KB) caben unos miles.
@@ -2056,18 +2091,46 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   - leer todas las piezas en una consulta (`.in('id', ids)`);
   - poner `.max(...)` al carrito (una tienda de piezas únicas no necesita más de unas decenas).
 - Detalle en `docs/auditoria-tecnica.md`, puntos 7 y 9.
+- **Resuelto (5 oct, `72393f0`):**
+  - como máximo 20 piezas por pedido, con un 400 claro antes de consultar nada;
+  - una sola consulta `.in()`, solo con las columnas necesarias;
+  - en el cliente, la cesta no admite la pieza 21 y el botón pasa a "Cesta llena".
+- **Aprobado por el usuario (5 oct): 20 como máximo, configurable.** Si algún cliente necesita más, se sube.
+  Hay que cambiar el número en dos sitios, que tienen que coincidir:
+  - `MAX_PIEZAS_CARRITO` en `server/src/schemas/muebles.js`;
+  - `MAX_PIEZAS_CESTA` en `client/src/context/CartContext.jsx`.
 
-### H36 · MEDIA · DATOS · PENDIENTE (4 oct 2026) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
+  Cuidado con dos tests que fallarán a propósito al cambiarlo:
+  - `crearSesionPago.test.js` prueba el caso de 20 piezas y el de 21;
+  - `CartContext.test.jsx` comprueba que el tope es 20.
+
+  No se ha pasado a variable de entorno: haría falta una en Vercel para cada proyecto (`nave5-api` y
+  `nave5-demo`), y que no se desincronizaran.
+  `server/src/__tests__/contratoTopeCarrito.test.js` falla si las dos constantes no coinciden. Lee la del
+  cliente como texto: la CI hace un checkout completo del repositorio.
+
+### H36 · MEDIA · DATOS · RESUELTO (5 oct 2026, `6e3b682`) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
 
 - Usa `select('*')`: cualquier columna interna que se añada a `pedidos` saldría al cliente sin que nadie lo
   decida.
 - Es lo mismo que H26 arregló en `muebles` y `categorias`.
 - **Propuesta:** elegir las columnas, y de paso las del panel (`GET /api/pedidos`).
+- **Resuelto (5 oct):**
+  - `/mios` devuelve solo `id, created_at, estado, total, items` (`6e3b682`);
+  - el panel devuelve solo las columnas que enseña (`9849118`, con H37).
 
-### H37 · MEDIA · RENDIMIENTO · PENDIENTE (4 oct 2026) · El panel trae todos los pedidos de la historia en cada carga
+### H37 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `9849118`) · El panel trae todos los pedidos de la historia en cada carga
 
 - `GET /api/pedidos` no tiene límite ni paginación, y crece con cada venta.
 - **Propuesta:** los últimos N, con "ver más", o paginar.
+- **Resuelto (5 oct, `9849118`):**
+  - **Servidor:** `?page`, `?limit` (20 por defecto, como mucho 100) y `?estado`. Devuelve
+    `{ pedidos, total, pagina, porPagina, totalPaginas, pendientes }`.
+  - **Panel:** "← Anterior / Siguiente →". El filtro lo aplica el servidor. La insignia y el Resumen usan los
+    pendientes de toda la historia.
+  - **`getPedidos`:** pasa del contrato C al A (`null` si falla).
+  - **Tests y mutantes:** los de caracterización afectados llevan `CAMBIADO A PROPÓSITO`. Se reescribieron
+    4 mutantes; siguen siendo 127 (126 detectados y 1 superviviente esperado).
 
 ### H38 · MEDIA · MIGRACIONES · PENDIENTE (4 oct 2026) · Faltan en el repositorio las 7 primeras migraciones y las tablas base
 
@@ -2083,7 +2146,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - No se puede reconstruir la base de datos desde el repositorio, ni comprobar sus índices sin consultarla.
 - **Propuesta:** volcar el esquema actual (solo lectura) y guardarlo como migración de partida.
 
-### H39 · MEDIA · USABILIDAD · PENDIENTE (4 oct 2026) · En el móvil no se puede abrir la búsqueda
+### H39 · MEDIA · USABILIDAD · RESUELTO (5 oct 2026, `6b53791`) · En el móvil no se puede abrir la búsqueda
 
 - El panel de búsqueda solo se abre pulsando `.header-search-bar` (`Header.jsx`), y por debajo de 768 px esa
   barra está oculta (`display: none`): en el móvil no hay ninguna forma de buscar.
@@ -2092,8 +2155,13 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   cabecera ya no tiene sitio.
 - **Propuesta (JSX):** un botón de lupa con `aria-label="Buscar"`, visible en el móvil, y convertir la barra en
   un `<button>`.
+- **Resuelto (5 oct, `6b53791`):**
+  - lupa "Buscar" en el móvil, y la barra pasa a ser un `<button>`;
+  - el campo recibe el foco al abrir; Escape cierra el buscador y devuelve el foco;
+  - la cabecera se compacta para que quepa de 320 a 1024 px;
+  - E2E nuevo: `e2e/busqueda.spec.js`.
 
-### H40 · BAJA · USABILIDAD · PENDIENTE (4 oct 2026) · Estados vacíos sin acción y 404 sin enlace a contacto
+### H40 · BAJA · USABILIDAD · RESUELTO (5 oct 2026, `aaa6ee8`) · Estados vacíos sin acción y 404 sin enlace a contacto
 
 Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - el catálogo vacío ("No hay productos en esta categoría", y "Aún no tienes favoritos") no tiene un botón para
@@ -2101,6 +2169,82 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - las pestañas vacías de Mi cuenta tampoco tienen acción. Favoritos vacíos y "Cargando tus pedidos..." tienen el
   mismo marcado, así que el corazón solo se puede poner con una clase propia;
 - la 404 tiene "Volver al inicio" y "Ver el catálogo completo", pero no "Contacto".
+
+**Resuelto (5 oct, `aaa6ee8`):**
+- catálogo vacío: "Ver todo el catálogo" o, en favoritos, "Explorar catálogo", con un corazón;
+- búsqueda sin resultados: "Limpiar búsqueda";
+- Mi cuenta: favoritos y pedidos vacíos con icono y "Explorar catálogo";
+- 404: con enlace a Contacto.
+
+### H41 · BAJA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Las categorías de encima del catálogo no se pueden usar con el teclado
+
+- `CategorySlider.jsx` pinta cada categoría como un `div` con `onClick`: no se llega con el tabulador ni lo
+  anuncia un lector de pantalla. Es lo mismo que A9 de `docs/auditoria-accesibilidad.md` (los círculos de la
+  portada, ya arreglado), pero en el catálogo. axe no lo detecta.
+- Encontrado al escribir sus tests (tarea 5 de la sesión del 5 oct). No se cambió ahí porque era un commit
+  solo de tests.
+- **Propuesta:** `<button type="button" aria-pressed={activa}>` en cada categoría, con el mismo CSS.
+
+### H42 · MEDIA · RENDIMIENTO · PENDIENTE (5 oct 2026) · Las fotos del hero se descargan a 1600 px también en el móvil
+
+- Las cuatro fotos del slider pesan de 197 a 405 KB. La primera (367 KB) es la imagen más grande de la
+  portada, y en el móvil se enseña a 375 px.
+- **Propuesta:** versiones de 800 px con `srcset`/`sizes`, y una versión apaisada de `hero-showroom.webp`.
+- **Por qué no se hizo:** el ImageMagick del contenedor no escribe WebP. Detalle en
+  `docs/auditoria-rendimiento.md`.
+
+### H43 · BAJA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Orden de los títulos y login sin `h1`
+
+- **Qué es:** avisos moderados de axe (A10 y A11 de `docs/auditoria-accesibilidad.md`):
+  - se salta de `h1`/`h2` a `h3` en las tarjetas del catálogo, en Contacto y en el pie;
+  - el inicio de sesión no tiene `h1`.
+- **Por qué no se tocó:** cambiar el nivel cambia el tamaño en el CSS, así que hay que revisarlo con el diseño.
+
+### H44 · MEDIA · DEPENDENCIAS · PENDIENTE (5 oct 2026) · `npm audit` del cliente: 8 avisos, uno en una librería que llega al navegador
+
+- **Qué dice `npm audit`** (5 oct): 8 avisos (2 críticos, 1 alto, 5 moderados), todos de antes de esta sesión.
+  `@axe-core/playwright` no añadió ninguno: en el `package-lock.json` solo entraron `axe-core` y él.
+- **Solo en desarrollo:** `vitest`, `@vitest/coverage-v8`, `@vitest/mocker`, `vite`, `vite-node` y
+  `esbuild`. Afectan al servidor de desarrollo y a la interfaz de Vitest, no a la web publicada.
+- **En el navegador:** `react-router` / `react-router-dom` (moderado). Entre otros, una redirección abierta
+  con una barra invertida en `<Link>`/`useNavigate`.
+- **Comprobado el 5 oct, `react-router`:** instaladas `react-router` y `react-router-dom` 6.30.6 y
+  `@remix-run/router` 1.23.4 (la versión de H23). Hay dos advisories nuevos, publicados después de H23, que
+  afectan a toda la rama 6 y se corrigen solo en la 7.18 (versión mayor):
+  - [GHSA-wrjc-x8rr-h8h6](https://github.com/advisories/GHSA-wrjc-x8rr-h8h6): redirección abierta con una
+    barra invertida en `<Link>`/`useNavigate` (afecta de 6.0.0 a 7.18). **No es explotable aquí:** todos los
+    `to=` y `navigate()` del cliente empiezan por una ruta fija (`/catalogo?…`, `/mueble/…`, `/contacto?…`, o
+    `navigate(-1)`). Ninguno toma el principio de la ruta de la URL ni de lo que escribe quien visita.
+    No hay redirección "volver a" con un parámetro.
+  - [GHSA-337j-9hxr-rhxg](https://github.com/advisories/GHSA-337j-9hxr-rhxg): inyección en
+    `deserializeErrors()` al hidratar con render en el servidor (de 6.4.0 a 7.18). **No aplica:** la web usa
+    `<BrowserRouter>`, solo en el navegador, sin render en el servidor ni datos de hidratación.
+- **Decisión propuesta:**
+  - aceptar el aviso de `react-router` hasta migrar a la v7, que es un cambio de versión mayor, en su propia
+    sesión;
+  - si se añade alguna redirección con una ruta que venga de la URL, hay que validarla o migrar antes.
+- **Dependencias de desarrollo** (vite, vitest, esbuild): subirlas en su propio commit, con el gate.
+- **Por qué no se hizo:** `npm audit fix --force` cambia de versión mayor. Hay que hacerlo a propósito.
+
+### H45 · BAJA · USABILIDAD · PENDIENTE (5 oct 2026) · Volver a la página pedida después de iniciar sesión
+
+- **Qué pasa:**
+  - Si alguien sin sesión intenta entrar en `/cuenta`, `ProtectedRoute` lo manda a `/login`
+    (`<Navigate to="/login" replace />`).
+  - Al iniciar sesión, `Login.jsx` hace siempre `navigate('/')`: no vuelve a la ruta que se pedía y la persona
+    acaba en la portada.
+- **A qué afecta:**
+  - al botón "Ver mi pedido" del email de confirmación (`/cuenta?tab=pedidos`, ver `f110fb0`);
+  - a cualquier acceso directo a `/cuenta` sin sesión.
+- **Por qué no corre prisa:** el email de confirmación solo sale al comprar, y con `MOSTRAR_PRECIOS=false`
+  nadie puede comprar.
+- **Arreglo:**
+  - guardar la ruta original (con su `?tab=…`) al redirigir, en el `state` de `<Navigate>` o en un parámetro
+    de la URL;
+  - usarla en el `navigate()` tras el login.
+  - Si va en un parámetro de la URL, hay que validar que sea una ruta interna (que empiece por `/` y no por
+    `//` ni `/\`). Si no, sería justo la redirección abierta de H44.
+- **Cuándo:** en la sesión de usabilidad, junto con H41 y H43.
 
 ## Decisiones de diseño a recordar
 

@@ -279,16 +279,24 @@ const buscarMuebles = async (req, res) => {
 // precio que manda el navegador) y devuelve las líneas listas para Stripe. Lanza un error
 // legible si algo ya no está disponible. Solo se usa ANTES de cobrar (crearSesionPago); una
 // vez pagado, el pedido lo registra utils/pagos.js sin rechazar nada.
+// H35: todas las piezas en una sola consulta (antes, una por pieza, una tras otra) y solo con
+// las columnas que hacen falta aquí. Un fallo de la base de datos ya no se confunde con "no
+// existe": lanza un error normal y el catch de crearSesionPago responde 500 genérico.
+const COLUMNAS_PIEZA_CARRITO = 'id, nombre, estado, precio_venta, precio_alquiler_dia';
+
 const construirLineasDesdeCarrito = async (items) => {
+  const ids = [...new Set(items.map((item) => item.productId))];
+  const { data, error } = await supabase
+    .from('muebles')
+    .select(COLUMNAS_PIEZA_CARRITO)
+    .in('id', ids);
+  if (error) throw error;
+  const porId = new Map((data || []).map((mueble) => [mueble.id, mueble]));
+
   const lineas = [];
   for (const item of items) {
-    const { data: mueble, error } = await supabase
-      .from('muebles')
-      .select('*')
-      .eq('id', item.productId)
-      .single();
-
-    if (error || !mueble) {
+    const mueble = porId.get(item.productId);
+    if (!mueble) {
       throw new ErrorValidacion(`La pieza con ID ${item.productId} no existe en catálogo.`);
     }
     if (mueble.estado === 'vendido') {

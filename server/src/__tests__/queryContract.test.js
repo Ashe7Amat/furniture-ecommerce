@@ -100,11 +100,14 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
   test('cargar las piezas: una sola consulta con .in() y solo las columnas necesarias', () => {
     const { params } = de('GET', '/rest/v1/muebles')[0];
 
+    // CAMBIADO A PROPÓSITO (5 oct 2026): también la referencia, para el correo de confirmación al
+    // comprador. No se guarda en el pedido (ver el test de registrar el pedido, más abajo).
     assert.deepEqual(params.select.split(','), [
       'id',
       'nombre',
       'precio_venta',
-      'precio_alquiler_dia'
+      'precio_alquiler_dia',
+      'referencia'
     ]);
     assert.match(params.id, /^in\.\(.*mueble-1.*\)$/);
   });

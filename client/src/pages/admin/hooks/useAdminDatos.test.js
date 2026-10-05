@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { getMuebles, getCategorias, getPedidos, getMensajes } from '../../../services/api';
+import { respuestaPedidos } from '../../adminTestUtils';
 import useAdminDatos from './useAdminDatos';
 
 vi.mock('../../../services/api');
@@ -9,7 +10,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   getMuebles.mockResolvedValue([{ id: 'm1' }]);
   getCategorias.mockResolvedValue([{ id: 1 }]);
-  getPedidos.mockResolvedValue([{ id: 'p1' }]);
+  // CAMBIADO A PROPÓSITO (5 oct 2026, H37): getPedidos devuelve una página con su total, no la lista.
+  getPedidos.mockImplementation(async (opciones) => respuestaPedidos([{ id: 'p1', estado: 'procesando' }], opciones));
   getMensajes.mockResolvedValue([{ id: 'c1', leido: false }]);
 });
 
@@ -27,7 +29,9 @@ describe('useAdminDatos', () => {
 
     expect(result.current.muebles).toEqual([{ id: 'm1' }]);
     expect(result.current.categorias).toEqual([{ id: 1 }]);
-    expect(result.current.pedidos).toEqual([{ id: 'p1' }]);
+    expect(result.current.pedidos).toEqual([{ id: 'p1', estado: 'procesando' }]);
+    expect(result.current.infoPedidos).toEqual({ total: 1, pagina: 1, totalPaginas: 1, pendientes: 1 });
+    expect(getPedidos).toHaveBeenCalledWith({ pagina: 1, estado: '' });
     expect(getMuebles).toHaveBeenCalledWith({ fresco: true });
     expect(getCategorias).toHaveBeenCalledWith({ fresco: true });
     expect(getPedidos).toHaveBeenCalledTimes(1);

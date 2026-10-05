@@ -40,6 +40,10 @@ const Header = () => {
   });
 
   const dropdownRef = useRef(null);
+  // Buscador (H39): el campo recibe el foco al abrirse y, al cerrarlo, el foco vuelve al botón
+  // que lo abrió (la barra en escritorio o la lupa en el móvil).
+  const searchInputRef = useRef(null);
+  const searchOpenerRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -104,11 +108,35 @@ const Header = () => {
     navigate(path);
   };
 
+  const openSearch = (event) => {
+    searchOpenerRef.current = event?.currentTarget || null;
+    setIsSearchOpen(true);
+  };
+
+  // Sin resultados (H40): vacía el término y deja el foco en el campo para escribir otro.
+  const clearSearchTerm = () => {
+    setSearchTerm('');
+    searchInputRef.current?.focus();
+  };
+
   const closeSearch = () => {
     setIsSearchOpen(false);
     setSearchTerm('');
     setSearchResults([]);
+    searchOpenerRef.current?.focus();
+    searchOpenerRef.current = null;
   };
+
+  // Al abrir, el foco va al campo; con Escape se cierra, como cualquier panel superpuesto.
+  useEffect(() => {
+    if (!isSearchOpen) return undefined;
+    searchInputRef.current?.focus();
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') closeSearch();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchOpen]);
 
   const handleLogout = () => {
     logout();
@@ -125,21 +153,33 @@ const Header = () => {
     <>
       <header className="kave-header">
         <div className="header-left">
-          <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)}>☰</button>
+          <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)} aria-label="Abrir el menú" aria-expanded={isMenuOpen}>☰</button>
           <Link to="/" className="logo" aria-label="Nave 5, ir al inicio"><Logo className="logo-svg" /></Link>
         </div>
         
         <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <div className="header-search-bar" onClick={() => setIsSearchOpen(true)}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-color)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }}>
+          <button type="button" className="header-search-bar" onClick={openSearch}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--secondary-color)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '16px' }} aria-hidden="true">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <span className="search-placeholder">¿Qué estás buscando?</span>
-          </div>
+          </button>
         </div>
 
         <div className="header-right">
+          {/* Solo en el móvil (CSS): ahí la barra de búsqueda no cabe y está oculta (H39). */}
+          <button
+            type="button"
+            className="icon-btn header-search-mobile-btn"
+            onClick={openSearch}
+            aria-label="Buscar"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
 
           <button
             className="icon-btn theme-toggle-btn"
@@ -212,7 +252,13 @@ const Header = () => {
       </header>
 
       {/* --- SEARCH OVERLAY (always in DOM, toggled via CSS class) --- */}
-      <div className={`search-overlay${isSearchOpen ? ' open' : ''}`}>
+      <div
+        className={`search-overlay${isSearchOpen ? ' open' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Buscar en el catálogo"
+        aria-hidden={!isSearchOpen}
+      >
         <div className="search-backdrop" onClick={closeSearch}></div>
         <div className="search-panel">
           <div className="search-panel-header">
@@ -222,16 +268,21 @@ const Header = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               tabIndex={isSearchOpen ? 0 : -1}
+              ref={searchInputRef}
+              aria-label="Buscar en el catálogo"
               autoComplete="off"
             />
-            <button className="close-search-btn" onClick={closeSearch}>✕ Cerrar</button>
+            <button className="close-search-btn" onClick={closeSearch} tabIndex={isSearchOpen ? 0 : -1}>✕ Cerrar</button>
           </div>
           <div className="search-panel-content">
             <div className="search-suggestions">
               <h3>Sugerencias</h3>
               <ul>
                 {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
-                  <li key={cat.id} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</li>
+                  <li key={cat.id}>
+                    {/* Un botón, no el <li> con onClick: así se llega con el teclado (auditoría de accesibilidad). */}
+                    <button type="button" className="search-suggestion-btn" tabIndex={isSearchOpen ? 0 : -1} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</button>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -267,9 +318,14 @@ const Header = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="no-results-text">
-                    No se encontraron resultados para &ldquo;<strong>{searchTerm}</strong>&rdquo;
-                  </p>
+                  <div className="no-results">
+                    <p className="no-results-text">
+                      No se encontraron resultados para &ldquo;<strong>{searchTerm}</strong>&rdquo;
+                    </p>
+                    <button type="button" className="clear-search-btn" onClick={clearSearchTerm}>
+                      Limpiar búsqueda
+                    </button>
+                  </div>
                 )
               ) : (
                 /* Estado vacío — grid editorial por defecto */
@@ -290,7 +346,7 @@ const Header = () => {
         <div className={`mega-menu-panel primary-panel${isMenuOpen ? ' open' : ''}${isProductsMenuOpen ? ' shifted' : ''}`}>
           <div className="mega-menu-header">
             <Link to="/" className="logo" aria-label="Nave 5, ir al inicio" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}><Logo className="logo-svg" /></Link>
-            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list">
             <li>
@@ -316,7 +372,7 @@ const Header = () => {
           <div className="mega-menu-header">
             <button className="mega-menu-back" onClick={() => setIsProductsMenuOpen(false)}>‹ Volver</button>
             <h3>Productos</h3>
-            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list sub-list">
             {categorias.filter(cat => !cat.categoria_padre_id).map(general => (

@@ -1,12 +1,16 @@
 // client/src/components/CartDrawer.jsx
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
 import { TEXTO_SIN_PRECIO } from '../utils/format';
 import { ToastContext } from '../context/ToastContext';
 import { AuthContext } from '../context/AuthContext';
-import CheckoutModal from './CheckoutModal';
-import AuthModal from './AuthModal';
+// Carga diferida (auditoría de rendimiento, 5 oct 2026): el pago y el inicio de sesión solo se usan
+// desde la cesta, y venían en el paquete inicial de todas las páginas (unos 10 KB de JS más su CSS).
+const cargarCheckout = () => import('./CheckoutModal');
+const cargarAuth = () => import('./AuthModal');
+const CheckoutModal = lazy(cargarCheckout);
+const AuthModal = lazy(cargarAuth);
 import '../styles/CartDrawer.css';
 
 const CartDrawer = () => {
@@ -19,13 +23,39 @@ const CartDrawer = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
+  // Los dos modales se montan la primera vez que hacen falta y se quedan montados (sus animaciones
+  // de cierre y su limpieza necesitan seguir montados después de cerrarse).
+  const [modalesUsados, setModalesUsados] = useState(false);
+  if ((isCheckoutOpen || isAuthOpen) && !modalesUsados) setModalesUsados(true);
+  const botonCerrarRef = useRef(null);
 
   // Al abrir la cesta, comprobamos que las piezas guardadas sigan disponibles (pueden
   // haberse vendido o eliminado desde que se añadieron, sobre todo en cestas antiguas).
   useEffect(() => {
     if (isCartOpen) {
       validateCart();
+      // Con la cesta abierta, el pago está a un clic: se descargan ya, para que no haya espera.
+      cargarCheckout();
+      cargarAuth();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCartOpen]);
+
+  // Accesibilidad: al abrir, el foco va a "Cerrar cesta" y Escape la cierra; al cerrar, el foco
+  // vuelve a donde estaba (normalmente, el botón de la cesta de la cabecera). Cerrada, la cesta está
+  // oculta también para el teclado y los lectores de pantalla (aria-hidden y visibility en el CSS).
+  useEffect(() => {
+    if (!isCartOpen) return undefined;
+    const focoAnterior = document.activeElement;
+    botonCerrarRef.current?.focus();
+    const alPulsarTecla = (event) => {
+      if (event.key === 'Escape') toggleCart();
+    };
+    document.addEventListener('keydown', alPulsarTecla);
+    return () => {
+      document.removeEventListener('keydown', alPulsarTecla);
+      if (focoAnterior instanceof HTMLElement) focoAnterior.focus();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCartOpen]);
 
@@ -60,10 +90,16 @@ const CartDrawer = () => {
       <div className={`cart-overlay ${isCartOpen ? 'active' : ''}`} onClick={toggleCart}></div>
       
       {/* Contenedor lateral deslizable (Cart Drawer) */}
-      <div className={`cart-drawer ${isCartOpen ? 'active' : ''}`}>
+      <div
+        className={`cart-drawer ${isCartOpen ? 'active' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cesta-titulo"
+        aria-hidden={!isCartOpen}
+      >
         <div className="cart-header">
-          <h2>Tu Cesta ({cartItems.length})</h2>
-          <button className="cart-close-btn" onClick={toggleCart} aria-label="Cerrar cesta">✕</button>
+          <h2 id="cesta-titulo">Tu Cesta ({cartItems.length})</h2>
+          <button className="cart-close-btn" onClick={toggleCart} aria-label="Cerrar cesta" ref={botonCerrarRef}>✕</button>
         </div>
         
         <div className="cart-items-container">
@@ -177,21 +213,25 @@ const CartDrawer = () => {
         )}
       </div>
 
-      {/* Pasarela de pago */}
-      <CheckoutModal 
-        isOpen={isCheckoutOpen} 
-        onClose={() => setIsCheckoutOpen(false)} 
-      />
+      {modalesUsados && (
+        <Suspense fallback={null}>
+          {/* Pasarela de pago */}
+          <CheckoutModal 
+            isOpen={isCheckoutOpen} 
+            onClose={() => setIsCheckoutOpen(false)} 
+          />
 
-      {/* Pop-up de autenticación suave previa al checkout */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onSuccess={() => {
-          setIsAuthOpen(false);
-          setIsCheckoutOpen(true);
-        }}
-      />
+          {/* Pop-up de autenticación suave previa al checkout */}
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+            onSuccess={() => {
+              setIsAuthOpen(false);
+              setIsCheckoutOpen(true);
+            }}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

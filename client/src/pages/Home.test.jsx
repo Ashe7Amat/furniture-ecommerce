@@ -55,3 +55,18 @@ describe('Home — hero', () => {
     expect(screen.getByRole('button', { name: 'Ver foto 3 de 4' })).toHaveAttribute('aria-current', 'true');
   });
 });
+
+describe('Home — categorías (accesibilidad)', () => {
+  it('cada categoría general es un enlace a su catálogo, con su nombre (la foto no lo repite)', async () => {
+    getCategorias.mockResolvedValue([
+      { id: 1, nombre: 'Mobiliario', categoria_padre_id: null, imagen_url: '/img/m.webp' },
+      { id: 2, nombre: 'Sillas', categoria_padre_id: 1, imagen_url: null }
+    ]);
+    await renderHome();
+
+    const enlace = screen.getByRole('link', { name: 'Mobiliario' });
+    expect(enlace).toHaveAttribute('href', '/catalogo?categoria=Mobiliario');
+    expect(enlace.querySelector('img')).toHaveAttribute('alt', '');
+    expect(screen.queryByRole('link', { name: 'Sillas' })).not.toBeInTheDocument();
+  });
+});

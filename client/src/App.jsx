@@ -44,36 +44,40 @@ function App() {
             <BrowserRouter>
               <ScrollToTop />
               <div className="app-container">
+                {/* Accesibilidad (WCAG 2.4.1): con el teclado, saltar la cabecera e ir directo al contenido. */}
+                <a href="#contenido" className="saltar-al-contenido">Saltar al contenido</a>
                 <Header />
-                <Suspense fallback={<CargandoPagina />}>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
+                <main id="contenido" tabIndex={-1}>
+                  <Suspense fallback={<CargandoPagina />}>
+                    <Routes>
+                      <Route path="/" element={<Home />} />
 
-                    {/* Para entrar aquí solo hace falta estar logueado (adminOnly es false por defecto) */}
-                    <Route path="/cuenta" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                      {/* Para entrar aquí solo hace falta estar logueado (adminOnly es false por defecto) */}
+                      <Route path="/cuenta" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-                    <Route path="/catalogo" element={<Catalog />} />
-                    <Route path="/mueble/:id" element={<ProductDetail />} />
-                    <Route path="/producto/:id" element={<ProductDetail />} />
-                    <Route path="/login" element={<Login />} />
+                      <Route path="/catalogo" element={<Catalog />} />
+                      <Route path="/mueble/:id" element={<ProductDetail />} />
+                      <Route path="/producto/:id" element={<ProductDetail />} />
+                      <Route path="/login" element={<Login />} />
 
-                    <Route path="/sobre-nosotros" element={<About />} />
-                    <Route path="/sostenibilidad" element={<Sustainability />} />
-                    <Route path="/contacto" element={<Contact />} />
-                    <Route path="/legal" element={<Legal />} />
-                    <Route path="/privacidad" element={<PrivacyPolicy />} />
-                    <Route path="/terminos" element={<Terms />} />
+                      <Route path="/sobre-nosotros" element={<About />} />
+                      <Route path="/sostenibilidad" element={<Sustainability />} />
+                      <Route path="/contacto" element={<Contact />} />
+                      <Route path="/legal" element={<Legal />} />
+                      <Route path="/privacidad" element={<PrivacyPolicy />} />
+                      <Route path="/terminos" element={<Terms />} />
 
-                    <Route path="/checkout/exito" element={<CheckoutExito />} />
-                    <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
+                      <Route path="/checkout/exito" element={<CheckoutExito />} />
+                      <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
 
-                    {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
-                    <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />
+                      {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
+                      <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />
 
-                    {/* Cualquier otra ruta: página 404 (siempre al final) */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+                      {/* Cualquier otra ruta: página 404 (siempre al final) */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                </main>
                 <Footer />
                 <CartDrawer />
                 <CookieConsent />

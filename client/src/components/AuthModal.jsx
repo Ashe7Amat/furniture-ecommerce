@@ -84,7 +84,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
   return (
     <div className="auth-overlay">
       <div className="auth-modal">
-        <button className="auth-close-btn" onClick={handleClose}>✕</button>
+        <button className="auth-close-btn" onClick={handleClose} aria-label="Cerrar">✕</button>
         
         <div className="auth-content">
           <div className="auth-logo-brand">
