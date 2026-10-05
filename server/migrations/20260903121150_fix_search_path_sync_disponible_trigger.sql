@@ -1,0 +1,1 @@
+ALTER FUNCTION public.sync_disponible_desde_estado() SET search_path = public;

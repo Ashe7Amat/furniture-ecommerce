@@ -1,0 +1,1 @@
+ALTER TABLE categorias ADD COLUMN categoria_padre_id integer REFERENCES categorias(id) ON DELETE SET NULL;
