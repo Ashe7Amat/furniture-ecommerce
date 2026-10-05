@@ -10,7 +10,7 @@ const Footer = () => {
     <footer className="kave-footer">
       <div className="footer-top">
         <div className="footer-newsletter">
-          <h3>Únete a nuestra newsletter</h3>
+          <h2>Únete a nuestra newsletter</h2>
           <p>Y recibe nuestras novedades y tendencias de diseño.</p>
           <div className="newsletter-form">
             <input type="email" placeholder="Tu email" />
@@ -29,7 +29,7 @@ const Footer = () => {
 
         <div className="footer-links">
           <div className="footer-column">
-            <h4>Nosotros</h4>
+            <h2>Nosotros</h2>
             <Link to="/sobre-nosotros">La marca</Link>
             <Link to="/sostenibilidad">Sostenibilidad</Link>
             <Link to="/legal">Aviso Legal</Link>
@@ -37,7 +37,7 @@ const Footer = () => {
             <Link to="/terminos">Términos y Condiciones</Link>
           </div>
           <div className="footer-column">
-            <h4>Contacto</h4>
+            <h2>Contacto</h2>
             <Link to="/contacto">Contacto</Link>
             <a
               href="https://www.instagram.com/nave5bcn"
@@ -49,7 +49,7 @@ const Footer = () => {
             </a>
           </div>
           <div className="footer-column">
-            <h4>Cuenta</h4>
+            <h2>Cuenta</h2>
             <Link to={user ? "/cuenta" : "/login"}>Mi cuenta</Link>
             <Link to={user ? "/cuenta?tab=pedidos" : "/login"}>Mis pedidos</Link>
             {/* Solo al administrador (H30): antes salía también a quien no había iniciado sesión. */}

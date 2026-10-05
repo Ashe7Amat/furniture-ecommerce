@@ -295,7 +295,10 @@
   border-right: 1px solid var(--border-color);
   padding-right: 20px;
 }
-.search-suggestions h3, .search-results h3 {
+/* H43: h2 (antes h3, que saltaba un nivel). El margin-top es el que daba el navegador al h3, para que
+   no cambie nada a la vista. */
+.search-suggestions h2, .search-results h2 {
+  margin-top: 1em;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 1.5px;
@@ -534,7 +537,7 @@
   margin-bottom: 40px;
   height: 40px;
 }
-.mega-menu-header h3 {
+.mega-menu-header h2 { /* H43: antes h3 */
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.2rem;
@@ -609,7 +612,10 @@
   padding: 60px 4vw;
   gap: 40px;
 }
-.footer-newsletter h3 {
+/* H43: los títulos del pie son h2 (antes h3 y h4: saltaban niveles después del h1 de la página). Los
+   margin-top son los que daba el navegador a esos niveles, para que se vea igual. */
+.footer-newsletter h2 {
+  margin-top: 1em;
   font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 500;
@@ -684,7 +690,8 @@
   flex-direction: column;
   gap: 15px;
 }
-.footer-column h4 {
+.footer-column h2 {
+  margin-top: 1.33em;
   font-size: 0.9rem;
   text-transform: uppercase;
   margin-bottom: 5px;

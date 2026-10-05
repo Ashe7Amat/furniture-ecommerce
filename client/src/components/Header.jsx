@@ -276,7 +276,7 @@ const Header = () => {
           </div>
           <div className="search-panel-content">
             <div className="search-suggestions">
-              <h3>Sugerencias</h3>
+              <h2>Sugerencias</h2>
               <ul>
                 {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
                   <li key={cat.id}>
@@ -287,7 +287,7 @@ const Header = () => {
               </ul>
             </div>
             <div className="search-results">
-              <h3>{searchTerm ? 'Resultados' : 'Te puede interesar'}</h3>
+              <h2>{searchTerm ? 'Resultados' : 'Te puede interesar'}</h2>
 
               {/* Resultados predictivos */}
               {searchTerm.trim() ? (
@@ -371,7 +371,7 @@ const Header = () => {
         <div className={`mega-menu-panel secondary-panel${isProductsMenuOpen ? ' open' : ''}`}>
           <div className="mega-menu-header">
             <button className="mega-menu-back" onClick={() => setIsProductsMenuOpen(false)}>‹ Volver</button>
-            <h3>Productos</h3>
+            <h2>Productos</h2>
             <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list sub-list">

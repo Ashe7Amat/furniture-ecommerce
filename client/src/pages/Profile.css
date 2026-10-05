@@ -203,7 +203,7 @@
   margin-bottom: 15px;
 }
 
-.fav-mini-info h4 {
+.fav-mini-info h3 { /* H43: antes h4 (saltaba del h2 de la pestaña) */
   margin: 0 0 5px 0;
   font-size: 1rem;
   font-weight: 500;

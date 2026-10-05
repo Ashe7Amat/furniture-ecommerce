@@ -47,6 +47,15 @@ afterEach(() => {
 });
 
 describe('Login — iniciar sesión', () => {
+  it('el título de la página es su h1, también al pasar a "Crear una cuenta" (H43)', async () => {
+    await cargar();
+    expect(screen.getByRole('heading', { level: 1, name: 'Acceder a mi cuenta' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Regístrate/ }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Crear una cuenta' })).toBeInTheDocument();
+    expect(document.querySelectorAll('h1')).toHaveLength(1);
+  });
+
   it('sin email o contraseña avisa y no llama al servidor', async () => {
     const { api } = await cargar();
     escribir('Email', 'ana@correo.es');

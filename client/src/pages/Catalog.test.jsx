@@ -29,7 +29,9 @@ const montar = async (muebles) => {
       </CartContext.Provider>
     </MemoryRouter>
   );
-  await screen.findByRole('heading', { level: 3, name: muebles[0].nombre });
+  // CAMBIADO A PROPÓSITO (5 oct 2026, H43): el nombre de cada pieza es un h2 (antes h3, que saltaba
+  // un nivel después del h1 del catálogo).
+  await screen.findByRole('heading', { level: 2, name: muebles[0].nombre });
 };
 const selectorOrden = () => screen.queryByLabelText('Ordenar por precio');
 const nombres = () => [...document.querySelectorAll('.product-title')].map((h) => h.textContent);

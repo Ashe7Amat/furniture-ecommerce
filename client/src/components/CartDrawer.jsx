@@ -147,7 +147,7 @@ const CartDrawer = () => {
                     </button>
                   </div>
                   
-                  <h4 className="cart-item-title">{item.nombre}</h4>
+                  <h3 className="cart-item-title">{item.nombre}</h3>
                   
                   <div className="cart-item-pricing-qty">
                     <span className="cart-item-price-label">{lineaSinPrecio(item) ? TEXTO_SIN_PRECIO : `${item.precio} €`}</span>

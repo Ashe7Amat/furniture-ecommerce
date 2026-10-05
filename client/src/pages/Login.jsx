@@ -113,7 +113,7 @@ const Login = () => {
   return (
     <div className="login-container">
       <div className="login-box">
-        <h2>{isRegister ? 'Crear una cuenta' : 'Acceder a mi cuenta'}</h2>
+        <h1>{isRegister ? 'Crear una cuenta' : 'Acceder a mi cuenta'}</h1>
         <p>{isRegister ? 'Rellena tus datos para unirte.' : 'Introduce tu email y contraseña para entrar.'}</p>
         <form onSubmit={handleSubmit}>
           {isRegister && (
