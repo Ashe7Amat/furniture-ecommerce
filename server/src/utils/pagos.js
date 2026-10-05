@@ -69,7 +69,7 @@ const cargarLineasPagadas = async (items) => {
   const ids = items.map(item => item.productId);
   const { data: muebles, error } = await supabase
     .from('muebles')
-    .select('id, nombre, precio_venta, precio_alquiler_dia')
+    .select('id, nombre, precio_venta, precio_alquiler_dia, referencia')
     .in('id', ids);
 
   if (error) throw error;
@@ -85,7 +85,10 @@ const cargarLineasPagadas = async (items) => {
       nombre: mueble ? mueble.nombre : '(pieza eliminada del catálogo)',
       modalidad,
       cantidad: 1, // son piezas únicas: siempre 1
-      precio: (mueble && (modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta)) || 0
+      precio: (mueble && (modalidad === 'alquiler' ? mueble.precio_alquiler_dia : mueble.precio_venta)) || 0,
+      // Solo para el correo de confirmación al comprador: registrarPedido la quita antes de
+      // guardar, así que los items de `pedidos` conservan su forma de siempre.
+      referencia: (mueble && mueble.referencia) || null
     };
   });
 };
@@ -162,7 +165,7 @@ const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId })
   const id = idPedidoDeSesion(sessionId);
   const { error } = await supabase.from('pedidos').insert({
     id,
-    items: lineas,
+    items: lineas.map(({ referencia: _referencia, ...linea }) => linea),
     cliente_info: cliente,
     cliente_id: clienteId,
     total,
@@ -295,7 +298,9 @@ const procesarSesionPagada = async (session) => {
 
   await enviarTodos([
     () => email.enviarNotificacionVenta({ items: lineas, clienteInfo: cliente, total, fecha: new Date() }),
-    () => email.enviarConfirmacionCliente({ items: lineas, clienteInfo: cliente, total, fecha: new Date() })
+    () => email.enviarConfirmacionCliente({
+      id, items: lineas, clienteInfo: cliente, total, fecha: new Date(), conCuenta: Boolean(clienteId)
+    })
   ]);
   if (conflictos.length > 0) {
     await avisarConflictos({ conflictos, sessionId: session.id, cliente, total });
