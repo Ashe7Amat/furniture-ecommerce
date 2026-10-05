@@ -216,6 +216,22 @@ describe('Header — buscador', () => {
 
     expect(screen.getByText(/No se encontraron resultados/)).toBeInTheDocument();
     expect(screen.getByText('armario')).toBeInTheDocument();
+  });
+
+  it('sin coincidencias, "Limpiar búsqueda" vacía el campo y deja el foco en él (H40)', async () => {
+    getMuebles.mockResolvedValue([{ id: 'm1', nombre: 'Silla de roble', categoria: 'Sillas' }]);
+    const user = userEvent.setup();
+    await renderHeader();
+
+    await user.click(screen.getByText('¿Qué estás buscando?'));
+    const campo = screen.getByPlaceholderText('¿Qué estás buscando?');
+    await user.type(campo, 'armario');
+    await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+
+    expect(campo).toHaveValue('');
+    expect(campo).toHaveFocus();
+    expect(screen.queryByText(/No se encontraron resultados/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).not.toBeInTheDocument();
   });});
 
 // H39: en el móvil la barra de búsqueda está oculta (CSS, ver e2e/busqueda.spec.js); ahí se busca

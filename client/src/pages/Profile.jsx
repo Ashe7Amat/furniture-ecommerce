@@ -196,7 +196,10 @@ export default function Profile() {
             <div className="tab-pane-animate">
               <h2>Tus Piezas Favoritas</h2>
               {favorites.length === 0 ? (
-                <p className="empty-tab-text">Aún no has guardado ningún mueble en tus favoritos.</p>
+                <div className="empty-tab empty-tab--favoritos">
+                  <p className="empty-tab-text">Aún no has guardado ningún mueble en tus favoritos.</p>
+                  <Link to="/catalogo" className="empty-tab-btn">Explorar catálogo</Link>
+                </div>
               ) : (
                 <div className="favorites-profile-grid">
                   {favMuebles.map(mueble => (
@@ -219,9 +222,12 @@ export default function Profile() {
               {cargandoPedidos ? (
                 <p className="empty-tab-text">Cargando tus pedidos...</p>
               ) : pedidos.length === 0 ? (
-                <p className="empty-tab-text">
-                  Todavía no has hecho ninguna compra. Cuando compres algo con este correo ({user.email}), aparecerá aquí.
-                </p>
+                <div className="empty-tab empty-tab--pedidos">
+                  <p className="empty-tab-text">
+                    Todavía no has hecho ninguna compra. Cuando compres algo con este correo ({user.email}), aparecerá aquí.
+                  </p>
+                  <Link to="/catalogo" className="empty-tab-btn">Explorar catálogo</Link>
+                </div>
               ) : (
                 <div className="orders-mock-list">
                   {pedidos.map(pedido => {

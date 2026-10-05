@@ -255,6 +255,9 @@
 }
 .search-panel-header input {
   flex: 1;
+  /* Sin esto, el campo no encoge por debajo de su ancho por defecto y en el móvil (375 px) empujaba
+     "✕ Cerrar" fuera del panel. */
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
@@ -267,6 +270,8 @@
   opacity: 0.7;
 }
 .close-search-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
   background: none;
   border: none;
   font-size: 0.9rem;
@@ -758,4 +763,29 @@
     min-width: 34px;
   }
   .logo-svg { height: 21px; }
+}
+
+/* H40: sin resultados, un botón para borrar el término y escribir otro. */
+.no-results {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.clear-search-btn {
+  padding: 10px 22px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.clear-search-btn:hover {
+  background: var(--primary-color);
+  color: var(--bg-color);
 }

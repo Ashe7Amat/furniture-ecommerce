@@ -113,6 +113,12 @@ const Header = () => {
     setIsSearchOpen(true);
   };
 
+  // Sin resultados (H40): vacía el término y deja el foco en el campo para escribir otro.
+  const clearSearchTerm = () => {
+    setSearchTerm('');
+    searchInputRef.current?.focus();
+  };
+
   const closeSearch = () => {
     setIsSearchOpen(false);
     setSearchTerm('');
@@ -309,9 +315,14 @@ const Header = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="no-results-text">
-                    No se encontraron resultados para &ldquo;<strong>{searchTerm}</strong>&rdquo;
-                  </p>
+                  <div className="no-results">
+                    <p className="no-results-text">
+                      No se encontraron resultados para &ldquo;<strong>{searchTerm}</strong>&rdquo;
+                    </p>
+                    <button type="button" className="clear-search-btn" onClick={clearSearchTerm}>
+                      Limpiar búsqueda
+                    </button>
+                  </div>
                 )
               ) : (
                 /* Estado vacío — grid editorial por defecto */
