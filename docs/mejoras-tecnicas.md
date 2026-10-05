@@ -2106,6 +2106,8 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 
   No se ha pasado a variable de entorno: haría falta una en Vercel para cada proyecto (`nave5-api` y
   `nave5-demo`), y que no se desincronizaran.
+  `server/src/__tests__/contratoTopeCarrito.test.js` falla si las dos constantes no coinciden. Lee la del
+  cliente como texto: la CI hace un checkout completo del repositorio.
 
 ### H36 · MEDIA · DATOS · RESUELTO (5 oct 2026, `6e3b682`) · `GET /api/pedidos/mios` devuelve todas las columnas del pedido al cliente
 
