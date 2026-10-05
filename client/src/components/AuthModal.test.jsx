@@ -161,7 +161,8 @@ describe('AuthModal', () => {
     aRegistro();
     escribir('Ej. Ana Martínez', 'Ana');
 
-    fireEvent.click(screen.getByRole('button', { name: '✕' }));
+    // CAMBIADO A PROPÓSITO (5 oct 2026): la ✕ tiene nombre accesible, "Cerrar" (auditoría de accesibilidad).
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
     expect(onClose).toHaveBeenCalled();
     expect(screen.getByPlaceholderText('Ej. Ana Martínez')).toHaveValue('Ana'); // aún no
 

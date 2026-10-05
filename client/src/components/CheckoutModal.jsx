@@ -187,7 +187,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
       <div className="checkout-modal">
         <div className="checkout-header">
           <h2>Finalizar Pago</h2>
-          <button className="close-checkout" onClick={handleClose}>✕</button>
+          <button className="close-checkout" onClick={handleClose} aria-label="Cerrar">✕</button>
         </div>
 
         <div className="checkout-body">

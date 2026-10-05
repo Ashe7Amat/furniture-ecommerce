@@ -153,7 +153,7 @@ const Header = () => {
     <>
       <header className="kave-header">
         <div className="header-left">
-          <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)}>☰</button>
+          <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)} aria-label="Abrir el menú" aria-expanded={isMenuOpen}>☰</button>
           <Link to="/" className="logo" aria-label="Nave 5, ir al inicio"><Logo className="logo-svg" /></Link>
         </div>
         
@@ -279,7 +279,10 @@ const Header = () => {
               <h3>Sugerencias</h3>
               <ul>
                 {categorias.filter(cat => !cat.categoria_padre_id).map(cat => (
-                  <li key={cat.id} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</li>
+                  <li key={cat.id}>
+                    {/* Un botón, no el <li> con onClick: así se llega con el teclado (auditoría de accesibilidad). */}
+                    <button type="button" className="search-suggestion-btn" tabIndex={isSearchOpen ? 0 : -1} onClick={(e) => { closeSearch(); handleNavClick(e, cat.nombre); }}>{cat.nombre}</button>
+                  </li>
                 ))}
               </ul>
             </div>
@@ -343,7 +346,7 @@ const Header = () => {
         <div className={`mega-menu-panel primary-panel${isMenuOpen ? ' open' : ''}${isProductsMenuOpen ? ' shifted' : ''}`}>
           <div className="mega-menu-header">
             <Link to="/" className="logo" aria-label="Nave 5, ir al inicio" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}><Logo className="logo-svg" /></Link>
-            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list">
             <li>
@@ -369,7 +372,7 @@ const Header = () => {
           <div className="mega-menu-header">
             <button className="mega-menu-back" onClick={() => setIsProductsMenuOpen(false)}>‹ Volver</button>
             <h3>Productos</h3>
-            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}>✕</button>
+            <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list sub-list">
             {categorias.filter(cat => !cat.categoria_padre_id).map(general => (

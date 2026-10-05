@@ -94,8 +94,10 @@ const Contact = () => {
             />
 
             <div className="contact-field">
-              <label>Nombre:</label>
+              <label htmlFor="contacto-nombre">Nombre:</label>
               <input
+                id="contacto-nombre"
+                autoComplete="name"
                 type="text"
                 value={formData.nombre}
                 onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
@@ -104,8 +106,10 @@ const Contact = () => {
             </div>
 
             <div className="contact-field">
-              <label>Email:</label>
+              <label htmlFor="contacto-email">Email:</label>
               <input
+                id="contacto-email"
+                autoComplete="email"
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -114,8 +118,9 @@ const Contact = () => {
             </div>
 
             <div className="contact-field">
-              <label>Mensaje:</label>
+              <label htmlFor="contacto-mensaje">Mensaje:</label>
               <textarea
+                id="contacto-mensaje"
                 value={formData.mensaje}
                 onChange={(e) => setFormData({ ...formData, mensaje: e.target.value })}
                 required

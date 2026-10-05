@@ -311,14 +311,19 @@
   flex-direction: column;
   gap: 15px;
 }
-.search-suggestions li {
+.search-suggestion-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
   font-size: 1.05rem;
   font-weight: 400;
+  text-align: left;
   cursor: pointer;
   color: var(--primary-color);
   transition: color 0.2s ease, transform 0.2s ease;
 }
-.search-suggestions li:hover {
+.search-suggestion-btn:hover {
   color: var(--accent-color);
   transform: translateX(3px);
 }

@@ -292,3 +292,30 @@ describe('Header — buscador accesible (H39)', () => {
     expect(document.querySelector('.close-search-btn')).toHaveAttribute('tabindex', '-1');
   });
 });
+
+// Accesibilidad (auditoría del 5 oct 2026): los botones de icono tienen nombre y las sugerencias del
+// buscador son botones (antes, <li> con onClick: no se llegaba a ellas con el teclado).
+describe('Header — accesibilidad', () => {
+  it('el botón del menú lateral se llama "Abrir el menú" y dice si está abierto; las ✕ se llaman "Cerrar el menú"', async () => {
+    const user = userEvent.setup();
+    await renderHeader();
+
+    const menu = screen.getByRole('button', { name: 'Abrir el menú' });
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
+    await user.click(menu);
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('button', { name: 'Cerrar el menú' })).toHaveLength(2);
+  });
+
+  it('las sugerencias del buscador son botones que llevan a su categoría', async () => {
+    getCategorias.mockResolvedValue([{ id: 1, nombre: 'Mobiliario', categoria_padre_id: null }]);
+    const user = userEvent.setup();
+    await renderHeader();
+
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await user.click(within(document.querySelector('.search-suggestions')).getByRole('button', { name: 'Mobiliario' }));
+
+    expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/catalogo');
+    expect(document.querySelector('.search-overlay')).not.toHaveClass('open');
+  });
+});

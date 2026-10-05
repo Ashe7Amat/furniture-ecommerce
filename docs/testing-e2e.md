@@ -46,7 +46,7 @@ Ayudantes:
 - `vigilarConsola(page)` recoge los errores de la consola y las excepciones sin capturar.
 - `cerrarCookies(page)` elige "Solo esenciales" en el banner de cookies.
 
-## Qué cubren (12 tests)
+## Qué cubren (19 tests)
 
 | Archivo | Flujo |
 |---|---|
@@ -54,6 +54,7 @@ Ayudantes:
 | `e2e/catalogo.spec.js` | El catálogo enseña todas las piezas y no ofrece ordenar por precio si no hay precios. Filtra por categoría (y lo pone en la URL) y por "Disponible". Pulsar una pieza abre su ficha, con la referencia y "Consultar precio". |
 | `e2e/login.spec.js` | Con las credenciales buenas entra, saluda y guarda la sesión. Con una contraseña mala se queda con el error del servidor. Sin sesión, `/admin` manda al login. |
 | `e2e/busqueda.spec.js` | H39. A 375 px, la barra de búsqueda está oculta y se busca con la lupa: abre el buscador con el foco en el campo, encuentra piezas, Escape lo cierra y devuelve el foco, y no hay scroll horizontal. En escritorio, la barra se abre con el teclado y la lupa no se ve. |
+| `e2e/accesibilidad.spec.js` | axe-core (`@axe-core/playwright`) en la portada, el catálogo, una ficha, el inicio de sesión, contacto y la 404, y con el buscador y el menú lateral abiertos: falla si hay algún problema grave o crítico de WCAG 2.1 A/AA. Ver `docs/auditoria-accesibilidad.md`. |
 | `e2e/admin.spec.js` | El administrador entra al panel desde el menú de su cuenta, recorre las 6 pestañas, ve el inventario con referencias y la insignia de mensajes, sin llamadas sin simular ni errores en la consola. Un cliente no ve el enlace al panel. |
 
 Comprobado el 4 oct 2026: 10 de 10 en verde, y 30 de 30 repitiéndolos 3 veces (`--repeat-each=3`) para

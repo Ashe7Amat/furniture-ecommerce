@@ -5,6 +5,9 @@
   --secondary-color: #6E5D51;  /* Marrón grisáceo — texto secundario (oscurecido para contraste AA) */
   --accent-color:    #B38A70;  /* Terracota/arcilla — botones, íconos */
   --accent-hover:    #9D735A;  /* Terracota oscuro — hover de botones */
+  /* Terracota para TEXTO (o fondo de un botón con texto): #B38A70 sobre la arena da 2,76:1 y el AA
+     pide 4,5. Este da 4,67:1 (auditoría de accesibilidad, 5 oct 2026). En oscuro, el acento ya pasa. */
+  --accent-text:     #8A644C;
   --card-bg:         #FCFAF8;  /* Blanco roto — fondo de tarjetas */
   --surface-alt:     #EDE8E0;  /* Relleno de imágenes/placeholders */
   --border-color:    #E2DCD0;  /* Divisores y bordes orgánicos */
@@ -12,7 +15,7 @@
 
   --success-color:   #5F7F5B;
   --success-bg:      #E7EEE1;
-  --danger-color:    #A85338;
+  --danger-color:    #9C4A31;  /* Antes #A85338: sobre --danger-bg daba 4,32:1 (AA pide 4,5); ahora 4,98 */
   --danger-bg:       #F5E5DD;
   --warning-color:   #96712B;
   --warning-bg:      #F2E8D2;
@@ -33,6 +36,7 @@
     --secondary-color: #C7B8AA;
     --accent-color:    #DDAE81;
     --accent-hover:    #EFCBA0;
+    --accent-text:     #DDAE81;
     --card-bg:         #2A211A;
     --surface-alt:     #362A21;
     --border-color:    #42352B;
@@ -52,6 +56,7 @@
   --secondary-color: #C7B8AA;
   --accent-color:    #DDAE81;
   --accent-hover:    #EFCBA0;
+  --accent-text:     #DDAE81;
   --card-bg:         #2A211A;
   --surface-alt:     #362A21;
   --border-color:    #42352B;
@@ -178,4 +183,27 @@ body {
   );
   background-size: 200% 100%;
   background-repeat: no-repeat;
+}
+
+/* Enlace "Saltar al contenido" (App.jsx): fuera de la vista hasta que recibe el foco con el teclado,
+   y entonces aparece arriba a la izquierda, por encima de la cabecera. */
+.saltar-al-contenido {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 3000;
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: top 0.2s ease;
+}
+.saltar-al-contenido:focus {
+  top: 12px;
+}
+/* El <main> recibe el foco al saltar (tabIndex -1): sin el anillo alrededor de toda la página. */
+#contenido:focus {
+  outline: none;
 }
