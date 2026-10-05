@@ -2250,6 +2250,8 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
   - comprobado en Chromium a 7 anchos: a cada uno se pide su versión, y la foto ocupa la caja como antes.
 - **Queda:** la versión apaisada de `hero-showroom.webp` (recomendación 2 de la auditoría de rendimiento). Es
   una decisión de diseño: recortarla cambia lo que se ve en una tableta en vertical. Ver también H49.
+  - **Decisión del usuario (5 oct):** recorte al centro por defecto. Si en algún dispositivo real queda mal, se
+    ajusta `object-position` (por ejemplo, `30% center`).
 
 ### H43 · BAJA · ACCESIBILIDAD · RESUELTO (5 oct 2026, `329a947`) · Orden de los títulos y login sin `h1`
 
@@ -2376,6 +2378,47 @@ falta una sesión.
   pasan por `ProtectedRoute` y no llevan la ruta (H45): tras entrar, se va a la portada.
 - **Arreglo:** que apunten siempre a `/cuenta` y `/cuenta?tab=pedidos`. Sin sesión, `ProtectedRoute` ya manda
   al login con la vuelta preparada. Hay que cambiar los tests del pie que esperan `/login`.
+
+**Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la próxima sesión.
+
+### H51 · BAJA · REPOSITORIO · PENDIENTE (5 oct 2026) · Finales de línea en las migraciones
+
+- **Qué pasa:**
+  - Algunas copias antiguas de `server/migrations/` no coinciden byte a byte con `schema_migrations`.
+  - A3 (`20261001220000`) se registró con `\r\n`, y el repositorio la guarda con `\n`.
+  - Los 10 archivos de `20260922115443` a `20261001212500` tienen un salto de línea final que lo registrado no
+    tiene.
+  - El contenido es idéntico: solo cambian los finales de línea. Lo explica `server/migrations/README.md`.
+- **Los archivos copia que ya existen no se tocan:** tienen que coincidir con lo registrado en Supabase, y lo
+  registrado no se puede cambiar.
+- **Solución propuesta:** un `.gitattributes` en la raíz con `* text=auto eol=lf` y patrones binarios para las
+  imágenes (`*.png`, `*.jpg`, `*.webp`, `*.ico binary`).
+  - Las migraciones nuevas, con `\n`. Si Supabase guarda otra cosa, el archivo copia lo sigue.
+- **Comprobado el 5 oct:** el `.gitattributes` de la raíz ya existe desde la tarea 7 (`cf024c1`), con
+  `* text=auto eol=lf`. Por eso A3 no puede guardarse con `\r\n` en el repositorio.
+  - Lo que falta es solo añadir los patrones binarios explícitos. Hoy `text=auto` ya los detecta, así que es un
+    seguro, no un arreglo.
+- **Cuándo:** tarea pequeña, en la próxima sesión técnica.
+
+### H52 · MANUAL · PENDIENTE (5 oct 2026) · Recuperar el `CREATE TABLE` de las tablas base
+
+- **Qué falta:** las migraciones iniciales, es decir, la creación de `muebles`, `categorias`, `clientes` y
+  `pedidos` (lo que queda de H38).
+- **Cómo:** lo hace el usuario a mano, con permisos de lectura de la estructura de la base de datos.
+  - Desde el Table Editor de Supabase, el SQL de cada tabla.
+  - O con una consulta.
+  - La cadena de conexión de la base de datos no se pasa a los agentes: da acceso total. Para lo demás ya está el
+    MCP de Supabase.
+- **Ojo, comprobado al anotarlo:**
+  - **`pg_get_tabledef` no es una función de PostgreSQL estándar.** Existen `pg_get_indexdef`,
+    `pg_get_constraintdef`, `pg_get_triggerdef` y `pg_get_viewdef`, pero no hay una para la tabla entera.
+    Salvo que el proyecto tenga una extensión que la añada, esa consulta dará error. El Table Editor sí sirve.
+  - **Estas tablas no tienen fila en `schema_migrations`:** ya existían antes de la primera migración
+    (`20260903091725`), así que no tienen "timestamp real".
+    - Para guardarlas en `server/migrations/` con nombre ordenado, haría falta una versión anterior, por
+      ejemplo `20260903000000_esquema_base.sql`.
+    - Y documentarlas en el README como no registradas: no se pueden comprobar por MD5.
+- **No bloquea nada.**
 
 ## Decisiones de diseño a recordar
 
