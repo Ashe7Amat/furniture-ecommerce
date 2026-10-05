@@ -2185,6 +2185,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Queda:** el `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`. Ninguna migración las crea
   (ya existían el 3 sep). Hace falta volcar el esquema con `supabase db dump` o `pg_dump --schema-only`, y
   para eso la cadena de conexión de la base de datos: lo tiene que hacer el usuario, o darla.
+  - **Decisión del usuario (5 oct):** no se hace. Queda cerrado como no prioritario en H52.
 
 ### H39 · MEDIA · USABILIDAD · RESUELTO (5 oct 2026, `6b53791`) · En el móvil no se puede abrir la búsqueda
 
@@ -2381,7 +2382,7 @@ falta una sesión.
 
 **Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la próxima sesión.
 
-### H51 · BAJA · REPOSITORIO · PENDIENTE (5 oct 2026) · Finales de línea en las migraciones
+### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
 - **Qué pasa:**
   - Algunas copias antiguas de `server/migrations/` no coinciden byte a byte con `schema_migrations`.
@@ -2399,8 +2400,13 @@ falta una sesión.
   - Lo que falta es solo añadir los patrones binarios explícitos. Hoy `text=auto` ya los detecta, así que es un
     seguro, no un arreglo.
 - **Cuándo:** tarea pequeña, en la próxima sesión técnica.
+- **Cerrado sin cambios (decisión del usuario, 5 oct):**
+  - el `.gitattributes` ya funciona;
+  - los 10 archivos con un salto final de más son ruido irrelevante: el texto es el mismo, y el README explica
+    cómo comprobarlos;
+  - no se añaden los patrones binarios.
 
-### H52 · MANUAL · PENDIENTE (5 oct 2026) · Recuperar el `CREATE TABLE` de las tablas base
+### H52 · MANUAL · CERRADO, NO PRIORITARIO (5 oct 2026) · Recuperar el `CREATE TABLE` de las tablas base
 
 - **Qué falta:** las migraciones iniciales, es decir, la creación de `muebles`, `categorias`, `clientes` y
   `pedidos` (lo que queda de H38).
@@ -2419,6 +2425,12 @@ falta una sesión.
       ejemplo `20260903000000_esquema_base.sql`.
     - Y documentarlas en el README como no registradas: no se pueden comprobar por MD5.
 - **No bloquea nada.**
+- **Cerrado como no prioritario (decisión del usuario, 5 oct):**
+  - las cuatro tablas funcionan, y sus columnas están documentadas en `docs/tarea3-diseno.md` y en los informes;
+  - el `CREATE TABLE` exacto no aporta nada nuevo, y no se puede comprobar contra nada;
+  - se hará cuando alguien tenga la conexión delante.
+- **No van a `server/migrations/`:** no tienen versión en `schema_migrations`, y meterlas llenaría el historial
+  de archivos que no se pueden comprobar. El esquema base vive en Supabase.
 
 ## Decisiones de diseño a recordar
 

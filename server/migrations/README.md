@@ -109,7 +109,7 @@ Las dos listas tienen que ser iguales. Así estaban el 5 oct 2026:
 
 - **El `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`.** No hay ninguna migración que las
   cree: ya existían antes de la primera (3 sep). No consta cómo se crearon. Con lo que hay aquí no se puede
-  rehacer la base de datos desde cero. Para tenerlo, hay que volcar el esquema actual solo leyendo
-  (`supabase db dump` o `pg_dump --schema-only`, con la cadena de conexión de la base de datos). Queda
-  pendiente en H38.
+  rehacer la base de datos desde cero. **Decisión (5 oct 2026, H52):** no se añaden aquí. No tienen versión
+  en `schema_migrations`, así que serían archivos sin nada contra lo que comprobarlos. El esquema base vive en
+  Supabase.
 - **Lo ejecutado desde el SQL Editor**, como el último paso de la agrupación de fichas (ver arriba).
