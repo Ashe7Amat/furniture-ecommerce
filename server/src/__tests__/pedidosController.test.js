@@ -76,6 +76,34 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
     );
   });
 
+  test('H36: devuelve solo id, fecha, estado, total y piezas; nunca cliente_info ni datos internos', async () => {
+    fake.tablas.pedidos[0] = {
+      ...fake.tablas.pedidos[0],
+      total: 120,
+      items: [{ productId: 'm1', nombre: 'Silla', modalidad: 'compra', cantidad: 1, precio: 120 }],
+      cliente_id: 'cliente-ana',
+      stripe_session_id: 'cs_test_secreto',
+      direccion_envio: 'Calle Falsa 123',
+      metodo_entrega: 'domicilio'
+    };
+
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com')}`);
+
+    assert.equal(res.status, 200);
+    const permitidas = ['created_at', 'estado', 'id', 'items', 'total'];
+    for (const pedido of res.body) {
+      const otras = Object.keys(pedido).filter((columna) => !permitidas.includes(columna));
+      assert.deepEqual(otras, [], `columnas de más en el pedido ${pedido.id}`);
+    }
+    assert.deepEqual(Object.keys(res.body.find((p) => p.id === 'p1')).sort(), permitidas);
+    const p1 = res.body.find((p) => p.id === 'p1');
+    assert.equal(p1.total, 120);
+    assert.equal(p1.items[0].nombre, 'Silla');
+    assert.ok(!JSON.stringify(res.body).includes('cs_test_secreto'));
+  });
+
   test('un cliente sin pedidos recibe un array vacío, no un error', async () => {
     const res = await request(app)
       .get('/api/pedidos/mios')

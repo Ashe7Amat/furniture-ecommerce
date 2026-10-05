@@ -10,6 +10,12 @@ const { escaparIlike } = require('../utils/ilike');
 //    con el que compró, comparado con el email de la cuenta logueada. ILIKE para no distinguir
 //    mayúsculas, pero con el email ESCAPADO: sin escapar, un "_" del email hacía de comodín y una
 //    cuenta "j_an@x.com" veía los pedidos de "juan@x.com" (H17).
+// H36: solo las columnas que enseña "Mis pedidos" (Profile.jsx). Antes, select('*'): cualquier
+// columna interna que se añadiera a `pedidos` habría salido al cliente sin que nadie lo decidiera.
+// Nunca cliente_info (sus datos de entrega ya los conoce, y ahí podría acabar algo interno),
+// stripe_session_id ni cliente_id.
+const COLUMNAS_MIS_PEDIDOS = 'id, created_at, estado, total, items';
+
 const obtenerMisPedidos = async (req, res) => {
   try {
     const email = req.usuario?.email;
@@ -19,7 +25,7 @@ const obtenerMisPedidos = async (req, res) => {
 
     const { data, error } = await supabase
       .from('pedidos')
-      .select('*')
+      .select(COLUMNAS_MIS_PEDIDOS)
       .ilike('cliente_info->>email', escaparIlike(email))
       .order('created_at', { ascending: false });
 
