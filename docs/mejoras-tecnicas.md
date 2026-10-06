@@ -2664,6 +2664,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Arreglo:** revisar los cuatro casos con el cliente cuando se haga la herramienta de fusión y reordenación de
   fotos (H57). Ninguno bloquea la venta.
 
+### H59 · BAJA · TESTS · PENDIENTE: PRÓXIMA SESIÓN TÉCNICA (6 oct 2026) · El E2E del hero (H49) falla a veces con los tests en paralelo
+
+- **Qué pasa:** el test "al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)" de
+  `e2e/home.spec.js` falla a veces: en móvil o en escritorio, según la ejecución. Tres ejecuciones completas el
+  6 oct: 43/44, 44/44 y 43/44.
+- **Causa:** usa `page.clock.install()`, que no detiene el tiempo real. Con los tests en paralelo la página tarda
+  más en cargar, y el carrusel ya ha pasado a la segunda foto cuando el test comprueba que aún se ve la primera.
+- **Ejecutado solo, pasa 3 de 3.**
+- **No es una regresión:** pasó con la rama en `8f76dad`, que solo cambia documentación.
+- **Arreglo:** `page.clock.pauseAt()` antes de navegar, para congelar el tiempo.
+- No bloquea nada. Se arregla en la próxima sesión técnica.
+
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
 - **Qué pasa:**
