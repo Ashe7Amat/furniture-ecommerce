@@ -20,12 +20,17 @@ const HERO_SLIDES = [
 const HERO_MEDIA_MOVIL = '(max-width: 767.98px)';
 const HERO_MEDIA_TABLETA = '(max-width: 1200px)';
 const HERO_SLIDE_INTERVAL_MS = 5500;
+// H49: las fotos se apilan dentro de la pantalla (con opacity 0), así que el navegador las descarga todas al
+// cargar aunque lleven loading="lazy". Ahora solo hay <img> de la foto que se ve y de las que ya se han
+// visto; la siguiente se pide este tiempo después de mostrar la actual, 2,5 s antes de que le toque.
+const HERO_PRECARGA_MS = 3000;
 
 export default function Home() {
     const [categorias, setCategorias] = useState([]);
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
     const [heroSlide, setHeroSlide] = useState(0);
+    const [heroPedidas, setHeroPedidas] = useState(() => new Set([0]));
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
 
@@ -35,6 +40,16 @@ export default function Home() {
         }, HERO_SLIDE_INTERVAL_MS);
         return () => clearInterval(timer);
     }, []);
+
+    // La foto que se ve se queda pedida (para el fundido al salir) y la siguiente se pide poco antes de
+    // que le toque. Al pulsar un punto, la foto elegida sale en ese mismo render (ver abajo).
+    useEffect(() => {
+        const anadir = (i) => setHeroPedidas(prev => (prev.has(i) ? prev : new Set(prev).add(i)));
+        anadir(heroSlide);
+        const siguiente = (heroSlide + 1) % HERO_SLIDES.length;
+        const pedirSiguiente = setTimeout(() => anadir(siguiente), HERO_PRECARGA_MS);
+        return () => clearTimeout(pedirSiguiente);
+    }, [heroSlide]);
 
     useEffect(() => {
         const cargarPortada = async () => {
@@ -68,7 +83,7 @@ export default function Home() {
                     <Link to="/catalogo" className="btn-hero-black">Descubrir</Link>
                 </div>
                 <div className="hero-image-box">
-                    {HERO_SLIDES.map((slide, i) => (
+                    {HERO_SLIDES.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
                         // <picture> no cambia la maqueta: la <img> sigue posicionada respecto a .hero-image-box.
                         <picture key={slide.src}>
                             <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />

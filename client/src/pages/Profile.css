@@ -124,8 +124,9 @@
   border-top: 1px solid var(--border-color);
   padding-top: 20px;
 }
+/* H47: --accent-text, no --accent-color: #B38A70 sobre el fondo daba 2,76:1 (AA pide 4,5). */
 .form-group-clean.form-group-security label {
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: 500;
 }
 

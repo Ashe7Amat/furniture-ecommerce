@@ -192,3 +192,143 @@ Propongo que vayan las primeras en la próxima sesión.
    - Los títulos han cambiado de nivel, pero no de aspecto.
 5. **Antes del merge:** nada de esta sesión necesita variables de entorno nuevas ni migraciones. Con el gate y
    el E2E en verde, se puede mergear cuando quieras.
+
+---
+
+# Sesión de accesibilidad (6 oct 2026)
+
+Rama `feature/mejoras-tecnicas`, desde `05a9f28`. El usuario no estaba delante. Producción, en `3b3accf` (el
+merge de la sesión UX); esta sesión no se ha mergeado.
+
+## En resumen
+
+- **Hechas:** las 4 tareas (H47, H48, H49 y H50) y el cierre, cada una con su commit, su gate en verde y su
+  push. **Paradas:** ninguna.
+- **Gate:** sin ningún fallo en esta sesión.
+- **Tests:**
+  - cliente: de 796 a 807;
+  - servidor: 556, sin cambios (no se ha tocado);
+  - E2E: de 26 a 39.
+- **Mutantes del panel:** 127, como antes: 126 detectados y 1 superviviente esperado (más el de control, que muere en la comprobación previa). Pasados al final de la sesión, sobre `d287d31`: "Todos los mutantes detectados".
+- **Ni `main`, ni Vercel, ni la base de datos se han tocado** (esta sesión no ha hecho ninguna consulta a la base de datos).
+
+## `git log --oneline -10`
+
+Este informe va en el commit siguiente, `docs: cierre de la sesión de accesibilidad`.
+
+```
+d287d31 fix(client): "Mis pedidos" del pie vuelve a pedidos tras login (H50)
+26d0ff8 perf(client): cargar solo la primera foto del hero al inicio (H49)
+a5b6f54 fix(client): subir el contraste del enlace del aviso de cookies (H48)
+2d39756 fix(client): corregir etiquetas, contraste y main en Mi Cuenta (H47)
+05a9f28 docs: cerrar H51 (sin cambios) y H52 (no prioritario)
+e4682bb docs: anotar H51 (finales de línea) y H52 (tablas base)
+074e80c docs: cierre de la sesión UX
+498e0c3 perf(client): versiones optimizadas de las fotos del hero (H42)
+f5070b8 docs: recuperar las migraciones antiguas en el repositorio (H38)
+a49c25d fix(client): volver a la página pedida tras login (H45)
+```
+
+## Gate de cada commit
+
+Cada comando, en su propia llamada, leyendo la salida entera antes del commit. El servidor, en todos:
+lint 0 errores, formato ✓, 556/556 tests y 99,06 / 91,82 / 99,54.
+
+| Commit | Cliente: lint | Cliente: tests y cobertura (líneas / ramas / funciones) | Build | E2E |
+|---|---|---|---|---|
+| `2d39756` H47 | 0 errores | 799/799 · 98,63 / 95,71 / 93,06 | ✓ | 33/33 |
+| `a5b6f54` H48 | 0 errores | 802/802 · 98,63 / 95,71 / 93,06 | ✓ | 35/35 |
+| `26d0ff8` H49 | 0 errores | 807/807 · 98,65 / 95,74 / 93,08 | ✓ | 37/37 |
+| `d287d31` H50 | 0 errores | 807/807 · 98,65 / 95,73 / 93,08 | ✓ | 39/39 |
+
+## Cobertura, antes y después
+
+| | Líneas | Ramas | Funciones | Umbral |
+|---|---|---|---|---|
+| Cliente, antes (`05a9f28`) | 98,63 % (5 628/5 706) | 95,71 % (1 675/1 750) | 93,06 % (349/375) | 97 / 95 / 92 |
+| Cliente, después (`d287d31`) | 98,65 % (5 643/5 720) | 95,73 % (1 682/1 757) | 93,08 % (350/376) | 97 / 95 / 92 |
+| Servidor, antes y después | 99,06 % | 91,82 % | 99,54 % | 98 / 91 / 99 |
+
+## Tareas
+
+### 1. H47 (crítico): Mi cuenta (`2d39756`)
+
+- **Qué había** (axe, en `/cuenta`): dos campos sin etiqueta (crítico), una etiqueta a 2,76:1 (grave) y dos
+  `<main>` (moderado).
+- **Arreglo:** `id` y `htmlFor` en los cinco campos; la etiqueta pasa a `--accent-text`; el `<main>` interior
+  pasa a `<div>` (el CSS va por la clase, y no hay selectores globales de `main`).
+- **El E2E de `/cuenta`:**
+  - Mi cuenta en sus tres pestañas, en claro y en oscuro, con `label`, `color-contrast` y `landmark-*`; un solo
+    `<main>`, un solo `h1`; y cada campo localizable por su etiqueta.
+  - **Se entra por el formulario de login con la API simulada.** No hace falta ninguna credencial ni secreto, y
+    funciona igual en el CI que en local. (El job de E2E del CI arranca Vite y simula la API en el navegador, y
+    además no bloquea: `continue-on-error`.)
+  - **Un fallo mío, cazado antes del commit:** la primera versión sembraba la sesión en `localStorage`. Sin
+    *access token* en memoria, "Mis pedidos" recibía un 401, la web echaba a `/login` y el test, que pasaba,
+    estaba mirando la página de login. Se vio al comprobar que fallaba antes del arreglo: las pestañas de
+    `pedidos` no fallaban. Ahora se comprueba también la URL final.
+  - Comprobado revirtiendo cada arreglo por separado: cada regla falla sola.
+- **El aviso de cookies** se evita sembrando la elección, no pulsando: `cerrarCookies` solo actúa si el aviso
+  ya se ha pintado, y eso era una carrera.
+
+### 2. H48 (grave): enlace del aviso de cookies (`a5b6f54`)
+
+- De 2,97:1 a 5,03:1 sobre `--card-bg` (calculado a mano) con `--accent-text`. En oscuro, el mismo color que ya
+  pasaba.
+- E2E con el aviso abierto y sin pulsar nada, en claro y oscuro: falla antes del arreglo solo en claro.
+- Una comprobación en Vitest de que ese enlace y la etiqueta de H47 siguen usando `--accent-text`, porque el CI
+  no bloquea por el E2E. Comprobado por mutación.
+
+### 3. H49: solo la primera foto del hero al cargar (`26d0ff8`)
+
+- **Medido en Chromium** (peticiones a `/img/hero`):
+
+  | | Móvil (375 px) | Escritorio (1440 px) |
+  |---|---|---|
+  | Antes, al cargar | 4 fotos, 400 KB | 4 fotos, 1 223 KB |
+  | Después, al cargar | 1 foto, 98 KB | 1 foto, 359 KB |
+  | Después, a los 3,6 s / 9,6 s | 2 / 3 fotos | 2 / 3 fotos |
+
+- **Cómo:** solo hay `<picture>` de la foto que se ve y de las ya vistas. La siguiente se pide 3 s después de
+  mostrar la actual, 2,5 s antes de que le toque. Al pulsar un punto, la foto sale en ese mismo render.
+  Comprobado en el navegador: la segunda ya está cargada al mostrarse, y el punto 4 enseña su foto.
+- **Tests:** Vitest con relojes simulados (comprobado por mutación: pintar las cuatro, y quitar la precarga),
+  y un E2E que cuenta las peticiones reales. Usa `page.clock`, así que no depende de lo que tarde en cargar la
+  máquina (9/9 repitiéndolo 3 veces).
+- **Limitación:** con una conexión muy lenta (menos de ~1,3 Mbit/s para la foto de 359 KB) la siguiente puede
+  no haber llegado, y se vería el fondo oscuro un momento.
+
+### 4. H50: "Mis pedidos" del pie (`d287d31`)
+
+- Los enlaces del pie apuntan siempre a `/cuenta` y `/cuenta?tab=pedidos`; sin sesión, `ProtectedRoute` manda al
+  login con la ruta guardada (H45). Con sesión, nada cambia.
+- Lo que sí **usa otro mecanismo** (la tarea lo preguntaba): el pie llevaba directo a `/login`, sin pasar por
+  `ProtectedRoute`, y por eso no llevaba la ruta. El icono "Cuenta" de la cabecera también va a `/login`; se
+  deja, porque es el acceso genérico y no hay página que recordar.
+- E2E: sin sesión, "Mis pedidos" → login → `/cuenta?tab=pedidos` (y "Mi cuenta" → `/cuenta`). Falla antes del
+  arreglo, acabando en la portada.
+
+### 5. Cierre
+
+`docs/mejoras-tecnicas.md` (H47-H50 resueltos, H53 nuevo), `docs/auditoria-accesibilidad.md`,
+`docs/auditoria-rendimiento.md` y `docs/testing-e2e.md` (39 tests).
+
+## Hallazgo nuevo
+
+| # | Gravedad | Qué |
+|---|---|---|
+| H53 | BAJA | `AuthModal` (3 etiquetas) y `CheckoutModal` (8, el formulario de compra) tienen `<label>` sin `htmlFor`, y los campos, sin `id`. Tienen `placeholder`, que axe acepta como nombre, así que probablemente no lo marque; pero pulsar la etiqueta no lleva al campo. En `ProductDetail`, "Cantidad" y "Modalidad" etiquetan un grupo de botones. **No comprobado con axe:** el intento de abrir los modales desde un E2E agotó el tiempo y no se averiguó por qué. |
+
+## Para el usuario
+
+1. **Merge.** Son cambios de front y documentación: sin migraciones ni variables de entorno nuevas. Es tu
+   decisión.
+2. **Comprobar en producción, después del merge:**
+   - `/cuenta`: un solo `<main>` (Elements) y los campos con su etiqueta;
+   - el enlace del aviso de cookies (primera visita, ventana de incógnito): su color es `#8A644C`;
+   - la portada en móvil, Network filtrando "hero": al cargar, una sola foto;
+   - sin sesión, "Mis pedidos" del pie → login → debe volver a `/cuenta?tab=pedidos`.
+3. **H53:** ¿lo hago en la próxima sesión? Es de prioridad baja. Lo único que pide decisión es si merece
+   averiguar antes, con axe, si los modales dan avisos.
+4. **El E2E del CI no bloquea** (`continue-on-error`). Los tests de esta sesión que vigilan el contraste
+   tienen además una comprobación en Vitest, que sí bloquea.

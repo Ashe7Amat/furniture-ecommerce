@@ -28,8 +28,9 @@ const abrir = ({ user = ANA, favorites = [], ruta = '/cuenta' } = {}) => {
   return { login, showToast };
 };
 
-// Las etiquetas del formulario no están asociadas a sus campos: el nombre y el email se buscan por
-// su valor, y las contraseñas por su placeholder.
+// CAMBIADO A PROPÓSITO (6 oct 2026, H47): las etiquetas ya están asociadas a sus campos (se prueba más abajo).
+// Los tests de antes siguen buscando el nombre y el email por su valor, y las contraseñas por su
+// placeholder: funciona igual, y no hace falta tocarlos.
 const cambiar = (campo, valor) => fireEvent.change(campo, { target: { value: valor } });
 const passwordActual = () => screen.getByPlaceholderText('Introduce tu contraseña para autorizar');
 const nuevaPassword = () => screen.getByPlaceholderText('Mínimo 6 caracteres');
@@ -47,6 +48,34 @@ describe('Profile — sin sesión', () => {
   it('pide iniciar sesión', () => {
     abrir({ user: null });
     expect(screen.getByText('Debes iniciar sesión para ver tu perfil.')).toBeInTheDocument();
+  });
+});
+
+describe('Profile — accesibilidad (H47)', () => {
+  it('cada campo del formulario tiene su etiqueta asociada: un lector de pantalla los anuncia con nombre', () => {
+    abrir();
+
+    expect(screen.getByLabelText('Nombre completo')).toHaveValue('Ana');
+    expect(screen.getByLabelText('Correo electrónico')).toHaveValue('ana@correo.es');
+    expect(screen.getByLabelText(/^Contraseña actual/)).toBe(passwordActual());
+    expect(screen.getByLabelText(/^Nueva contraseña/)).toBe(nuevaPassword());
+    expect(screen.getByLabelText('Confirmar nueva contraseña')).toBe(confirmar());
+  });
+
+  it('los id de los campos son únicos', () => {
+    abrir();
+    const ids = [...document.querySelectorAll('.profile-form-minimal input')].map((i) => i.id);
+
+    expect(ids).toHaveLength(5);
+    expect(ids.every(Boolean)).toBe(true);
+    expect(new Set(ids).size).toBe(5);
+  });
+
+  it('la página no pone su propio <main>: el único es el de App, y dos en la misma página no valen', () => {
+    abrir();
+
+    expect(document.querySelector('main')).toBeNull();
+    expect(screen.getByRole('heading', { level: 1, name: 'Mi Cuenta' })).toBeInTheDocument();
   });
 });
 

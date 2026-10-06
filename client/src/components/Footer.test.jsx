@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Footer from './Footer';
+import ProtectedRoute from './ProtectedRoute';
 import { AuthContext } from '../context/AuthContext';
 
 const pintar = (user = null) =>
@@ -33,16 +35,35 @@ describe('Footer', () => {
     expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('sin sesión, "Mi cuenta" y "Mis pedidos" llevan al login', () => {
-    pintar();
-    expect(enlace('Mi cuenta')).toHaveAttribute('href', '/login');
-    expect(enlace('Mis pedidos')).toHaveAttribute('href', '/login');
+  // CAMBIADO A PROPÓSITO (6 oct 2026, H50): sin sesión, "Mi cuenta" y "Mis pedidos" ya no apuntan directos a
+  // /login (así se perdía la ruta de vuelta de H45): apuntan a /cuenta, y ProtectedRoute manda al login.
+  it('"Mi cuenta" y "Mis pedidos" apuntan a la cuenta y a su historial, con o sin sesión', () => {
+    for (const user of [null, { nombre: 'Ana', rol: 'cliente' }]) {
+      const { unmount } = pintar(user);
+      expect(enlace('Mi cuenta')).toHaveAttribute('href', '/cuenta');
+      expect(enlace('Mis pedidos')).toHaveAttribute('href', '/cuenta?tab=pedidos');
+      unmount();
+    }
   });
 
-  it('con sesión, llevan a la cuenta y a su historial de pedidos', () => {
-    pintar({ nombre: 'Ana', rol: 'cliente' });
-    expect(enlace('Mi cuenta')).toHaveAttribute('href', '/cuenta');
-    expect(enlace('Mis pedidos')).toHaveAttribute('href', '/cuenta?tab=pedidos');
+  it('sin sesión, pulsar "Mis pedidos" lleva al login guardando la ruta (con su ?tab=) para volver a ella (H50)', async () => {
+    const user = userEvent.setup();
+    const LoginDePrueba = () => <p>login (desde: {useLocation().state?.from ?? 'ninguna'})</p>;
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <AuthContext.Provider value={{ user: null, loading: false, reconectando: false, reintentarSesion: vi.fn(), logout: vi.fn() }}>
+          <Routes>
+            <Route path="/" element={<Footer />} />
+            <Route path="/cuenta" element={<ProtectedRoute><p>mi cuenta</p></ProtectedRoute>} />
+            <Route path="/login" element={<LoginDePrueba />} />
+          </Routes>
+        </AuthContext.Provider>
+      </MemoryRouter>
+    );
+
+    await user.click(enlace('Mis pedidos'));
+
+    expect(screen.getByText('login (desde: /cuenta?tab=pedidos)')).toBeInTheDocument();
   });
 
   it('"Panel Admin" se enseña al administrador', () => {

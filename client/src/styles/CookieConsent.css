@@ -31,8 +31,9 @@
   min-width: 240px;
 }
 
+/* H48: --accent-text, no --accent-color: #B38A70 sobre --card-bg daba 2,97:1 (AA pide 4,5); #8A644C da 5,03:1. */
 .cookie-banner p a {
-  color: var(--accent-color);
+  color: var(--accent-text);
   text-decoration: underline;
 }
 

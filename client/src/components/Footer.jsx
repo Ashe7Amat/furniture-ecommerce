@@ -50,8 +50,11 @@ const Footer = () => {
           </div>
           <div className="footer-column">
             <h2>Cuenta</h2>
-            <Link to={user ? "/cuenta" : "/login"}>Mi cuenta</Link>
-            <Link to={user ? "/cuenta?tab=pedidos" : "/login"}>Mis pedidos</Link>
+            {/* Siempre a /cuenta, con o sin sesión (H50): sin sesión, ProtectedRoute manda al login con esta
+                ruta guardada y, al entrar, se vuelve a ella. Con /login directo se perdía y se acababa en la
+                portada. */}
+            <Link to="/cuenta">Mi cuenta</Link>
+            <Link to="/cuenta?tab=pedidos">Mis pedidos</Link>
             {/* Solo al administrador (H30): antes salía también a quien no había iniciado sesión. */}
             {user?.rol === 'admin' && <Link to="/admin">Panel Admin</Link>}
           </div>
