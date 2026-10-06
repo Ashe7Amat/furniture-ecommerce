@@ -216,3 +216,24 @@ describe('CheckoutModal — líneas sin precio (fase C)', () => {
     expect(crearSesionPago).not.toHaveBeenCalled();
   });
 });
+
+// H55: se anuncia como diálogo modal con su título, el foco entra al abrir y Escape lo cierra (el foco atrapado
+// y la vuelta del foco están en utils/useDialogoModal.test.jsx y en el E2E e2e/cesta.spec.js).
+describe('CheckoutModal — accesibilidad (H55)', () => {
+  it('es un diálogo modal llamado "Finalizar Pago"', () => {
+    renderCheckout();
+    expect(screen.getByRole('dialog', { name: 'Finalizar Pago' })).toHaveAttribute('aria-modal', 'true');
+  });
+
+  it('al abrir, el foco está en "Cerrar", el primer botón del diálogo', () => {
+    renderCheckout();
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toHaveFocus();
+  });
+
+  it('Escape lo cierra', async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderCheckout();
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

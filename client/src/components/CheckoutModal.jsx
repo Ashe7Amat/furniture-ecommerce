@@ -1,7 +1,8 @@
 // client/src/components/CheckoutModal.jsx
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useRef } from 'react';
 import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
 import { crearSesionPago } from '../services/api';
+import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/CheckoutModal.css';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
@@ -32,6 +33,10 @@ const CheckoutModal = ({ isOpen, onClose }) => {
   // Estados de validación
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+
+  const dialogoRef = useRef(null);
+  // H55: foco dentro al abrir, Tab no se sale, Escape cierra y el foco vuelve al botón que lo abrió.
+  useDialogoModal(isOpen, dialogoRef, () => handleClose());
 
   if (!isOpen) return null;
 
@@ -184,9 +189,17 @@ const CheckoutModal = ({ isOpen, onClose }) => {
         </div>
       )}
 
-      <div className="checkout-modal">
+      {/* H55: se anuncia como diálogo modal, con "Finalizar Pago" como nombre. */}
+      <div
+        className="checkout-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-titulo"
+        tabIndex={-1}
+        ref={dialogoRef}
+      >
         <div className="checkout-header">
-          <h2>Finalizar Pago</h2>
+          <h2 id="checkout-titulo">Finalizar Pago</h2>
           <button className="close-checkout" onClick={handleClose} aria-label="Cerrar">✕</button>
         </div>
 
