@@ -133,3 +133,27 @@ test('Mi cuenta: cada campo del formulario se localiza por su etiqueta (H47)', a
   await expect(page.getByLabel(/^Nueva contraseña/)).toBeVisible();
   await expect(page.getByLabel('Confirmar nueva contraseña')).toBeVisible();
 });
+
+// H48: el aviso de cookies lo ve toda persona que entra por primera vez, y los demás tests lo cierran
+// antes de pasar axe (cerrarCookies), así que su enlace con poco contraste (2,97:1) pasó desapercibido.
+// Aquí se pasa axe con el aviso abierto, sobre el propio aviso, en claro y en oscuro, y cuenta cualquier
+// aviso, también los moderados. "Reducir movimiento" para que no se analice a mitad del fundido de entrada.
+for (const tema of ['light', 'dark']) {
+  test(`aviso de cookies abierto (${tema}): sin problemas de accesibilidad, enlace incluido (H48)`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: tema, reducedMotion: 'reduce' });
+    await simularApi(page);
+    await page.goto('/');
+
+    const aviso = page.getByRole('dialog', { name: 'Consentimiento de cookies' });
+    await expect(aviso).toBeVisible();
+    await expect(aviso.getByRole('link', { name: 'Política de Privacidad' })).toBeVisible();
+
+    const { violations } = await new AxeBuilder({ page })
+      .include('.cookie-banner')
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+    expect(violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+    // Y sigue abierto: no se ha pulsado nada para analizarlo.
+    await expect(aviso).toBeVisible();
+  });
+}
