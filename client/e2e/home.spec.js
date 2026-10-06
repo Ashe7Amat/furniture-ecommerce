@@ -23,3 +23,35 @@ test('la portada carga con sus piezas destacadas y sin errores de consola', asyn
   expect(sinSimular).toEqual([]);
   expect(errores).toEqual([]);
 });
+
+// H49: las cuatro fotos del hero estaban apiladas dentro de la pantalla y el navegador las descargaba todas
+// al cargar (1 223 KB en escritorio, 400 KB en móvil), aunque solo se ve una. Aquí se cuentan las
+// peticiones de verdad: al cargar, solo la primera; la siguiente, poco antes de que le toque. El reloj de la
+// página es falso (page.clock): el tiempo avanza solo cuando el test lo dice, así que no depende de lo que
+// tarde en cargar la máquina.
+for (const [nombre, ancho, alto, fotos] of [
+  ['móvil (375 px)', 375, 740, ['hero-almacen-800.webp', 'hero-aerea-800.webp']],
+  ['escritorio (1440 px)', 1440, 900, ['hero-almacen.webp', 'hero-aerea.webp']]
+]) {
+  test(`hero en ${nombre}: al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: alto });
+    const pedidas = [];
+    page.on('request', (r) => {
+      const { pathname } = new URL(r.url());
+      if (pathname.startsWith('/img/hero')) pedidas.push(pathname.replace('/img/', ''));
+    });
+    await page.clock.install();
+    await simularApi(page);
+    await page.goto('/');
+    await cerrarCookies(page);
+    await page.waitForLoadState('networkidle');
+
+    expect(pedidas).toEqual([fotos[0]]);
+
+    await page.clock.fastForward(3100); // la siguiente se pide a los 3 s de mostrar la actual...
+    await expect.poll(() => pedidas).toEqual(fotos);
+    await expect(page.locator('.hero-slide-img.is-active')).toHaveAttribute('src', /hero-almacen/); // ...y aún no se ve
+    await page.clock.fastForward(2500); // 5,6 s: le toca
+    await expect(page.locator('.hero-slide-img.is-active')).toHaveAttribute('src', /hero-aerea/);
+  });
+}
