@@ -2443,7 +2443,7 @@ falta una sesión.
 
 **Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la siguiente sesión. *(Hechos el 6 oct.)*
 
-### H53 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Etiquetas sin asociar en el acceso, el pago y la ficha
+### H53 · BAJA · UX · PENDIENTE (6 oct 2026; axe, 6 oct: sin violaciones) · Etiquetas sin asociar en el acceso, el pago y la ficha
 
 Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé por el código.
 - `AuthModal.jsx` (3 etiquetas) y `CheckoutModal.jsx` (8, el formulario de compra): cada `<label>` va sin
@@ -2508,6 +2508,31 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
     los modales, el E2E tiene que simular una pieza con precio, como si `MOSTRAR_PRECIOS` estuviera activo.
   - **Consecuencia en producción (ya sabida):** hoy nadie llega al pago, porque ninguna pieza tiene precio a la
     vista. Por eso estos modales solo se ven con precios publicados.
+- **axe con los dos modales abiertos (6 oct, `e2e/cesta.spec.js`):** todas las reglas WCAG A y AA, cualquier
+  gravedad, en claro y en oscuro, sobre cada modal.
+  - **`label`: ninguna violación.** Los 10 campos (2 de `AuthModal` en "entrar" y 8 de `CheckoutModal`) no tienen
+    etiqueta asociada, pero todos tienen `placeholder`, y axe lo acepta como nombre accesible.
+  - **Clasificación, según la decisión del usuario:** H53 pasa a **UX menor**, no de accesibilidad, y se queda
+    en prioridad BAJA. El problema real es que pulsar la etiqueta no lleva al campo, y que el nombre desaparece
+    al escribir.
+  - **Lo que sí ha salido es otra cosa:** el contraste del lema de `AuthModal`. Va aparte, en H54.
+  - **"Por revisar" de axe, comprobado a mano:** los botones "✕" de cerrar de los dos modales, que axe no
+    calcula (no son texto). Dan 6,02:1 en claro y 8,16:1 en oscuro; para un icono, WCAG pide 3:1. Pasan.
+  - **Observado, sin evaluar:** la raíz de los dos modales es un `<div>` sin `role="dialog"` ni `aria-modal` (la
+    cesta sí los tiene). axe no lo marca. Un lector de pantalla no sabría que es una ventana modal. Habría que
+    mirarlo junto con el foco (si queda dentro del modal mientras está abierto).
+
+### H54 · GRAVE · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · El lema del modal de acceso tiene poco contraste
+
+- En `AuthModal`, el lema "Almacén de ideas" (`.auth-tagline`, `AuthModal.css`) usa `--accent-color` (#B38A70)
+  sobre #FCFAF8: **2,97:1** en claro, y AA pide 4,5. axe lo marca como grave. En oscuro pasa.
+- Encontrado al pasar axe con el modal abierto (H53). Es el mismo patrón que H48.
+- **Arreglo propuesto (una línea):** `color: var(--accent-text)` en `.auth-tagline`. Con eso da 5,03:1, el
+  mismo cálculo que en H48.
+- **No se ha tocado:** la sesión de diagnóstico no cambia componentes sin el visto bueno del usuario.
+- **Al arreglarlo,** el E2E `e2e/cesta.spec.js` fallará a propósito: tiene esta violación en su lista de
+  conocidas (`CONOCIDAS`), y hay que quitarla de ahí. Se comprobó que falla al cambiar el color.
+- El modal solo se ve con precios publicados (ver H53), así que hoy no lo ve nadie en producción.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
