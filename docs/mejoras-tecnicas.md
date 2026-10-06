@@ -124,6 +124,54 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## ✅ Sillas nuevas: subida del PDF (6 oct 2026)
+
+Piezas del PDF "Sillas plegables PROPS-NAVE5 01-10_2026" (4 archivos, 15 páginas, solo fotos) subidas a la tienda
+en producción. **Total: 11 piezas** (10 en "Sillas y asientos" y 1 en "Mesas y mobiliario").
+- **Cómo se subieron:** desde el panel ("Añadir Mueble"), en el Chrome del usuario con su sesión de administrador.
+  - El panel optimizó las fotos (WebP), las subió a Storage y generó la referencia. Nada de SQL.
+  - Sin precio y en estado "disponible".
+  - Antes de guardar cada pieza se comprobó el estado del formulario: archivos, nombre, categoría y descripción.
+    Después, la API pública: referencia, nº de fotos y que la foto carga.
+- **Fotos:** extraídas tal cual del PDF (cada página lleva un JPEG incrustado de 5712x4284, con orientación EXIF)
+  y subidas como copias derechas de 2560 px.
+- **Clasificación:** comparación visual con las 13 piezas de SIL, más MES-010 y MES-012. Las fotos del PDF son de
+  otra sesión, así que "duplicado" quiere decir la misma silla física (mismas marcas de óxido, rayas y
+  desconchones), no la misma foto. Tres revisores independientes coincidieron en todas las páginas.
+- **Nombres provisionales, pendientes de revisión por el cliente** en la web. Las descripciones solo dicen lo que
+  se ve en la foto.
+- **Si el cliente confirma que alguna es la misma pieza que otra,** se agrupan con la herramienta de fusión
+  (pendiente, H57).
+
+| Referencia | Nombre provisional | Página(s) | Fotos | Descripción |
+|---|---|---|---|---|
+| NAV-MES-014 | Mesita plegable madera | PDF-1 p.1 | 1 | Mesita plegable de madera con tablero de listones y patas en tijera. |
+| NAV-SIL-015 | Silla plegable lamas metálicas | PDF-1 p.2 | 1 | Silla plegable de tubo metálico gris con asiento y respaldo de lamas metálicas. |
+| NAV-SIL-016 | Silla plegable tapizada negra | PDF-1 p.3 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en negro. |
+| NAV-SIL-017 | Silla plegable roja 1 | PDF-1 p.4 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en rojo. |
+| NAV-SIL-018 | Silla plegable roja 2 | PDF-2 p.1 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en rojo oscuro. |
+| NAV-SIL-019 | Silla plegable madera listones | PDF-2 p.2 | 1 | Silla plegable de madera con asiento de listones y respaldo de un travesaño ancho. |
+| NAV-SIL-020 | Silla plegable verde agua | PDF-2 p.3 y p.4 | 2 | Silla plegable metálica verde agua pálido, con logotipo ovalado en relieve en el respaldo y manchas de óxido. |
+| NAV-SIL-021 | Silla plegable turquesa desconchada | PDF-3 p.4 | 1 | Silla plegable metálica turquesa con la pintura muy desconchada en el asiento y el respaldo. |
+| NAV-SIL-022 | Silla plegable azul intenso | PDF-4 p.1 | 1 | Silla plegable metálica azul intenso, con la estructura también azul y desconchones en el asiento y el respaldo. |
+| NAV-SIL-023 | Silla plegable azul con emblema | PDF-4 p.2 | 1 | Silla plegable metálica con asiento azul gastado y respaldo marrón con restos de pintura azul y emblema en relieve. |
+| NAV-SIL-024 | Silla plegable negra con logotipo | PDF-4 p.3 | 1 | Silla plegable metálica de estructura negra, con asiento y respaldo gris oscuro y logotipo en relieve en el respaldo. |
+
+- **Páginas saltadas:**
+  - PDF-2 p.4: primer plano de la de PDF-2 p.3. Va como segunda foto de NAV-SIL-020.
+  - PDF-3 p.1: es NAV-SIL-009 (las mismas rayas y manchas en el respaldo, junto al emblema).
+  - PDF-3 p.2: es NAV-SIL-002 (la misma mancha oscura en forma de "Y" en la parte baja del respaldo).
+- **Dudosa, saltada por decisión del usuario:** PDF-3 p.3. Coincide en color y óxido con NAV-SIL-001 (y con 011,
+  del mismo modelo). Se revisará cuando el cliente vea el catálogo.
+- **Decisiones del usuario:**
+  - las dos rojas son dos piezas (en PDF-2 p.1 se ve otra roja al fondo);
+  - la mesita va en MES;
+  - las descripciones son de una frase con lo visible.
+- **Visto al comparar:** fotos cruzadas entre piezas ya existentes de SIL (H58).
+- **Incidencia:** la subida se partió en dos. Tras la pieza 3, el límite de uso de la sesión cortó la herramienta
+  de búsqueda de la extensión de Chrome. Las otras 8 se subieron al recuperarse el límite. No quedó ninguna a
+  medias: cada pieza se crea en una sola petición.
+
 ## 🔄 Sesión de accesibilidad del 6 oct 2026: H47-H50
 
 En `feature/mejoras-tecnicas`, sin merge: producción sigue en `3b3accf`. Informe en
@@ -2588,6 +2636,33 @@ Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:
     darlo por bueno.
   - Comprobar a mano (axe no prueba `:hover` ni `:focus`) y añadir los dos a la guarda de Vitest
     (`CookieConsent.css.test.js`), como el lema de H54.
+
+### H57 · MEDIA · PANEL · PENDIENTE (6 oct 2026) · Herramienta de gestión de fotos en el editor de muebles
+
+- **Qué pasa hoy:**
+  - `EditarMuebleModal` enseña las fotos como miniaturas y no se pueden reordenar.
+  - La primera foto es la que sale en el catálogo, pero no se puede elegir.
+- **Mejoras propuestas:**
+  1. Vista de galería con las fotos grandes.
+  2. Arrastrar y soltar para reordenarlas.
+  3. Botón "Usar como principal", que lleva la foto a la primera posición.
+  4. Botón para borrar una foto suelta.
+- **Librería propuesta:** dnd-kit (ligera y mantenida).
+- **Coste estimado:** 3-4 horas.
+- **Cuándo:** cuando se acumulen varias piezas con fotos cruzadas o mal ordenadas (ver H58).
+
+### H58 · BAJA · CATÁLOGO · PENDIENTE: SESIÓN DE H57 (6 oct 2026) · Fotos cruzadas entre piezas en "Sillas y asientos"
+
+Visto al comparar las fotos del PDF de sillas plegables con la tienda (sección "Sillas nuevas: subida del PDF").
+Tres revisores independientes coincidieron en todo; no se ha tocado ninguna ficha.
+- **NAV-SIL-002 tiene una foto que es de NAV-SIL-009:** la segunda (el primer plano del emblema del respaldo)
+  tiene las mismas rayas y manchas que la foto 2 de la 009.
+- **NAV-SIL-002, NAV-SIL-014 y la silla de la izquierda de NAV-SIL-004 parecen la misma silla:** la misma mancha
+  oscura en forma de "Y" y la misma mancha alargada a la derecha en la parte baja del respaldo.
+- **NAV-SIL-001 y NAV-SIL-011 podrían ser la misma pieza:** mismo modelo y colores, sin marca que lo decida.
+- **La primera foto de NAV-SIL-003 es de una silla plegable azul**, no de la silla bistró de madera azul.
+- **Arreglo:** revisar los cuatro casos con el cliente cuando se haga la herramienta de fusión y reordenación de
+  fotos (H57). Ninguno bloquea la venta.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
