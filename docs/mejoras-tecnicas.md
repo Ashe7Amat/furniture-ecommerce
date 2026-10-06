@@ -2488,6 +2488,26 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
        página y el `trace`), no el del primero.
     4. Una vez abierto el modal en el E2E, pasar axe, y apuntar aquí la causa real **antes** de arreglar H53.
   - La causa se arregla en el test, no en el componente.
+- **Causa real, encontrada el 6 oct (sesión de diagnóstico).** Test mínimo con un log tras cada paso, repetido 3
+  veces con y sin sesión: el mismo resultado las 6 veces.
+  - **Abrir la cesta funciona.** Con la cesta cerrada, `getByRole('button', { name: /cesta/i })` solo ve un botón,
+    "Cesta" (el de la cabecera). **La sospecha del selector ambiguo era falsa**: "Cerrar cesta" no es visible
+    para `getByRole` mientras la cesta está cerrada (`aria-hidden`).
+  - **Falla el clic en "Confirmar Pedido", porque el botón está desactivado.** Playwright lo dice en su registro:
+    `locator resolved to <button disabled class="cart-checkout-btn">`, y espera a que se active hasta agotar el
+    tiempo.
+  - **Por qué está desactivado:** al abrir la cesta, `validateCart` (`CartContext.jsx`) pide cada pieza a la API
+    (`GET /muebles/m1`) y copia su precio actual en la línea. La API simulada de los E2E devuelve
+    `precio_venta: null`, como producción con `MOSTRAR_PRECIOS` apagado. La pieza sembrada pasa de `precio: 120`
+    a `precio: null` (visto en `localStorage`), sale el aviso "Hay piezas sin precio en tu cesta" y el botón se
+    desactiva. Es lo buscado (C4: con piezas sin precio no se puede pagar).
+  - **Prueba mínima:** la misma, con la API simulada devolviendo la pieza con `precio_venta: 120`. El botón se
+    activa y se abren `AuthModal` (sin sesión) y `CheckoutModal` (con sesión): 12 de 12, contando las
+    repeticiones. Con `null`, el botón sigue desactivado.
+  - **Conclusión: no es un fallo del componente ni de la carga diferida.** Es el entorno del test: para llegar a
+    los modales, el E2E tiene que simular una pieza con precio, como si `MOSTRAR_PRECIOS` estuviera activo.
+  - **Consecuencia en producción (ya sabida):** hoy nadie llega al pago, porque ninguna pieza tiene precio a la
+    vista. Por eso estos modales solo se ven con precios publicados.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
