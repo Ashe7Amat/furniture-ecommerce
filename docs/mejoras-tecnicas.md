@@ -113,10 +113,64 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **Dar de alta 5 espejos** (categoría "Espejos", ESP, ya creada) y **14 sillas** de los PDF del 1 oct. Hay
   que subir las fotos desde el panel; antes, mirar si alguna silla ya está en la tienda (SIL-001, SIL-011,
   SIL-014...).
+  - **Verificado el 6 oct (PDF, solo lectura):** 5 espejos, con nombre y medidas en las fotos. Las sillas no salen
+    14 claras: 15 páginas, entre ellas un taburete o mesita plegable, una foto de detalle, posibles repeticiones
+    y fotos con dos sillas; sin nombres ni precios. Ver `docs/reporte-sesion-ux.md`.
+  - **Decisión del usuario (6 oct): no subir las sillas hasta que el cliente confirme cuántas son piezas
+    reales.** Subir duplicados ahora sería retroceder (ver `docs/duplicados-candidatos.md`). Los espejos esperan a
+    que el usuario decida precio, fotos y descripción.
 - **Revisar `docs/duplicados-candidatos.md` con el cliente:** 9 de las 25 filas ya están anotadas tras la
   agrupación; las otras 16 siguen pendientes.
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
+
+## ✅ Sillas nuevas: subida del PDF (6 oct 2026)
+
+Piezas del PDF "Sillas plegables PROPS-NAVE5 01-10_2026" (4 archivos, 15 páginas, solo fotos) subidas a la tienda
+en producción. **Total: 11 piezas** (10 en "Sillas y asientos" y 1 en "Mesas y mobiliario").
+- **Cómo se subieron:** desde el panel ("Añadir Mueble"), en el Chrome del usuario con su sesión de administrador.
+  - El panel optimizó las fotos (WebP), las subió a Storage y generó la referencia. Nada de SQL.
+  - Sin precio y en estado "disponible".
+  - Antes de guardar cada pieza se comprobó el estado del formulario: archivos, nombre, categoría y descripción.
+    Después, la API pública: referencia, nº de fotos y que la foto carga.
+- **Fotos:** extraídas tal cual del PDF (cada página lleva un JPEG incrustado de 5712x4284, con orientación EXIF)
+  y subidas como copias derechas de 2560 px.
+- **Clasificación:** comparación visual con las 13 piezas de SIL, más MES-010 y MES-012. Las fotos del PDF son de
+  otra sesión, así que "duplicado" quiere decir la misma silla física (mismas marcas de óxido, rayas y
+  desconchones), no la misma foto. Tres revisores independientes coincidieron en todas las páginas.
+- **Nombres provisionales, pendientes de revisión por el cliente** en la web. Las descripciones solo dicen lo que
+  se ve en la foto.
+- **Si el cliente confirma que alguna es la misma pieza que otra,** se agrupan con la herramienta de fusión
+  (pendiente, H57).
+
+| Referencia | Nombre provisional | Página(s) | Fotos | Descripción |
+|---|---|---|---|---|
+| NAV-MES-014 | Mesita plegable madera | PDF-1 p.1 | 1 | Mesita plegable de madera con tablero de listones y patas en tijera. |
+| NAV-SIL-015 | Silla plegable lamas metálicas | PDF-1 p.2 | 1 | Silla plegable de tubo metálico gris con asiento y respaldo de lamas metálicas. |
+| NAV-SIL-016 | Silla plegable tapizada negra | PDF-1 p.3 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en negro. |
+| NAV-SIL-017 | Silla plegable roja 1 | PDF-1 p.4 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en rojo. |
+| NAV-SIL-018 | Silla plegable roja 2 | PDF-2 p.1 | 1 | Silla plegable de tubo cromado con asiento y respaldo tapizados en rojo oscuro. |
+| NAV-SIL-019 | Silla plegable madera listones | PDF-2 p.2 | 1 | Silla plegable de madera con asiento de listones y respaldo de un travesaño ancho. |
+| NAV-SIL-020 | Silla plegable verde agua | PDF-2 p.3 y p.4 | 2 | Silla plegable metálica verde agua pálido, con logotipo ovalado en relieve en el respaldo y manchas de óxido. |
+| NAV-SIL-021 | Silla plegable turquesa desconchada | PDF-3 p.4 | 1 | Silla plegable metálica turquesa con la pintura muy desconchada en el asiento y el respaldo. |
+| NAV-SIL-022 | Silla plegable azul intenso | PDF-4 p.1 | 1 | Silla plegable metálica azul intenso, con la estructura también azul y desconchones en el asiento y el respaldo. |
+| NAV-SIL-023 | Silla plegable azul con emblema | PDF-4 p.2 | 1 | Silla plegable metálica con asiento azul gastado y respaldo marrón con restos de pintura azul y emblema en relieve. |
+| NAV-SIL-024 | Silla plegable negra con logotipo | PDF-4 p.3 | 1 | Silla plegable metálica de estructura negra, con asiento y respaldo gris oscuro y logotipo en relieve en el respaldo. |
+
+- **Páginas saltadas:**
+  - PDF-2 p.4: primer plano de la de PDF-2 p.3. Va como segunda foto de NAV-SIL-020.
+  - PDF-3 p.1: es NAV-SIL-009 (las mismas rayas y manchas en el respaldo, junto al emblema).
+  - PDF-3 p.2: es NAV-SIL-002 (la misma mancha oscura en forma de "Y" en la parte baja del respaldo).
+- **Dudosa, saltada por decisión del usuario:** PDF-3 p.3. Coincide en color y óxido con NAV-SIL-001 (y con 011,
+  del mismo modelo). Se revisará cuando el cliente vea el catálogo.
+- **Decisiones del usuario:**
+  - las dos rojas son dos piezas (en PDF-2 p.1 se ve otra roja al fondo);
+  - la mesita va en MES;
+  - las descripciones son de una frase con lo visible.
+- **Visto al comparar:** fotos cruzadas entre piezas ya existentes de SIL (H58).
+- **Incidencia:** la subida se partió en dos. Tras la pieza 3, el límite de uso de la sesión cortó la herramienta
+  de búsqueda de la extensión de Chrome. Las otras 8 se subieron al recuperarse el límite. No quedó ninguna a
+  medias: cada pieza se crea en una sola petición.
 
 ## 🔄 Sesión de accesibilidad del 6 oct 2026: H47-H50
 
@@ -2541,7 +2595,7 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   `--accent-color` (comprobado).
 - **Visto al arreglarlo, sin tocar:** H56.
 
-### H55 · BAJA · ACCESIBILIDAD · PENDIENTE DE DECISIÓN (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
+### H55 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H56 (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
 
 - La raíz de `AuthModal` (`.auth-overlay`) y de `CheckoutModal` (`.checkout-overlay`) es un `<div>` sin
   `role="dialog"`, sin `aria-modal` y sin nombre (`aria-labelledby`). La cesta sí los tiene.
@@ -2552,8 +2606,18 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
 - **Propuesta:** `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con el título de cada modal, más el
   foco como en la cesta. Con tests de caracterización de los modales, por si alguno depende de la estructura.
 - **Para una sesión futura, si el usuario lo decide.** Hoy los modales no los ve nadie (sin precios publicados).
+- **Decisión del usuario (6 oct): se hace junto con H56, en la próxima sesión de accesibilidad.**
+  - **Alcance:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` con el título de cada modal, foco
+    atrapado dentro mientras está abierto (*focus trap*) y devolver el foco al elemento que lo abrió al cerrar.
+  - **Revisar también el foco al abrir** (que entre en el modal) y si Escape lo cierra. La cesta ya lo hace bien
+    (A5); en los modales no se ha comprobado.
+  - **Antes de dar H55 por cerrado, comprobar el foco en el móvil.** En iOS, los modales y el teclado virtual se
+    comportan de forma distinta que en escritorio. **Este entorno solo tiene Chromium** (ni WebKit ni Safari), y
+    emular un iPhone en Chromium no reproduce Safari ni VoiceOver: si la sesión no lo puede verificar, lo deja
+    anotado como pendiente para comprobarlo en un iPhone real.
+  - Para llegar a los modales en el E2E hay que simular una pieza con precio (ver H53 y `e2e/cesta.spec.js`).
 
-### H56 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+### H56 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H55 (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
 
 Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:focus`.
 - **Texto al pasar el ratón:** `.auth-toggle-btn:hover` ("¿No tienes cuenta? Regístrate…") pasa a `--accent-color`:
@@ -2564,6 +2628,53 @@ Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:
   de foco necesita 3:1 (WCAG 1.4.11). **Arreglo propuesto:** el anillo común de foco de la tienda (`index.css`)
   o un borde más oscuro. Hay que mirarlo con el diseño.
 - Calculado a mano, no con axe.
+- **Decisión del usuario (6 oct): se hace junto con H55, en la misma sesión.**
+  - **Hover del botón "¿No tienes cuenta?…":** `--accent-text` (de 2,97:1 a 5,03:1, el mismo cálculo que H48).
+  - **Borde de foco de los campos:** un color con al menos 3:1 **contra el fondo y contra el borde sin foco**.
+    En claro, `--accent-text` (#8A644C) cumple: 5,03:1 contra el fondo (#FCFAF8) y 3,84:1 contra el borde sin foco
+    (#E2DCD0), calculado el 6 oct. **El modo oscuro está sin calcular:** hay que hacerlo en la sesión antes de
+    darlo por bueno.
+  - Comprobar a mano (axe no prueba `:hover` ni `:focus`) y añadir los dos a la guarda de Vitest
+    (`CookieConsent.css.test.js`), como el lema de H54.
+
+### H57 · MEDIA · PANEL · PENDIENTE (6 oct 2026) · Herramienta de gestión de fotos en el editor de muebles
+
+- **Qué pasa hoy:**
+  - `EditarMuebleModal` enseña las fotos como miniaturas y no se pueden reordenar.
+  - La primera foto es la que sale en el catálogo, pero no se puede elegir.
+- **Mejoras propuestas:**
+  1. Vista de galería con las fotos grandes.
+  2. Arrastrar y soltar para reordenarlas.
+  3. Botón "Usar como principal", que lleva la foto a la primera posición.
+  4. Botón para borrar una foto suelta.
+- **Librería propuesta:** dnd-kit (ligera y mantenida).
+- **Coste estimado:** 3-4 horas.
+- **Cuándo:** cuando se acumulen varias piezas con fotos cruzadas o mal ordenadas (ver H58).
+
+### H58 · BAJA · CATÁLOGO · PENDIENTE: SESIÓN DE H57 (6 oct 2026) · Fotos cruzadas entre piezas en "Sillas y asientos"
+
+Visto al comparar las fotos del PDF de sillas plegables con la tienda (sección "Sillas nuevas: subida del PDF").
+Tres revisores independientes coincidieron en todo; no se ha tocado ninguna ficha.
+- **NAV-SIL-002 tiene una foto que es de NAV-SIL-009:** la segunda (el primer plano del emblema del respaldo)
+  tiene las mismas rayas y manchas que la foto 2 de la 009.
+- **NAV-SIL-002, NAV-SIL-014 y la silla de la izquierda de NAV-SIL-004 parecen la misma silla:** la misma mancha
+  oscura en forma de "Y" y la misma mancha alargada a la derecha en la parte baja del respaldo.
+- **NAV-SIL-001 y NAV-SIL-011 podrían ser la misma pieza:** mismo modelo y colores, sin marca que lo decida.
+- **La primera foto de NAV-SIL-003 es de una silla plegable azul**, no de la silla bistró de madera azul.
+- **Arreglo:** revisar los cuatro casos con el cliente cuando se haga la herramienta de fusión y reordenación de
+  fotos (H57). Ninguno bloquea la venta.
+
+### H59 · BAJA · TESTS · PENDIENTE: PRÓXIMA SESIÓN TÉCNICA (6 oct 2026) · El E2E del hero (H49) falla a veces con los tests en paralelo
+
+- **Qué pasa:** el test "al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)" de
+  `e2e/home.spec.js` falla a veces: en móvil o en escritorio, según la ejecución. Tres ejecuciones completas el
+  6 oct: 43/44, 44/44 y 43/44.
+- **Causa:** usa `page.clock.install()`, que no detiene el tiempo real. Con los tests en paralelo la página tarda
+  más en cargar, y el carrusel ya ha pasado a la segunda foto cuando el test comprueba que aún se ve la primera.
+- **Ejecutado solo, pasa 3 de 3.**
+- **No es una regresión:** pasó con la rama en `8f76dad`, que solo cambia documentación.
+- **Arreglo:** `page.clock.pauseAt()` antes de navegar, para congelar el tiempo.
+- No bloquea nada. Se arregla en la próxima sesión técnica.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
