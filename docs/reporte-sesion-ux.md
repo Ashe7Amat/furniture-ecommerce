@@ -332,3 +332,61 @@ lint 0 errores, formato ✓, 556/556 tests y 99,06 / 91,82 / 99,54.
    averiguar antes, con axe, si los modales dan avisos.
 4. **El E2E del CI no bloquea** (`continue-on-error`). Los tests de esta sesión que vigilan el contraste
    tienen además una comprobación en Vitest, que sí bloquea.
+
+---
+
+# Sesión de los modales de la cesta (6 oct 2026)
+
+Rama `feature/mejoras-tecnicas`, desde `0d7db75`. En dos partes: el diagnóstico de por qué el E2E no llegaba a
+los modales (con axe), y H54. Producción sigue en `654f640`; nada de esto está mergeado.
+
+## `git log --oneline -5`
+
+Este informe va en el commit siguiente, `docs: cierre de la sesión de accesibilidad de modales`.
+
+```
+30044a0 fix(client): corregir el contraste del lema en AuthModal (H54)
+9c36aeb test(e2e): abrir los modales de la cesta y pasarles axe (H53, H54)
+64bd70a docs: causa real del E2E que no abría los modales de la cesta (H53)
+0d7db75 docs: anotar en H53 el diagnóstico previo del E2E de CheckoutModal
+c528bcd docs: decisiones del usuario sobre H53 y la limitación de H49
+```
+
+## Cobertura
+
+| | Líneas | Ramas | Funciones | Tests |
+|---|---|---|---|---|
+| Cliente, antes y después | 98,65 % (5 643/5 720) | 95,73 % (1 682/1 757) | 93,08 % (350/376) | 807 → 808 |
+| Servidor, antes y después | 99,06 % | 91,82 % | 99,54 % | 556 |
+
+Umbrales sin cambios (cliente 97 / 95 / 92; servidor 98 / 91 / 99). E2E: de 39 a 44. El gate de los tres commits
+de código y documentación salió en verde a la primera, cada comando en su propia llamada. Los mutantes del panel
+no se han vuelto a pasar: no se ha tocado código del panel (127 la última vez, sobre `d287d31`).
+
+## Tareas hechas
+
+1. **Diagnóstico del E2E de los modales** (`64bd70a`, `9c36aeb`):
+   - un test mínimo con un log tras cada paso (3 repeticiones, con y sin sesión) localizó el fallo: no era el
+     selector (la sospecha era falsa) ni la carga diferida. **"Confirmar Pedido" está desactivado** porque
+     `validateCart` copia en la cesta el precio de la API, y la API simulada lo da a `null`, como producción (C4);
+   - confirmado con una prueba mínima (con precio, se abren los dos modales, 12 de 12) y documentado en H53 en
+     su propio commit **antes** de tocar ningún test;
+   - `e2e/cesta.spec.js`: la cesta no deja pagar con precios ocultos, y con una pieza con precio se abren
+     `AuthModal` y `CheckoutModal` y se les pasa axe.
+2. **axe sobre los modales:** ninguna violación de `label` (los campos tienen `placeholder`), así que **H53 pasa a
+   UX menor, prioridad baja**. Salió otra cosa: el contraste del lema de `AuthModal` (H54).
+3. **H54** (`30044a0`): el lema "Almacén de ideas" pasa a `--accent-text`, de 2,97:1 a 5,03:1. axe: **cero
+   violaciones en los dos modales, en claro y en oscuro**. Las guardas (E2E y Vitest) fallan si se vuelve atrás.
+4. **Los PDF de espejos y sillas** (verificados en esta sesión, solo lectura): 5 espejos con nombre y medidas.
+   Las sillas no salen 14 claras: 15 páginas, entre ellas un taburete o mesita plegable, una foto de detalle y
+   posibles repeticiones; sin nombres ni precios.
+
+## Puntos pendientes
+
+- **Merge:** esta sesión cambia un estilo (`AuthModal.css`), un test E2E nuevo y documentación. Sin migraciones ni
+  variables de entorno. Tu decisión.
+- **H53 (UX menor, baja):** asociar las etiquetas en los dos modales y el título de grupo en la ficha.
+- **H55 (pendiente de decisión):** los modales no se anuncian como modales (`role="dialog"`, `aria-modal`, foco).
+- **H56 (baja):** más `--accent-color` en el modal de acceso, en estados que axe no prueba: el texto del botón
+  "¿No tienes cuenta?" al pasar el ratón (2,97:1) y el borde de foco de los campos (por debajo de 3:1).
+- **Sillas:** que el cliente diga cuántas piezas son y cuáles, con nombre (y precio, si quiere).

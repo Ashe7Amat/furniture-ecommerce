@@ -2519,10 +2519,12 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   - **"Por revisar" de axe, comprobado a mano:** los botones "✕" de cerrar de los dos modales, que axe no
     calcula (no son texto). Dan 6,02:1 en claro y 8,16:1 en oscuro; para un icono, WCAG pide 3:1. Pasan.
   - **Observado, sin evaluar:** la raíz de los dos modales es un `<div>` sin `role="dialog"` ni `aria-modal` (la
-    cesta sí los tiene). axe no lo marca. Un lector de pantalla no sabría que es una ventana modal. Habría que
-    mirarlo junto con el foco (si queda dentro del modal mientras está abierto).
+    cesta sí los tiene). Pasado a H55.
+- **Estado (6 oct, cierre):** UX menor, prioridad BAJA. Pendiente: asociar cada `<label>` a su campo (`htmlFor` e
+  `id`) en `AuthModal` y `CheckoutModal`, y el título de grupo de "Cantidad" y "Modalidad" en la ficha. No corre
+  prisa: hoy los modales no los ve nadie (sin precios publicados no se llega al pago).
 
-### H54 · GRAVE · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · El lema del modal de acceso tiene poco contraste
+### H54 · GRAVE · ACCESIBILIDAD · RESUELTO (6 oct 2026, `30044a0`) · El lema del modal de acceso tiene poco contraste
 
 - En `AuthModal`, el lema "Almacén de ideas" (`.auth-tagline`, `AuthModal.css`) usa `--accent-color` (#B38A70)
   sobre #FCFAF8: **2,97:1** en claro, y AA pide 4,5. axe lo marca como grave. En oscuro pasa.
@@ -2533,6 +2535,35 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
 - **Al arreglarlo,** el E2E `e2e/cesta.spec.js` fallará a propósito: tiene esta violación en su lista de
   conocidas (`CONOCIDAS`), y hay que quitarla de ahí. Se comprobó que falla al cambiar el color.
 - El modal solo se ve con precios publicados (ver H53), así que hoy no lo ve nadie en producción.
+- **Resuelto (6 oct, `30044a0`):** `.auth-tagline` usa `--accent-text` (5,03:1 en claro; en oscuro, el mismo
+  color que ya pasaba). `e2e/cesta.spec.js` exige ya cero violaciones de axe en los dos modales y los dos temas
+  (15 de 15 repitiéndolo 3 veces), y una guarda en Vitest vigila el color. Las dos fallan si se vuelve a
+  `--accent-color` (comprobado).
+- **Visto al arreglarlo, sin tocar:** H56.
+
+### H55 · BAJA · ACCESIBILIDAD · PENDIENTE DE DECISIÓN (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
+
+- La raíz de `AuthModal` (`.auth-overlay`) y de `CheckoutModal` (`.checkout-overlay`) es un `<div>` sin
+  `role="dialog"`, sin `aria-modal` y sin nombre (`aria-labelledby`). La cesta sí los tiene.
+- axe no lo marca (no hay regla que lo exija en un `div`), pero un lector de pantalla no anuncia que se ha abierto
+  una ventana, ni su título.
+- **Sin evaluar:** si el foco entra en el modal al abrirse, si queda dentro mientras está abierto, y si Escape lo
+  cierra y devuelve el foco. La cesta lo hace (A5 de la auditoría de accesibilidad); los modales, no se ha mirado.
+- **Propuesta:** `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con el título de cada modal, más el
+  foco como en la cesta. Con tests de caracterización de los modales, por si alguno depende de la estructura.
+- **Para una sesión futura, si el usuario lo decide.** Hoy los modales no los ve nadie (sin precios publicados).
+
+### H56 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+
+Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:focus`.
+- **Texto al pasar el ratón:** `.auth-toggle-btn:hover` ("¿No tienes cuenta? Regístrate…") pasa a `--accent-color`:
+  2,97:1 sobre #FCFAF8. El contraste de texto (AA, 4,5:1) también cuenta en ese estado. **Arreglo:**
+  `--accent-text`.
+- **Borde de foco de los campos:** `.auth-input-group input:focus` quita el `outline` y marca el foco solo con el
+  borde en `--accent-color`. Da 2,97:1 frente al fondo y 2,27:1 frente al borde sin foco (#E2DCD0); un indicador
+  de foco necesita 3:1 (WCAG 1.4.11). **Arreglo propuesto:** el anillo común de foco de la tienda (`index.css`)
+  o un borde más oscuro. Hay que mirarlo con el diseño.
+- Calculado a mano, no con axe.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
