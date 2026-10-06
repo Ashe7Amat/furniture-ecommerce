@@ -120,3 +120,40 @@ for (const { modal, conSesion, titulo } of MODALES) {
     });
   });
 }
+
+// H56: axe no pasa el ratón ni pone el foco, así que se mide aquí con los colores que calcula el navegador, en los
+// dos temas. Texto del botón "¿Aún no eres miembro?…" al pasar el ratón: 4,5:1 sobre el fondo del modal. Borde del
+// campo con el foco (su única señal de foco, sin outline): 3:1 contra el fondo y contra el borde sin foco.
+const luminancia = (rgb) => {
+  const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map((v) => {
+    const c = Number(v) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contraste = (a, b) => {
+  const [claro, oscuro] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (claro + 0.05) / (oscuro + 0.05);
+};
+const estilo = (locator, propiedad) => locator.evaluate((el, p) => getComputedStyle(el)[p], propiedad);
+
+for (const tema of ['light', 'dark']) {
+  test(`AuthModal (${tema}): contraste al pasar el ratón y con el foco (H56)`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: tema, reducedMotion: 'reduce' });
+    await abrirCesta(page, { precio: 120, conSesion: false });
+    await page.getByRole('button', { name: 'Confirmar Pedido' }).click();
+    const dialogo = page.getByRole('dialog', { name: 'Iniciar Sesión' });
+    await expect(dialogo).toBeVisible();
+    const fondo = await estilo(dialogo, 'backgroundColor');
+
+    const alternar = dialogo.getByRole('button', { name: '¿Aún no eres miembro? Regístrate aquí' });
+    await alternar.hover();
+    await expect.poll(async () => contraste(await estilo(alternar, 'color'), fondo)).toBeGreaterThanOrEqual(4.5);
+
+    const email = dialogo.getByPlaceholder('tu@correo.com');
+    const bordeSinFoco = await estilo(email, 'borderTopColor');
+    await email.focus();
+    await expect.poll(async () => contraste(await estilo(email, 'borderTopColor'), fondo)).toBeGreaterThanOrEqual(3);
+    expect(contraste(await estilo(email, 'borderTopColor'), bordeSinFoco)).toBeGreaterThanOrEqual(3);
+  });
+}

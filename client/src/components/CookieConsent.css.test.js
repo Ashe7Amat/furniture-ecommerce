@@ -12,7 +12,7 @@ const color = (css, selector) => {
   return regla?.[1].match(/\bcolor:\s*([^;]+);/)?.[1].trim();
 };
 
-describe('colores de texto con contraste suficiente (H47, H48, H54)', () => {
+describe('colores de texto y de foco con contraste suficiente (H47, H48, H54, H56)', () => {
   it('el enlace del aviso de cookies usa --accent-text', () => {
     expect(color(leer('../styles/CookieConsent.css'), '.cookie-banner p a')).toBe('var(--accent-text)');
   });
@@ -23,6 +23,21 @@ describe('colores de texto con contraste suficiente (H47, H48, H54)', () => {
 
   it('el lema "Almacén de ideas" del modal de acceso usa --accent-text (H54)', () => {
     expect(color(leer('../styles/AuthModal.css'), '.auth-tagline')).toBe('var(--accent-text)');
+  });
+
+  // H56: estados que axe no prueba (no pasa el ratón ni pone el foco). Se busca la propiedad exacta, para que
+  // "border-color" no se confunda con "color".
+  const propiedad = (css, selector, nombre) => {
+    const regla = css.match(new RegExp(`${selector.replace(/[.[\]()$^*+?|\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`));
+    return regla?.[1].match(new RegExp(`(?:^|[;\\s])${nombre}:\\s*([^;]+);`))?.[1].trim();
+  };
+
+  it('el botón "¿Aún no eres miembro?…" del modal de acceso, al pasar el ratón, usa --accent-text (H56)', () => {
+    expect(propiedad(leer('../styles/AuthModal.css'), '.auth-toggle-btn:hover', 'color')).toBe('var(--accent-text)');
+  });
+
+  it('el borde de foco de los campos del modal de acceso usa --accent-text (H56)', () => {
+    expect(propiedad(leer('../styles/AuthModal.css'), '.auth-input-group input:focus', 'border-color')).toBe('var(--accent-text)');
   });
 
   it('--accent-text se define en claro y en oscuro', () => {
