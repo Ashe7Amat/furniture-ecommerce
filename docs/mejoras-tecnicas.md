@@ -118,6 +118,30 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## 🔄 Sesión de accesibilidad del 6 oct 2026: H47-H50
+
+En `feature/mejoras-tecnicas`, sin merge: producción sigue en `3b3accf`. Informe en
+`docs/reporte-sesion-ux.md` (sección "Sesión de accesibilidad del 6 oct").
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. H47 (crítico), Mi cuenta: etiquetas, contraste y un solo `<main>` | ✅ | `2d39756` |
+| 2. H48 (grave), contraste del enlace del aviso de cookies | ✅ | `a5b6f54` |
+| 3. H49, solo la primera foto del hero al cargar | ✅ | `26d0ff8` |
+| 4. H50, "Mis pedidos" del pie vuelve a pedidos tras el login | ✅ | `d287d31` |
+
+- **Cobertura (líneas / ramas / funciones):**
+  - cliente: de 98,63 / 95,71 / 93,06 a 98,65 / 95,73 / 93,08 (807 tests, antes 796);
+  - servidor: igual, 99,06 / 91,82 / 99,54 (556; esta sesión no lo ha tocado).
+- **Umbrales:** sin cambios (cliente 97 / 95 / 92; servidor 98 / 91 / 99).
+- **E2E:** 39 (antes 26): 7 de Mi cuenta, 2 del aviso de cookies, 2 del hero y 2 del pie.
+- **Mutantes del panel:** 127, como antes: 126 detectados y 1 superviviente esperado (más el de control, que muere en la comprobación previa). Pasados al final de la sesión, sobre `d287d31`: "Todos los mutantes detectados".
+- **Cambios de comportamiento a propósito:**
+  - las fotos del hero solo existen cuando se piden (los tests que las daban por presentes llevan
+    `CAMBIADO A PROPÓSITO`);
+  - "Mi cuenta" y "Mis pedidos" del pie apuntan a `/cuenta`, también sin sesión.
+- **Hallazgo nuevo:** H53.
+
 ## 🔄 Sesión UX del 5 oct 2026 (noche): H41, H43, H45, H38 y H42
 
 En `feature/mejoras-tecnicas`, sin merge: producción sigue en `035cffa`. Informe completo en
@@ -2339,7 +2363,7 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - **Cuándo:** no corre prisa. Va en el bloque de actualización de dependencias, junto con H44 (react-router 7)
   y vite/vitest. Es un hallazgo aparte de H44.
 
-### H47 · MEDIA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · Mi cuenta: campos sin etiqueta, poco contraste y dos `<main>`
+### H47 · CRÍTICA · ACCESIBILIDAD · RESUELTO (6 oct 2026, `2d39756`) · Mi cuenta: campos sin etiqueta, poco contraste y dos `<main>`
 
 Encontrado al revisar H43 con axe en `/cuenta`. El E2E de accesibilidad no pasa por esta página, porque hace
 falta una sesión.
@@ -2353,8 +2377,20 @@ falta una sesión.
   `<main id="contenido">` de `App.jsx`. **Arreglo:** cambiarlo por un `<div>` o un `<section>`, comprobando
   antes el CSS.
 - **Además:** añadir `/cuenta` (con sesión simulada) al E2E de accesibilidad.
+- **Resuelto (6 oct, `2d39756`):**
+  - los cinco campos del formulario tienen `id` y su `<label htmlFor>`;
+  - la etiqueta de la contraseña actual usa `--accent-text` (4,67:1; en oscuro, el mismo que ya pasaba);
+  - el `<main>` interior es un `<div>`: el CSS iba por la clase, y no hay selectores globales de `main`;
+  - E2E: Mi cuenta (datos, favoritos y pedidos, en claro y oscuro) con `label`, `color-contrast` y `landmark-*`
+    de axe, un solo `<main>` y un solo `h1`; y que cada campo se localiza por su etiqueta. Se comprobó
+    revirtiendo cada arreglo por separado: cada regla falla sola;
+  - **cómo se entra en el E2E:** por el formulario de login, con la API simulada. La primera versión sembraba
+    la sesión en `localStorage`, y sin *access token* en memoria "Mis pedidos" daba 401 y la web echaba a
+    `/login`: los casos de `pedidos` pasaban mirando la página de login. No necesita credenciales reales ni
+    secretos: funciona igual en local y en el CI (el job de E2E arranca Vite y simula la API en el navegador);
+  - tests de `Profile`: etiquetas asociadas, `id` únicos y ningún `<main>` propio.
 
-### H48 · MEDIA · ACCESIBILIDAD · PENDIENTE (5 oct 2026) · El enlace del aviso de cookies tiene poco contraste
+### H48 · GRAVE · ACCESIBILIDAD · RESUELTO (6 oct 2026, `a5b6f54`) · El enlace del aviso de cookies tiene poco contraste
 
 - El enlace "Política de Privacidad" del aviso de cookies usa `--accent-color` (#B38A70) sobre `--card-bg`:
   2,97:1 en modo claro (AA pide 4,5). axe lo marca como grave.
@@ -2362,8 +2398,14 @@ falta una sesión.
   antes de pasar axe.
 - **Arreglo:** `color: var(--accent-text)` en `.cookie-banner p a` (`CookieConsent.css`). Y pasar axe una
   vez con el aviso abierto.
+- **Resuelto (6 oct, `a5b6f54`):**
+  - `--accent-text` (#8A644C): de 2,97:1 a 5,03:1 sobre `--card-bg`, calculado a mano. En oscuro es el mismo
+    color que ya pasaba;
+  - E2E: axe sobre el propio aviso, abierto y sin pulsar nada, en claro y en oscuro, con todas las reglas WCAG
+    A y AA y contando cualquier gravedad. Falla antes del arreglo solo en claro;
+  - Vitest (el E2E no bloquea el CI): el enlace del aviso y la etiqueta de H47 siguen usando `--accent-text`.
 
-### H49 · BAJA · RENDIMIENTO · PENDIENTE (5 oct 2026) · Las cuatro fotos del hero se descargan al cargar la portada
+### H49 · BAJA · RENDIMIENTO · RESUELTO (6 oct 2026, `26d0ff8`) · Las cuatro fotos del hero se descargan al cargar la portada
 
 - Las tres fotos que no se ven llevan `loading="lazy"`, pero están apiladas dentro de la pantalla (con
   `opacity: 0`), así que el navegador las pide igualmente. Comprobado en Chromium al hacer H42: a cualquier
@@ -2372,15 +2414,45 @@ falta una sesión.
   5,5 s, 11 s y 16,5 s.
 - **Propuesta:** poner la foto de cada diapositiva solo cuando le toque, o cuando le toque a la anterior,
   para que esté lista. Ojo con el fundido: la siguiente tiene que estar descargada antes de mostrarse.
+- **Resuelto (6 oct, `26d0ff8`):**
+  - solo hay `<picture>` de la foto que se ve y de las ya vistas; la siguiente se pide 3 s después de mostrar
+    la actual (2,5 s antes de que le toque); al pulsar un punto, la foto sale en ese mismo render;
+  - medido en Chromium (peticiones a `/img/hero`): antes, 4 al cargar; ahora, 1 al cargar (98 KB en móvil, 359 KB
+    en escritorio; antes 400 y 1 223 KB), 2 a los 3,6 s y 3 a los 9,6 s;
+  - tests: Vitest con relojes simulados (comprobado por mutación) y un E2E que cuenta las peticiones reales a
+    375 y 1440 px, con `page.clock` para que no dependa de lo que tarde en cargar la máquina;
+  - **limitación:** con una conexión muy lenta (menos de ~1,3 Mbit/s para la foto de 359 KB) la siguiente puede
+    no haber llegado a los 2,5 s, y se vería el fondo oscuro del hero un momento. Si molesta, se puede esperar
+    a que la siguiente cargue antes de cambiar.
 
-### H50 · BAJA · USABILIDAD · PENDIENTE (5 oct 2026) · "Mis pedidos" del pie, sin sesión, acaba en la portada
+### H50 · BAJA · USABILIDAD · RESUELTO (6 oct 2026, `d287d31`) · "Mis pedidos" del pie, sin sesión, acaba en la portada
 
 - Sin sesión, los enlaces "Mi cuenta" y "Mis pedidos" del pie apuntan a `/login`, no a `/cuenta`. Así no
   pasan por `ProtectedRoute` y no llevan la ruta (H45): tras entrar, se va a la portada.
 - **Arreglo:** que apunten siempre a `/cuenta` y `/cuenta?tab=pedidos`. Sin sesión, `ProtectedRoute` ya manda
   al login con la vuelta preparada. Hay que cambiar los tests del pie que esperan `/login`.
+- **Resuelto (6 oct, `d287d31`):**
+  - los dos enlaces del pie apuntan siempre a `/cuenta` y `/cuenta?tab=pedidos`; `ProtectedRoute` hace el resto;
+  - el icono "Cuenta" de la cabecera sigue yendo a `/login`: es el acceso genérico, sin página que recordar;
+  - E2E: sin sesión, "Mis pedidos" (y "Mi cuenta") → login → de vuelta en `/cuenta?tab=pedidos` (y `/cuenta`).
+    Falla antes del arreglo, acabando en la portada;
+  - el test del pie que esperaba `/login` lleva `CAMBIADO A PROPÓSITO`.
 
-**Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la próxima sesión.
+**Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la siguiente sesión. *(Hechos el 6 oct.)*
+
+### H53 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Etiquetas sin asociar en el acceso, el pago y la ficha
+
+Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé por el código.
+- `AuthModal.jsx` (3 etiquetas) y `CheckoutModal.jsx` (8, el formulario de compra): cada `<label>` va sin
+  `htmlFor` y su campo sin `id`. Los campos tienen `placeholder`, y axe lo acepta como nombre accesible (por eso
+  en Mi cuenta solo fallaban nombre y correo, que no lo tienen), así que probablemente axe no los marque. Pero
+  es un nombre frágil: desaparece al escribir, y pulsar la etiqueta no lleva el foco al campo.
+- `ProductDetail.jsx`: "Cantidad" y "Modalidad" son `<label>` de un grupo de botones, no de un campo. Habría
+  que usar un título de grupo (`role="group"` con `aria-labelledby`).
+- **No se tocó** porque H47 era Mi cuenta y los modales tienen sus propios tests.
+- **Al hacerlo:** un `id` único por campo (los modales pueden coexistir con otros formularios) y pasar axe con
+  cada modal abierto. En esta sesión se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir
+  la cesta y pulsar "Confirmar Pedido") y el clic agotó el tiempo. No se averiguó el motivo.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

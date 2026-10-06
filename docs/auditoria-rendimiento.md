@@ -63,6 +63,8 @@ sale al pulsar "Confirmar Pedido". Los tests de `CartDrawer` siguen en verde sin
    - **Hecho el 5 oct (H42, `498e0c3`):** con `sharp` (el del servidor), versiones de 800 y 1200 px revisadas a
      ojo, en un `<picture>`. En el móvil, las cuatro fotos pasan de 1 223 a 400 KB. Las cuatro se siguen
      descargando al cargar, aunque tres no se vean: H49.
+   - **H49, hecho el 6 oct (`26d0ff8`):** solo se pide la foto que se ve y, 3 s después, la siguiente. Al
+     cargar, 98 KB en el móvil (antes 400) y 359 KB en escritorio (antes 1 223).
 2. **`hero-showroom.webp` es vertical** (1200×1600), pero el hero de escritorio es apaisado: se recorta más de
    la mitad de la foto, y se descarga entera. Mejor una versión apaisada.
 3. **Fuentes:** van desde Google Fonts con `preconnect` y `display=swap`, que es lo correcto. Se piden

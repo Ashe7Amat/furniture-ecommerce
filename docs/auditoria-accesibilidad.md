@@ -44,10 +44,14 @@ Quedan avisos de buenas prácticas:
 | A11 | Inicio de sesión | `page-has-heading-one`: no tiene `h1` | **Arreglado el 5 oct (H43, `329a947`)**: el título es el `h1`. El E2E lo exige |
 | A12 | Cesta lateral | `region`: está fuera de `<main>` (va después del pie) | Es un diálogo, y cerrada ya está oculta (A5). Moverla dentro de `<main>` no aporta nada |
 
-**Encontrado después (5 oct, noche), sin arreglar:** en Mi cuenta (`/cuenta`, que el E2E no recorre porque
-hace falta sesión), dos campos sin etiqueta asociada (crítico), una etiqueta con poco contraste (grave) y dos
-`<main>` (moderado): H47. Y el enlace del aviso de cookies, con 2,97:1 (grave): el E2E cierra el aviso antes de
-pasar axe. Es H48. Los dos están en `docs/mejoras-tecnicas.md`.
+**Encontrado después (5 oct, noche) y arreglado el 6 oct:** en Mi cuenta (`/cuenta`, que el E2E no recorría
+porque hace falta sesión), dos campos sin etiqueta asociada (crítico), una etiqueta con poco contraste (grave) y
+dos `<main>` (moderado): H47, `2d39756`. Y el enlace del aviso de cookies, con 2,97:1 (grave): el E2E cerraba
+el aviso antes de pasar axe. Es H48, `a5b6f54`. Los dos tienen ya su E2E: Mi cuenta (datos, favoritos y
+pedidos, en claro y oscuro) y el aviso abierto. Están en `docs/mejoras-tecnicas.md`.
+
+**Sin comprobar (6 oct):** las etiquetas del acceso, del pago y de la ficha (H53) no están asociadas a sus
+campos. Los campos tienen `placeholder`, que axe acepta como nombre, así que probablemente no las marque.
 
 **No revisado a fondo:** el panel de administración. Lo usa una sola persona y tiene sus propios tests congelados
 (ver `docs/tarea4-diseno.md`); merece su propia pasada.
