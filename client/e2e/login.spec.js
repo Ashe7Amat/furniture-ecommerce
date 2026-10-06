@@ -46,6 +46,28 @@ test('sin sesión, /cuenta?tab=pedidos manda al login y, al entrar, vuelve ahí 
   expect(await entradas()).toBe(antes);
 });
 
+// H50: "Mis pedidos" y "Mi cuenta" del pie apuntaban directos a /login sin sesión, así que no llevaban la
+// ruta de vuelta de H45 y, al entrar, se acababa en la portada.
+for (const [enlace, destino] of [
+  ['Mis pedidos', '/cuenta?tab=pedidos'],
+  ['Mi cuenta', '/cuenta']
+]) {
+  test(`sin sesión, "${enlace}" del pie manda al login y, al entrar, vuelve a ${destino} (H50)`, async ({ page }) => {
+    await page.goto('/');
+    await cerrarCookies(page);
+
+    await page.getByRole('contentinfo').getByRole('link', { name: enlace, exact: true }).click();
+    await expect(page).toHaveURL(/\/login$/);
+
+    await page.getByRole('textbox', { name: 'Email', exact: true }).fill(CLIENTE.email);
+    await page.getByPlaceholder('Contraseña', { exact: true }).fill(CONTRASENA);
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+
+    await expect(page).toHaveURL(destino);
+    await expect(page.getByRole('heading', { level: 1, name: 'Mi Cuenta' })).toBeVisible();
+  });
+}
+
 test('sin sesión, /admin manda al login', async ({ page }) => {
   await page.goto('/admin');
   await expect(page).toHaveURL(/\/login$/);
