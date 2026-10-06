@@ -33,16 +33,9 @@ test('con los precios ocultos (como en producción), la cesta no deja pagar: "Co
   await expect(page.getByRole('button', { name: 'Confirmar Pedido' })).toBeDisabled();
 });
 
-// Lo que axe encuentra hoy en cada modal, con todas las reglas WCAG A y AA y cualquier gravedad. Una
-// violación conocida, pendiente (H54): el lema "Almacén de ideas" de AuthModal usa --accent-color, a 2,97:1
-// en claro. Está aquí, a la vista, en vez de excluida: cuando se arregle, este test fallará y habrá que
-// quitarla de la lista.
-const CONOCIDAS = {
-  'AuthModal light': ['color-contrast (serious): .auth-tagline'],
-  'AuthModal dark': [],
-  'CheckoutModal light': [],
-  'CheckoutModal dark': []
-};
+// axe sobre cada modal, con todas las reglas WCAG A y AA y cualquier gravedad: ninguna violación.
+// CAMBIADO A PROPÓSITO (6 oct 2026, H54): hasta H54 se esperaba una, el contraste del lema "Almacén de ideas"
+// de AuthModal (2,97:1 en claro). Ya está arreglado, y se exige cero en los dos modales y los dos temas.
 
 for (const tema of ['light', 'dark']) {
   for (const [modal, conSesion, raiz] of [
@@ -62,9 +55,7 @@ for (const tema of ['light', 'dark']) {
         .include(raiz)
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .analyze();
-      expect(violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual(
-        CONOCIDAS[`${modal} ${tema}`]
-      );
+      expect(violations.map((v) => `${v.id} (${v.impact}): ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
     });
   }
 }
