@@ -2459,8 +2459,35 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   - si **no** marca (porque el `placeholder` sirve de nombre), pasa a UX menor ("pulsar la etiqueta no lleva al
     campo"), no de accesibilidad, y baja de prioridad.
 - **Al hacerlo:** un `id` único por campo (los modales pueden coexistir con otros formularios) y pasar axe con
-  cada modal abierto. En esta sesión se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir
-  la cesta y pulsar "Confirmar Pedido") y el clic agotó el tiempo. No se averiguó el motivo.
+  cada modal abierto.
+- **Diagnóstico previo, antes de arreglar nada: por qué el E2E no llega a abrir los modales.** En la sesión del
+  6 oct se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir la cesta y pulsar
+  "Confirmar Pedido") y no se consiguió. Lo que se sabe:
+  - **El primer intento usaba un selector amplio:** `getByRole('button', { name: /cesta/i }).first()`. Se creyó
+    que cogía "Cerrar cesta" y no el botón "Cesta" de la cabecera, **pero no se comprobó**, y puede ser falso: la
+    cesta cerrada va oculta (`visibility` y `aria-hidden`), y `getByRole` no ve los elementos ocultos. Es una
+    sospecha, no una causa.
+  - **El segundo** usó el nombre exacto (`Cesta`, `exact: true`) y **agotó el tiempo, pero el volcado de la
+    página que se leyó era del primero.** El del segundo no se miró.
+  - **No se sabe qué clic falla:** si el de abrir la cesta o el de "Confirmar Pedido". El mensaje de Playwright
+    señalaba una línea que no era la del clic, así que no sirve para saberlo.
+  - La cesta estaba sembrada: el icono de la cabecera mostraba "1".
+  - Sin sesión, "Confirmar Pedido" abre `AuthModal`: no hace falta estar logueado para ese modal (ver
+    `docs/auditoria-rendimiento.md`, donde se comprobó en el navegador).
+  - Los modales son `React.lazy` (carga diferida, sesión de rendimiento del 5 oct): el trozo de código se
+    descarga al abrir la cesta, y el modal podría no estar listo al pulsar. Es una hipótesis, no un hecho.
+  - **Puede que el fallo sea del guion y no de la web**, o de otra cosa. De momento no hay ninguna causa
+    establecida.
+  - **Qué hacer:**
+    1. Loguear el estado después de cada clic (abrir la cesta; pulsar "Confirmar Pedido") para ver dónde se
+       queda el auto-wait de Playwright. Playwright espera solo a que el elemento exista y se pueda pulsar:
+       no hacen falta `findBy*` ni `waitFor`, que son de Testing Library.
+    2. Si falla el de abrir la cesta, localizar el botón por rol y nombre exacto (`getByRole('button',
+       { name: 'Cesta', exact: true })`) y comprobar a cuántos elementos corresponde cada selector.
+    3. Si falla el de "Confirmar Pedido", mirar el contexto de error real de ese intento (el volcado de la
+       página y el `trace`), no el del primero.
+    4. Una vez abierto el modal en el E2E, pasar axe, y apuntar aquí la causa real **antes** de arreglar H53.
+  - La causa se arregla en el test, no en el componente.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
