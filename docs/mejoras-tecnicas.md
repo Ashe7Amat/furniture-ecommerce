@@ -2443,7 +2443,7 @@ falta una sesión.
 
 **Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la siguiente sesión. *(Hechos el 6 oct.)*
 
-### H53 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Etiquetas sin asociar en el acceso, el pago y la ficha
+### H53 · BAJA · UX · PENDIENTE (6 oct 2026; axe, 6 oct: sin violaciones) · Etiquetas sin asociar en el acceso, el pago y la ficha
 
 Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé por el código.
 - `AuthModal.jsx` (3 etiquetas) y `CheckoutModal.jsx` (8, el formulario de compra): cada `<label>` va sin
@@ -2459,8 +2459,111 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   - si **no** marca (porque el `placeholder` sirve de nombre), pasa a UX menor ("pulsar la etiqueta no lleva al
     campo"), no de accesibilidad, y baja de prioridad.
 - **Al hacerlo:** un `id` único por campo (los modales pueden coexistir con otros formularios) y pasar axe con
-  cada modal abierto. En esta sesión se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir
-  la cesta y pulsar "Confirmar Pedido") y el clic agotó el tiempo. No se averiguó el motivo.
+  cada modal abierto.
+- **Diagnóstico previo, antes de arreglar nada: por qué el E2E no llega a abrir los modales.** En la sesión del
+  6 oct se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir la cesta y pulsar
+  "Confirmar Pedido") y no se consiguió. Lo que se sabe:
+  - **El primer intento usaba un selector amplio:** `getByRole('button', { name: /cesta/i }).first()`. Se creyó
+    que cogía "Cerrar cesta" y no el botón "Cesta" de la cabecera, **pero no se comprobó**, y puede ser falso: la
+    cesta cerrada va oculta (`visibility` y `aria-hidden`), y `getByRole` no ve los elementos ocultos. Es una
+    sospecha, no una causa.
+  - **El segundo** usó el nombre exacto (`Cesta`, `exact: true`) y **agotó el tiempo, pero el volcado de la
+    página que se leyó era del primero.** El del segundo no se miró.
+  - **No se sabe qué clic falla:** si el de abrir la cesta o el de "Confirmar Pedido". El mensaje de Playwright
+    señalaba una línea que no era la del clic, así que no sirve para saberlo.
+  - La cesta estaba sembrada: el icono de la cabecera mostraba "1".
+  - Sin sesión, "Confirmar Pedido" abre `AuthModal`: no hace falta estar logueado para ese modal (ver
+    `docs/auditoria-rendimiento.md`, donde se comprobó en el navegador).
+  - Los modales son `React.lazy` (carga diferida, sesión de rendimiento del 5 oct): el trozo de código se
+    descarga al abrir la cesta, y el modal podría no estar listo al pulsar. Es una hipótesis, no un hecho.
+  - **Puede que el fallo sea del guion y no de la web**, o de otra cosa. De momento no hay ninguna causa
+    establecida.
+  - **Qué hacer:**
+    1. Loguear el estado después de cada clic (abrir la cesta; pulsar "Confirmar Pedido") para ver dónde se
+       queda el auto-wait de Playwright. Playwright espera solo a que el elemento exista y se pueda pulsar:
+       no hacen falta `findBy*` ni `waitFor`, que son de Testing Library.
+    2. Si falla el de abrir la cesta, localizar el botón por rol y nombre exacto (`getByRole('button',
+       { name: 'Cesta', exact: true })`) y comprobar a cuántos elementos corresponde cada selector.
+    3. Si falla el de "Confirmar Pedido", mirar el contexto de error real de ese intento (el volcado de la
+       página y el `trace`), no el del primero.
+    4. Una vez abierto el modal en el E2E, pasar axe, y apuntar aquí la causa real **antes** de arreglar H53.
+  - La causa se arregla en el test, no en el componente.
+- **Causa real, encontrada el 6 oct (sesión de diagnóstico).** Test mínimo con un log tras cada paso, repetido 3
+  veces con y sin sesión: el mismo resultado las 6 veces.
+  - **Abrir la cesta funciona.** Con la cesta cerrada, `getByRole('button', { name: /cesta/i })` solo ve un botón,
+    "Cesta" (el de la cabecera). **La sospecha del selector ambiguo era falsa**: "Cerrar cesta" no es visible
+    para `getByRole` mientras la cesta está cerrada (`aria-hidden`).
+  - **Falla el clic en "Confirmar Pedido", porque el botón está desactivado.** Playwright lo dice en su registro:
+    `locator resolved to <button disabled class="cart-checkout-btn">`, y espera a que se active hasta agotar el
+    tiempo.
+  - **Por qué está desactivado:** al abrir la cesta, `validateCart` (`CartContext.jsx`) pide cada pieza a la API
+    (`GET /muebles/m1`) y copia su precio actual en la línea. La API simulada de los E2E devuelve
+    `precio_venta: null`, como producción con `MOSTRAR_PRECIOS` apagado. La pieza sembrada pasa de `precio: 120`
+    a `precio: null` (visto en `localStorage`), sale el aviso "Hay piezas sin precio en tu cesta" y el botón se
+    desactiva. Es lo buscado (C4: con piezas sin precio no se puede pagar).
+  - **Prueba mínima:** la misma, con la API simulada devolviendo la pieza con `precio_venta: 120`. El botón se
+    activa y se abren `AuthModal` (sin sesión) y `CheckoutModal` (con sesión): 12 de 12, contando las
+    repeticiones. Con `null`, el botón sigue desactivado.
+  - **Conclusión: no es un fallo del componente ni de la carga diferida.** Es el entorno del test: para llegar a
+    los modales, el E2E tiene que simular una pieza con precio, como si `MOSTRAR_PRECIOS` estuviera activo.
+  - **Consecuencia en producción (ya sabida):** hoy nadie llega al pago, porque ninguna pieza tiene precio a la
+    vista. Por eso estos modales solo se ven con precios publicados.
+- **axe con los dos modales abiertos (6 oct, `e2e/cesta.spec.js`):** todas las reglas WCAG A y AA, cualquier
+  gravedad, en claro y en oscuro, sobre cada modal.
+  - **`label`: ninguna violación.** Los 10 campos (2 de `AuthModal` en "entrar" y 8 de `CheckoutModal`) no tienen
+    etiqueta asociada, pero todos tienen `placeholder`, y axe lo acepta como nombre accesible.
+  - **Clasificación, según la decisión del usuario:** H53 pasa a **UX menor**, no de accesibilidad, y se queda
+    en prioridad BAJA. El problema real es que pulsar la etiqueta no lleva al campo, y que el nombre desaparece
+    al escribir.
+  - **Lo que sí ha salido es otra cosa:** el contraste del lema de `AuthModal`. Va aparte, en H54.
+  - **"Por revisar" de axe, comprobado a mano:** los botones "✕" de cerrar de los dos modales, que axe no
+    calcula (no son texto). Dan 6,02:1 en claro y 8,16:1 en oscuro; para un icono, WCAG pide 3:1. Pasan.
+  - **Observado, sin evaluar:** la raíz de los dos modales es un `<div>` sin `role="dialog"` ni `aria-modal` (la
+    cesta sí los tiene). Pasado a H55.
+- **Estado (6 oct, cierre):** UX menor, prioridad BAJA. Pendiente: asociar cada `<label>` a su campo (`htmlFor` e
+  `id`) en `AuthModal` y `CheckoutModal`, y el título de grupo de "Cantidad" y "Modalidad" en la ficha. No corre
+  prisa: hoy los modales no los ve nadie (sin precios publicados no se llega al pago).
+
+### H54 · GRAVE · ACCESIBILIDAD · RESUELTO (6 oct 2026, `30044a0`) · El lema del modal de acceso tiene poco contraste
+
+- En `AuthModal`, el lema "Almacén de ideas" (`.auth-tagline`, `AuthModal.css`) usa `--accent-color` (#B38A70)
+  sobre #FCFAF8: **2,97:1** en claro, y AA pide 4,5. axe lo marca como grave. En oscuro pasa.
+- Encontrado al pasar axe con el modal abierto (H53). Es el mismo patrón que H48.
+- **Arreglo propuesto (una línea):** `color: var(--accent-text)` en `.auth-tagline`. Con eso da 5,03:1, el
+  mismo cálculo que en H48.
+- **No se ha tocado:** la sesión de diagnóstico no cambia componentes sin el visto bueno del usuario.
+- **Al arreglarlo,** el E2E `e2e/cesta.spec.js` fallará a propósito: tiene esta violación en su lista de
+  conocidas (`CONOCIDAS`), y hay que quitarla de ahí. Se comprobó que falla al cambiar el color.
+- El modal solo se ve con precios publicados (ver H53), así que hoy no lo ve nadie en producción.
+- **Resuelto (6 oct, `30044a0`):** `.auth-tagline` usa `--accent-text` (5,03:1 en claro; en oscuro, el mismo
+  color que ya pasaba). `e2e/cesta.spec.js` exige ya cero violaciones de axe en los dos modales y los dos temas
+  (15 de 15 repitiéndolo 3 veces), y una guarda en Vitest vigila el color. Las dos fallan si se vuelve a
+  `--accent-color` (comprobado).
+- **Visto al arreglarlo, sin tocar:** H56.
+
+### H55 · BAJA · ACCESIBILIDAD · PENDIENTE DE DECISIÓN (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
+
+- La raíz de `AuthModal` (`.auth-overlay`) y de `CheckoutModal` (`.checkout-overlay`) es un `<div>` sin
+  `role="dialog"`, sin `aria-modal` y sin nombre (`aria-labelledby`). La cesta sí los tiene.
+- axe no lo marca (no hay regla que lo exija en un `div`), pero un lector de pantalla no anuncia que se ha abierto
+  una ventana, ni su título.
+- **Sin evaluar:** si el foco entra en el modal al abrirse, si queda dentro mientras está abierto, y si Escape lo
+  cierra y devuelve el foco. La cesta lo hace (A5 de la auditoría de accesibilidad); los modales, no se ha mirado.
+- **Propuesta:** `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con el título de cada modal, más el
+  foco como en la cesta. Con tests de caracterización de los modales, por si alguno depende de la estructura.
+- **Para una sesión futura, si el usuario lo decide.** Hoy los modales no los ve nadie (sin precios publicados).
+
+### H56 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+
+Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:focus`.
+- **Texto al pasar el ratón:** `.auth-toggle-btn:hover` ("¿No tienes cuenta? Regístrate…") pasa a `--accent-color`:
+  2,97:1 sobre #FCFAF8. El contraste de texto (AA, 4,5:1) también cuenta en ese estado. **Arreglo:**
+  `--accent-text`.
+- **Borde de foco de los campos:** `.auth-input-group input:focus` quita el `outline` y marca el foco solo con el
+  borde en `--accent-color`. Da 2,97:1 frente al fondo y 2,27:1 frente al borde sin foco (#E2DCD0); un indicador
+  de foco necesita 3:1 (WCAG 1.4.11). **Arreglo propuesto:** el anillo común de foco de la tienda (`index.css`)
+  o un borde más oscuro. Hay que mirarlo con el diseño.
+- Calculado a mano, no con axe.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

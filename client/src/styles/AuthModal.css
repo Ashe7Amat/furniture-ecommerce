@@ -71,11 +71,12 @@
   color: var(--primary-color);
 }
 
+/* H54: --accent-text, no --accent-color: #B38A70 sobre el fondo del modal daba 2,97:1 (AA pide 4,5). */
 .auth-tagline {
   font-size: 0.75rem;
   text-transform: lowercase;
   font-style: italic;
-  color: var(--accent-color);
+  color: var(--accent-text);
   margin: 4px 0 0 0;
   letter-spacing: 0.5px;
 }
