@@ -131,14 +131,17 @@ export default function Profile() {
           </button>
         </aside>
 
-        <main className="profile-tab-content">
+        {/* Un div, no un segundo <main>: el contenido de la página ya va dentro del <main id="contenido"> de
+            App (H47). */}
+        <div className="profile-tab-content">
           {activeTab === 'datos' && (
             <div className="tab-pane-animate">
               <h2>Información Personal</h2>
               <form onSubmit={handleUpdatePerfil} className="profile-form-minimal">
                 <div className="form-group-clean">
-                  <label>Nombre completo</label>
+                  <label htmlFor="perfil-nombre">Nombre completo</label>
                   <input 
+                    id="perfil-nombre"
                     type="text" 
                     value={nombre} 
                     onChange={(e) => setNombre(e.target.value)} 
@@ -146,8 +149,9 @@ export default function Profile() {
                   />
                 </div>
                 <div className="form-group-clean">
-                  <label>Correo electrónico</label>
+                  <label htmlFor="perfil-email">Correo electrónico</label>
                   <input 
+                    id="perfil-email"
                     type="email" 
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)} 
@@ -156,8 +160,9 @@ export default function Profile() {
                 </div>
                 
                 <div className="form-group-clean form-group-security">
-                  <label>Contraseña actual (Solo requerida si cambias correo o contraseña)</label>
+                  <label htmlFor="perfil-password-actual">Contraseña actual (Solo requerida si cambias correo o contraseña)</label>
                   <input 
+                    id="perfil-password-actual"
                     type="password" 
                     value={passwordActual} 
                     onChange={(e) => setPasswordActual(e.target.value)} 
@@ -166,8 +171,9 @@ export default function Profile() {
                 </div>
 
                 <div className="form-group-clean">
-                  <label>Nueva contraseña (Dejar en blanco si no deseas cambiarla)</label>
+                  <label htmlFor="perfil-password-nueva">Nueva contraseña (Dejar en blanco si no deseas cambiarla)</label>
                   <input 
+                    id="perfil-password-nueva"
                     type="password" 
                     value={nuevaPassword} 
                     onChange={(e) => setNuevaPassword(e.target.value)} 
@@ -176,8 +182,9 @@ export default function Profile() {
                 </div>
 
                 <div className="form-group-clean">
-                  <label>Confirmar nueva contraseña</label>
+                  <label htmlFor="perfil-password-confirmar">Confirmar nueva contraseña</label>
                   <input 
+                    id="perfil-password-confirmar"
                     type="password" 
                     value={confirmarNuevaPassword} 
                     onChange={(e) => setConfirmarNuevaPassword(e.target.value)} 
@@ -264,7 +271,7 @@ export default function Profile() {
               )}
             </div>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );
