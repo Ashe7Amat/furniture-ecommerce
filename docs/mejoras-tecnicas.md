@@ -113,6 +113,12 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **Dar de alta 5 espejos** (categoría "Espejos", ESP, ya creada) y **14 sillas** de los PDF del 1 oct. Hay
   que subir las fotos desde el panel; antes, mirar si alguna silla ya está en la tienda (SIL-001, SIL-011,
   SIL-014...).
+  - **Verificado el 6 oct (PDF, solo lectura):** 5 espejos, con nombre y medidas en las fotos. Las sillas no salen
+    14 claras: 15 páginas, entre ellas un taburete o mesita plegable, una foto de detalle, posibles repeticiones
+    y fotos con dos sillas; sin nombres ni precios. Ver `docs/reporte-sesion-ux.md`.
+  - **Decisión del usuario (6 oct): no subir las sillas hasta que el cliente confirme cuántas son piezas
+    reales.** Subir duplicados ahora sería retroceder (ver `docs/duplicados-candidatos.md`). Los espejos esperan a
+    que el usuario decida precio, fotos y descripción.
 - **Revisar `docs/duplicados-candidatos.md` con el cliente:** 9 de las 25 filas ya están anotadas tras la
   agrupación; las otras 16 siguen pendientes.
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
@@ -2541,7 +2547,7 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   `--accent-color` (comprobado).
 - **Visto al arreglarlo, sin tocar:** H56.
 
-### H55 · BAJA · ACCESIBILIDAD · PENDIENTE DE DECISIÓN (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
+### H55 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H56 (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
 
 - La raíz de `AuthModal` (`.auth-overlay`) y de `CheckoutModal` (`.checkout-overlay`) es un `<div>` sin
   `role="dialog"`, sin `aria-modal` y sin nombre (`aria-labelledby`). La cesta sí los tiene.
@@ -2552,8 +2558,18 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
 - **Propuesta:** `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con el título de cada modal, más el
   foco como en la cesta. Con tests de caracterización de los modales, por si alguno depende de la estructura.
 - **Para una sesión futura, si el usuario lo decide.** Hoy los modales no los ve nadie (sin precios publicados).
+- **Decisión del usuario (6 oct): se hace junto con H56, en la próxima sesión de accesibilidad.**
+  - **Alcance:** `role="dialog"`, `aria-modal="true"`, `aria-labelledby` con el título de cada modal, foco
+    atrapado dentro mientras está abierto (*focus trap*) y devolver el foco al elemento que lo abrió al cerrar.
+  - **Revisar también el foco al abrir** (que entre en el modal) y si Escape lo cierra. La cesta ya lo hace bien
+    (A5); en los modales no se ha comprobado.
+  - **Antes de dar H55 por cerrado, comprobar el foco en el móvil.** En iOS, los modales y el teclado virtual se
+    comportan de forma distinta que en escritorio. **Este entorno solo tiene Chromium** (ni WebKit ni Safari), y
+    emular un iPhone en Chromium no reproduce Safari ni VoiceOver: si la sesión no lo puede verificar, lo deja
+    anotado como pendiente para comprobarlo en un iPhone real.
+  - Para llegar a los modales en el E2E hay que simular una pieza con precio (ver H53 y `e2e/cesta.spec.js`).
 
-### H56 · BAJA · ACCESIBILIDAD · PENDIENTE (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+### H56 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H55 (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
 
 Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:focus`.
 - **Texto al pasar el ratón:** `.auth-toggle-btn:hover` ("¿No tienes cuenta? Regístrate…") pasa a `--accent-color`:
@@ -2564,6 +2580,14 @@ Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:
   de foco necesita 3:1 (WCAG 1.4.11). **Arreglo propuesto:** el anillo común de foco de la tienda (`index.css`)
   o un borde más oscuro. Hay que mirarlo con el diseño.
 - Calculado a mano, no con axe.
+- **Decisión del usuario (6 oct): se hace junto con H55, en la misma sesión.**
+  - **Hover del botón "¿No tienes cuenta?…":** `--accent-text` (de 2,97:1 a 5,03:1, el mismo cálculo que H48).
+  - **Borde de foco de los campos:** un color con al menos 3:1 **contra el fondo y contra el borde sin foco**.
+    En claro, `--accent-text` (#8A644C) cumple: 5,03:1 contra el fondo (#FCFAF8) y 3,84:1 contra el borde sin foco
+    (#E2DCD0), calculado el 6 oct. **El modo oscuro está sin calcular:** hay que hacerlo en la sesión antes de
+    darlo por bueno.
+  - Comprobar a mano (axe no prueba `:hover` ni `:focus`) y añadir los dos a la guarda de Vitest
+    (`CookieConsent.css.test.js`), como el lema de H54.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
