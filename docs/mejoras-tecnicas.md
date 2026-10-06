@@ -2424,6 +2424,9 @@ falta una sesión.
   - **limitación:** con una conexión muy lenta (menos de ~1,3 Mbit/s para la foto de 359 KB) la siguiente puede
     no haber llegado a los 2,5 s, y se vería el fondo oscuro del hero un momento. Si molesta, se puede esperar
     a que la siguiente cargue antes de cambiar.
+  - **Aceptada por el usuario (6 oct):** no se complica más. Si algún día hay quejas, se añade un
+    `<link rel="preload">` para la segunda foto con `media="(min-width: 768px)"` (y su versión de móvil). Unos 10
+    minutos.
 
 ### H50 · BAJA · USABILIDAD · RESUELTO (6 oct 2026, `d287d31`) · "Mis pedidos" del pie, sin sesión, acaba en la portada
 
@@ -2450,6 +2453,11 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
 - `ProductDetail.jsx`: "Cantidad" y "Modalidad" son `<label>` de un grupo de botones, no de un campo. Habría
   que usar un título de grupo (`role="group"` con `aria-labelledby`).
 - **No se tocó** porque H47 era Mi cuenta y los modales tienen sus propios tests.
+- **Decisión del usuario (6 oct): a la próxima sesión, con una comprobación previa.** Antes de tocar nada, pasar
+  axe con `AuthModal` y `CheckoutModal` abiertos y reportar las violaciones concretas:
+  - si axe **marca** violación, subir a MEDIA y arreglar los `<label htmlFor>` que falten;
+  - si **no** marca (porque el `placeholder` sirve de nombre), pasa a UX menor ("pulsar la etiqueta no lleva al
+    campo"), no de accesibilidad, y baja de prioridad.
 - **Al hacerlo:** un `id` único por campo (los modales pueden coexistir con otros formularios) y pasar axe con
   cada modal abierto. En esta sesión se intentó abrirlos desde un E2E (cesta sembrada en `localStorage`, abrir
   la cesta y pulsar "Confirmar Pedido") y el clic agotó el tiempo. No se averiguó el motivo.
