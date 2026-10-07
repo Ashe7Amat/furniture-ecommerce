@@ -154,10 +154,10 @@ salida del gate de cada commit, en `docs/reporte-sesion-seo-imagenes.md`.
 - **Pendiente del usuario:**
   - Merge a `main` cuando quiera. Después: recibir un correo de contacto en Gmail para ver el logo, y subir una
     foto a una pieza de prueba para ver su miniatura en el catálogo.
-  - H61: decidir la opción C (miniaturas de las 172 fotos que ya hay: escribe en Storage y en la base de datos)
-    o el plan de pago de Supabase (opción A).
-  - H34: si las vistas previas de WhatsApp importan, decidir prerenderizado o SSR.
   - H58, con el cliente (sin cambios).
+- **Decisiones del usuario sobre lo hallado (7 oct 2026):** H61, opción C descartada (solo si el cliente dice que
+  el catálogo va lento); H34, SSR y prerenderizado descartados; H62, prioridad MEDIA, se arregla en la próxima
+  sesión; H60, del entorno local, no se toca.
 
 ## ✅ Sesión autónoma del 7 oct 2026: H55, H56, H59 y H57 (en `main` desde `73dcd2a`)
 
@@ -2233,7 +2233,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **No confundir:** `MOSTRAR_PRECIOS` es *Encrypted* a propósito; no es un secreto, y así se puede ver si está
   en `true` o en `false`.
 
-### H34 · BAJA · SEO · DECIDIDO: PENDIENTE (2 oct 2026) · Sin `canonical` ni `og:url`, y el SEO por página solo existe con JavaScript
+### H34 · BAJA · SEO · DESCARTADO SSR Y PRERENDERIZADO (decisión del usuario, 7 oct 2026) · Sin `canonical` ni `og:url`, y el SEO por página solo existe con JavaScript
 
 - **Estado real (comprobado el 2 oct en el código y en el HTML de producción):** no hay ninguna etiqueta
   `<link rel="canonical">` ni `og:url`, ni en `client/index.html` ni en el código. Antes no estaba anotado en
@@ -2258,6 +2258,10 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   viendo las de la portada. Lo comprueba `e2e/seo.spec.js`, que pide el HTML de una ficha tal cual se sirve.
   **Lo que lo arreglaría:** prerenderizar las fichas (SSG) o servirlas con un render en el servidor (SSR),
   como dice la decisión de arriba.
+- **Decisión del usuario (7 oct 2026): SSR y prerenderizado, descartados.** Solo servirían para las vistas
+  previas al compartir una ficha (WhatsApp y redes), y no compensa montar un render en el servidor (Next.js o
+  similar) solo para eso. Se queda como está: el SEO por ficha funciona en el navegador y en los buscadores que
+  ejecutan JavaScript. Por lo mismo, `canonical` y `og:url` siguen sin añadirse (ver arriba).
 
 ### H35 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `72393f0`) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
 
@@ -2811,8 +2815,12 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Comprobado con Chrome:** el test solo, 10 de 10; la suite completa, 54/54 tres veces, y 162/162 repetida 3
   veces seguidas.
 
-### H60 · BAJA · TESTS · VIGILAR (7 oct 2026; datos nuevos en la sesión 2 del 7 oct) · El proceso de Node de un archivo de test del servidor se cierra en seco, a veces
+### H60 · BAJA · TESTS · NO SE TOCA: ES DEL ENTORNO LOCAL (decisión del usuario, 7 oct 2026) · El proceso de Node de un archivo de test del servidor se cierra en seco, a veces
 
+- **Decisión del usuario (7 oct 2026): no se toca.** Es del entorno local (Windows con Node 24.15): en el CI
+  (Ubuntu, Node 22) no ocurre, y en producción no se ejecutan los tests. Si vuelve a pasar en un gate local, se
+  trata como en la sesión 2 del 7 oct: comprobar con el informe TAP que el `exitCode` es `3221226505` y repetir
+  ese paso, guardando las dos salidas. Si algún día molesta, probar con Node 22 en este equipo.
 - **Datos nuevos (sesión 2 del 7 oct), con la salida guardada:**
   - Ha vuelto a pasar dos veces, las dos con `npm run test:coverage` del servidor: en el gate de la tarea 3
     (`controladoresErrores.test.js`, 9 tests, 567 en vez de 575) y en una de cinco repeticiones para
@@ -2848,7 +2856,7 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Si vuelve a pasar:** guardar la salida, mirar qué archivo no corrió y si depende del tiempo o de algo
   compartido entre procesos. Mismo tipo que H19 (cerrado tras 20 ejecuciones sin fallos).
 
-### H61 · MEDIA · RENDIMIENTO · EN PARTE (7 oct 2026, `0a7cfc3`; faltan las fotos de antes) · Las tarjetas del catálogo descargan la foto grande
+### H61 · MEDIA · RENDIMIENTO · EN PARTE (7 oct 2026, `0a7cfc3`); OPCIÓN C DESCARTADA (decisión del usuario) · Las tarjetas del catálogo descargan la foto grande
 
 - **Medido el 7 oct en producción (solo lectura, HEAD de las portadas):** las 88 portadas pesan 25,2 MB en total;
   media 293 KB, mediana 314 KB, el 90 % por debajo de 412 KB y la mayor 499 KB. Solo una baja de 60 KB. Las
@@ -2877,14 +2885,22 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   fichas: copia de `imagenes` antes y comprobar después que no queda ninguna foto rota.
 - **Otras miniaturas posibles (no hechas):** la tira de miniaturas de la ficha, la cesta, favoritos y el panel
   también pintan fotos pequeñas con la URL grande.
+- **Decisión del usuario (7 oct 2026): la opción C, descartada.** Solo se retoma si el cliente dice que el
+  catálogo va lento. Motivo: es un cambio masivo (344 archivos en Storage y 88 fichas en la base de datos) sin
+  urgencia. Las fotos que se suban desde el panel a partir del merge llevarán miniatura; las de antes siguen como
+  están (en las tarjetas se cargan en diferido, con `loading="lazy"`).
 
-### H62 · BAJA · RENDIMIENTO · ANOTADO (7 oct 2026) · Las fotos en vertical se guardan a 1440 × 1920
+### H62 · MEDIA · RENDIMIENTO · PENDIENTE: PRÓXIMA SESIÓN (decisión del usuario, 7 oct 2026) · Las fotos en vertical se guardan a 1440 × 1920
 
 - El cliente reduce cada foto a 1920 px por el lado mayor (`MAX_LADO`, `client/src/utils/imagen.js`) y el
   servidor solo limita el ancho a 1600 (`optimizarImagen`, `server/src/utils/upload.js`). Una foto vertical se
   queda en 1440 × 1920: las tres WebP medidas (portadas subidas desde el panel), de 448 a 484 KB.
 - **Propuesta:** limitar el lado mayor en el servidor (`resize({ width: 1600, height: 1600, fit: 'inside' })`).
   No se ha cambiado: no estaba en la tarea y cambia el tamaño de las fotos de la ficha.
+- **Decisión del usuario (7 oct 2026): prioridad MEDIA, se arregla en la próxima sesión.** El cambio: en
+  `optimizarImagen` (`server/src/utils/upload.js`), el límite pasa de 1600 px de ancho a 1600 px por el lado
+  mayor (sin agrandar las pequeñas). **Solo para las fotos nuevas:** las que ya están guardadas se quedan como
+  están. Una foto vertical nueva quedará en 1200 × 1600 en vez de 1440 × 1920; las horizontales no cambian.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
