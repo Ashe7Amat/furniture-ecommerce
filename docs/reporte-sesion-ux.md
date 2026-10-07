@@ -390,3 +390,148 @@ no se han vuelto a pasar: no se ha tocado código del panel (127 la última vez,
 - **H56 (baja):** más `--accent-color` en el modal de acceso, en estados que axe no prueba: el texto del botón
   "¿No tienes cuenta?" al pasar el ratón (2,97:1) y el borde de foco de los campos (por debajo de 3:1).
 - **Sillas:** que el cliente diga cuántas piezas son y cuáles, con nombre (y precio, si quiere).
+
+---
+
+# Sesión autónoma (7 oct 2026): H55, H56, H59 y H57
+
+Rama `feature/mejoras-tecnicas`, desde `0ca8a83`. El usuario no estaba delante. Producción, en `115841d` (el
+merge del 6 oct); esta sesión no se ha mergeado.
+
+## En resumen
+
+- **Hechas:** H55, H56, H59 y H57, cada una con su commit, su gate en verde y su push.
+- **Parada:** H58 (tarea 5). No se ha tocado ninguna ficha; motivos y pasos concretos, abajo.
+- **Gate:** en verde en los cinco commits. En el del cierre, una primera pasada dio un fallo suelto en el
+  servidor que no se ha podido reproducir (H60); se repitió entero antes de commitear.
+- **Tests:**
+  - cliente: de 808 a 844;
+  - servidor: de 556 a 557 (un test del orden de las fotos);
+  - E2E: de 44 a 56.
+- **Mutantes del panel:** 127, como antes: 126 detectados y 1 superviviente esperado (más el de control, que muere en la comprobación previa). Pasados sobre `f9e1812` (H57): "Todos los mutantes detectados".
+- **Ni `main`, ni Vercel, ni la base de datos se han tocado** (esta sesión no ha hecho ninguna consulta a la
+  base de datos).
+
+## `git log --oneline -15`
+
+Este informe va en el commit siguiente, `docs: cierre de la sesión de accesibilidad y fotos`.
+
+```
+f9e1812 feat(admin): reordenar fotos y marcar portada en el editor (H57)
+8f99ff5 test(e2e): congelar el reloj en el test del hero (H59)
+cd7f438 fix(client): contraste en estados hover y foco del AuthModal (H56)
+0c6d7dc fix(client): role dialog y gestión de foco en los modales (H55)
+0ca8a83 docs: anotar H59 (test E2E del hero es flaky con tests en paralelo)
+8f76dad feat(db): subir las sillas y la mesita del PDF (11 piezas)
+3f160f4 docs: decisiones de H55 y H56 para la próxima sesión
+08a9e80 docs: cierre de la sesión de accesibilidad de modales
+30044a0 fix(client): corregir el contraste del lema en AuthModal (H54)
+9c36aeb test(e2e): abrir los modales de la cesta y pasarles axe (H53, H54)
+64bd70a docs: causa real del E2E que no abría los modales de la cesta (H53)
+0d7db75 docs: anotar en H53 el diagnóstico previo del E2E de CheckoutModal
+c528bcd docs: decisiones del usuario sobre H53 y la limitación de H49
+35c18d3 docs: cierre de la sesión de accesibilidad
+d287d31 fix(client): "Mis pedidos" del pie vuelve a pedidos tras login (H50)
+```
+
+## Gate de cada commit
+
+Cada comando, en su propia llamada, leyendo la salida entera antes del commit. El cliente no tiene
+`format:check` (solo el servidor). El servidor, en todos: lint 0 errores, formato ✓ y 99,06 / 91,82 / 99,54.
+
+| Commit | Cliente: lint | Cliente: tests y cobertura (líneas / ramas / funciones) | Servidor: tests | E2E |
+|---|---|---|---|---|
+| `0c6d7dc` H55 | 0 errores | 825/825 · 98,74 / 95,71 / 93,40 | 556/556 | 52/52 |
+| `cd7f438` H56 | 0 errores | 827/827 · 98,74 / 95,71 / 93,40 | 556/556 | los de la cesta y H56 (6/6); la suite completa, con H59 |
+| `8f99ff5` H59 | 0 errores | 827/827 · 98,74 / 95,71 / 93,40 | 556/556 | 54/54 tres veces; 162/162 (×3 seguidas) |
+| `f9e1812` H57 | 0 errores | 844/844 · 98,76 / 95,79 / 93,68 | 557/557 | 56/56 tres veces |
+
+Los E2E se han pasado con el Chrome instalado (`channel: 'chrome'`, con una configuración temporal fuera del
+repositorio): el Chromium de Playwright no está descargado en este equipo.
+
+## Cobertura, antes y después
+
+| | Líneas | Ramas | Funciones | Umbral |
+|---|---|---|---|---|
+| Cliente, antes (`0ca8a83`) | 98,65 % | 95,68 % | 93,08 % | 97 / 95 / 92 |
+| Cliente, después (`f9e1812`) | 98,76 % | 95,79 % | 93,68 % | 97 / 95 / 92 |
+| Servidor, antes y después | 99,06 % | 91,82 % | 99,54 % | 98 / 91 / 99 |
+
+## Tareas
+
+### 1. H55: los modales de acceso y de pago como diálogos modales (`0c6d7dc`)
+
+- `AuthModal` y `CheckoutModal`: `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con su título visible.
+- Hook nuevo, `utils/useDialogoModal.js`, con el comportamiento que ya tenía la cesta (A5) más el foco atrapado:
+  foco dentro al abrir (en la ✕ "Cerrar"), Tab y Mayús+Tab sin salir, Escape cierra y el foco vuelve a
+  "Confirmar Pedido".
+- Escape se escucha en captura y no se propaga: la cesta de debajo también se cierra con Escape, y un solo
+  Escape cerraba las dos.
+- Comprobación de que los tests sirven: sin el arreglo fallan los 8 E2E nuevos; con el `role` pero sin el hook,
+  fallan los 8 también (foco al abrir, Tab, Escape y vuelta del foco).
+- **Pendiente:** un iPhone real con VoiceOver. Aquí solo hay Chrome.
+
+### 2. H56: contraste al pasar el ratón y con el foco (`cd7f438`)
+
+- El texto de "¿Aún no eres miembro?…" al pasar el ratón y el borde del campo con el foco pasan a
+  `--accent-text`. En claro: de 2,97:1 a 5,03:1 (texto) y de 2,97 / 2,27 a 5,03 / 3,84 (borde, contra el fondo y
+  contra el borde sin foco). En oscuro ya cumplían: 7,85:1 y 7,85 / 5,88.
+- Calculado con la fórmula de WCAG y, además, medido en el navegador con un E2E en los dos temas que pasa el
+  ratón y pone el foco de verdad. Con el CSS anterior, el de claro falla con 2,97:1, el mismo número del
+  cálculo a mano.
+
+### 3. H59: el E2E del hero que fallaba a veces (`8f99ff5`)
+
+- Primera causa, la anotada: `page.clock.install()` deja correr el tiempo. Ahora el reloj se congela con
+  `pauseAt()` antes de navegar.
+- Segunda causa, encontrada al probar el arreglo con carga: con 10 tests en paralelo, `networkidle` llegaba a
+  veces antes de que la app pidiera ninguna foto (en la traza, solo `main.jsx`, `App.jsx` y las librerías).
+  Ahora se espera a que la foto del hero esté pintada.
+- Comprobado: el test solo, 10 de 10; la suite, 54/54 tres veces y 162/162 repetida 3 veces seguidas.
+
+### 4. H57: galería de fotos en el editor de muebles (`f9e1812`)
+
+- Fotos de 150 px como mínimo, numeradas, la primera marcada como principal; asa para arrastrar (ratón, dedo o
+  teclado), "Usar como principal" y la ✕ con su confirmación de siempre.
+- dnd-kit (`@dnd-kit/core` 6.3.1, `sortable` 10.0.0, `utilities` 3.2.2), con los anuncios para lectores de
+  pantalla en castellano.
+- El orden se guarda con "Guardar Cambios"; el servidor ya guardaba `imagenes_existentes` en el orden en que
+  llega (test nuevo con un orden distinto del original).
+- Los 221 tests de caracterización del panel pasan sin cambios: la miniatura conserva su estructura.
+- E2E en el navegador: arrastrar con el ratón, "Usar como principal", guardar, **recargar la página** (con la
+  sesión renovada) y volver a abrir el editor: el orden se mantiene. Y otro con el teclado.
+- Dos detalles del E2E, por si alguien lo toca: la galería está al final del modal y hay que bajar hasta ella
+  antes de arrastrar con el ratón; y dnd-kit anula el clic que llega justo al soltar, así que antes de pulsar
+  otro botón hay que esperar a que termine el arrastre.
+
+### 5. H58: fotos cruzadas (parada)
+
+- **No se ha tocado ninguna ficha.** La sesión tenía prohibido modificar datos, la tarea pedía parar antes de
+  guardar y esperar al usuario, y la herramienta de H57 aún no está en producción.
+- **Además, el caso de la NAV-SIL-002 no se resuelve solo con H57:** la herramienta ordena y quita fotos dentro
+  de una pieza, pero no mueve una foto a otra. Pasos concretos en H58 (`docs/mejoras-tecnicas.md`).
+
+### 6. Cierre
+
+- `docs/mejoras-tecnicas.md`: H55, H56, H57 y H59 resueltos en la rama; H58 con los pasos que quedan; resumen de
+  la sesión arriba del todo.
+- Este informe.
+
+## Hallazgos nuevos
+
+- **H60 (vigilar):** en el gate del commit de cierre, `npm test` del servidor dio 549 tests y 1 fallo (un archivo
+  entero de 9 tests que no llegó a correr, por la cuenta). Los siete comandos del gate se habían lanzado a la
+  vez. Repetido, 557/557: solo, y otras tres veces con la misma carga. La salida de esa ejecución no se guardó,
+  así que no se sabe qué archivo fue. El commit de cierre se hizo con el gate repetido entero y en verde, cada
+  comando por separado y uno detrás de otro.
+- Lo demás encontrado por el camino se ha resuelto en la misma tarea: la segunda causa de H59 y el Escape que
+  habría cerrado a la vez el modal y la cesta (H55).
+
+## Para el usuario
+
+1. **H55:** comprobar los dos modales en un iPhone real con VoiceOver (abrir desde la cesta, que anuncie el
+   título, que el foco no se salga y que al cerrar vuelva a "Confirmar Pedido").
+2. **H58:** con H57 desplegado, decidir los cuatro casos. La 002 y la 003 tienen pasos concretos en H58; los
+   otros dos son sospechas de duplicado para el cliente.
+3. **Merge a `main`, cuando quiera:** H57 añade tres dependencias al cliente (dnd-kit), que Vercel instalará en
+   el despliegue. Después, probar la galería en el panel de producción con una pieza de prueba.

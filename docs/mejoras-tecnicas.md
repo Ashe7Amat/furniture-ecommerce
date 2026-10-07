@@ -124,6 +124,35 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
+## 🔄 Sesión autónoma del 7 oct 2026: H55, H56, H59 y H57
+
+En `feature/mejoras-tecnicas`, sin merge: producción sigue en `115841d`. Informe en `docs/reporte-sesion-ux.md`
+(sección "Sesión autónoma del 7 oct").
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. H55, los modales de acceso y de pago como diálogos modales, con el foco | ✅ (falta el iPhone) | `0c6d7dc` |
+| 2. H56, contraste al pasar el ratón y con el foco en el modal de acceso | ✅ | `cd7f438` |
+| 3. H59, el E2E del hero que fallaba a veces | ✅ | `8f99ff5` |
+| 4. H57, galería de fotos en el editor de muebles (dnd-kit) | ✅ | `f9e1812` |
+| 5. H58, fotos cruzadas entre piezas | ⏸ Sin tocar: necesita al usuario | — |
+
+- **Cobertura del cliente (líneas / ramas / funciones):** de 98,65 / 95,68 / 93,08 a 98,76 / 95,79 / 93,68
+  (844 tests, antes 808). Servidor: 99,06 / 91,82 / 99,54, igual (557 tests, antes 556).
+- **Umbrales:** sin cambios (cliente 97 / 95 / 92; servidor 98 / 91 / 99).
+- **E2E:** 56 (antes 44): 8 de H55, 2 de H56 y 2 de H57. La suite completa, 56/56 tres veces seguidas.
+- **Mutantes del panel:** 127, como antes: 126 detectados y 1 superviviente esperado (más el de control, que muere en la comprobación previa). Pasados sobre `f9e1812` (H57): "Todos los mutantes detectados".
+- **Dependencias nuevas:** `@dnd-kit/core` 6.3.1, `@dnd-kit/sortable` 10.0.0 y `@dnd-kit/utilities` 3.2.2
+  (cliente).
+- **Ni `main`, ni Vercel, ni la base de datos se han tocado.** Esta sesión no ha hecho ninguna consulta a la
+  base de datos.
+- **Hallazgo nuevo:** H60, un fallo suelto en `npm test` del servidor durante el gate del cierre (no reproducido
+  en cuatro repeticiones; probable carga, ver H60).
+- **Pendiente del usuario:**
+  - H55: comprobar los modales en un iPhone real con VoiceOver.
+  - H58: decidir los cuatro casos, con H57 ya desplegado (pasos concretos en H58).
+  - Merge a `main` cuando quiera: H57 añade dependencias al cliente, así que Vercel instalará dnd-kit.
+
 ## ✅ Sillas nuevas: subida del PDF (6 oct 2026)
 
 Piezas del PDF "Sillas plegables PROPS-NAVE5 01-10_2026" (4 archivos, 15 páginas, solo fotos) subidas a la tienda
@@ -2595,7 +2624,19 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
   `--accent-color` (comprobado).
 - **Visto al arreglarlo, sin tocar:** H56.
 
-### H55 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H56 (6 oct 2026) · Los modales de acceso y de pago no se anuncian como modales
+### H55 · BAJA · ACCESIBILIDAD · RESUELTO EN LA RAMA (7 oct 2026, `0c6d7dc`; falta el iPhone) · Los modales de acceso y de pago no se anuncian como modales
+
+- **Resuelto el 7 oct (`0c6d7dc`):**
+  - `AuthModal` y `CheckoutModal` llevan `role="dialog"`, `aria-modal="true"` y `aria-labelledby` con su título
+    visible ("Iniciar Sesión" / "Crear Cuenta" y "Finalizar Pago").
+  - Hook nuevo, `utils/useDialogoModal.js`: al abrir, el foco entra en el primer elemento enfocable (la ✕
+    "Cerrar"); Tab y Mayús+Tab dan la vuelta dentro; Escape cierra; al cerrar, el foco vuelve a quien lo abrió
+    ("Confirmar Pedido"). Las teclas se escuchan en captura y Escape no se propaga: si no, cerraría también la
+    cesta que hay debajo (que escucha Escape en `document`).
+  - Tests: 11 del hook, 3 por modal en Vitest y 8 E2E en `e2e/cesta.spec.js`. Sin el hook, los 8 E2E fallan.
+  - **Pendiente:** comprobarlo en un iPhone real con VoiceOver. Este entorno solo tiene Chrome, y emular un
+    iPhone en Chrome no reproduce Safari.
+- **Lo que se vio el 6 oct:**
 
 - La raíz de `AuthModal` (`.auth-overlay`) y de `CheckoutModal` (`.checkout-overlay`) es un `<div>` sin
   `role="dialog"`, sin `aria-modal` y sin nombre (`aria-labelledby`). La cesta sí los tiene.
@@ -2617,7 +2658,21 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
     anotado como pendiente para comprobarlo en un iPhone real.
   - Para llegar a los modales en el E2E hay que simular una pieza con precio (ver H53 y `e2e/cesta.spec.js`).
 
-### H56 · BAJA · ACCESIBILIDAD · PENDIENTE: PRÓXIMA SESIÓN, CON H55 (6 oct 2026) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+### H56 · BAJA · ACCESIBILIDAD · RESUELTO EN LA RAMA (7 oct 2026, `cd7f438`) · Más `--accent-color` en el modal de acceso: al pasar el ratón y en el foco
+
+- **Resuelto el 7 oct (`cd7f438`):** los dos estados pasan a `--accent-text`. Calculado con la fórmula de WCAG
+  sobre los colores de `index.css`:
+
+  | Tema | Texto al pasar el ratón (pide 4,5:1) | Borde de foco contra el fondo (3:1) | Contra el borde sin foco (3:1) |
+  |---|---|---|---|
+  | Claro, antes (`--accent-color`) | 2,97 | 2,97 | 2,27 |
+  | Claro, ahora (`--accent-text`) | 5,03 | 5,03 | 3,84 |
+  | Oscuro (`#DDAE81` antes y ahora) | 7,85 | 7,85 | 5,88 |
+
+  - Guarda de Vitest (`CookieConsent.css.test.js`) para los dos estados; con el CSS anterior, fallan las dos.
+  - E2E en los dos temas que mide el contraste con los colores que calcula el navegador (pasa el ratón y pone
+    el foco de verdad). Con el CSS anterior, el de claro falla con 2,97:1.
+  - axe sobre los dos modales y los dos temas: sigue sin violaciones.
 
 Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:focus`.
 - **Texto al pasar el ratón:** `.auth-toggle-btn:hover` ("¿No tienes cuenta? Regístrate…") pasa a `--accent-color`:
@@ -2637,7 +2692,22 @@ Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:
   - Comprobar a mano (axe no prueba `:hover` ni `:focus`) y añadir los dos a la guarda de Vitest
     (`CookieConsent.css.test.js`), como el lema de H54.
 
-### H57 · MEDIA · PANEL · PENDIENTE (6 oct 2026) · Herramienta de gestión de fotos en el editor de muebles
+### H57 · MEDIA · PANEL · RESUELTO EN LA RAMA (7 oct 2026, `f9e1812`; sin desplegar) · Herramienta de gestión de fotos en el editor de muebles
+
+- **Resuelto el 7 oct (`f9e1812`):** galería en el editor de muebles (`modales/GaleriaFotos.jsx`), con fotos de
+  150 px como mínimo, numeradas y con la primera marcada como principal. Cada una lleva un asa para arrastrarla
+  (ratón, dedo o teclado: espacio, flechas, espacio), "Usar como principal" y la ✕ con su confirmación de antes.
+  - El orden se guarda con "Guardar Cambios": `imagenes_existentes` va en el orden que se ve, y el servidor ya
+    lo guardaba tal cual (test nuevo con un orden distinto del original).
+  - dnd-kit (`@dnd-kit/core` 6.3.1, `sortable` 10.0.0, `utilities` 3.2.2), con los anuncios para lectores de
+    pantalla en castellano. La lógica del orden, aparte: `pages/admin/fotos.js`.
+  - La miniatura conserva su estructura (`.image-thumb` con la foto "Mueble N" y un solo botón): los 221 tests
+    de caracterización del panel pasan sin cambios, y los mutantes siguen apuntando a las mismas líneas.
+  - Tests: 7 de la lógica, 7 de la galería (también el arrastre con el teclado), 3 del editor y 2 E2E en el
+    navegador (arrastrar con el ratón y con el teclado, "Usar como principal", guardar y recargar la página).
+  - **Lo que no hace:** mover una foto de una pieza a otra. Para eso hay que quitarla de una y subirla de nuevo
+    en la otra (ver H58).
+- **Lo que se pidió el 6 oct:**
 
 - **Qué pasa hoy:**
   - `EditarMuebleModal` enseña las fotos como miniaturas y no se pueden reordenar.
@@ -2651,7 +2721,7 @@ Visto al arreglar H54. axe no lo detecta: no prueba estados de `:hover` ni de `:
 - **Coste estimado:** 3-4 horas.
 - **Cuándo:** cuando se acumulen varias piezas con fotos cruzadas o mal ordenadas (ver H58).
 
-### H58 · BAJA · CATÁLOGO · PENDIENTE: SESIÓN DE H57 (6 oct 2026) · Fotos cruzadas entre piezas en "Sillas y asientos"
+### H58 · BAJA · CATÁLOGO · PENDIENTE: CON EL USUARIO, TRAS MERGEAR H57 (7 oct 2026) · Fotos cruzadas entre piezas en "Sillas y asientos"
 
 Visto al comparar las fotos del PDF de sillas plegables con la tienda (sección "Sillas nuevas: subida del PDF").
 Tres revisores independientes coincidieron en todo; no se ha tocado ninguna ficha.
@@ -2663,18 +2733,52 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **La primera foto de NAV-SIL-003 es de una silla plegable azul**, no de la silla bistró de madera azul.
 - **Arreglo:** revisar los cuatro casos con el cliente cuando se haga la herramienta de fusión y reordenación de
   fotos (H57). Ninguno bloquea la venta.
+- **7 oct: no se ha tocado.** La sesión tenía prohibido modificar datos, la tarea pedía parar antes de guardar
+  y esperar al usuario, y la herramienta de H57 aún no está en producción (está en la rama). Lo que queda,
+  con las fotos que tenía cada ficha el 6 oct (copia del catálogo público de ese día):
+  - **NAV-SIL-002:** la foto cruzada es la 2.ª, `137-silla-plegable-blanca-2.jpg`. El nombre del archivo dice
+    "blanca", pero es el primer plano del emblema GAGAN de la NAV-SIL-009. Con H57 se puede **quitar** de la 002
+    (✕ y "Guardar Cambios"). **Añadirla a la 009 no:** el editor solo añade archivos nuevos, así que habría que
+    descargarla y subirla otra vez en la 009 (si el cliente la quiere ahí; la 009 ya tiene tres fotos suyas).
+  - **NAV-SIL-003:** la 1.ª foto, `138-silla-bistro-madera-azul-1.jpg`, es el respaldo azul de una silla
+    plegable. Con H57, "Usar como principal" en la 2.ª deja la silla bistró de portada; el primer plano seguiría
+    en la ficha como foto secundaria. Quitarlo, y a qué pieza pertenece, lo decide el cliente.
+  - Los otros dos casos (002/014/004 y 001/011) son sospechas de duplicado, no fotos cruzadas: los decide el
+    cliente.
+  - **Cuándo:** después de mergear H57 y con el visto bueno del usuario.
 
-### H59 · BAJA · TESTS · PENDIENTE: PRÓXIMA SESIÓN TÉCNICA (6 oct 2026) · El E2E del hero (H49) falla a veces con los tests en paralelo
+### H59 · BAJA · TESTS · RESUELTO EN LA RAMA (7 oct 2026, `8f99ff5`) · El E2E del hero (H49) falla a veces con los tests en paralelo
 
-- **Qué pasa:** el test "al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)" de
-  `e2e/home.spec.js` falla a veces: en móvil o en escritorio, según la ejecución. Tres ejecuciones completas el
-  6 oct: 43/44, 44/44 y 43/44.
-- **Causa:** usa `page.clock.install()`, que no detiene el tiempo real. Con los tests en paralelo la página tarda
-  más en cargar, y el carrusel ya ha pasado a la segunda foto cuando el test comprueba que aún se ve la primera.
-- **Ejecutado solo, pasa 3 de 3.**
-- **No es una regresión:** pasó con la rama en `8f76dad`, que solo cambia documentación.
-- **Arreglo:** `page.clock.pauseAt()` antes de navegar, para congelar el tiempo.
-- No bloquea nada. Se arregla en la próxima sesión técnica.
+- **Qué pasaba (6 oct):** el test "al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)" de
+  `e2e/home.spec.js` fallaba a veces, en móvil o en escritorio según la ejecución. Tres ejecuciones completas:
+  43/44, 44/44 y 43/44. Ejecutado solo, pasaba 3 de 3. No era una regresión: pasó con la rama en `8f76dad`, que
+  solo cambiaba documentación.
+- **Resuelto el 7 oct (`8f99ff5`). Dos causas, las dos en el test** (el código del hero no cambia):
+  1. `page.clock.install()` pone un reloj falso que sigue corriendo al ritmo real. Con los tests en paralelo la
+     página tardaba más en cargar, y el carrusel ya había pasado a la segunda foto cuando el test comprobaba que
+     aún se veía la primera. Ahora el reloj se instala a una hora fija y se congela con `pauseAt()` antes de
+     navegar; desde ahí solo avanza con `fastForward`.
+  2. Vista al probar el arreglo con carga (la suite completa repetida 3 veces seguidas): `waitForLoadState
+     ('networkidle')` (500 ms sin peticiones) podía llegar mientras el navegador aún procesaba los módulos de la
+     app, antes de pedir ninguna foto. La traza del fallo lo enseña: solo se habían pedido `main.jsx`, `App.jsx`
+     y las librerías. Ahora se espera a que la foto del hero esté pintada antes de cerrar el aviso de cookies y
+     de contar las peticiones.
+- **Comprobado con Chrome:** el test solo, 10 de 10; la suite completa, 54/54 tres veces, y 162/162 repetida 3
+  veces seguidas.
+
+### H60 · BAJA · TESTS · VIGILAR (7 oct 2026) · Un fallo suelto en `npm test` del servidor, sin identificar
+
+- **Qué pasó:** en el gate del cierre de la sesión del 7 oct, `npm test` del servidor dio 549 tests y 1 fallo,
+  en vez de 557 y 0. La cuenta encaja con que un archivo entero de 9 tests no llegara a correr y contara como un
+  solo fallo. El commit era solo de documentación.
+- **Circunstancias:** los siete comandos del gate se lanzaron a la vez (tests y cobertura del cliente y del
+  servidor en paralelo), con la máquina cargada.
+- **No se ha podido reproducir:** justo después, la cobertura del servidor dio 557/557; `npm test` solo, 557/557;
+  y otras tres veces con la misma carga (los tres a la vez), 557/557 en todas.
+- **No se sabe qué archivo fue:** la salida de esa ejecución no se guardó. **Lección:** guardar siempre la salida
+  entera del gate en un archivo, también cuando se lee en pantalla.
+- **Si vuelve a pasar:** guardar la salida, mirar qué archivo no corrió y si depende del tiempo o de algo
+  compartido entre procesos. Mismo tipo que H19 (cerrado tras 20 ejecuciones sin fallos).
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

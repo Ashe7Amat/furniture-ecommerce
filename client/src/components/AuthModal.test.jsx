@@ -170,3 +170,26 @@ describe('AuthModal', () => {
     expect(screen.queryByPlaceholderText('Ej. Ana Martínez')).not.toBeInTheDocument(); // vuelve a "Iniciar Sesión"
   });
 });
+
+// H55: se anuncia como diálogo modal con su título, el foco entra al abrir y Escape lo cierra (el foco atrapado
+// y la vuelta del foco están en utils/useDialogoModal.test.jsx y en el E2E e2e/cesta.spec.js).
+describe('AuthModal — accesibilidad (H55)', () => {
+  it('es un diálogo modal llamado como su título, que cambia con el modo', () => {
+    abrir();
+    const dialogo = screen.getByRole('dialog', { name: 'Iniciar Sesión' });
+    expect(dialogo).toHaveAttribute('aria-modal', 'true');
+    aRegistro();
+    expect(screen.getByRole('dialog', { name: 'Crear Cuenta' })).toBe(dialogo);
+  });
+
+  it('al abrir, el foco está en "Cerrar", el primer botón del diálogo', () => {
+    abrir();
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toHaveFocus();
+  });
+
+  it('Escape lo cierra', () => {
+    const { onClose } = abrir();
+    fireEvent.keyDown(document.activeElement, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

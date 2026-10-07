@@ -132,8 +132,11 @@
   transition: border-color 0.25s ease;
 }
 
+/* H56: el borde es la única señal de foco (outline: none). --accent-text tiene al menos 3:1 contra el fondo y
+   contra el borde sin foco: en claro 5,03:1 y 3,84:1; en oscuro 7,85:1 y 5,88:1 (con --accent-color, en claro
+   solo 2,97:1 y 2,27:1). */
 .auth-input-group input:focus {
-  border-color: var(--accent-color);
+  border-color: var(--accent-text);
 }
 
 .auth-error-msg {
@@ -189,6 +192,8 @@
   font-family: inherit;
 }
 
+/* H56: texto, así que necesita 4,5:1. Con --accent-text, 5,03:1 en claro y 7,85:1 en oscuro sobre --card-bg
+   (con --accent-color, en claro solo 2,97:1). */
 .auth-toggle-btn:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }

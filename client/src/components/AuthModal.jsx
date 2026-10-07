@@ -1,8 +1,9 @@
 // client/src/components/AuthModal.jsx
-import { useState, useContext } from 'react';
+import { useState, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser } from '../services/api';
+import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/AuthModal.css';
 
 const AuthModal = ({ isOpen, onClose, onSuccess }) => {
@@ -15,6 +16,9 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const dialogoRef = useRef(null);
+  // H55: foco dentro al abrir, Tab no se sale, Escape cierra y el foco vuelve al botón que lo abrió.
+  useDialogoModal(isOpen, dialogoRef, () => handleClose());
 
   if (!isOpen) return null;
 
@@ -83,7 +87,15 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
 
   return (
     <div className="auth-overlay">
-      <div className="auth-modal">
+      {/* H55: se anuncia como diálogo modal, con el título visible ("Iniciar Sesión" o "Crear Cuenta") como nombre. */}
+      <div
+        className="auth-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-titulo"
+        tabIndex={-1}
+        ref={dialogoRef}
+      >
         <button className="auth-close-btn" onClick={handleClose} aria-label="Cerrar">✕</button>
         
         <div className="auth-content">
@@ -92,7 +104,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
             <p className="auth-tagline">Almacén de ideas</p>
           </div>
 
-          <h3>{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h3>
+          <h3 id="auth-titulo">{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h3>
           <p className="auth-sub-desc">
             {isRegister 
               ? 'Únete a nuestra comunidad de diseño slow y piezas con historia.' 
