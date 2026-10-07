@@ -3,7 +3,7 @@ import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { textoPrecio, tienePrecio } from '../utils/format';
-import { PLACEHOLDER_IMG } from '../utils/images';
+import { PLACEHOLDER_IMG, miniatura } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
 import ReferenciaProducto from './ReferenciaProducto';
@@ -13,8 +13,9 @@ const ProductCard = ({ mueble }) => {
   const [isPopping, setIsPopping] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const isFav = isFavorite(mueble.id);
+  // La tarjeta pinta la foto a unos 300 px: la miniatura de 400 px si la tiene (H61).
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
-    ? mueble.imagenes[0]
+    ? miniatura(mueble.imagenes[0])
     : PLACEHOLDER_IMG;
 
   const handleFavClick = (e) => {

@@ -7,6 +7,7 @@ const {
   exportarCatalogoCsv,
   importarCatalogoCsv
 } = require('../controllers/catalogoCsvController');
+const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
 const { verificarAdmin } = require('../middleware/auth');
 
@@ -37,6 +38,9 @@ const recibirCsv = (req, res, next) =>
       .json({ error: 'No se pudo leer el archivo: sube un único CSV en el campo "archivo".' });
   });
 router.post('/muebles/import', verificarAdmin, recibirCsv, importarCatalogoCsv);
+
+// Las cuentas de clientes en CSV (id, email, nombre, rol y fecha de alta; nunca la contraseña).
+router.get('/clientes/export', verificarAdmin, exportarClientesCsv);
 
 // Mensajes del formulario de contacto (pendiente de la migración mensajes_contacto).
 router.get('/mensajes', verificarAdmin, obtenerMensajes);

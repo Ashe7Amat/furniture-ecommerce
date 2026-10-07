@@ -161,3 +161,42 @@ test('H57: con el teclado, espacio coge la foto, la flecha la mueve y espacio la
 
   await expect.poll(() => ordenVisto(galeria)).toEqual([FOTOS_INICIALES[1], FOTOS_INICIALES[0], FOTOS_INICIALES[2]]);
 });
+
+// Exportar clientes (CSV), en el Resumen: la descarga de verdad en el navegador, con el BOM delante y sin la
+// contraseña. El nombre puede venir del servidor o, si el navegador no deja leer esa cabecera, armarse en el
+// cliente con el mismo formato.
+test('el Resumen descarga el CSV de clientes', async ({ page }) => {
+  const errores = vigilarConsola(page);
+  await simularApi(page);
+  const CSV = '\uFEFFid;email;nombre;rol;creado_en\r\nu-ana;ana@correo.test;Ana;cliente;2026-09-01T10:00:00Z\r\n';
+  const pedidas = [];
+  await page.route('http://localhost:5000/api/admin/clientes/export', (route) => {
+    pedidas.push(route.request().headers().authorization);
+    return route.fulfill({
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="clientes-nave5-2026-10-07.csv"'
+      },
+      body: CSV
+    });
+  });
+  await iniciarSesion(page, ADMIN);
+  await page.getByRole('button', { name: 'Cuenta' }).click();
+  await page.getByRole('link', { name: /Panel/ }).first().click();
+
+  const seccion = page.getByRole('region', { name: 'Clientes' });
+  await seccion.scrollIntoViewIfNeeded();
+  const [descarga] = await Promise.all([
+    page.waitForEvent('download'),
+    seccion.getByRole('button', { name: 'Exportar clientes (CSV)' }).click()
+  ]);
+
+  expect(pedidas).toEqual([`Bearer access-${ADMIN.id}`]);
+  expect(descarga.suggestedFilename()).toMatch(/^clientes-nave5-\d{4}-\d{2}-\d{2}\.csv$/);
+  const { readFile } = await import('node:fs/promises');
+  const contenido = await readFile(await descarga.path(), 'utf8');
+  expect(contenido).toBe(CSV);
+  await expect(page.getByText('Clientes exportados')).toBeVisible();
+  expect(errores).toEqual([]);
+});

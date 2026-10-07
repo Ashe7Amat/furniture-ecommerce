@@ -1,10 +1,17 @@
+import { useContext, useState } from 'react';
 import Icon from '../Icon';
+import { ToastContext } from '../../../context/ToastContext';
+import { exportarClientesCsv } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
+import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 
-// Pestaña "Resumen": contadores del catálogo, avisos de piezas sin fotos o sin categoría y el
-// bloque "Avisos / Últimas Ventas" (que sale del `estado` de los muebles, no de los pedidos).
+// Pestaña "Resumen": contadores del catálogo, avisos de piezas sin fotos o sin categoría, el
+// bloque "Avisos / Últimas Ventas" (que sale del `estado` de los muebles, no de los pedidos) y
+// la exportación de las cuentas de clientes a CSV (el panel no tiene pestaña de clientes).
 const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
+  const { showToast } = useContext(ToastContext);
+  const [exportandoClientes, setExportandoClientes] = useState(false);
   const totalMuebles = muebles.length;
   const disponibles = muebles.filter(m => m.estado === 'disponible' || !m.estado);
   const vendidos = muebles.filter(m => m.estado === 'vendido').length;
@@ -12,6 +19,18 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   const valorDisponible = disponibles.reduce((acc, m) => acc + (Number(m.precio_venta) || 0), 0);
   const sinImagen = muebles.filter(m => !m.imagenes || m.imagenes.length === 0).length;
   const sinCategoria = muebles.filter(m => !m.categoria).length;
+
+  const handleExportarClientes = async () => {
+    setExportandoClientes(true);
+    const resultado = await exportarClientesCsv();
+    setExportandoClientes(false);
+    if (!resultado) {
+      showToast('No se pudieron exportar los clientes', 'error');
+      return;
+    }
+    descargarArchivo(resultado.blob, resultado.nombreArchivo);
+    showToast('Clientes exportados', 'success');
+  };
 
   return (
     <div className="admin-view fade-in">
@@ -92,6 +111,14 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           </div>
         )}
       </div>
+
+      <section className="resumen-clientes" aria-labelledby="resumen-clientes-titulo">
+        <h3 id="resumen-clientes-titulo" className="admin-section-title"><Icon name="mail" /> Clientes</h3>
+        <p>Las cuentas registradas en la tienda, en un CSV para Excel: email, nombre, rol y fecha de alta. Nunca la contraseña.</p>
+        <button className="admin-btn-ghost" onClick={handleExportarClientes} disabled={exportandoClientes}>
+          {exportandoClientes ? 'Exportando…' : 'Exportar clientes (CSV)'}
+        </button>
+      </section>
     </div>
   );
 };

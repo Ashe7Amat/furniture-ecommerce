@@ -230,21 +230,37 @@ export const deleteMueble = async (id) => {
   }
 };
 
-// El catálogo entero en CSV, para Excel (GET /api/admin/muebles/export, con sesión de
-// administrador). Devuelve { blob, nombreArchivo }, o null si falla. El nombre lo pone el servidor
-// (catalogo-nave5-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
+// Un CSV del panel, para Excel (GET a una ruta de /api/admin, con sesión de administrador).
+// Devuelve { blob, nombreArchivo } y lanza si el servidor responde con error. El nombre lo pone el
+// servidor (<prefijo>-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
 // cabecera si el servidor no la expone por CORS: entonces se arma aquí con el mismo formato.
+const pedirCsvDelPanel = async (ruta, prefijo) => {
+  const response = await apiFetch(`${API_URL}${ruta}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`Error al pedir ${ruta}`);
+  const disposicion = response.headers.get('Content-Disposition') || '';
+  const nombreArchivo =
+    /filename="([^"]+)"/.exec(disposicion)?.[1] ||
+    `${prefijo}-${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date())}.csv`;
+  return { blob: await response.blob(), nombreArchivo };
+};
+
+// El catálogo entero en CSV (GET /api/admin/muebles/export). { blob, nombreArchivo }, o null si falla.
 export const exportarCatalogoCsv = async () => {
   try {
-    const response = await apiFetch(`${API_URL}/admin/muebles/export`, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Error al exportar el catálogo');
-    const disposicion = response.headers.get('Content-Disposition') || '';
-    const nombreArchivo =
-      /filename="([^"]+)"/.exec(disposicion)?.[1] ||
-      `catalogo-nave5-${new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Madrid' }).format(new Date())}.csv`;
-    return { blob: await response.blob(), nombreArchivo };
+    return await pedirCsvDelPanel('/admin/muebles/export', 'catalogo-nave5');
   } catch (error) {
     console.error('Error en exportarCatalogoCsv:', error);
+    return null;
+  }
+};
+
+// Las cuentas de clientes en CSV (GET /api/admin/clientes/export): id, email, nombre, rol y fecha
+// de alta. { blob, nombreArchivo }, o null si falla.
+export const exportarClientesCsv = async () => {
+  try {
+    return await pedirCsvDelPanel('/admin/clientes/export', 'clientes-nave5');
+  } catch (error) {
+    console.error('Error en exportarClientesCsv:', error);
     return null;
   }
 };

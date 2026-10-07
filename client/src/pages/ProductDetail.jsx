@@ -1,6 +1,7 @@
 import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
+import { descripcionParaMeta } from '../utils/descripcionMeta';
 import { getMuebleById } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -44,10 +45,14 @@ const ProductDetail = () => {
     fetchMueble();
   }, [id]);
 
+  // <title>, descripción e imagen para compartir de esta pieza: "{nombre} | Nave 5 Barcelona", el
+  // principio de su descripción y su primera foto (la de portada, aunque se esté viendo otra). Mientras
+  // carga, o si no existe, las de la web. Solo cambian con JavaScript: las vistas previas de WhatsApp
+  // o redes leen el index.html y siguen viendo las de la portada (H34).
   useDocumentMeta({
     title: mueble?.nombre,
-    description: mueble?.descripcion || 'Pieza de diseño restaurada a mano en Nave 5 Barcelona',
-    image: mainImage,
+    description: mueble ? descripcionParaMeta(mueble) : undefined,
+    image: mueble?.imagenes?.[0],
   });
 
   if (loading) {

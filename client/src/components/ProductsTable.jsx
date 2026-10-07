@@ -14,7 +14,7 @@
 // alguna, el lector anunciaría cada celda con la cabecera de la columna siguiente.
 import { useState } from 'react';
 import { formatPrice, textoPrecio, tienePrecio, TEXTO_SIN_PRECIO } from '../utils/format';
-import { PLACEHOLDER_IMG } from '../utils/images';
+import { PLACEHOLDER_IMG, miniatura } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 // Estilos en Catalog.css (archivo existente), no en una hoja nueva: esta tabla es una
 // vista alternativa DEL catálogo, no un componente independiente con identidad propia.
@@ -55,7 +55,8 @@ const ProductsTable = ({ productos }) => {
 
         {productos.map((mueble) => {
           const estado = mueble.estado || 'disponible';
-          const imageUrl = mueble.imagenes && mueble.imagenes.length > 0 ? mueble.imagenes[0] : PLACEHOLDER_IMG;
+          // La miniatura de 400 px si la foto la tiene (H61): aquí se pinta todavía más pequeña.
+          const imageUrl = mueble.imagenes && mueble.imagenes.length > 0 ? miniatura(mueble.imagenes[0]) : PLACEHOLDER_IMG;
 
           return (
             <div

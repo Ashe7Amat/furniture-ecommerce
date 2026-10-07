@@ -122,7 +122,7 @@ const crearMueble = async (req, res) => {
 
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
-        const url = await uploadToSupabase(file, 'muebles');
+        const url = await uploadToSupabase(file, 'muebles', { conMiniatura: true });
         if (url) imagenes.push(url);
       }
     } else if (req.body.imagenes) {
@@ -206,7 +206,7 @@ const editarMueble = async (req, res) => {
     if (req.files && req.files.length > 0) {
       const nuevasUrls = [];
       for (const file of req.files) {
-        const url = await uploadToSupabase(file, 'muebles');
+        const url = await uploadToSupabase(file, 'muebles', { conMiniatura: true });
         if (url) nuevasUrls.push(url);
       }
       imagenesFinales = [...imagenesFinales, ...nuevasUrls];

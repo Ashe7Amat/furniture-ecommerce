@@ -96,6 +96,17 @@ describe('ProductsTable', () => {
     expect(fila.querySelector('.products-table-col-precio-movil').textContent).toBe('Consultar precio');
   });
 
+  it('la miniatura de cada fila es la de 400 px si la foto la tiene (H61); si no, la foto tal cual', () => {
+    const foto = 'https://x.supabase.co/storage/v1/object/public/imagenes/muebles/abc-1791300000000';
+    renderProductsTable([
+      { id: '7', nombre: 'Butaca', estado: 'disponible', imagenes: [`${foto}-full.webp`] },
+      { id: '8', nombre: 'Baúl', estado: 'disponible', imagenes: ['https://x.test/baul-1.jpg'] }
+    ]);
+
+    expect(screen.getByAltText('Butaca')).toHaveAttribute('src', `${foto}-thumb.webp`);
+    expect(screen.getByAltText('Baúl')).toHaveAttribute('src', 'https://x.test/baul-1.jpg');
+  });
+
   it('muestra el badge de estado correcto por fila', () => {
     renderProductsTable(productosDePrueba);
     expect(screen.getByText('Disponible')).toBeInTheDocument();

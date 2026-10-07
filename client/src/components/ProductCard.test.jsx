@@ -59,6 +59,23 @@ describe('ProductCard', () => {
     expect(screen.getByAltText('Mesa')).toHaveAttribute('src', 'mesa-1.jpg');
   });
 
+  it('si la foto tiene miniatura (-full.webp), la tarjeta pinta la miniatura y la vista rápida, la grande (H61)', async () => {
+    const user = userEvent.setup();
+    const foto = 'https://x.supabase.co/storage/v1/object/public/imagenes/muebles/abc-1791300000000';
+    renderProductCard({
+      id: '4',
+      nombre: 'Butaca',
+      imagenes: [`${foto}-full.webp`, 'butaca-2.jpg'],
+      estado: 'disponible',
+    });
+
+    expect(screen.getByAltText('Butaca')).toHaveAttribute('src', `${foto}-thumb.webp`);
+
+    await user.click(screen.getByRole('button', { name: /vista rápida/i }));
+    const vistaRapida = within(screen.getByRole('dialog'));
+    expect(vistaRapida.getByAltText('Butaca')).toHaveAttribute('src', `${foto}-full.webp`);
+  });
+
   it('muestra la insignia de "Vendido" y el precio tachado cuando el estado es vendido', () => {
     renderProductCard({
       id: '4',
