@@ -124,9 +124,44 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
-## 🔄 Sesión autónoma del 7 oct 2026: H55, H56, H59 y H57
+## 🔄 Sesión autónoma del 7 oct 2026 (2): clientes en CSV, logo de los correos, miniaturas y SEO por ficha
 
-En `feature/mejoras-tecnicas`, sin merge: producción sigue en `115841d`. Informe en `docs/reporte-sesion-ux.md`
+En `feature/mejoras-tecnicas`, desde `73dcd2a`, sin merge: producción sigue en `73dcd2a`. Informe completo, con la
+salida del gate de cada commit, en `docs/reporte-sesion-seo-imagenes.md`.
+
+| Tarea | Estado | Commit |
+|---|---|---|
+| 1. Exportar clientes a CSV (sección "Clientes" del Resumen) | ✅ | `3777707` |
+| 2. Logo PNG en la cabecera de los correos (contacto y confirmación) | ✅ | `156f5a0` |
+| 3. Imágenes de las tarjetas del catálogo (H61) | ✅ en parte: opción B; las 88 piezas de antes, pendientes (opción C) | `0a7cfc3` |
+| 4. Descripción y og:image por ficha | ✅ solo en el navegador (H34 sigue pendiente) | `1494162` |
+| H58, fotos cruzadas | ⏸ Fuera de la sesión, sin tocar: con el cliente | — |
+
+- **Cobertura del cliente (líneas / ramas / funciones):** de 98,76 / 95,79 / 93,68 a 98,78 / 95,95 / 93,76
+  (871 tests, antes 844). Servidor: de 99,06 / 91,82 / 99,54 a 99,31 / 92,15 / 99,54 (575 tests, antes 557).
+- **Umbrales:** sin cambios (cliente 97 / 95 / 92; servidor 98 / 91 / 99).
+- **E2E:** 60 (antes 56): descarga del CSV de clientes, miniatura en móvil y dos de SEO. La suite completa,
+  60/60.
+- **Mutantes del panel:** 127, como antes, pasados tras la tarea 1 (la única que toca el panel: `ResumenTab`):
+  126 detectados y el superviviente esperado; "Todos los mutantes detectados".
+- **Storage (escritura autorizada solo para la tarea 2):** dos archivos nuevos, `imagenes/marca/logo-nave5.png` y
+  `imagenes/marca/logo-nave5@2x.png`. Nada más.
+- **Ni `main`, ni Vercel, ni la base de datos se han tocado.** Lecturas: el catálogo público y las fotos de
+  Storage, para medir (detalle en el informe).
+- **Hallazgos:** H61 (miniaturas, en parte), H62 (fotos en vertical a 1440 × 1920) y H60 con datos nuevos: el
+  fallo suelto es un cierre en seco del proceso de Node (`0xC0000409`) con la cobertura activada, en archivos
+  distintos cada vez.
+- **Pendiente del usuario:**
+  - Merge a `main` cuando quiera. Después: recibir un correo de contacto en Gmail para ver el logo, y subir una
+    foto a una pieza de prueba para ver su miniatura en el catálogo.
+  - H61: decidir la opción C (miniaturas de las 172 fotos que ya hay: escribe en Storage y en la base de datos)
+    o el plan de pago de Supabase (opción A).
+  - H34: si las vistas previas de WhatsApp importan, decidir prerenderizado o SSR.
+  - H58, con el cliente (sin cambios).
+
+## ✅ Sesión autónoma del 7 oct 2026: H55, H56, H59 y H57 (en `main` desde `73dcd2a`)
+
+En `feature/mejoras-tecnicas`; mergeada a `main` el 7 oct (`73dcd2a`). Informe en `docs/reporte-sesion-ux.md`
 (sección "Sesión autónoma del 7 oct").
 
 | Tarea | Estado | Commit |
@@ -2213,7 +2248,7 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
   de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
   por página, junto con el resto de etiquetas.
-- **7 oct 2026 (commit "feat(client): meta description y og:image por producto"), sigue PENDIENTE:** la
+- **7 oct 2026 (`1494162`, "feat(client): meta description y og:image por producto"), sigue PENDIENTE:** la
   ficha de cada pieza pone ahora su `<title>` ("{nombre} | Nave 5 Barcelona"), el principio de su
   descripción (150 caracteres como mucho, cortada en un espacio; sin descripción, "{nombre} — pieza única
   disponible en Nave 5 Barcelona.") y su primera foto como `og:image` y `twitter:image`, también al pasar de
@@ -2776,7 +2811,30 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Comprobado con Chrome:** el test solo, 10 de 10; la suite completa, 54/54 tres veces, y 162/162 repetida 3
   veces seguidas.
 
-### H60 · BAJA · TESTS · VIGILAR (7 oct 2026) · Un fallo suelto en `npm test` del servidor, sin identificar
+### H60 · BAJA · TESTS · VIGILAR (7 oct 2026; datos nuevos en la sesión 2 del 7 oct) · El proceso de Node de un archivo de test del servidor se cierra en seco, a veces
+
+- **Datos nuevos (sesión 2 del 7 oct), con la salida guardada:**
+  - Ha vuelto a pasar dos veces, las dos con `npm run test:coverage` del servidor: en el gate de la tarea 3
+    (`controladoresErrores.test.js`, 9 tests, 567 en vez de 575) y en una de cinco repeticiones para
+    diagnosticarlo (`referenciaIntegracion.test.js`, 566 en vez de 575). Cada vez, un archivo distinto que no
+    tenía nada que ver con lo que se estaba cambiando. El de H60 era también "un archivo de 9 tests", como
+    `controladoresErrores.test.js`.
+  - Con el informe TAP se ve el motivo: `exitCode: 3221226505` (`0xC0000409`). Es el proceso hijo de Node que
+    se cierra en seco (un abort nativo en Windows), no un test que falle: no llega a informar de ningún test ni
+    a escribir su cobertura (en una de las veces, a los 625 ms). No deja nada en stderr ni en el registro de
+    eventos de Windows.
+  - **Frecuencia:** 2 de 6 ejecuciones completas de la cobertura; `referenciaIntegracion.test.js` solo y con
+    cobertura, 1 de 30; el mismo archivo ejecutado directamente con `node` (sin el ejecutor de tests ni la
+    cobertura), 0 de 30. Un test trivial, uno que solo carga sharp y uno que carga la app sin sharp: 0 de 40
+    cada uno. No se ha encontrado qué lo provoca.
+  - **Cómo se trató en el gate:** como no es un fallo del código (un test que falla informa de su error; esto
+    es el proceso que muere), se repitió el paso que había fallado, guardando las dos salidas
+    (`s-cov-1-fallo-h60.txt` y `s-cov.txt`, en el informe de la sesión): 575/575.
+  - **En el CI (Ubuntu, Node 22) no consta:** las 6 últimas ejecuciones en `main` (5-7 oct), en verde. Aquí,
+    con Windows y Node 24.15, 2 de 6. Apunta al entorno de este equipo, pero 6 ejecuciones son pocas.
+  - **Siguientes pasos posibles:** probar aquí con Node 22 LTS en vez de 24.15, y correr la cobertura con
+    `--test-concurrency=1` para ver si depende de la carga.
+- **Antes (sesión del 7 oct):** "Un fallo suelto en `npm test` del servidor, sin identificar". Lo de abajo.
 
 - **Qué pasó:** en el gate del cierre de la sesión del 7 oct, `npm test` del servidor dio 549 tests y 1 fallo,
   en vez de 557 y 0. La cuenta encaja con que un archivo entero de 9 tests no llegara a correr y contara como un
@@ -2790,19 +2848,19 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Si vuelve a pasar:** guardar la salida, mirar qué archivo no corrió y si depende del tiempo o de algo
   compartido entre procesos. Mismo tipo que H19 (cerrado tras 20 ejecuciones sin fallos).
 
-### H61 · MEDIA · RENDIMIENTO · EN PARTE (7 oct 2026) · Las tarjetas del catálogo descargan la foto grande
+### H61 · MEDIA · RENDIMIENTO · EN PARTE (7 oct 2026, `0a7cfc3`; faltan las fotos de antes) · Las tarjetas del catálogo descargan la foto grande
 
 - **Medido el 7 oct en producción (solo lectura, HEAD de las portadas):** las 88 portadas pesan 25,2 MB en total;
   media 293 KB, mediana 314 KB, el 90 % por debajo de 412 KB y la mayor 499 KB. Solo una baja de 60 KB. Las
-  tarjetas las pintan a unos 300 px, pero se descarga la foto entera. De las 172 fotos, 160 son JPG (las de la
-  carga inicial) y 12 WebP (subidas desde el panel).
+  tarjetas las pintan a unos 300 px, pero se descarga la foto entera. De las 172 fotos, 160 son JPG (no pasaron
+  por la optimización del servidor, que las guarda en WebP) y 12 WebP (subidas desde el panel).
 - **Opción A (transformaciones de imagen de Supabase): no disponible.** La URL
   `/storage/v1/render/image/public/...?width=400&quality=80` responde `403 FeatureNotEnabled` ("feature not
   enabled for this tenant"). Según la documentación de Supabase, es de los planes de pago ("Pro Plan and
   above"): 100 imágenes de origen al mes incluidas y 5 USD por cada 1.000 más; el catálogo tiene 172 fotos. Con
   A no haría falta nada más (ni miniaturas ni migración): **decisión del usuario** si algún día se cambia de plan.
-- **Hecho, opción B (sesión del 7 oct, commit "perf(client): servir imágenes optimizadas en las tarjetas del
-  catálogo"):** al subir fotos de muebles desde el panel (crear y editar), el servidor guarda también una
+- **Hecho, opción B (sesión del 7 oct, `0a7cfc3`, "perf(client): servir imágenes optimizadas en las tarjetas
+  del catálogo"):** al subir fotos de muebles desde el panel (crear y editar), el servidor guarda también una
   miniatura de 400 px de ancho (WebP, la misma calidad):
   - la grande se llama `<base>-full.webp` y la miniatura `<base>-thumb.webp`, en la misma carpeta;
   - la miniatura se sube antes que la grande; si no se puede crear o subir, la foto se guarda con su nombre de
@@ -2824,7 +2882,7 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 
 - El cliente reduce cada foto a 1920 px por el lado mayor (`MAX_LADO`, `client/src/utils/imagen.js`) y el
   servidor solo limita el ancho a 1600 (`optimizarImagen`, `server/src/utils/upload.js`). Una foto vertical se
-  queda en 1440 × 1920: 450-480 KB en las subidas del 6 oct.
+  queda en 1440 × 1920: las tres WebP medidas (portadas subidas desde el panel), de 448 a 484 KB.
 - **Propuesta:** limitar el lado mayor en el servidor (`resize({ width: 1600, height: 1600, fit: 'inside' })`).
   No se ha cambiado: no estaba en la tarea y cambia el tamaño de las fotos de la ficha.
 
