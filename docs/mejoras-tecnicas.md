@@ -2891,7 +2891,7 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   urgencia. Las fotos que se suban desde el panel a partir del merge llevarán miniatura; las de antes siguen como
   están (en las tarjetas se cargan en diferido, con `loading="lazy"`).
 
-### H62 · MEDIA · RENDIMIENTO · PENDIENTE: PRÓXIMA SESIÓN (decisión del usuario, 7 oct 2026) · Las fotos en vertical se guardan a 1440 × 1920
+### H62 · MEDIA · RENDIMIENTO · RESUELTO EN LA RAMA PARA LAS FOTOS NUEVAS (7 oct 2026); las 172 de antes se quedan · Las fotos en vertical se guardan a 1440 × 1920
 
 - El cliente reduce cada foto a 1920 px por el lado mayor (`MAX_LADO`, `client/src/utils/imagen.js`) y el
   servidor solo limita el ancho a 1600 (`optimizarImagen`, `server/src/utils/upload.js`). Una foto vertical se
@@ -2902,6 +2902,16 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   `optimizarImagen` (`server/src/utils/upload.js`), el límite pasa de 1600 px de ancho a 1600 px por el lado
   mayor (sin agrandar las pequeñas). **Solo para las fotos nuevas:** las que ya están guardadas se quedan como
   están. Una foto vertical nueva quedará en 1200 × 1600 en vez de 1440 × 1920; las horizontales no cambian.
+- **Resuelto ("fix(server): limitar el lado mayor a 1600px en el optimizador (H62)", en `git log` por ese asunto):**
+  `optimizarImagen` redimensiona con `width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true`
+  (constante `LADO_MAXIMO`, antes `ANCHO_MAXIMO`). Con `sharp` real y fotos generadas en memoria
+  (`optimizadorImagen.test.js`): 2000 × 1000 → 1600 × 800; 2000 × 3000 → 1067 × 1600; 1440 × 1920 → 1200 × 1600;
+  2000 × 2000 → 1600 × 1600; 800 × 600 se queda igual. Sin el cambio fallan los tres casos verticales.
+  La miniatura de 400 px (H61) sale de la foto ya reducida.
+- **Solo fotos nuevas:** las 172 que ya hay en Storage no se tocan y siguen como estaban (las verticales, a
+  1440 × 1920). Reducirlas sería la misma operación masiva que la opción C de H61 (descargar, regenerar, subir y
+  cambiar la URL en la base de datos), descartada. Hasta que se despliegue el cambio (merge a `main`), las fotos
+  que se suban seguirán guardándose como antes.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

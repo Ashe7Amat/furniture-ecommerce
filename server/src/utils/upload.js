@@ -9,10 +9,12 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // Límite de 5MB (del archivo original subido)
 });
 
-// Ancho máximo al que se redimensiona cada foto antes de guardarla. Las fotos de
-// producto no necesitan más resolución que esta para verse nítidas en pantalla, y así
-// se evita servir fotos de cámara/móvil a tamaño completo (varios MB) a cada visitante.
-const ANCHO_MAXIMO = 1600;
+// Lado mayor máximo (en píxeles) al que se redimensiona cada foto antes de guardarla, sea
+// horizontal o vertical. Las fotos de producto no necesitan más resolución que esta para verse
+// nítidas en pantalla, y así se evita servir fotos de cámara/móvil a tamaño completo (varios MB)
+// a cada visitante. H62: antes solo se limitaba el ancho, y una foto vertical de 1440 x 1920
+// (la que deja el cliente, ver client/src/utils/imagen.js) pasaba sin reducirse.
+const LADO_MAXIMO = 1600;
 const CALIDAD_WEBP = 78;
 
 /**
@@ -25,7 +27,12 @@ const CALIDAD_WEBP = 78;
 const optimizarImagen = async (file) => {
   try {
     const buffer = await sharp(file.buffer)
-      .resize({ width: ANCHO_MAXIMO, withoutEnlargement: true })
+      .resize({
+        width: LADO_MAXIMO,
+        height: LADO_MAXIMO,
+        fit: 'inside',
+        withoutEnlargement: true
+      })
       .webp({ quality: CALIDAD_WEBP })
       .toBuffer();
     return { buffer, contentType: 'image/webp', extension: 'webp' };
