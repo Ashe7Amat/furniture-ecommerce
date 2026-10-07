@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -274,5 +274,95 @@ describe('ProductDetail — sin precios, "Preguntar por esta pieza" (fase C)', (
     await montar();
     expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
     expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+  });
+});
+
+// Tarea 4 (7 oct 2026): el <title>, la descripción y la imagen para compartir de cada ficha. Solo con
+// JavaScript (las vistas previas de WhatsApp o redes no lo ven: H34).
+describe('ProductDetail — título, descripción y og:image de la ficha', () => {
+  const meta = (selector) => document.head.querySelector(selector)?.getAttribute('content');
+  const OTRA = {
+    ...MUEBLE,
+    id: 'b2b2b2b2-0000-4000-8000-000000000000',
+    nombre: 'Lámpara de latón',
+    descripcion: null,
+    imagenes: ['https://img.test/lampara-1.jpg']
+  };
+
+  // Con un enlace fuera de las rutas para ir de una ficha a otra, y otro para salir a la portada.
+  const montarConEnlaces = async () => {
+    getMuebleById.mockImplementation(async (id) => [MUEBLE, OTRA].find((m) => m.id === id) ?? null);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={[`/mueble/${MUEBLE.id}`]}>
+        <CartContext.Provider value={{ addToCart: vi.fn(), cestaLlena: false }}>
+          <FavoritesContext.Provider value={{ favorites: [], toggleFavorite: vi.fn() }}>
+            <Link to={`/mueble/${OTRA.id}`}>Ir a la otra pieza</Link>
+            <Link to="/">Ir a la portada</Link>
+            <Routes>
+              <Route path="/" element={<p>Portada</p>} />
+              <Route path="/mueble/:id" element={<ProductDetail />} />
+            </Routes>
+          </FavoritesContext.Provider>
+        </CartContext.Provider>
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { level: 1, name: MUEBLE.nombre });
+    return { user };
+  };
+
+  it('al abrir una ficha: título con el nombre, su descripción y su primera foto', async () => {
+    await montar();
+
+    expect(document.title).toBe('Aparador de roble | Nave 5 Barcelona');
+    expect(meta('meta[name="description"]')).toBe('Restaurado en el taller');
+    expect(meta('meta[property="og:description"]')).toBe('Restaurado en el taller');
+    expect(meta('meta[property="og:title"]')).toBe('Aparador de roble | Nave 5 Barcelona');
+    expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
+    expect(meta('meta[name="twitter:image"]')).toBe('https://img.test/1.jpg');
+  });
+
+  it('una descripción larga se resume a 150 caracteres como mucho', async () => {
+    const larga = `Aparador de roble macizo ${'con mucha historia '.repeat(12)}y herrajes originales.`;
+    await montar({ ...MUEBLE, descripcion: larga });
+
+    const descripcion = meta('meta[name="description"]');
+    expect(descripcion.length).toBeLessThanOrEqual(150);
+    expect(descripcion.endsWith('…')).toBe(true);
+    expect(larga.startsWith(descripcion.slice(0, -1))).toBe(true);
+  });
+
+  it('el og:image sigue siendo la primera foto aunque se mire otra en la ficha', async () => {
+    const { user } = await montar();
+
+    await user.click(screen.getByRole('img', { name: 'Miniatura 2' }).closest('button'));
+
+    expect(imagenPrincipal()).toHaveAttribute('src', 'https://img.test/2.jpg');
+    expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
+  });
+
+  it('sin fotos, la imagen para compartir de la web (no la imagen genérica de "sin foto")', async () => {
+    await montar({ ...MUEBLE, imagenes: [] });
+    expect(meta('meta[property="og:image"]')).toBe('/og-image.png');
+  });
+
+  it('al pasar a otra ficha cambian el título, la descripción y la imagen; al salir, vuelven los de la web', async () => {
+    const { user } = await montarConEnlaces();
+    expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
+
+    await user.click(screen.getByRole('link', { name: 'Ir a la otra pieza' }));
+    await screen.findByRole('heading', { level: 1, name: OTRA.nombre });
+
+    expect(document.title).toBe('Lámpara de latón | Nave 5 Barcelona');
+    expect(meta('meta[name="description"]')).toBe(
+      'Lámpara de latón — pieza única disponible en Nave 5 Barcelona.'
+    );
+    expect(meta('meta[property="og:image"]')).toBe('https://img.test/lampara-1.jpg');
+
+    await user.click(screen.getByRole('link', { name: 'Ir a la portada' }));
+    expect(await screen.findByText('Portada')).toBeInTheDocument();
+    expect(document.title).toBe('Nave 5 Barcelona | Almacén de ideas');
+    expect(meta('meta[property="og:image"]')).toBe('/og-image.png');
+    expect(meta('meta[name="description"]')).toMatch(/^Almacén de ideas en el corazón de Barcelona/);
   });
 });

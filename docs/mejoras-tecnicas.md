@@ -2213,6 +2213,16 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
 - **Decisión:** pendiente hasta que haya páginas con SEO diferenciado en el HTML que se sirve (prerenderizado
   de las rutas públicas, o un render en el servidor para las fichas). Entonces se añaden `canonical` y `og:url`
   por página, junto con el resto de etiquetas.
+- **7 oct 2026 (commit "feat(client): meta description y og:image por producto"), sigue PENDIENTE:** la
+  ficha de cada pieza pone ahora su `<title>` ("{nombre} | Nave 5 Barcelona"), el principio de su
+  descripción (150 caracteres como mucho, cortada en un espacio; sin descripción, "{nombre} — pieza única
+  disponible en Nave 5 Barcelona.") y su primera foto como `og:image` y `twitter:image`, también al pasar de
+  una ficha a otra; al salir vuelven las de la web. Antes la descripción iba entera y la imagen seguía a la
+  foto que se estuviera mirando. **Solo mejora lo que ve el navegador** (y los buscadores que ejecutan
+  JavaScript): las vistas previas de WhatsApp, Facebook, LinkedIn o X leen el HTML sin JavaScript y siguen
+  viendo las de la portada. Lo comprueba `e2e/seo.spec.js`, que pide el HTML de una ficha tal cual se sirve.
+  **Lo que lo arreglaría:** prerenderizar las fichas (SSG) o servirlas con un render en el servidor (SSR),
+  como dice la decisión de arriba.
 
 ### H35 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `72393f0`) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
 
