@@ -56,7 +56,7 @@ const escaparHtml = (texto) => String(texto ?? '')
 // HTML de tablas con estilos en línea: Outlook y Gmail ignoran o recortan <style>, flexbox y grid.
 // Ancho máximo de 600 px, centrado, sobre fondo blanco. Colores de la web (client/src/styles/
 // index.css): #221B16 (fondo oscuro, el del hero), #F5F2EC (blanco roto), #6E5D51 (texto
-// secundario) y #E2DCD0 (bordes). Sin imágenes externas: la cabecera es "NAVE 5" en texto.
+// secundario) y #E2DCD0 (bordes). La única imagen es el logo de la cabecera.
 const WEB_PUBLICA = 'https://nave5barcelona.com';
 const COLOR_OSCURO = '#221B16';
 const COLOR_CLARO = '#F5F2EC';
@@ -64,15 +64,18 @@ const COLOR_SECUNDARIO = '#6E5D51';
 const COLOR_BORDE = '#E2DCD0';
 const FUENTE = 'Arial, Helvetica, sans-serif';
 
-// Para poner el logo como imagen cuando haya una URL pública (sin ella, Gmail y Outlook lo
-// bloquean o lo enseñan roto), cambiar el texto de la celda de la cabecera por:
-//   <img src="https://nave5barcelona.com/img/logo-email.png" width="120" height="45" alt="NAVE 5"
-//        style="display: block; border: 0; outline: none; text-decoration: none;">
-// con un PNG de fondo transparente en color claro. Ese archivo aún no existe.
+// El logo de la cabecera: el de la web (client/src/components/Logo.jsx) en PNG, fondo transparente y
+// en blanco roto, en el almacenamiento público de Supabase (bucket imagenes, carpeta marca/). Lo
+// generó y subió server/scripts/logo-email.js: 240 px de ancho, y 480 px para pantallas de alta
+// densidad (srcset, que solo usan algunos clientes; los demás pintan el de 240 a 120 px).
+// Si el cliente de correo bloquea las imágenes, sale el alt "NAVE 5" con el estilo de la celda.
+const LOGO_EMAIL = 'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5.png';
+const LOGO_EMAIL_2X = 'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5@2x.png';
+
 const cabeceraEmail = () => `
           <tr>
             <td style="background-color: ${COLOR_OSCURO}; padding: 32px 40px; font-family: ${FUENTE}; font-size: 26px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: ${COLOR_CLARO};">
-              NAVE 5
+              <img src="${LOGO_EMAIL}" srcset="${LOGO_EMAIL_2X} 2x" alt="NAVE 5" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;">
             </td>
           </tr>`;
 

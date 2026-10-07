@@ -32,14 +32,33 @@ afterEach(() => {
 
 const enviado = () => enviar.mock.calls[0].arguments[0];
 
+// El logo de la cabecera, tal como se subió a Supabase Storage (server/scripts/logo-email.js).
+const LOGO =
+  'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5.png';
+const LOGO_2X =
+  'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5@2x.png';
+
 // Comprobaciones de compatibilidad con clientes de correo, comunes a las dos plantillas.
 const comprobarMaqueta = (html) => {
   assert.doesNotMatch(html, /<style/i, 'sin <style>: Gmail y Outlook lo ignoran');
   assert.doesNotMatch(html, /<div/i, 'maqueta de tablas, sin divs');
   assert.doesNotMatch(html, /display:\s*(flex|grid)/i);
-  assert.doesNotMatch(html, /<img/i, 'sin imágenes externas');
   assert.match(html, /max-width: 600px/);
-  assert.match(html, /NAVE 5/, 'la cabecera es el nombre en texto');
+  // La única imagen es el logo de la cabecera, con "NAVE 5" de texto alternativo por si el
+  // cliente de correo bloquea las imágenes.
+  const imagenes = html.match(/<img\b[^>]*>/gi) || [];
+  assert.equal(imagenes.length, 1, 'una sola imagen: el logo');
+  const [logo] = imagenes;
+  assert.match(logo, / alt="NAVE 5"/);
+  assert.ok(logo.includes(`src="${LOGO}"`), 'el PNG de 240 px');
+  assert.ok(logo.includes(`srcset="${LOGO_2X} 2x"`), 'y el de 480 px para alta densidad');
+  assert.match(logo, / width="120"/);
+  assert.match(logo, /style="display:block;border:0;outline:none;height:auto;max-width:120px;"/);
+  assert.match(
+    html,
+    /<td style="background-color: #221B16;[^"]*color: #F5F2EC;">\s*<img\b/,
+    'en la celda oscura de la cabecera, que da estilo al texto alternativo'
+  );
   assert.match(
     html,
     /href="https:\/\/nave5barcelona\.com"[^>]*>nave5barcelona\.com<\/a>/,

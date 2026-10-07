@@ -17,9 +17,15 @@ const email = require('../utils/email');
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 const PAYLOAD_XSS = '<script>alert(1)</script> & "Cía" <img src=x onerror=alert(2)>';
 
+// El logo de la cabecera (contacto y confirmación al cliente) es la única <img> legítima: se quita
+// antes de buscar etiquetas coladas.
+const LOGO_CABECERA =
+  /<img src="https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/imagenes\/marca\/logo-nave5\.png"[^>]*>/;
+
 const sinEtiquetasPeligrosas = (html) => {
-  assert.ok(!html.includes('<script>'), 'no debe colarse ninguna etiqueta script');
-  assert.ok(!html.includes('<img'), 'no debe colarse ninguna etiqueta img');
+  const sinLogo = html.replace(LOGO_CABECERA, '');
+  assert.ok(!sinLogo.includes('<script>'), 'no debe colarse ninguna etiqueta script');
+  assert.ok(!sinLogo.includes('<img'), 'no debe colarse ninguna etiqueta img');
   assert.ok(html.includes('&lt;script&gt;'), 'el texto original debe seguir presente, escapado');
 };
 
