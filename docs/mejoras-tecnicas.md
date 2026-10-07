@@ -124,10 +124,11 @@ Informe en `docs/reporte-fase-c.md`. Commits `296b741` (C1, servidor), `2c0fa80`
 - **H33:** pasar `JWT_SECRET` y `STRIPE_SECRET_KEY` de *Encrypted* a *Sensitive* (deuda aceptada; ver H33).
 - Sin cambios: reservas por fechas (decisiones del cliente), H18, H23 y H34.
 
-## 🔄 Sesión autónoma del 7 oct 2026 (2): clientes en CSV, logo de los correos, miniaturas y SEO por ficha
+## ✅ Sesión autónoma del 7 oct 2026 (2): clientes en CSV, logo de los correos, miniaturas y SEO por ficha (en `main` desde `66f154f`)
 
-En `feature/mejoras-tecnicas`, desde `73dcd2a`, sin merge: producción sigue en `73dcd2a`. Informe completo, con la
-salida del gate de cada commit, en `docs/reporte-sesion-seo-imagenes.md`.
+En `feature/mejoras-tecnicas`, desde `73dcd2a`; mergeada a `main` el 7 oct (`66f154f`, con `ea02144` como último
+commit de la rama). Vercel, en READY con `66f154f` en los dos proyectos (`nave5-demo` y `nave5-api`). Informe
+completo, con la salida del gate de cada commit, en `docs/reporte-sesion-seo-imagenes.md`.
 
 | Tarea | Estado | Commit |
 |---|---|---|
