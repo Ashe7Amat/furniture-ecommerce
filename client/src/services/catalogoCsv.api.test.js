@@ -1,7 +1,7 @@
 // Llamadas a la API de las herramientas nuevas del panel: exportar e importar el catálogo en CSV
 // (con la descarga del archivo) y los mensajes del formulario de contacto.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { exportarCatalogoCsv, importarCatalogoCsv, getMensajes, marcarMensajeLeido } from './api';
+import { exportarCatalogoCsv, exportarClientesCsv, importarCatalogoCsv, getMensajes, marcarMensajeLeido } from './api';
 import { setAccessToken, limpiarTokens } from '../utils/authToken';
 import { descargarArchivo } from '../utils/descargarArchivo';
 
@@ -64,6 +64,51 @@ describe('exportarCatalogoCsv', () => {
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('sin red')));
     expect(await exportarCatalogoCsv()).toBeNull();
+  });
+});
+
+describe('exportarClientesCsv', () => {
+  it('pide el CSV de clientes a la ruta de administración, con sesión y sin caché', async () => {
+    setAccessToken('token-del-admin');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaCsv()));
+
+    await exportarClientesCsv();
+
+    expect(fetch.mock.calls[0][0]).toMatch(/\/admin\/clientes\/export$/);
+    expect(fetch.mock.calls[0][1]).toEqual({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer token-del-admin' }
+    });
+  });
+
+  it('usa el nombre que manda el servidor si el navegador lo deja leer', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(respuestaCsv({ disposicion: 'attachment; filename="clientes-nave5-2026-10-07.csv"' }))
+    );
+
+    const resultado = await exportarClientesCsv();
+
+    expect(resultado.nombreArchivo).toBe('clientes-nave5-2026-10-07.csv');
+    expect(resultado.blob).toBeInstanceOf(Blob);
+  });
+
+  it('si no puede leer esa cabecera (otro dominio), arma el nombre de clientes con la fecha de Madrid', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-12-31T23:30:00Z')); // ya es 1 de enero en Madrid
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaCsv()));
+
+    const resultado = await exportarClientesCsv();
+
+    expect(resultado.nombreArchivo).toBe('clientes-nave5-2027-01-01.csv');
+  });
+
+  it('devuelve null si el servidor responde con error o no hay red', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuestaCsv({ ok: false })));
+    expect(await exportarClientesCsv()).toBeNull();
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('sin red')));
+    expect(await exportarClientesCsv()).toBeNull();
   });
 });
 

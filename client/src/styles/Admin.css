@@ -191,6 +191,16 @@
   font-style: italic;
 }
 
+/* Clientes (al final del resumen): exportar las cuentas a CSV */
+.resumen-clientes {
+  margin-top: 40px;
+}
+.resumen-clientes p {
+  color: var(--secondary-color);
+  font-size: 0.9rem;
+  margin: 0 0 14px;
+}
+
 .sales-list {
   display: flex;
   flex-direction: column;
