@@ -54,6 +54,28 @@ describe('PUT /api/muebles/:id — imágenes sin subir archivos', () => {
     assert.deepEqual(imagenesGuardadas(), ['https://img.test/a.jpg', 'https://img.test/b.jpg']);
   });
 
+  // H57: el editor del panel reordena las fotos (la primera es la principal) y las manda en el orden nuevo.
+  test('imagenes_existentes se guarda en el orden en que llega, aunque sea otro que el de antes', async () => {
+    instalar({
+      muebles: [
+        {
+          ...SILLA,
+          imagenes: ['https://img.test/a.jpg', 'https://img.test/b.jpg', 'https://img.test/c.jpg']
+        }
+      ]
+    });
+    const res = await editar({
+      imagenes_existentes:
+        '["https://img.test/c.jpg","https://img.test/a.jpg","https://img.test/b.jpg"]'
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(imagenesGuardadas(), [
+      'https://img.test/c.jpg',
+      'https://img.test/a.jpg',
+      'https://img.test/b.jpg'
+    ]);
+  });
+
   test('imagenes_existentes como un texto que no es JSON: una sola imagen', async () => {
     await editar({ imagenes_existentes: 'https://img.test/sola.jpg' });
     assert.deepEqual(imagenesGuardadas(), ['https://img.test/sola.jpg']);

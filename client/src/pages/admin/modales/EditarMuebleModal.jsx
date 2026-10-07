@@ -4,6 +4,7 @@ import { ToastContext } from '../../../context/ToastContext';
 import { updateMueble } from '../../../services/api';
 import Icon from '../Icon';
 import SelectorCategoria from '../SelectorCategoria';
+import GaleriaFotos from './GaleriaFotos';
 import { idDeCategoria } from '../categorias';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
 
@@ -153,30 +154,25 @@ const EditarMuebleModal = ({
 
           {mueble.imagenes && mueble.imagenes.length > 0 && (
             <div className="field-group">
-              <label className="field-label">Imágenes actuales (clic en ✕ para eliminar):</label>
-              <div className="image-thumb-grid">
-                {mueble.imagenes.map((imgUrl, idx) => (
-                  <div key={idx} className="image-thumb">
-                    <img src={imgUrl} alt={`Mueble ${idx}`} loading="lazy" decoding="async" />
-                    <button
-                      type="button"
-                      className="image-thumb-remove"
-                      onClick={() => {
-                        confirmarBorrado(
-                          'Eliminar Imagen de Producto',
-                          '¿Estás seguro de que deseas eliminar esta imagen de este producto? Se quitará de la previsualización actual.',
-                          () => {
-                            const updatedImgs = mueble.imagenes.filter((_, i) => i !== idx);
-                            setMueble({ ...mueble, imagenes: updatedImgs });
-                          }
-                        );
-                      }}
-                    >
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+              {/* H57: las fotos en grande y en orden; se arrastran para cambiarlo y la primera es la principal.
+                  El orden nuevo se guarda con "Guardar Cambios" (imagenes_existentes va en ese orden). */}
+              <span className="field-label">
+                Fotos (la primera es la principal; arrástralas para cambiar el orden):
+              </span>
+              <GaleriaFotos
+                fotos={mueble.imagenes}
+                onCambiar={(imagenes) => setMueble({ ...mueble, imagenes })}
+                alPedirQuitar={(idx) => {
+                  confirmarBorrado(
+                    'Eliminar Imagen de Producto',
+                    '¿Estás seguro de que deseas eliminar esta imagen de este producto? Se quitará de la previsualización actual.',
+                    () => {
+                      const updatedImgs = mueble.imagenes.filter((_, i) => i !== idx);
+                      setMueble({ ...mueble, imagenes: updatedImgs });
+                    }
+                  );
+                }}
+              />
             </div>
           )}
 

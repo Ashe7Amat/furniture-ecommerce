@@ -1086,6 +1086,82 @@
   height: 10px;
 }
 
+/* H57: la galería de fotos del editor de muebles. Fotos de 150 px como mínimo, en orden, con su número, el asa
+   para arrastrarlas y "Usar como principal". */
+.foto-galeria {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.foto-galeria-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px;
+}
+.foto-galeria-item.arrastrando {
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  opacity: 0.9;
+}
+.foto-galeria-barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.foto-galeria-orden {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.foto-galeria-asa {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--primary-color);
+  cursor: grab;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 4px 8px;
+  /* PointerSensor de dnd-kit: sin esto, en el móvil el dedo desplaza la página en vez de arrastrar la foto. */
+  touch-action: none;
+}
+.foto-galeria-asa:active {
+  cursor: grabbing;
+}
+.foto-galeria .image-thumb {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  min-width: 150px;
+  min-height: 150px;
+}
+.foto-galeria .image-thumb-remove {
+  width: 28px;
+  height: 28px;
+}
+.foto-galeria-principal {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+.foto-galeria-principal:hover {
+  border-color: var(--accent-text);
+}
+
 /* Pedidos (panel de administración: ventas con datos de envío) */
 .sidebar-badge {
   margin-left: auto;
