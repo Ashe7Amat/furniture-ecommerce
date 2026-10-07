@@ -152,6 +152,12 @@ describe('ProductDetail', () => {
     expect(screen.getByRole('img', { name: 'Miniatura 2' }).closest('button')).toHaveClass('active');
   });
 
+  it('la foto principal es la grande aunque tenga miniatura para las tarjetas (H61)', async () => {
+    const foto = 'https://x.supabase.co/storage/v1/object/public/imagenes/muebles/abc-1791300000000';
+    await montar({ ...MUEBLE, imagenes: [`${foto}-full.webp`] });
+    expect(imagenPrincipal()).toHaveAttribute('src', `${foto}-full.webp`);
+  });
+
   it('sin fotos, la imagen genérica y sin miniaturas', async () => {
     await montar({ ...MUEBLE, imagenes: [] });
     expect(imagenPrincipal()).toHaveAttribute('src', PLACEHOLDER_IMG);

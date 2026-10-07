@@ -2780,6 +2780,44 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Si vuelve a pasar:** guardar la salida, mirar qué archivo no corrió y si depende del tiempo o de algo
   compartido entre procesos. Mismo tipo que H19 (cerrado tras 20 ejecuciones sin fallos).
 
+### H61 · MEDIA · RENDIMIENTO · EN PARTE (7 oct 2026) · Las tarjetas del catálogo descargan la foto grande
+
+- **Medido el 7 oct en producción (solo lectura, HEAD de las portadas):** las 88 portadas pesan 25,2 MB en total;
+  media 293 KB, mediana 314 KB, el 90 % por debajo de 412 KB y la mayor 499 KB. Solo una baja de 60 KB. Las
+  tarjetas las pintan a unos 300 px, pero se descarga la foto entera. De las 172 fotos, 160 son JPG (las de la
+  carga inicial) y 12 WebP (subidas desde el panel).
+- **Opción A (transformaciones de imagen de Supabase): no disponible.** La URL
+  `/storage/v1/render/image/public/...?width=400&quality=80` responde `403 FeatureNotEnabled` ("feature not
+  enabled for this tenant"). Según la documentación de Supabase, es de los planes de pago ("Pro Plan and
+  above"): 100 imágenes de origen al mes incluidas y 5 USD por cada 1.000 más; el catálogo tiene 172 fotos. Con
+  A no haría falta nada más (ni miniaturas ni migración): **decisión del usuario** si algún día se cambia de plan.
+- **Hecho, opción B (sesión del 7 oct, commit "perf(client): servir imágenes optimizadas en las tarjetas del
+  catálogo"):** al subir fotos de muebles desde el panel (crear y editar), el servidor guarda también una
+  miniatura de 400 px de ancho (WebP, la misma calidad):
+  - la grande se llama `<base>-full.webp` y la miniatura `<base>-thumb.webp`, en la misma carpeta;
+  - la miniatura se sube antes que la grande; si no se puede crear o subir, la foto se guarda con su nombre de
+    siempre (`<base>.webp`) y el cliente no pide ninguna miniatura;
+  - el cliente (`client/src/utils/images.js`, `miniatura`) usa la miniatura en las tarjetas del catálogo
+    (cuadrícula y lista) solo para las fotos que terminan en `-full.webp`. La ficha y la vista rápida siguen
+    con la grande;
+  - con fotos reales del catálogo (las 5 portadas más pesadas y la mediana, de 316 a 499 KB), la miniatura sale
+    de 26 a 52 KB. El E2E `e2e/imagenes.spec.js` lo mide en un móvil: la tarjeta baja 26 KB en vez de 359 KB.
+- **Lo que falta (opción C, en otra sesión y con permiso para escribir en Storage y en la base de datos):** las
+  172 fotos que ya hay no tienen miniatura, así que sus tarjetas siguen bajando la foto entera. Hace falta un
+  script que, para cada foto, descargue la original, genere la grande (`-full.webp`) y la miniatura
+  (`-thumb.webp`), suba las dos y cambie la URL en `muebles.imagenes`. Son 344 archivos nuevos en Storage y 88
+  fichas: copia de `imagenes` antes y comprobar después que no queda ninguna foto rota.
+- **Otras miniaturas posibles (no hechas):** la tira de miniaturas de la ficha, la cesta, favoritos y el panel
+  también pintan fotos pequeñas con la URL grande.
+
+### H62 · BAJA · RENDIMIENTO · ANOTADO (7 oct 2026) · Las fotos en vertical se guardan a 1440 × 1920
+
+- El cliente reduce cada foto a 1920 px por el lado mayor (`MAX_LADO`, `client/src/utils/imagen.js`) y el
+  servidor solo limita el ancho a 1600 (`optimizarImagen`, `server/src/utils/upload.js`). Una foto vertical se
+  queda en 1440 × 1920: 450-480 KB en las subidas del 6 oct.
+- **Propuesta:** limitar el lado mayor en el servidor (`resize({ width: 1600, height: 1600, fit: 'inside' })`).
+  No se ha cambiado: no estaba en la tarea y cambia el tamaño de las fotos de la ficha.
+
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
 - **Qué pasa:**
