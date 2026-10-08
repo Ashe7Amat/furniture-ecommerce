@@ -2843,6 +2843,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
     con Windows y Node 24.15, 2 de 6. Apunta al entorno de este equipo, pero 6 ejecuciones son pocas.
   - **Siguientes pasos posibles:** probar aquí con Node 22 LTS en vez de 24.15, y correr la cobertura con
     `--test-concurrency=1` para ver si depende de la carga.
+- **Otro dato del mismo patrón (7 oct 2026, gate de la nota del merge de H62, `d379a18`):**
+  - Archivo: `columnasPublicas.test.js` (4 tests). Síntoma: se cuenta como 1 fallo (579 tests en vez de 582),
+    sin mensaje de error; `npm run test:coverage` del servidor.
+  - Reintento inmediato, sin cambiar nada: 582/582 (99,31 / 92,25 / 99,54). Las dos salidas están guardadas
+    (`s-cov-1-fallo-h60.txt` y `s-cov.txt`).
+  - **Recuento de archivos afectados en Windows con Node 24.15:** `controladoresErrores.test.js`,
+    `referenciaIntegracion.test.js` (en las repeticiones de diagnóstico) y `columnasPublicas.test.js`, más un
+    cuarto caso, el primero (`npm test` del servidor sin cobertura, con los siete comandos del gate en paralelo),
+    del que no se guardó la salida y no se sabe qué archivo fue. Los tres identificados, siempre con la
+    cobertura activada.
+  - **En el CI (Ubuntu, Node 22) no consta:** las 6 últimas ejecuciones en `main` hasta el 7 oct, en verde.
+    Siguen siendo pocas para afirmar que nunca ocurre allí.
 - **Antes (sesión del 7 oct):** "Un fallo suelto en `npm test` del servidor, sin identificar". Lo de abajo.
 
 - **Qué pasó:** en el gate del cierre de la sesión del 7 oct, `npm test` del servidor dio 549 tests y 1 fallo,
