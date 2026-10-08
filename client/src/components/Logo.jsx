@@ -1,20 +1,24 @@
 // Logotipo de Nave 5: "NAVE" en letras de plantilla (stencil) y un "5" pequeño abajo a la derecha.
-// Redibujado en SVG a partir de la foto del rótulo, medido sobre ella. Toma el color del texto
-// (currentColor), así que sigue al tema claro u oscuro. El nombre lo da el enlace que lo contiene.
+// Trazado en SVG sobre la referencia limpia que mandó el cliente (contorno de cada letra, con las
+// esquinas y los lados rectos ajustados). Una forma por letra, sin trazos que se solapen: la A lleva
+// el ojo como hueco interior (evenodd) y no deja ninguna línea fina bajo los palos. Toma el color del
+// texto (currentColor), así que sigue al tema claro u oscuro. El nombre lo da el enlace que lo contiene.
 const Logo = ({ className }) => (
   <svg
     className={className}
-    viewBox="158 502 584 218"
+    viewBox="0 0 496.3 178.9"
     fill="currentColor"
     aria-hidden="true"
     focusable="false"
   >
-    <path d="M160,508 L213,508 L213,677 L160,677 Z M194.2,508 L214.2,508 L264,632.5 L264,677 L261.8,677 Z M241,508 L264,508 L264,677 L241,677 Z" />
-    <path fillRule="evenodd" d="M302,508 L330.2,508 L399.8,677 L276,677 Z M321.8,534.5 L336.8,572 L316.2,572 Z M343,585 L379.8,677 L324.6,677 Z" />
-    <path d="M346.2,508 L399.2,508 L443,617 L488.8,508 L507,508 L436,677 L415.6,677 Z" />
-    <path d="M520,508 L616,508 L616,523 L568,523 L568,566 L616,566 L616,581 L568,581 L568,628 L616,628 L616,677 L520,677 Z" />
-    <path d="M686.5,604 L736,604 L736,619 L686.5,619 Z M686.5,604 L702,604 L688.9,655 L673.9,655 Z" />
-    <path d="M680.9,653.6 A31,31 0 1 1 671.3,689.6" fill="none" stroke="currentColor" strokeWidth="15" />
+    <path d="M89.7,145.3 L87.6,145.3 L46.3,44.3 L46.3,145.3 L0,145.3 L0,0 L46,0 L69,50.6 L69,0 L89.7,0 Z" />
+    <path
+      fillRule="evenodd"
+      d="M189.3,145.3 L157.8,70.3 L142,145.3 L99,145.3 L122.3,0 L146.8,0 L206.7,145.3 Z M139.5,26.3 L150.3,52.6 L135.3,52.6 Z"
+    />
+    <path d="M299.1,0 L236.4,145.3 L219.3,145.3 L159.8,0 L205.7,0 L243.3,90.8 L282.3,0 Z" />
+    <path d="M391.4,0 L391.4,13.7 L351.3,13.7 L351.3,49.3 L391.4,49.3 L391.4,63.7 L351.3,63.7 L351.3,102.3 L391.4,102.3 L391.4,145.3 L309,145.3 L309,0 Z" />
+    <path d="M451.3,81.7 L493.3,81.7 L493.3,95.3 L462.5,95.3 L458.1,109.5 A35.9,34.7 0 1 1 428.8,160.6 L440.4,150.9 A21,20.8 0 1 0 442.9,132.6 L438,131.8 Z" />
   </svg>
 );
 
