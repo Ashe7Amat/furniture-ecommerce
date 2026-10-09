@@ -6,9 +6,10 @@
 //   node scripts/logo-email.js <carpeta-de-salida> --subir   -> además los sube a imagenes/marca/
 //
 // Salen dos archivos: logo-nave5.png (240 px de ancho) y logo-nave5@2x.png (480 px), para pintarlo
-// a 120 px en el correo (ver cabeceraEmail en src/utils/email.js). Al subir, no se pisa nada: si
-// ya existen en el bucket, la subida falla y hay que borrarlos a mano antes (o usar otro nombre).
-// El script no borra ningún archivo.
+// a 120 px en el correo (ver cabeceraEmail en src/utils/email.js). Al subir, si
+// ya existen en el bucket, los sustituye (upsert): así se actualizan los PNG al cambiar el logo, y
+// solo toca esos dos archivos. Supabase los sirve con Cache-Control de 1 hora, así que los correos pueden
+// seguir enseñando el logo anterior hasta que caduque la caché. El script no borra ningún archivo.
 const fs = require('node:fs');
 const path = require('node:path');
 const sharp = require('sharp');
@@ -61,7 +62,7 @@ const subir = async (archivos) => {
     const ruta = `${CARPETA}/${nombre}`;
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(ruta, fs.readFileSync(destino), { contentType: 'image/png', upsert: false });
+      .upload(ruta, fs.readFileSync(destino), { contentType: 'image/png', upsert: true });
     if (error) throw new Error(`No se pudo subir ${ruta}: ${error.message}`);
     console.log(`Subido: ${supabase.storage.from(BUCKET).getPublicUrl(ruta).data.publicUrl}`);
   }
