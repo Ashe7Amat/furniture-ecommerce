@@ -18,7 +18,11 @@ vi.mock('../services/api', () => ({
 
 // Muestra la ruta actual como texto, para comprobar los navigate() del Header (logout,
 // resultados de búsqueda) sin tener que mockear react-router-dom.
-const MarcadorDeRuta = () => <span data-testid="ruta-actual">{useLocation().pathname}</span>;
+// La query (?categoria=…&orden=…) va aparte, en data-busqueda, para no cambiar el texto que miran los demás tests.
+const MarcadorDeRuta = () => {
+  const { pathname, search } = useLocation();
+  return <span data-testid="ruta-actual" data-busqueda={decodeURIComponent(search)}>{pathname}</span>;
+};
 
 const renderHeader = async ({
   user = null,
@@ -317,5 +321,28 @@ describe('Header — accesibilidad', () => {
 
     expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/catalogo');
     expect(document.querySelector('.search-overlay')).not.toHaveClass('open');
+  });
+
+  it('desde el catálogo ordenado, ir a una categoría por el menú conserva el orden (?orden=)', async () => {
+    getCategorias.mockResolvedValue([{ id: 1, nombre: 'Mobiliario', categoria_padre_id: null }]);
+    const user = userEvent.setup();
+    await renderHeader({ ruta: '/catalogo?orden=referencia_desc' });
+
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await user.click(within(document.querySelector('.search-suggestions')).getByRole('button', { name: 'Mobiliario' }));
+
+    expect(screen.getByTestId('ruta-actual')).toHaveTextContent('/catalogo');
+    expect(screen.getByTestId('ruta-actual')).toHaveAttribute('data-busqueda', '?categoria=Mobiliario&orden=referencia_desc');
+  });
+
+  it('fuera del catálogo (sin ?orden=), el menú lleva a la categoría sin añadir nada', async () => {
+    getCategorias.mockResolvedValue([{ id: 1, nombre: 'Mobiliario', categoria_padre_id: null }]);
+    const user = userEvent.setup();
+    await renderHeader({ ruta: '/contacto' });
+
+    await user.click(screen.getByRole('button', { name: 'Buscar' }));
+    await user.click(within(document.querySelector('.search-suggestions')).getByRole('button', { name: 'Mobiliario' }));
+
+    expect(screen.getByTestId('ruta-actual')).toHaveAttribute('data-busqueda', '?categoria=Mobiliario');
   });
 });

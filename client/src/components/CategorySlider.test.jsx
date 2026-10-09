@@ -109,6 +109,24 @@ describe('CategorySlider', () => {
     expect(screen.getByTestId('ruta')).toHaveTextContent(/^\/catalogo$/);
   });
 
+  it('con el catálogo ordenado (?orden=), pulsar otra categoría conserva el orden', async () => {
+    const user = userEvent.setup();
+    await montar('/catalogo?orden=referencia_asc');
+
+    await user.click(screen.getByText('Decoración y hogar'));
+
+    expect(screen.getByTestId('ruta')).toHaveTextContent(/^\/catalogo\?categoria=Decoración y hogar&orden=referencia_asc$/);
+  });
+
+  it('quitar la categoría activa también conserva el orden', async () => {
+    const user = userEvent.setup();
+    await montar('/catalogo?categoria=Mobiliario&orden=referencia_desc');
+
+    await user.click(screen.getByText('Mobiliario'));
+
+    expect(screen.getByTestId('ruta')).toHaveTextContent(/^\/catalogo\?orden=referencia_desc$/);
+  });
+
   it('sin categorías, o si la API no devuelve una lista, no pinta nada', async () => {
     getCategorias.mockResolvedValue([]);
     await montar();

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCategorias } from '../services/api';
 import { PLACEHOLDER_IMG } from '../utils/images';
+import { conOrdenDeLaUrl } from '../utils/ordenEnUrl';
 import '../styles/CategorySlider.css';
 
 const CategorySlider = () => {
@@ -16,12 +17,13 @@ const CategorySlider = () => {
     getCategorias().then(data => setCategories(Array.isArray(data) ? data.filter(c => !c.categoria_padre_id) : []));
   }, []);
 
+  // Cambiar de categoría conserva el orden elegido (?orden=, ver utils/ordenEnUrl.js).
   const handleCategoryClick = (catName) => {
     if (currentCategory === catName) {
       // Si ya está activa, limpiar filtro → ver todo el catálogo
-      navigate('/catalogo');
+      navigate(conOrdenDeLaUrl('/catalogo', searchParams));
     } else {
-      navigate(`/catalogo?categoria=${encodeURIComponent(catName)}`);
+      navigate(conOrdenDeLaUrl(`/catalogo?categoria=${encodeURIComponent(catName)}`, searchParams));
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { compararPorReferencia, SENTIDO_ASC, SENTIDO_DESC } from '../../../utils/ordenarPorReferencia';
 
 export const PAGE_SIZE = 20;
 
@@ -31,6 +32,10 @@ const useInventarioVista = (muebles) => {
 
     return muebles.filter(muebleCoincide).sort((a, b) => {
       if (orden === 'nombre') return (a.nombre || '').localeCompare(b.nombre || '');
+      // Por referencia, con la misma función que el catálogo público: orden natural (NAV-SIL-002
+      // antes que NAV-SIL-010) y las piezas sin referencia al final, en los dos sentidos.
+      if (orden === 'referencia_asc') return compararPorReferencia(a, b, SENTIDO_ASC);
+      if (orden === 'referencia_desc') return compararPorReferencia(a, b, SENTIDO_DESC);
       if (orden === 'precio_asc') return (a.precio_venta || 0) - (b.precio_venta || 0);
       if (orden === 'precio_desc') return (b.precio_venta || 0) - (a.precio_venta || 0);
       return 0; // 'recientes' = orden original (más nuevo primero, ya viene así de la API)

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -7,6 +7,7 @@ import { CartContext } from '../context/CartContext';
 import { getCategorias, getMuebles } from '../services/api';
 import { formatPrice } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
+import { conOrdenDeLaUrl } from '../utils/ordenEnUrl';
 import Logo from './Logo';
 import '../styles/HeaderFooter.css';
 
@@ -45,6 +46,7 @@ const Header = () => {
   const searchInputRef = useRef(null);
   const searchOpenerRef = useRef(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const saved = localStorage.getItem('nave5Theme');
@@ -95,11 +97,12 @@ const Header = () => {
     setSearchResults(filtered);
   }, [searchTerm, allProducts]);
 
+  // Desde el propio catálogo, cambiar de categoría en el menú conserva el orden elegido (?orden=).
   const handleNavClick = (e, category) => {
     e.preventDefault();
     setIsMenuOpen(false);
     setIsProductsMenuOpen(false);
-    navigate(`/catalogo?categoria=${category}`);
+    navigate(conOrdenDeLaUrl(`/catalogo?categoria=${category}`, searchParams));
   };
 
   const handleLinkClick = (path) => {
