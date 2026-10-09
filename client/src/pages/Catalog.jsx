@@ -10,6 +10,7 @@ import ProductSkeleton from '../components/ProductSkeleton';
 import CategorySlider from '../components/CategorySlider';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { tienePrecio } from '../utils/format';
+import { compararPorReferencia, SENTIDO_ASC, SENTIDO_DESC } from '../utils/ordenarPorReferencia';
 import '../styles/Catalog.css';
 
 // Array estable para cuando el contexto de favoritos aún no está listo: un `[]` literal
@@ -17,10 +18,21 @@ import '../styles/Catalog.css';
 // useMemo de abajo se recalculase de más (React compara las dependencias por referencia).
 const SIN_FAVORITOS = [];
 
+// Los órdenes del selector "Ordenar por". "recomendados" es el orden en que llegan de la API y el
+// de por defecto. Los de precio solo se ofrecen si hay precios (ver ordenPorPrecio, más abajo).
+const ORDEN_POR_DEFECTO = 'recomendados';
+const ORDENES_PRECIO = ['menor', 'mayor'];
+const ORDENES = [ORDEN_POR_DEFECTO, 'referencia_asc', 'referencia_desc', ...ORDENES_PRECIO];
+
 export default function Catalog() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categoriaUrl = searchParams.get('categoria');
   const showFavorites = searchParams.get('favorites') === 'true';
+  // El orden va en la URL (?orden=referencia_asc), como la categoría: sobrevive a recargar la
+  // página y el enlace se puede compartir tal cual. Un valor que no conocemos (un enlace viejo o
+  // mal copiado) se trata como "recomendados" en vez de dejar el selector en blanco.
+  const ordenUrl = searchParams.get('orden');
+  const ordenPedido = ORDENES.includes(ordenUrl) ? ordenUrl : ORDEN_POR_DEFECTO;
 
   // 🛡️ Extraemos favorites de forma segura por si el contexto está vacío al cargar
   const context = useContext(FavoritesContext);
@@ -30,7 +42,6 @@ export default function Catalog() {
   const [categorias, setCategorias] = useState([]);
   const [soloDisponibles, setSoloDisponibles] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [orden, setOrden] = useState('recomendados');
   const [vista, setVista] = useCatalogView();
 
   // 1. Cargar datos usando el servicio centralizado (nunca fetch manual)
@@ -54,10 +65,15 @@ export default function Catalog() {
   }, []);
 
   // Fase C: con los precios ocultos (MOSTRAR_PRECIOS) todas las piezas llegan sin precio, y ordenar
-  // por precio no haría nada. Se decide con el catálogo entero que se ha cargado, no con lo filtrado,
-  // para que el selector no aparezca y desaparezca al cambiar de categoría. Mientras carga se deja.
+  // por precio no haría nada. El selector "Ordenar por" sale siempre (por referencia se puede ordenar
+  // con o sin precios), pero las dos opciones de precio solo si hay precios. Se decide con el catálogo
+  // entero que se ha cargado, no con lo filtrado, para que esas opciones no aparezcan y desaparezcan
+  // al cambiar de categoría. Mientras carga se dejan.
   const hayPrecios = useMemo(() => todosLosMuebles.some(tienePrecio), [todosLosMuebles]);
   const ordenPorPrecio = loading || hayPrecios;
+  // El orden que se aplica de verdad: uno de precio sin precios (p. ej. un enlace con ?orden=menor
+  // cuando los precios están ocultos) se comporta como "recomendados", y así lo enseña el selector.
+  const orden = !ordenPorPrecio && ORDENES_PRECIO.includes(ordenPedido) ? ORDEN_POR_DEFECTO : ordenPedido;
 
   // 2. Filtrar y ordenar — NUNCA muta todosLosMuebles. Con useMemo en vez de un
   // useEffect+setState aparte: se recalcula solo cuando algo relevante cambia, sin
@@ -93,20 +109,29 @@ export default function Catalog() {
       resultado = resultado.filter(m => m.estado !== 'vendido' && m.estado !== 'alquilado');
     }
 
-    // Ordenación por precio (solo si hay precios que ordenar: ver ordenPorPrecio)
-    if (ordenPorPrecio && orden === 'menor') {
+    // Ordenación. `orden` ya viene corregido: si es de precio, es que hay precios que ordenar (ver
+    // ordenPorPrecio). Por referencia, la misma comparación que la pestaña Inventario del panel:
+    // orden natural (NAV-SIL-002 antes que NAV-SIL-010) y las piezas sin referencia al final, en
+    // los dos sentidos. "recomendados" deja el orden de la API. Se ordena `resultado`, que ya es
+    // una copia: todosLosMuebles no se toca. Vale para las dos vistas (tarjetas y tabla), que
+    // pintan las dos mueblesFiltrados.
+    if (orden === 'menor') {
       resultado.sort((a, b) => a.precio_venta - b.precio_venta);
-    } else if (ordenPorPrecio && orden === 'mayor') {
+    } else if (orden === 'mayor') {
       resultado.sort((a, b) => b.precio_venta - a.precio_venta);
+    } else if (orden === 'referencia_asc') {
+      resultado.sort((a, b) => compararPorReferencia(a, b, SENTIDO_ASC));
+    } else if (orden === 'referencia_desc') {
+      resultado.sort((a, b) => compararPorReferencia(a, b, SENTIDO_DESC));
     }
 
     return resultado;
-  }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles, ordenPorPrecio]);
+  }, [todosLosMuebles, categorias, categoriaUrl, showFavorites, favorites, orden, soloDisponibles]);
 
-  // ⚡ Función limpia para el botón de "Ver todo"
+  // ⚡ Función limpia para el botón de "Ver todo". Vaciar la URL quita también el orden (?orden=),
+  // que vuelve así a "recomendados".
   const limpiarFiltros = () => {
     setSearchParams({});
-    setOrden('recomendados');
     setSoloDisponibles(false);
   };
 
@@ -117,6 +142,19 @@ export default function Catalog() {
       newParams.set('categoria', val);
     } else {
       newParams.delete('categoria');
+    }
+    setSearchParams(newParams);
+  };
+
+  // Como handleCategoryChange: parte de la URL que hay, para no perder la categoría ni los
+  // favoritos. "recomendados" es el orden por defecto y no se escribe (la URL queda limpia).
+  const handleOrdenChange = (e) => {
+    const val = e.target.value;
+    const newParams = new URLSearchParams(searchParams);
+    if (val && val !== ORDEN_POR_DEFECTO) {
+      newParams.set('orden', val);
+    } else {
+      newParams.delete('orden');
     }
     setSearchParams(newParams);
   };
@@ -195,21 +233,27 @@ export default function Catalog() {
           </label>
         </div>
 
-        {ordenPorPrecio && (
+        {/* Siempre visible: por referencia se puede ordenar con o sin precios. Las opciones de
+            precio, solo si hay precios (ordenPorPrecio). */}
         <div className="filter-group">
-          <label htmlFor="sort-select">Ordenar por precio</label>
+          <label htmlFor="sort-select">Ordenar por</label>
           <select
             id="sort-select"
             value={orden}
-            onChange={(e) => setOrden(e.target.value)}
+            onChange={handleOrdenChange}
             className="filter-select"
           >
             <option value="recomendados">Recomendados</option>
-            <option value="menor">Precio: Menor a Mayor</option>
-            <option value="mayor">Precio: Mayor a Menor</option>
+            <option value="referencia_asc">Referencia (A-Z)</option>
+            <option value="referencia_desc">Referencia (Z-A)</option>
+            {ordenPorPrecio && (
+              <>
+                <option value="menor">Precio: Menor a Mayor</option>
+                <option value="mayor">Precio: Mayor a Menor</option>
+              </>
+            )}
           </select>
         </div>
-        )}
 
         <div className="filter-group filter-group--view-toggle">
           <span className="filter-group-label-static">Vista</span>

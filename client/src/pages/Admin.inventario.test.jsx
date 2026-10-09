@@ -219,6 +219,57 @@ describe('Inventario — orden', () => {
   });
 });
 
+// Ordenar por referencia (añadido el 9 oct 2026). No cambia ningún test de arriba: son opciones nuevas
+// en el mismo <select>, y "Más recientes" sigue siendo el orden por defecto.
+describe('Inventario — orden por referencia', () => {
+  // Llegan de la API en este orden (el de "Más recientes"); dos sin referencia, una null y otra vacía.
+  const CON_REFERENCIAS = [
+    mueble('r1', 'Silla diez', { referencia: 'NAV-SIL-010' }),
+    mueble('r2', 'Biombo sin referencia', { referencia: null }),
+    mueble('r3', 'Mesa uno', { categoria: 'Mesas', categoria_id: 12, referencia: 'NAV-MES-001' }),
+    mueble('r4', 'Silla dos', { referencia: 'NAV-SIL-002' }),
+    mueble('r5', 'Arcón sin referencia', { referencia: '' })
+  ];
+
+  it('el selector de orden ofrece "Referencia A-Z" y "Referencia Z-A", con "Más recientes" por defecto', async () => {
+    await abrirInventario(CON_REFERENCIAS);
+
+    const opciones = [...filtros().orden.options].map((o) => [o.value, o.textContent]);
+    expect(opciones).toEqual([
+      ['recientes', 'Más recientes'],
+      ['nombre', 'Nombre A-Z'],
+      ['referencia_asc', 'Referencia A-Z'],
+      ['referencia_desc', 'Referencia Z-A'],
+      ['precio_asc', 'Precio: menor a mayor'],
+      ['precio_desc', 'Precio: mayor a menor']
+    ]);
+    expect(filtros().orden).toHaveValue('recientes');
+  });
+
+  it('ordena por referencia en orden natural (NAV-SIL-002 antes que NAV-SIL-010) y deja las piezas sin referencia al final, en los dos sentidos', async () => {
+    const { user } = await abrirInventario(CON_REFERENCIAS);
+
+    await user.selectOptions(filtros().orden, 'referencia_asc');
+    expect(nombresVisibles()).toEqual(['Mesa uno', 'Silla dos', 'Silla diez', 'Biombo sin referencia', 'Arcón sin referencia']);
+
+    await user.selectOptions(filtros().orden, 'referencia_desc');
+    expect(nombresVisibles()).toEqual(['Silla diez', 'Silla dos', 'Mesa uno', 'Biombo sin referencia', 'Arcón sin referencia']);
+  });
+
+  it('se combina con los filtros, hace aparecer "Limpiar filtros", y "Limpiar filtros" vuelve a "Más recientes"', async () => {
+    const { user } = await abrirInventario(CON_REFERENCIAS);
+
+    await user.selectOptions(filtros().categoria, 'Sillas');
+    await user.selectOptions(filtros().orden, 'referencia_desc');
+    expect(nombresVisibles()).toEqual(['Silla diez', 'Silla dos', 'Biombo sin referencia', 'Arcón sin referencia']);
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+
+    expect(filtros().orden).toHaveValue('recientes');
+    expect(nombresVisibles()).toEqual(['Silla diez', 'Biombo sin referencia', 'Mesa uno', 'Silla dos', 'Arcón sin referencia']);
+  });
+});
+
 describe('Inventario — paginación', () => {
   it('enseña 20 por página, con "Anterior" desactivado en la primera y "Siguiente" en la última', async () => {
     const { user } = await abrirInventario(muchas(25));

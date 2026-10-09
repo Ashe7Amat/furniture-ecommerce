@@ -67,6 +67,57 @@ describe('useInventarioVista', () => {
     expect(nombres(result.current.muebleFiltrados)).toEqual(['B', 'C', 'A']);
   });
 
+  it('ordena por referencia en los dos sentidos: orden natural y las piezas sin referencia al final, sin reordenarse entre ellas', () => {
+    const muebles = [
+      pieza(1, { nombre: 'Sin ref A', referencia: null }),
+      pieza(2, { nombre: 'Silla 10', referencia: 'NAV-SIL-010' }),
+      pieza(3, { nombre: 'Mesa 1', referencia: 'NAV-MES-001' }),
+      pieza(4, { nombre: 'Sin ref B', referencia: '' }),
+      pieza(5, { nombre: 'Silla 2', referencia: 'NAV-SIL-2' }),
+      pieza(6, { nombre: 'Sin ref C' })
+    ];
+    const { result } = renderHook(() => useInventarioVista(muebles));
+
+    act(() => result.current.setOrden('referencia_asc'));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Mesa 1', 'Silla 2', 'Silla 10', 'Sin ref A', 'Sin ref B', 'Sin ref C']);
+
+    act(() => result.current.setOrden('referencia_desc'));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Silla 10', 'Silla 2', 'Mesa 1', 'Sin ref A', 'Sin ref B', 'Sin ref C']);
+
+    // No toca la lista que recibe: volver a "recientes" la enseña en el orden de la API.
+    act(() => result.current.setOrden('recientes'));
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Sin ref A', 'Silla 10', 'Mesa 1', 'Sin ref B', 'Silla 2', 'Sin ref C']);
+  });
+
+  it('el orden por referencia se aplica a todo el inventario antes de paginar, y vuelve a la página 1', () => {
+    // Pieza 01 lleva la referencia más alta (NAV-SIL-025) y Pieza 25 la más baja (NAV-SIL-001).
+    const muebles = muchas(25).map((m, i) => ({ ...m, referencia: `NAV-SIL-${String(25 - i).padStart(3, '0')}` }));
+    const { result } = renderHook(() => useInventarioVista(muebles));
+
+    act(() => result.current.setPagina(2));
+    act(() => result.current.setOrden('referencia_asc'));
+
+    expect(result.current.paginaSegura).toBe(1);
+    expect(result.current.muebleVisibles[0].nombre).toBe('Pieza 25');
+    expect(result.current.muebleVisibles[19].nombre).toBe('Pieza 06');
+  });
+
+  it('la búsqueda y los filtros se combinan con el orden por referencia', () => {
+    const muebles = [
+      pieza(1, { nombre: 'Silla B', referencia: 'NAV-SIL-002' }),
+      pieza(2, { nombre: 'Mesa', categoria: 'Mesas', referencia: 'NAV-MES-001' }),
+      pieza(3, { nombre: 'Silla A', referencia: 'NAV-SIL-001' })
+    ];
+    const { result } = renderHook(() => useInventarioVista(muebles));
+
+    act(() => {
+      result.current.setFiltroCategoria('Sillas');
+      result.current.setOrden('referencia_desc');
+    });
+
+    expect(nombres(result.current.muebleFiltrados)).toEqual(['Silla B', 'Silla A']);
+  });
+
   it('cambiar un filtro vuelve a la página 1, y la página se ajusta si deja de existir', () => {
     const { result, rerender } = renderHook(({ muebles }) => useInventarioVista(muebles), { initialProps: { muebles: muchas(45) } });
 
@@ -107,6 +158,17 @@ describe('useInventarioVista', () => {
     expect(result.current.busqueda).toBe('');
     expect(result.current.filtroCategoria).toBe('');
     expect(result.current.filtroEstado).toBe('');
+    expect(result.current.orden).toBe('recientes');
+  });
+
+  it('"recientes" es el orden por defecto, y limpiarFiltros también lo devuelve ahí desde un orden por referencia', () => {
+    const { result } = renderHook(() => useInventarioVista(muchas(3)));
+    expect(result.current.orden).toBe('recientes');
+
+    act(() => result.current.setOrden('referencia_desc'));
+    expect(result.current.orden).toBe('referencia_desc');
+
+    act(() => result.current.limpiarFiltros());
     expect(result.current.orden).toBe('recientes');
   });
 });

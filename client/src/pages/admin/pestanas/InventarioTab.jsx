@@ -111,6 +111,11 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
         <select value={orden} onChange={(e) => setOrden(e.target.value)}>
           <option value="recientes">Más recientes</option>
           <option value="nombre">Nombre A-Z</option>
+          {/* Por referencia (NAV-SIL-002...): orden natural y las piezas sin referencia al final, en
+              los dos sentidos. La comparación es la misma que la del catálogo público
+              (utils/ordenarPorReferencia.js), y la hace useInventarioVista. */}
+          <option value="referencia_asc">Referencia A-Z</option>
+          <option value="referencia_desc">Referencia Z-A</option>
           <option value="precio_asc">Precio: menor a mayor</option>
           <option value="precio_desc">Precio: mayor a menor</option>
         </select>
