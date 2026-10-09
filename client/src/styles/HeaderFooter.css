@@ -32,7 +32,7 @@
   display: block;
   height: 30px;
   width: auto;
-  aspect-ratio: 584 / 218; /* el del viewBox */
+  aspect-ratio: 496.3 / 178.9; /* el del viewBox */
 }
 @media (max-width: 480px) {
   .logo-svg {
