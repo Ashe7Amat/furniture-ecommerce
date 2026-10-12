@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import '../styles/MusicaDeFondo.css';
 
-// Pista provisional (un acorde suave generado). Cuando el cliente confirme la canción y tenga
-// derechos para usarla en la web, basta con dejar el archivo en public/audio/ y cambiar esta ruta.
-export const PISTA = '/audio/musica-provisional.mp3';
+// Instrumental original estilo pop francés chill, compuesto por código (scripts/componer-musica.py):
+// no es de terceros, así que no hay derechos que pagar. Para cambiarla, deja otro archivo en
+// public/audio/ y cambia esta ruta.
+export const PISTA = '/audio/nave5-chill.mp3';
 const VOLUMEN = 0.35;
 
 // Música de fondo opcional. Solo suena cuando el visitante pulsa el botón: los navegadores
