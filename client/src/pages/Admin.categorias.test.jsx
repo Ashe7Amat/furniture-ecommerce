@@ -216,16 +216,17 @@ describe('Categorías — borrar', () => {
     await waitFor(() => expect(deleteCategoria).toHaveBeenCalledWith(1));
   });
 
-  it('avisa de éxito aunque falle', async () => {
-    // CARACTERIZACIÓN: comportamiento actual incorrecto (H12): enseña éxito aunque deleteCategoria devuelva null.
+  it('si falla, avisa del error y no recarga', async () => {
+    // CAMBIADO A PROPÓSITO (H12): antes avisaba de éxito aunque deleteCategoria devolviera null.
     deleteCategoria.mockResolvedValue(null);
     const { user, showToast } = await abrirCategorias();
 
     await user.click(tarjeta('Mesas').getByRole('button', { name: 'Eliminar' }));
     await user.click(dialogo('Eliminar Categoría').getByRole('button', { name: 'Eliminar' }));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith('Categoría eliminada', 'success'));
-    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'error');
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo eliminar la categoría', 'error'));
+    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'success');
+    expect(getCategorias).toHaveBeenCalledTimes(1);
   });
 
   it('cancelar la confirmación no borra nada', async () => {

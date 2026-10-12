@@ -9,7 +9,7 @@ import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../ut
 // Pestaña "Gestionar Categorías". El formulario de alta vive en el contenedor, así que lo escrito
 // se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14): el
 // botón se desactiva mientras se crea, así que un doble clic ya no crea dos categorías.
-// Ojo (H12): borrar avisa de éxito sin mirar la respuesta. Se conserva a propósito en el refactor.
+// H12: borrar mira la respuesta; si falla, avisa con un error y no recarga.
 const CategoriasTab = ({
   categorias,
   nuevaCat, setNuevaCat,
@@ -78,7 +78,10 @@ const CategoriasTab = ({
       'Eliminar Categoría',
       '¿Deseas eliminar esta categoría? Si tiene muebles asociados podrían quedarse sin categoría.',
       async () => {
-        await deleteCategoria(id);
+        if (!(await deleteCategoria(id))) {
+          showToast('No se pudo eliminar la categoría', 'error');
+          return;
+        }
         showToast('Categoría eliminada', 'success');
         recargarCategorias();
       }
