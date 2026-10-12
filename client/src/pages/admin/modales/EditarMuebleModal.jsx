@@ -72,9 +72,9 @@ const EditarMuebleModal = ({
       showToast('Producto actualizado correctamente', 'success');
       onCerrar();
       setArchivosNuevos([]);
+      onGuardado();
       setFotoAntes(null);
       setQuitarAntes(false);
-      onGuardado();
     } else {
       envio.acabarMal('Error al actualizar.');
       showToast('Error al actualizar el producto', 'error');
