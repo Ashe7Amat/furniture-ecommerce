@@ -5,7 +5,7 @@ Copia en el repositorio de cada migración aplicada a la base de datos de Supaba
 `apply_migration` registra cada una. Aquí está la misma lista, para revisarla en el diff y para saber qué se
 ha hecho sin consultar la base de datos.
 
-A 5 oct 2026 hay **23 migraciones registradas y las 23 están aquí**. Las 7 primeras (3-5 sep) se recuperaron
+A 12 oct 2026 hay **24 migraciones registradas y las 24 están aquí**. Las 7 primeras (3-5 sep) se recuperaron
 de `schema_migrations` el 5 oct, solo leyendo (H38 de `docs/mejoras-tecnicas.md`).
 
 ## Convención
@@ -34,7 +34,7 @@ Son copias anteriores a la regla de "byte a byte". El texto es el mismo, pero lo
 | `20261001220000_backfill_categorias_codigo.sql` (A3) | Se aplicó con fines de línea de Windows (`\r\n`), y el repositorio guarda `\n` | El MD5 coincide cambiando `\n` por `\r\n` y quitando el último |
 
 La segunda no se puede arreglar en el archivo: `.gitattributes` (`* text=auto eol=lf`) guarda todo el texto
-con `\n`. Las 5 desde `20261002121823` (y las 7 recuperadas) coinciden tal cual.
+con `\n`. Las 6 desde `20261002121823` (y las 7 recuperadas) coinciden tal cual.
 
 ## Cómo se aplica una migración nueva
 
@@ -77,7 +77,7 @@ for (const f of fs.readdirSync('.').filter((f) => /^\d{14}_.*\.sql$/.test(f) && 
 FIN
 ```
 
-Las dos listas tienen que ser iguales. Así estaban el 5 oct 2026:
+Las dos listas tienen que ser iguales. Así estaban el 12 oct 2026:
 
 | Versión | Nombre | MD5 registrado | Archivo |
 |---|---|---|---|
@@ -104,6 +104,7 @@ Las dos listas tienen que ser iguales. Así estaban el 5 oct 2026:
 | 20261002193936 | `respaldo_agrupacion_muebles` | `0d9f6a9254e6236f43b8fc9b7f9c1abe` | tal cual |
 | 20261002200855 | `agrupar_fichas_juntar_fotos` | `31e2298996012855305c46eea9b37e6e` | tal cual |
 | 20261005002322 | `create_mensajes_contacto` | `142abae3532f1684e28c8a940acb3d9b` | tal cual |
+| 20261012165218 | `verificacion_email` | `8adcca14e14c1546f839cee8ef7bb012` | tal cual |
 
 ## Lo que no está aquí
 
