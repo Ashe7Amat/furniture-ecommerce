@@ -1,9 +1,21 @@
 import { StrictMode } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { render, screen, fireEvent, act, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Link, Routes, Route } from 'react-router-dom';
 import MusicaDeFondo from './MusicaDeFondo';
-import { EMISORAS, CONSULTA_ESCRITORIO } from '../utils/musica';
+import { CONSULTA_ESCRITORIO } from '../utils/musica';
+
+// Canciones de prueba: las de verdad se comprueban en utils/musica.test.js. Es la misma lista que
+// lee el componente, así que un test puede dejarla con menos canciones (y restaurarla al acabar).
+const { canciones } = vi.hoisted(() => ({
+  canciones: [
+    { titulo: 'Primera', artista: 'Artista Uno', url: '/audio/primera.mp3', fuente: 'https://pixabay.com/music/primera/' },
+    { titulo: 'Segunda', artista: 'Artista Dos', url: '/audio/segunda.mp3', fuente: 'https://pixabay.com/music/segunda/' },
+    { titulo: 'Tercera', artista: 'Artista Tres', url: '/audio/tercera.mp3', fuente: 'https://pixabay.com/music/tercera/' },
+  ],
+}));
+vi.mock('../utils/musica', async (importOriginal) => ({ ...(await importOriginal()), CANCIONES: canciones }));
+const originales = [...canciones];
 
 // jsdom no reproduce audio ni sabe qué aparato es: simulamos play/pause/load, los eventos que
 // dispararía el navegador y matchMedia (ordenador por defecto).
@@ -36,8 +48,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Desmontar antes de quitar los simulacros: al desmontarse el reproductor pausa el audio, y el
+  // pause() de jsdom solo escribe "Not implemented" en la consola.
+  cleanup();
   vi.restoreAllMocks();
   delete window.matchMedia;
+  canciones.splice(0, canciones.length, ...originales);
 });
 
 const pintar = (ruta = '/', { estricto = false } = {}) => {
@@ -56,7 +72,8 @@ const pintar = (ruta = '/', { estricto = false } = {}) => {
 
 const audioDe = (container) => container.querySelector('audio');
 const fuente = (container) => audioDe(container).getAttribute('src');
-const panel = () => screen.queryByRole('region', { name: 'Reproductor de radio' });
+const panel = () => screen.queryByRole('region', { name: 'Reproductor de música' });
+const progreso = (container) => container.querySelector('.musica-progreso span').style.transform;
 
 const pulsar = async (nombre) => {
   await act(async () => {
@@ -65,111 +82,157 @@ const pulsar = async (nombre) => {
 };
 const abrir = () => pulsar('Escuchar música');
 
-describe('MusicaDeFondo', () => {
-  it('todas las emisoras tienen nombre, descripción y un flujo https', () => {
-    expect(EMISORAS.length).toBeGreaterThanOrEqual(2);
-    EMISORAS.forEach((e) => {
-      expect(e.nombre).toBeTruthy();
-      expect(e.descripcion).toBeTruthy();
-      expect(e.url).toMatch(/^https:\/\//);
-    });
+// Como el navegador al llegar al final de una canción: primero "pause" y luego "ended".
+const terminar = async (container) => {
+  await act(async () => {
+    pausado = true;
+    audioDe(container).dispatchEvent(new Event('pause'));
+    audioDe(container).dispatchEvent(new Event('ended'));
   });
+};
 
-  it('no suena sola: empieza plegado, en pausa y sin conectarse a la emisora', () => {
+const avanzarA = async (container, currentTime, duration) => {
+  const audio = audioDe(container);
+  Object.defineProperty(audio, 'currentTime', { value: currentTime, configurable: true });
+  Object.defineProperty(audio, 'duration', { value: duration, configurable: true });
+  await act(async () => { audio.dispatchEvent(new Event('timeupdate')); });
+};
+
+describe('MusicaDeFondo', () => {
+  it('no suena sola: empieza plegado, en pausa y sin descargar la canción', () => {
     const { container } = pintar();
     expect(audioDe(container).getAttribute('preload')).toBe('none');
-    expect(fuente(container)).toBe(EMISORAS[0].url);
+    expect(fuente(container)).toBe(canciones[0].url);
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Escuchar música' })).toBeInTheDocument();
     expect(panel()).not.toBeInTheDocument();
   });
 
-  it('al pulsar el botón se despliega el reproductor y empieza a sonar la primera emisora', async () => {
+  it('al pulsar el botón se despliega el reproductor y suena la primera canción', async () => {
     const { container } = pintar();
     await abrir();
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
     expect(audioDe(container).volume).toBe(0.35);
-    expect(within(panel()).getByText(EMISORAS[0].nombre)).toHaveAttribute('title', EMISORAS[0].descripcion);
-    expect(within(panel()).getByText('En directo')).toBeInTheDocument();
+    expect(within(panel()).getByText('Primera')).toHaveAttribute('title', 'Primera · Artista Uno');
+    expect(within(panel()).getByText('Artista Uno')).toBeInTheDocument();
     // El foco pasa al botón de pausa, para seguir con el teclado.
-    expect(screen.getByRole('button', { name: 'Pausar radio' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toHaveFocus();
   });
 
-  it('mientras conecta dice "Conectando…" y no "En directo"', async () => {
+  it('mientras carga dice "Cargando…" en lugar del artista', async () => {
     HTMLMediaElement.prototype.play.mockImplementation(function () {
       pausado = false;
       this.dispatchEvent(new Event('play'));
-      return new Promise(() => {}); // la emisora aún no responde
+      return new Promise(() => {}); // el archivo aún no ha llegado
     });
     const { container } = pintar();
     await abrir();
-    expect(within(panel()).getByText('Conectando…')).toBeInTheDocument();
-    expect(within(panel()).queryByText('En directo')).not.toBeInTheDocument();
+    expect(within(panel()).getByText('Cargando…')).toBeInTheDocument();
+    expect(within(panel()).queryByText('Artista Uno')).not.toBeInTheDocument();
     await act(async () => { audioDe(container).dispatchEvent(new Event('playing')); });
-    expect(within(panel()).getByText('En directo')).toBeInTheDocument();
+    expect(within(panel()).getByText('Artista Uno')).toBeInTheDocument();
   });
 
-  it('el botón central pausa y, al reanudar, reconecta para volver al directo', async () => {
-    pintar();
-    await abrir();
-    await pulsar('Pausar radio');
-    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
-    expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
-    await pulsar('Reproducir radio');
-    expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
-    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole('button', { name: 'Pausar radio' })).toBeInTheDocument();
-  });
-
-  it('"siguiente" pasa a la siguiente emisora y sigue sonando; desde la última vuelve a la primera', async () => {
+  it('el botón central pausa y, al reanudar, sigue por donde iba', async () => {
     const { container } = pintar();
     await abrir();
-    for (let i = 1; i < EMISORAS.length; i++) {
-      await pulsar('Emisora siguiente');
-      expect(fuente(container)).toBe(EMISORAS[i].url);
-      expect(within(panel()).getByText(EMISORAS[i].nombre)).toBeInTheDocument();
+    await pulsar('Pausar música');
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
+    await pulsar('Reproducir música');
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+    // Sin volver a cargar el archivo ni cambiar de canción (eso la empezaría de cero).
+    expect(HTMLMediaElement.prototype.load).not.toHaveBeenCalled();
+    expect(fuente(container)).toBe(canciones[0].url);
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
+  });
+
+  it('"siguiente" pasa a la siguiente canción y sigue sonando; desde la última vuelve a la primera', async () => {
+    const { container } = pintar();
+    await abrir();
+    for (let i = 1; i < canciones.length; i++) {
+      await pulsar('Canción siguiente');
+      expect(fuente(container)).toBe(canciones[i].url);
+      expect(within(panel()).getByText(canciones[i].titulo)).toBeInTheDocument();
+      expect(within(panel()).getByText(canciones[i].artista)).toBeInTheDocument();
     }
-    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(EMISORAS.length);
-    await pulsar('Emisora siguiente');
-    expect(fuente(container)).toBe(EMISORAS[0].url);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(canciones.length);
+    await pulsar('Canción siguiente');
+    expect(fuente(container)).toBe(canciones[0].url);
   });
 
   it('"anterior" desde la primera va a la última', async () => {
     const { container } = pintar();
     await abrir();
-    await pulsar('Emisora anterior');
-    expect(fuente(container)).toBe(EMISORAS[EMISORAS.length - 1].url);
+    await pulsar('Canción anterior');
+    expect(fuente(container)).toBe(canciones[canciones.length - 1].url);
   });
 
-  it('cambiar de emisora en pausa no la pone a sonar', async () => {
+  it('cambiar de canción en pausa no la pone a sonar', async () => {
     const { container } = pintar();
     await abrir();
-    await pulsar('Pausar radio');
-    await pulsar('Emisora siguiente');
-    expect(fuente(container)).toBe(EMISORAS[1].url);
+    await pulsar('Pausar música');
+    await pulsar('Canción siguiente');
+    expect(fuente(container)).toBe(canciones[1].url);
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Reproducir radio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
   });
 
-  it('si la emisora no responde lo dice y se queda en pausa; otra emisora vuelve a intentarlo', async () => {
+  it('al acabar una canción empieza la siguiente; tras la última, la primera', async () => {
+    const { container } = pintar();
+    await abrir();
+    await terminar(container);
+    expect(fuente(container)).toBe(canciones[1].url);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
+    await terminar(container);
+    await terminar(container);
+    expect(fuente(container)).toBe(canciones[0].url);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(4);
+  });
+
+  it('con una sola canción, al acabar vuelve a empezarla', async () => {
+    canciones.splice(1);
+    const { container } = pintar();
+    await abrir();
+    await terminar(container);
+    expect(fuente(container)).toBe(canciones[0].url);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+  });
+
+  it('la línea de progreso avanza con la canción y vuelve a cero al cambiar', async () => {
+    const { container } = pintar();
+    await abrir();
+    expect(progreso(container)).toBe('scaleX(0)');
+    await avanzarA(container, 30, 120);
+    expect(progreso(container)).toBe('scaleX(0.25)');
+    // Sin duración conocida (aún cargando) no se inventa nada.
+    await avanzarA(container, 5, NaN);
+    expect(progreso(container)).toBe('scaleX(0)');
+    await avanzarA(container, 60, 120);
+    await pulsar('Canción siguiente');
+    expect(progreso(container)).toBe('scaleX(0)');
+  });
+
+  it('si la canción no se puede reproducir lo dice y se queda en pausa; otra vuelve a intentarlo', async () => {
     const error = Object.assign(new Error('sin fuente'), { name: 'NotSupportedError' });
     HTMLMediaElement.prototype.play.mockImplementationOnce(() => Promise.reject(error));
     pintar();
     await abrir();
-    expect(within(panel()).getByText('No disponible ahora')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reproducir radio' })).toBeInTheDocument();
-    await pulsar('Emisora siguiente');
-    expect(within(panel()).getByText('En pausa')).toBeInTheDocument();
-    await pulsar('Reproducir radio');
-    expect(within(panel()).getByText('En directo')).toBeInTheDocument();
+    expect(within(panel()).getByText('No se puede reproducir')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+    await pulsar('Canción siguiente');
+    expect(within(panel()).getByText('Artista Dos')).toBeInTheDocument();
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    await pulsar('Reproducir música');
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
   });
 
   it('un error de red a mitad también se avisa', async () => {
     const { container } = pintar();
     await abrir();
     await act(async () => { audioDe(container).dispatchEvent(new Event('error')); });
-    expect(within(panel()).getByText('No disponible ahora')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Reproducir radio' })).toBeInTheDocument();
+    expect(within(panel()).getByText('No se puede reproducir')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
   });
 
   it('si el navegador no deja reproducir, se queda en pausa sin mensaje de error', async () => {
@@ -177,35 +240,23 @@ describe('MusicaDeFondo', () => {
     HTMLMediaElement.prototype.play.mockImplementation(() => Promise.reject(error));
     pintar();
     await abrir();
-    expect(screen.getByRole('button', { name: 'Reproducir radio' })).toBeInTheDocument();
-    expect(within(panel()).queryByText(/No disponible/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+    expect(within(panel()).queryByText('No se puede reproducir')).not.toBeInTheDocument();
   });
 
-  it('si el servidor corta el directo, se reconecta solo', async () => {
-    const { container } = pintar();
-    await abrir();
-    await act(async () => {
-      pausado = true;
-      audioDe(container).dispatchEvent(new Event('pause'));
-      audioDe(container).dispatchEvent(new Event('ended'));
-    });
-    expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
-    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
-  });
-
-  it('minimizar pliega el reproductor sin parar la radio y devuelve el foco al botón', async () => {
+  it('minimizar pliega el reproductor sin parar la música y devuelve el foco al botón', async () => {
     pintar();
     await abrir();
     await pulsar('Minimizar reproductor');
     expect(panel()).not.toBeInTheDocument();
     expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
-    const boton = screen.getByRole('button', { name: 'Abrir reproductor de radio' });
-    expect(boton).toHaveAttribute('title', `Sonando: ${EMISORAS[0].nombre}`);
+    const boton = screen.getByRole('button', { name: 'Abrir reproductor de música' });
+    expect(boton).toHaveAttribute('title', 'Sonando: Primera');
     expect(boton).toHaveFocus();
     // Al volver a abrirlo no se reinicia ni se pausa
     await act(async () => { fireEvent.click(boton); });
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Pausar radio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
   });
 
   it('Escape también pliega el reproductor', async () => {
@@ -220,22 +271,19 @@ describe('MusicaDeFondo', () => {
     await abrir();
     fireEvent.click(screen.getByRole('link', { name: 'Catálogo' }));
     expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Pausar radio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
   });
 
-  it('si pausa el sistema (auriculares, teclas multimedia), cambiar de emisora no la vuelve a encender', async () => {
+  it('si pausa el sistema (auriculares, teclas multimedia), cambiar de canción no la vuelve a encender', async () => {
     const { container } = pintar();
     await abrir();
     await act(async () => { audioDe(container).pause(); });
-    expect(screen.getByRole('button', { name: 'Reproducir radio' })).toBeInTheDocument();
-    await pulsar('Emisora siguiente');
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+    await pulsar('Canción siguiente');
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
-    // y al reanudar reconecta con el directo
-    await pulsar('Reproducir radio');
-    expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
   });
 
-  it('cambiar de emisora mientras conecta arranca la nueva', async () => {
+  it('cambiar de canción mientras carga arranca la nueva', async () => {
     HTMLMediaElement.prototype.play.mockImplementation(function () {
       pausado = false;
       this.dispatchEvent(new Event('play'));
@@ -243,8 +291,8 @@ describe('MusicaDeFondo', () => {
     });
     const { container } = pintar();
     await abrir();
-    await pulsar('Emisora siguiente');
-    expect(fuente(container)).toBe(EMISORAS[1].url);
+    await pulsar('Canción siguiente');
+    expect(fuente(container)).toBe(canciones[1].url);
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
   });
 
@@ -255,10 +303,12 @@ describe('MusicaDeFondo', () => {
     window.MediaMetadata = function MediaMetadata(datos) { Object.assign(this, datos); };
     try {
       const { container, unmount } = pintar();
-      expect(mediaSession.metadata).toMatchObject({ title: EMISORAS[0].nombre, artist: 'Radio France' });
+      expect(mediaSession.metadata).toMatchObject({ title: 'Primera', artist: 'Artista Uno', album: 'Nave 5 Barcelona' });
       await act(async () => { manejadores.nexttrack(); });
-      expect(fuente(container)).toBe(EMISORAS[1].url);
-      expect(mediaSession.metadata).toMatchObject({ title: EMISORAS[1].nombre });
+      expect(fuente(container)).toBe(canciones[1].url);
+      expect(mediaSession.metadata).toMatchObject({ title: 'Segunda', artist: 'Artista Dos' });
+      await act(async () => { manejadores.previoustrack(); });
+      expect(fuente(container)).toBe(canciones[0].url);
       await act(async () => { manejadores.play(); });
       expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
       await act(async () => { manejadores.pause(); });
@@ -284,13 +334,21 @@ describe('MusicaDeFondo', () => {
     expect(document.documentElement).not.toHaveClass('con-musica');
   });
 
+  it('sin canciones en la lista no aparece', () => {
+    canciones.splice(0);
+    const { container } = pintar();
+    expect(screen.queryByRole('button', { name: /música/ })).not.toBeInTheDocument();
+    expect(audioDe(container)).toBeNull();
+    expect(document.documentElement).not.toHaveClass('con-musica');
+  });
+
   it('en el panel de administración no aparece y, si sonaba, se para', async () => {
     pintar();
     await abrir();
     fireEvent.click(screen.getByRole('link', { name: 'Panel' }));
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
     expect(panel()).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /música|radio/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /música/ })).not.toBeInTheDocument();
   });
 
   it('entrando directamente al panel tampoco aparece', () => {
@@ -307,7 +365,7 @@ describe('MusicaDeFondo', () => {
     expect(audioDe(container)).toBeNull();
   });
 
-  it('si el aparato deja de ser de ratón (p. ej. se pasa a modo tableta) la radio se para y desaparece', async () => {
+  it('si el aparato deja de ser de ratón (p. ej. se pasa a modo tableta) la música se para y desaparece', async () => {
     pintar();
     await abrir();
     await act(async () => {

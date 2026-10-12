@@ -1,4 +1,4 @@
-/* ─── Radio de fondo (solo ordenador) ──────────────────────────────────────────────────────────────
+/* ─── Música de fondo (solo ordenador) ──────────────────────────────────────────────────────────────
    Plegado: botón redondo abajo a la izquierda (los avisos salen abajo a la derecha).
    Desplegado: una tarjeta compacta con las esquinas casi rectas de la tienda. */
 
@@ -83,38 +83,21 @@ body:has(.cookie-banner) .musica-boton {
   min-width: 0;
 }
 
-/* Estado arriba en versalitas espaciadas (como "ALMACÉN DE IDEAS" en la portada) y la emisora
-   debajo con la tipografía de títulos. */
+/* Artista (o estado) arriba en versalitas espaciadas, como "ALMACÉN DE IDEAS" en la portada, y la
+   canción debajo con la tipografía de títulos. */
 .musica-estado {
   margin: 0 0 2px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font-size: 0.6rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--secondary-color);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.musica-estado.directo {
+.musica-estado.sonando {
   color: var(--accent-text);
-}
-
-/* Punto que late despacio mientras suena en directo. */
-.musica-estado.directo::before {
-  content: '';
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: musica-late 2s ease-in-out infinite;
-}
-
-@keyframes musica-late {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
 }
 
 .musica-estado.fallo {
@@ -182,6 +165,25 @@ body:has(.cookie-banner) .musica-boton {
 .musica-plegar {
   grid-area: plegar;
   color: var(--secondary-color);
+}
+
+/* Línea de progreso: fina, abajo, sin llegar a las esquinas redondeadas. */
+.musica-progreso {
+  position: absolute;
+  left: var(--radius-md, 8px);
+  right: var(--radius-md, 8px);
+  bottom: 0;
+  height: 2px;
+  background: var(--border-color);
+  overflow: hidden;
+}
+
+.musica-progreso span {
+  display: block;
+  height: 100%;
+  background: var(--accent-text);
+  transform-origin: left;
+  transition: transform 0.25s linear;
 }
 
 /* ── Barras tipo ecualizador: quietas en pausa, se mueven mientras suena ── */
@@ -264,19 +266,26 @@ body:has(.cookie-banner) .musica-boton {
   }
 }
 
-/* Modo de alto contraste de Windows: sin esto las barras y el punto de directo desaparecen. */
+/* Modo de alto contraste de Windows: sin esto las barras y la línea de progreso desaparecen. */
 @media (forced-colors: active) {
   .musica-ondas span,
-  .musica-estado.directo::before {
+  .musica-progreso span {
     background: CanvasText;
+  }
+
+  .musica-progreso {
+    background: GrayText;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .sonando .musica-ondas span,
-  .musica-panel.cargando .musica-ondas span,
-  .musica-estado.directo::before {
+  .musica-panel.cargando .musica-ondas span {
     animation: none;
+  }
+
+  .musica-progreso span {
+    transition: none;
   }
 
   .sonando .musica-ondas span {
