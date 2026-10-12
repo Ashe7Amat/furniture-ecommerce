@@ -1,18 +1,49 @@
 # Verificación del email de las cuentas (H18) — diseño para decidir
 
-**Estado:** implementado en la rama `claude/project-thread-wq6mws` (12 oct 2026), con las propuestas de la
-parte 1 como decisiones por defecto. **Falta, antes de mergear:** aplicar la migración de la parte 5 (con
-permiso), poner `EMAIL_TOKEN_HASH_SECRET` en Vercel y verificar el dominio en Resend (decisión 1). Las partes
-1 a 3 son para decidir con el cliente; las partes 4 a 8, para quien lo implemente.
+**Estado:** implementado en la rama `claude/project-thread-wq6mws` (PR #3, 12 oct 2026), con las propuestas
+de la parte 1 como decisiones por defecto. Revisado por Ashe el 12 oct. Las partes 1 a 3 son para decidir con
+el cliente; las partes 4 a 8, para quien lo implemente.
+
+**Antes de que el código llegue a `main`** (sin esto, "Mis pedidos" deja de funcionar para todos los
+clientes, que nunca podrían confirmar su email):
+1. ~~La migración de la parte 5.~~ **Aplicada el 12 oct 2026** con permiso de Ashe:
+   `server/migrations/20261012165218_verificacion_email.sql` (mismo MD5 que lo registrado). Es aditiva: la web
+   que hay en `main` no la nota (revisado antes contra `main` y `feature/mejoras-tecnicas`). Las 5 cuentas
+   quedaron sin verificar, como dice la decisión 4.
+2. Las 2 cuentas de administrador marcadas como verificadas (el `UPDATE` de la parte 5), también con
+   `apply_migration` y con permiso, para que quede registrado. Mejor justo antes del despliegue: si se marca
+   antes, un cambio de email desde Mi cuenta con el código de `main` dejaría la marca en una dirección sin
+   confirmar. Sin la marca, si un administrador entra con Google pierde su contraseña (punto 8 de la parte 6).
+3. `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production); a 12 oct no está. Sin ella, el registro
+   funciona pero no se manda ningún enlace, y cambiar el email responde 503.
+4. El dominio verificado en Resend y `RESEND_FROM` con una dirección de ese dominio (decisión 1). Verificar el
+   dominio no basta: con el remitente de pruebas, Resend solo entrega a la dirección de la cuenta de Resend.
+   `RESEND_FROM` ya existe en producción desde el 5 oct (no se ha mirado su valor).
+5. `CLIENT_URL` con la dirección pública de la web: los enlaces de los correos salen de ella. Existe en
+   producción (no se ha mirado su valor).
+6. Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de Resend.
 
 **Diferencias con el diseño, a propósito:**
 - El cambio de email que pide la contraseña actual sigue con el límite de intentos de H28, que ya estaba.
 - Confirmar el email nuevo también deja la cuenta verificada (quien confirma demuestra el buzón).
 - Al entrar con Google en una cuenta sin verificar se protege siempre (punto 8 de la parte 6): no hay columna
   que diga si la cuenta se creó con contraseña o con Google, así que una cuenta de Google de antes de H18
-  recibe también el correo 5 y se le cierran las demás sesiones. Con 3 cuentas, se acepta.
+  recibe también el correo 5 y se le cierran las demás sesiones. Con 5 cuentas (2 de administrador, a 12 oct),
+  se acepta.
 - El checkout fija el email de la cuenta verificada en el cliente; el servidor no lo comprueba, porque la
   sesión de pago no pide iniciar sesión.
+- El correo 5 no dice "si quieres volver a tener contraseña, pídela desde Mi cuenta": no hay forma de pedirla
+  (cambiarla exige la actual).
+- El aviso de Mi cuenta sin verificar no dice "te hemos enviado un correo", porque las cuentas de antes de H18
+  nunca lo recibieron: "Confirma tu email, {email}, para ver tus pedidos. Si no tienes el correo con el
+  enlace, te mandamos uno nuevo", con el botón "Enviar enlace".
+- Crear un enlace borra los anteriores sin usar del mismo motivo, no todos: pedir otro enlace de registro no
+  anula el de un cambio de email a medias.
+- Si al confirmar un cambio de email la dirección ya es de otra cuenta (409), el cambio pendiente se anula.
+- Los correos de la verificación se esperan antes de responder (con el tope de 8 segundos de los pagos): en
+  Vercel, un envío pendiente al responder podría no completarse.
+- `perfil-update` busca la cuenta por el id del token, no por su email: tras confirmar un cambio, un token de
+  antes aún lleva el email viejo, que puede ser ya de otra cuenta.
 
 ---
 

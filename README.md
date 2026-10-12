@@ -94,13 +94,14 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `SUPABASE_ANON_KEY` | server | No (solo la usa `server/src/seed.js`) |
 | `JWT_SECRET` | server | **Sí** (sin ella, cualquier JWT firmado con el valor por defecto sería inseguro) |
 | `REFRESH_TOKEN_HASH_SECRET` | server | **Sí**, para que las sesiones duren más de 1 hora y sobrevivan a una recarga (bloque 3b; cómo ponerla, en [docs/verificacion-3b.md](docs/verificacion-3b.md)) |
-| `CLIENT_URL` | server | Recomendada (URL de retorno de Stripe) |
+| `CLIENT_URL` | server | Recomendada (URL de retorno de Stripe y de los enlaces para confirmar el email, H18) |
 | `ALLOWED_ORIGINS` | server | No (orígenes extra permitidos por CORS) |
 | `STRIPE_SECRET_KEY` | server | Solo si se quieren cobrar pagos reales |
 | `STRIPE_WEBHOOK_SECRET` | server | No (sin ella, el respaldo `confirmar-sesion` sigue registrando ventas) |
 | `RESEND_API_KEY` | server | No en local (sin ella, los emails se simulan, y el log no lleva datos del cliente); **sí** en producción |
 | `EMAIL_DEBUG_DATOS` | server | No. Solo en local, para ver el contenido de los emails simulados; en producción no hace nada |
-| `RESEND_FROM` | server | No (tiene un valor por defecto de pruebas) |
+| `RESEND_FROM` | server | No en local (tiene un valor por defecto de pruebas). **Sí** en producción desde H18: con el de pruebas, los correos para confirmar el email no llegan a los clientes |
+| `EMAIL_TOKEN_HASH_SECRET` | server | **Sí** desde H18: sin ella nadie puede confirmar su email ni ver "Mis pedidos" ([docs/env-vars.md](docs/env-vars.md)) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
 | `CONTACT_EMAILS` | server | No (destinatarios del formulario de contacto, separados por comas; si no está, `ADMIN_EMAIL`) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
@@ -144,7 +145,15 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
 3. **El panel con sesión de administrador:** el orden, las estadísticas de categorías, el estado de
    cada formulario, subir 2 o 3 fotos de móvil y la cesta. Sección 5; unos 5 min.
 4. **Limpiar** las filas de prueba de `refresh_tokens` con el SQL de la guía. Sección 3; unos 2 min.
-5. **Dar permiso para el merge.**
+5. **La verificación del email (H18)**, si ya está en la rama. Sin esto, "Mis pedidos" deja de
+   funcionar para todos los clientes. Detalle en
+   [docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md), al principio:
+   - la migración aplicada en Supabase (hecho el 12 oct, `20261012165218_verificacion_email`);
+   - `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production), generada como la de las sesiones;
+   - el dominio verificado en Resend, y `RESEND_FROM` con una dirección de ese dominio;
+   - `CLIENT_URL` con la dirección pública de la web, porque de ella salen los enlaces;
+   - las 2 cuentas de administrador marcadas como verificadas (con permiso, como una migración).
+6. **Dar permiso para el merge.**
 
 **Después del despliegue:**
 1. La sesión sigue abierta al recargar, y las fotos de móvil se guardan también con el límite de
@@ -153,6 +162,8 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
 3. Los límites de intentos (H28) y de sesiones de pago (H29), sin crear ninguna sesión en Stripe.
    Sección 6.
 4. `RESEND_API_KEY` puesta en producción (H27). Sección 6.
+5. H18: registrarse con un email que no sea el de la cuenta de Resend, recibir el correo, confirmar y
+   ver "Mis pedidos".
 
 ## Cómo se despliega
 
@@ -179,9 +190,9 @@ sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se
 - **[docs/verificacion-3b.md](docs/verificacion-3b.md)** -- guía para poner el secreto
   `REFRESH_TOKEN_HASH_SECRET` y comprobar a mano las sesiones con refresh token (bloque 3b) antes y
   después de desplegarlas.
-- **[docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md)** -- diseño, pendiente de
-  decidir con el cliente, de la verificación del email de las cuentas (H18). Solo diseño, sin
-  implementar.
+- **[docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md)** -- diseño de la
+  verificación del email de las cuentas (H18), implementado en el PR #3, y lo que falta antes de
+  desplegarlo.
 - **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
   administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
   mutación.

@@ -1107,7 +1107,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H18 · el registro no verifica el email | Alta. Implementado en `claude/project-thread-wq6mws` (12 oct 2026); falta la migración, el secreto y el dominio de Resend (`docs/verificacion-email-diseno.md`) |
+| H18 · el registro no verifica el email | Alta. Implementado en el PR #3 (12 oct 2026), revisado por Ashe. Migración aplicada el 12 oct (`20261012165218`). Antes de `main`: las 2 cuentas de administrador verificadas, `EMAIL_TOKEN_HASH_SECRET`, el dominio de Resend con `RESEND_FROM` y `CLIENT_URL` (`docs/verificacion-email-diseno.md`, al principio) |
 | H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
 
 **Deuda aceptada:**
