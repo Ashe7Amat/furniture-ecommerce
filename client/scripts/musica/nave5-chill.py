@@ -1,4 +1,4 @@
-# Uso: python3 scripts/componer-musica.py salida.wav  (luego: ffmpeg -i salida.wav -af loudnorm=I=-18:TP=-1.5 -b:a 112k public/audio/nave5-chill.mp3)
+# Uso: python3 scripts/musica/nave5-chill.py salida.wav  (luego: ffmpeg -i salida.wav -af "highpass=f=30,lowpass=f=15000,loudnorm=I=-18:TP=-1.5" -b:a 112k public/audio/nave5-chill.mp3)
 # Instrumental original estilo pop francés chill (~100 BPM). Todo sintetizado: sin derechos de terceros.
 import numpy as np, wave, sys
 SR=44100; BPM=100; BEAT=60/BPM; BAR=4*BEAT
