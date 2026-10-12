@@ -1,8 +1,8 @@
 # Verificación del email de las cuentas (H18) — diseño para decidir
 
 **Estado:** implementado en la rama `claude/project-thread-wq6mws` (PR #3, 12 oct 2026), con las propuestas
-de la parte 1 como decisiones por defecto. Revisado por Ashe el 12 oct (hasta `fb1f12c`); los arreglos de
-después, pendientes de su revisión. Las partes 1 a 3 son para decidir con el cliente; las partes 4 a 8, para
+de la parte 1 como decisiones por defecto. Revisado y aprobado por Ashe el 12 oct, con los arreglos de después
+de la primera revisión (hasta `c8b99d5`). Las partes 1 a 3 son para decidir con el cliente; las partes 4 a 8, para
 quien lo implemente.
 
 **Antes de que el código llegue a `main`** (sin esto, "Mis pedidos" deja de funcionar para todos los
