@@ -162,6 +162,23 @@ describe('Contact — llegando desde "Preguntar por esta pieza" (fase C)', () =>
   });
 });
 
+describe('Contact — llegando desde "Alquilar para rodajes" de la portada', () => {
+  it('el mensaje empieza con la petición de alquiler', () => {
+    montar('/contacto?motivo=alquiler');
+    expect(campos().mensaje).toHaveValue('Hola, queremos alquilar piezas para un rodaje o evento. Os contamos las fechas y lo que buscamos:');
+  });
+
+  it('con pieza y motivo a la vez, manda la pieza', () => {
+    montar('/contacto?motivo=alquiler&pieza=Baúl');
+    expect(campos().mensaje).toHaveValue('Hola, me interesa la pieza "Baúl". ¿Me podéis dar más información?');
+  });
+
+  it('un motivo desconocido no precarga nada', () => {
+    montar('/contacto?motivo=otra-cosa');
+    expect(campos().mensaje).toHaveValue('');
+  });
+});
+
 describe('Contact — accesibilidad', () => {
   it('cada campo tiene su etiqueta asociada (se encuentra por su nombre)', () => {
     montar();

@@ -33,7 +33,13 @@ describe('Home — hero', () => {
     const titulo = screen.getByRole('heading', { level: 1, name: 'Nave 5 Barcelona' });
     expect(titulo.querySelector('.hero-title-ciudad')).toHaveTextContent('Barcelona');
     expect(screen.getByText('Almacén de ideas')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Descubrir' })).toHaveAttribute('href', '/catalogo');
+    // CAMBIADO A PROPÓSITO (12 oct 2026): el único botón "Descubrir" pasa a ser dos, catálogo y alquiler.
+    expect(screen.getByRole('link', { name: 'Ver catálogo' })).toHaveAttribute('href', '/catalogo');
+  });
+
+  it('el segundo botón lleva al contacto con el mensaje de alquiler para rodajes', async () => {
+    await renderHome();
+    expect(screen.getByRole('link', { name: 'Alquilar para rodajes' })).toHaveAttribute('href', '/contacto?motivo=alquiler');
   });
 
   it('el hero va fuera de .home-page (a todo el ancho) y el resto de secciones dentro', async () => {
@@ -176,5 +182,35 @@ describe('Home — categorías (accesibilidad)', () => {
     expect(enlace).toHaveAttribute('href', '/catalogo?categoria=Mobiliario');
     expect(enlace.querySelector('img')).toHaveAttribute('alt', '');
     expect(screen.queryByRole('link', { name: 'Sillas' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Home — textos y piezas destacadas', () => {
+  it('mientras carga no nombra la base de datos', async () => {
+    getMuebles.mockReturnValue(new Promise(() => {}));
+    await renderHome();
+    expect(screen.getByText('Cargando piezas…')).toBeInTheDocument();
+    expect(screen.queryByText(/Supabase/)).toBeNull();
+  });
+
+  it('el bloque de sostenibilidad habla de restaurar, no de madera FSC ni materiales reciclados', async () => {
+    await renderHome();
+    expect(screen.getByRole('heading', { level: 2, name: 'El mueble más sostenible es el que ya existe' })).toBeInTheDocument();
+    expect(screen.queryByText(/FSC|reciclados/)).toBeNull();
+  });
+
+  it('cada destacada lleva su referencia como etiqueta de almacén; sin referencia, nada', async () => {
+    getMuebles.mockResolvedValue([
+      { id: 1, nombre: 'Butaca de cine', referencia: 'NAV-SIL-001', imagenes: [] },
+      { id: 2, nombre: 'Baúl antiguo', imagenes: [] }
+    ]);
+    await renderHome();
+    const etiquetas = [...document.querySelectorAll('.home-card-meta .ref-producto--etiqueta')];
+    expect(etiquetas.map((e) => e.textContent)).toEqual(['Ref. NAV-SIL-001']);
+  });
+
+  it('la sección "Vistos en" no sale mientras no haya producciones', async () => {
+    await renderHome();
+    expect(screen.queryByText('Nuestras piezas han salido en')).toBeNull();
   });
 });
