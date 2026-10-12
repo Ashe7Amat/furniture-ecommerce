@@ -6,6 +6,7 @@ import {
   limpiarTokens,
   avisarCierreDeSesion
 } from '../utils/authToken';
+import { peticion, comoContratoA } from './peticion';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -179,56 +180,29 @@ export const registerUser = async (userData) => {
   }
 };
 
-export const createMueble = async (muebleData) => {
-  try {
-    const isFormData = muebleData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const body = isFormData ? muebleData : JSON.stringify(muebleData);
-
-    const response = await apiFetch(`${API_URL}/muebles`, {
-      method: 'POST',
-      headers,
-      body
-    });
-    if (!response.ok) throw new Error('Error al crear el mueble');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en createMueble:', error);
-    return null;
-  }
+// Las escrituras del panel (contrato A de H12): pasan por el núcleo común (services/peticion.js)
+// y devuelven lo de siempre: el cuerpo si va bien, null si falla. El motivo del error se anota en la
+// consola, y el panel podrá enseñarlo cuando se migre al formato { data, error, status }.
+const escrituraContratoA = async (nombre, url, opciones, mensajeError) => {
+  const resultado = await peticion(apiFetch, url, opciones, mensajeError);
+  if (resultado.error) console.error(`Error en ${nombre}:`, resultado.error);
+  return comoContratoA(resultado);
 };
 
-export const updateMueble = async (id, muebleData) => {
-  try {
-    const isFormData = muebleData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const body = isFormData ? muebleData : JSON.stringify(muebleData);
+// Cuerpo de una escritura: un FormData (con fotos) va tal cual; lo demás, como JSON.
+const cuerpoDe = (datos) =>
+  datos instanceof FormData
+    ? { headers: {}, body: datos }
+    : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) };
 
-    const response = await apiFetch(`${API_URL}/muebles/${id}`, {
-      method: 'PUT',
-      headers,
-      body
-    });
-    if (!response.ok) throw new Error('Error al actualizar el mueble');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en updateMueble:', error);
-    return null;
-  }
-};
+export const createMueble = (muebleData) =>
+  escrituraContratoA('createMueble', `${API_URL}/muebles`, { method: 'POST', ...cuerpoDe(muebleData) }, 'Error al crear el mueble');
 
-export const deleteMueble = async (id) => {
-  try {
-    const response = await apiFetch(`${API_URL}/muebles/${id}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error('Error al eliminar mueble');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en deleteMueble:', error);
-    return null;
-  }
-};
+export const updateMueble = (id, muebleData) =>
+  escrituraContratoA('updateMueble', `${API_URL}/muebles/${id}`, { method: 'PUT', ...cuerpoDe(muebleData) }, 'Error al actualizar el mueble');
+
+export const deleteMueble = (id) =>
+  escrituraContratoA('deleteMueble', `${API_URL}/muebles/${id}`, { method: 'DELETE' }, 'Error al eliminar mueble');
 
 // Un CSV del panel, para Excel (GET a una ruta de /api/admin, con sesión de administrador).
 // Devuelve { blob, nombreArchivo } y lanza si el servidor responde con error. El nombre lo pone el
@@ -303,56 +277,14 @@ export const getCategorias = async (opciones = {}) => {
   }
 };
 
-export const createCategoria = async (categoriaData) => {
-  try {
-    const isFormData = categoriaData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
+export const createCategoria = (categoriaData) =>
+  escrituraContratoA('createCategoria', `${API_URL}/categorias`, { method: 'POST', ...cuerpoDe(categoriaData) }, 'Error al crear categoría');
 
-    const response = await apiFetch(`${API_URL}/categorias`, {
-      method: 'POST',
-      headers,
-      body
-    });
-    if (!response.ok) throw new Error('Error al crear categoría');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en createCategoria:', error);
-    return null;
-  }
-};
+export const updateCategoria = (id, categoriaData) =>
+  escrituraContratoA('updateCategoria', `${API_URL}/categorias/${id}`, { method: 'PUT', ...cuerpoDe(categoriaData) }, 'Error al actualizar categoría');
 
-export const updateCategoria = async (id, categoriaData) => {
-  try {
-    const isFormData = categoriaData instanceof FormData;
-    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const body = isFormData ? categoriaData : JSON.stringify(categoriaData);
-
-    const response = await apiFetch(`${API_URL}/categorias/${id}`, {
-      method: 'PUT',
-      headers,
-      body
-    });
-    if (!response.ok) throw new Error('Error al actualizar categoría');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en updateCategoria:', error);
-    return null;
-  }
-};
-
-export const deleteCategoria = async (id) => {
-  try {
-    const response = await apiFetch(`${API_URL}/categorias/${id}`, {
-      method: 'DELETE'
-    });
-    if (!response.ok) throw new Error('Error al eliminar categoría');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en deleteCategoria:', error);
-    return null;
-  }
-};
+export const deleteCategoria = (id) =>
+  escrituraContratoA('deleteCategoria', `${API_URL}/categorias/${id}`, { method: 'DELETE' }, 'Error al eliminar categoría');
 
 export const buscarMuebles = async (q) => {
   try {
@@ -460,20 +392,13 @@ export const getPedidos = async ({ pagina = 1, estado = '' } = {}) => {
 };
 
 // Cambia el estado de un pedido (procesando / enviado / entregado / cancelado)
-export const actualizarEstadoPedido = async (id, estado) => {
-  try {
-    const response = await apiFetch(`${API_URL}/pedidos/${id}/estado`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estado })
-    });
-    if (!response.ok) throw new Error('Error al actualizar el estado del pedido');
-    return await response.json();
-  } catch (error) {
-    console.error('Error en actualizarEstadoPedido:', error);
-    return null;
-  }
-};
+export const actualizarEstadoPedido = (id, estado) =>
+  escrituraContratoA(
+    'actualizarEstadoPedido',
+    `${API_URL}/pedidos/${id}/estado`,
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado }) },
+    'Error al actualizar el estado del pedido'
+  );
 
 // Envía el formulario de "Contacto". "web" es un campo honeypot (ver contactoController).
 export const enviarContacto = async ({ nombre, email, mensaje, web }) => {

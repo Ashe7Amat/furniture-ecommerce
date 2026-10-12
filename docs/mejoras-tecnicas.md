@@ -1095,7 +1095,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H12 · contratos de error de `api.js` | Decidido el 29 sep; se implementa cuando haya que tocar `api.js` por otro motivo (probablemente las reservas). Decisiones en la sección H12. Caso adicional del 2 oct: el error de código de categoría repetido |
+| H12 · contratos de error de `api.js` | Decidido el 29 sep. **12 oct:** hechos la tanda 0 (núcleo `peticion()`) y el arreglo de los 4 sitios del panel; falta migrar las llamadas al formato `{ data, error, status }` (el panel necesita el permiso D-a). Detalle en la sección H12 |
 
 **Parcial:**
 
@@ -1368,7 +1368,7 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
 
-### H12 · MEDIA · DECIDIDO, PENDIENTE DE IMPLEMENTACIÓN (29 sep 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+### H12 · MEDIA · EN CURSO: tanda 0 y los 4 sitios del panel hechos (12 oct 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
 
 - **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
   dentro y devuelven un valor. Pero no siempre el mismo:
@@ -1440,6 +1440,32 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
     unificar ahí el contrato de error para lecturas y escrituras, de forma que distinga un error de una lista vacía
     y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
     diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
+
+#### Implementación, primera parte (12 oct 2026)
+
+- **Tanda 0, el núcleo:** `client/src/services/peticion.js`. `peticion(transporte, url, opciones, mensajeError)`
+  nunca lanza y devuelve `{ data, error, status }` con las reglas del diseño de abajo (mensaje del servidor
+  tal cual, el de la función si no hay JSON, "No se pudo conectar con el servidor. Revisa tu conexión." con
+  `status: 0` si falla la red, y un 2xx sin cuerpo como éxito con `data: null`). Recibe el transporte
+  (`apiFetch` o `fetch`) para no depender de `api.js`. Se llama `peticion` (el nombre de la propuesta del
+  28 sep); D-b lo llamaba `apiCall`, pero el sitio es el mismo: encima de `apiFetch`, no dentro.
+- **Migradas al núcleo, con el contrato de siempre:** las 7 escrituras del contrato A (`createMueble`,
+  `updateMueble`, `deleteMueble`, `createCategoria`, `updateCategoria`, `deleteCategoria`,
+  `actualizarEstadoPedido`), con `comoContratoA`. `api.contratos.test.js` sigue en verde sin tocarlo. El
+  motivo del error ya no se pierde del todo: se anota en la consola.
+- **Los 4 sitios del panel (opción 1):** borrar un mueble, borrar una categoría, borrar en lote y cambiar el
+  estado en lote miran la respuesta. Los lotes usan `Promise.allSettled` (`pages/admin/lotes.js`):
+  - todo bien: el aviso de siempre;
+  - todo mal: "No se pudo eliminar ninguno de los N productos" (o "...actualizar el estado de...");
+  - a medias: el texto de D-c, "3 de 5 completados. Los otros 2 no se pudieron procesar.";
+  - solo se recarga si algo cambió, y las piezas que fallaron siguen seleccionadas para reintentarlo.
+- **Tests:** cambian a propósito los 4 marcados H12 ("CAMBIADO A PROPÓSITO"); se añaden 4 del panel (lotes a
+  medias y con todo fallido) y los de `peticion.test.js` y `lotes.test.js`. La preparación de los demás tests
+  del panel no se toca (D-a). Mutantes de inventario y categorías reapuntados, con 6 nuevos de H12: todos
+  muertos.
+- **Lo que falta:** que el panel enseñe **el motivo** que da el servidor (lo necesitará el 409 de las
+  reservas). Pasa por migrar el panel a `{ data, error, status }`, que cambia la preparación de los tests
+  congelados: sigue pendiente del permiso D-a. Las tandas 1 a 5 (contratos B y C) no dependen de ese permiso.
 
 #### Decisiones de la revisión (29 sep 2026)
 

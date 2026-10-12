@@ -89,14 +89,44 @@ export const MUTANTES = [
   {
     nombre: '"Aplicar estado" no vacía la selección',
     archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
-    buscar: "showToast(`Estado actualizado en ${cantidad} producto${cantidad === 1 ? '' : 's'}`, 'success');\n    setSeleccionados([]);",
-    reemplazo: "showToast(`Estado actualizado en ${cantidad} producto${cantidad === 1 ? '' : 's'}`, 'success');"
+    buscar: "    setSeleccionados(fallidos);\n    if (hechos > 0) recargarMuebles();\n  };",
+    reemplazo: "    if (hechos > 0) recargarMuebles();\n  };"
   },
   {
     nombre: '"Eliminar seleccionados" solo borra la primera',
     archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
-    buscar: 'await Promise.all(seleccionados.map(id => deleteMueble(id)));',
-    reemplazo: 'await deleteMueble(seleccionados[0]);'
+    buscar: 'await ejecutarLote(seleccionados, id => deleteMueble(id));',
+    reemplazo: 'await ejecutarLote(seleccionados.slice(0, 1), id => deleteMueble(id));'
+  },
+  {
+    nombre: 'H12: "Eliminar seleccionados" avisa de éxito sin mirar las respuestas',
+    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
+    buscar: 'const { hechos, fallidos } = await ejecutarLote(seleccionados, id => deleteMueble(id));',
+    reemplazo: 'await ejecutarLote(seleccionados, id => deleteMueble(id)); const hechos = seleccionados.length, fallidos = [];'
+  },
+  {
+    nombre: 'H12: un borrado en lote a medias no recarga',
+    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
+    buscar: '        setSeleccionados(fallidos);\n        if (hechos > 0) recargarMuebles();',
+    reemplazo: '        setSeleccionados(fallidos);\n        if (fallidos.length === 0) recargarMuebles();'
+  },
+  {
+    nombre: 'H12: tras un borrado en lote con fallos se vacía la selección',
+    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
+    buscar: '        setSeleccionados(fallidos);\n        if (hechos > 0) recargarMuebles();',
+    reemplazo: '        setSeleccionados([]);\n        if (hechos > 0) recargarMuebles();'
+  },
+  {
+    nombre: 'H12: "Aplicar estado" a medias avisa como si fallaran todas',
+    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
+    buscar: '    } else if (hechos === 0) {\n      showToast(cantidad === 1 ?',
+    reemplazo: '    } else if (true) {\n      showToast(cantidad === 1 ?'
+  },
+  {
+    nombre: 'H12: si falla el borrado de la fila, recarga igualmente',
+    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
+    buscar: "          showToast('No se pudo eliminar el mueble', 'error');\n          return;",
+    reemplazo: "          showToast('No se pudo eliminar el mueble', 'error');\n          recargarMuebles();\n          return;"
   },
   {
     nombre: '"Cancelar" de la barra de acciones no vacía la selección',

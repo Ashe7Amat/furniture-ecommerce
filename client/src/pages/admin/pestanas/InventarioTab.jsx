@@ -6,12 +6,14 @@ import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
 import ImportarCatalogoModal from '../modales/ImportarCatalogoModal';
+import { ejecutarLote, textoLoteAMedias } from '../lotes';
 
 // Pestaña "Gestionar Inventario". El estado de la vista (búsqueda, filtros, orden, página,
 // selección) llega en `vista` desde el contenedor (useInventarioVista), para que se conserve al
 // cambiar de pestaña.
-// Ojo (H12): los borrados y el cambio de estado en lote avisan de éxito sin mirar la respuesta.
-// Se conserva a propósito en el refactor; se corrige en su propio commit.
+// H12: los borrados y el cambio de estado en lote miran la respuesta. Si algo falla, se avisa con un
+// error, solo se recarga si algo cambió, y las piezas que fallaron siguen seleccionadas para
+// reintentarlo.
 const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarBorrado, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const {
@@ -50,7 +52,10 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
       'Eliminar Mueble',
       '¿Estás seguro de que quieres eliminar de forma permanente este mueble del catálogo?',
       async () => {
-        await deleteMueble(id);
+        if (!(await deleteMueble(id))) {
+          showToast('No se pudo eliminar el mueble', 'error');
+          return;
+        }
         showToast('Mueble eliminado con éxito', 'success');
         recargarMuebles();
       }
@@ -63,20 +68,32 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
       'Eliminar productos seleccionados',
       `¿Seguro que quieres eliminar ${cantidad} producto${cantidad === 1 ? '' : 's'} de forma permanente?`,
       async () => {
-        await Promise.all(seleccionados.map(id => deleteMueble(id)));
-        showToast(`${cantidad} producto${cantidad === 1 ? '' : 's'} eliminado${cantidad === 1 ? '' : 's'}`, 'success');
-        setSeleccionados([]);
-        recargarMuebles();
+        const { hechos, fallidos } = await ejecutarLote(seleccionados, id => deleteMueble(id));
+        if (fallidos.length === 0) {
+          showToast(`${cantidad} producto${cantidad === 1 ? '' : 's'} eliminado${cantidad === 1 ? '' : 's'}`, 'success');
+        } else if (hechos === 0) {
+          showToast(cantidad === 1 ? 'No se pudo eliminar el producto' : `No se pudo eliminar ninguno de los ${cantidad} productos`, 'error');
+        } else {
+          showToast(textoLoteAMedias(hechos, cantidad), 'error');
+        }
+        setSeleccionados(fallidos);
+        if (hechos > 0) recargarMuebles();
       }
     );
   };
 
   const handleBulkEstado = async () => {
     const cantidad = seleccionados.length;
-    await Promise.all(seleccionados.map(id => updateMueble(id, { estado: bulkEstado })));
-    showToast(`Estado actualizado en ${cantidad} producto${cantidad === 1 ? '' : 's'}`, 'success');
-    setSeleccionados([]);
-    recargarMuebles();
+    const { hechos, fallidos } = await ejecutarLote(seleccionados, id => updateMueble(id, { estado: bulkEstado }));
+    if (fallidos.length === 0) {
+      showToast(`Estado actualizado en ${cantidad} producto${cantidad === 1 ? '' : 's'}`, 'success');
+    } else if (hechos === 0) {
+      showToast(cantidad === 1 ? 'No se pudo actualizar el estado' : `No se pudo actualizar el estado de ninguno de los ${cantidad} productos`, 'error');
+    } else {
+      showToast(textoLoteAMedias(hechos, cantidad), 'error');
+    }
+    setSeleccionados(fallidos);
+    if (hechos > 0) recargarMuebles();
   };
 
   return (
