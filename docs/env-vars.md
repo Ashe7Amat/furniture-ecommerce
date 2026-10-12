@@ -80,10 +80,25 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Paso a paso** (generarla, dónde ponerla y cómo comprobar las sesiones): `docs/verificacion-3b.md`.
 - **Ejemplo (enmascarado):** `REFRESH_TOKEN_HASH_SECRET=8b1e...(64 caracteres hex)...f07a`
 
+### `EMAIL_TOKEN_HASH_SECRET`
+- **Qué hace:** secreto con el que se calcula el HMAC-SHA256 de cada enlace de verificación del email
+  antes de guardarlo en la tabla `verificaciones_email` (`server/src/utils/verificacionEmail.js`, H18).
+  Es propio, distinto de `REFRESH_TOKEN_HASH_SECRET`, para que rotar uno no invalide el otro.
+- **Formato:** una cadena aleatoria. Se genera con `openssl rand -hex 32`.
+- **Obligatoria:** sí, para verificar emails. Sin ella el servidor arranca igual, pero:
+  - el registro crea la cuenta sin verificar y sin mandar el correo (queda un error en el log);
+  - `/api/auth/verificar-email` responde 503, y `/api/auth/reenviar-verificacion` y el cambio de
+    email en Mi cuenta también fallan con 503.
+- **Cambiarla** invalida los enlaces ya enviados: hay que pedir otro desde Mi cuenta.
+- **En producción**, se pone en las variables de entorno de `nave5-api` en Vercel **antes** de
+  desplegar la verificación del email.
+- **Ejemplo (enmascarado):** `EMAIL_TOKEN_HASH_SECRET=4c7d...(64 caracteres hex)...a19e`
+
 ### `CLIENT_URL`
 - **Qué hace:** URL pública del frontend. Stripe Checkout redirige aquí (`/checkout/exito`,
-  `/checkout/cancelado`) al terminar el pago, y forma parte de la lista de orígenes permitidos
-  por CORS.
+  `/checkout/cancelado`) al terminar el pago, los enlaces de verificación del email llevan a
+  `/verificar-email` (H18; sin ella, a https://nave5barcelona.com), y forma parte de la lista de
+  orígenes permitidos por CORS.
 - **Formato:** una URL completa, sin barra final.
 - **Dónde se obtiene:** en local, `http://localhost:5173` (el puerto por defecto de Vite). En
   producción, la URL real del frontend desplegado.

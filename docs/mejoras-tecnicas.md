@@ -1107,7 +1107,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H18 · el registro no verifica el email | Alta. Diseño para decidir en `docs/verificacion-email-diseno.md` |
+| H18 · el registro no verifica el email | Alta. Implementado en `claude/project-thread-wq6mws` (12 oct 2026); falta la migración, el secreto y el dominio de Resend (`docs/verificacion-email-diseno.md`) |
 | H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
 
 **Deuda aceptada:**

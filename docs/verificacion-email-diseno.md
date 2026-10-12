@@ -1,7 +1,18 @@
 # Verificación del email de las cuentas (H18) — diseño para decidir
 
-**Estado:** solo diseño (29 sep 2026). No hay nada implementado. Las partes 1 a 3 son para decidir con el
-cliente; las partes 4 a 8, para quien lo implemente.
+**Estado:** implementado en la rama `claude/project-thread-wq6mws` (12 oct 2026), con las propuestas de la
+parte 1 como decisiones por defecto. **Falta, antes de mergear:** aplicar la migración de la parte 5 (con
+permiso), poner `EMAIL_TOKEN_HASH_SECRET` en Vercel y verificar el dominio en Resend (decisión 1). Las partes
+1 a 3 son para decidir con el cliente; las partes 4 a 8, para quien lo implemente.
+
+**Diferencias con el diseño, a propósito:**
+- El cambio de email que pide la contraseña actual sigue con el límite de intentos de H28, que ya estaba.
+- Confirmar el email nuevo también deja la cuenta verificada (quien confirma demuestra el buzón).
+- Al entrar con Google en una cuenta sin verificar se protege siempre (punto 8 de la parte 6): no hay columna
+  que diga si la cuenta se creó con contraseña o con Google, así que una cuenta de Google de antes de H18
+  recibe también el correo 5 y se le cierran las demás sesiones. Con 3 cuentas, se acepta.
+- El checkout fija el email de la cuenta verificada en el cliente; el servidor no lo comprueba, porque la
+  sesión de pago no pide iniciar sesión.
 
 ---
 
