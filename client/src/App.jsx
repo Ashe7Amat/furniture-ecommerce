@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
 import CookieConsent from './components/CookieConsent';
+import MusicaDeFondo from './components/MusicaDeFondo';
 import Home from './pages/Home'; // <-- Se mantiene fuera del lazy-loading: es la página de aterrizaje
 import ScrollToTop from './components/ScrollToTop';
 
@@ -80,6 +81,7 @@ function App() {
                 </main>
                 <Footer />
                 <CartDrawer />
+                <MusicaDeFondo />
                 <CookieConsent />
               </div>
             </BrowserRouter>
