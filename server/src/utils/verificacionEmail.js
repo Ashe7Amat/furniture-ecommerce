@@ -9,7 +9,8 @@
 // - Gastarlo es un UPDATE condicional (`... WHERE id = $id AND usado_en IS NULL`), la única puerta
 //   frente a dos confirmaciones a la vez: solo una ve la fila afectada; la otra recibe la misma
 //   respuesta que un enlace inventado.
-// - Pedir un enlace nuevo borra los anteriores sin usar de esa cuenta: solo vale el último.
+// - Pedir un enlace nuevo borra los anteriores sin usar de esa cuenta y del mismo motivo: solo vale
+//   el último de cada motivo.
 const crypto = require('crypto');
 const supabase = require('../data/supabase');
 const { escaparIlike } = require('./ilike');

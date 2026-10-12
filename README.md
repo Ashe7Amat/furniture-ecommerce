@@ -101,7 +101,7 @@ está en **[docs/env-vars.md](docs/env-vars.md)**.
 | `RESEND_API_KEY` | server | No en local (sin ella, los emails se simulan, y el log no lleva datos del cliente); **sí** en producción |
 | `EMAIL_DEBUG_DATOS` | server | No. Solo en local, para ver el contenido de los emails simulados; en producción no hace nada |
 | `RESEND_FROM` | server | No en local (tiene un valor por defecto de pruebas). **Sí** en producción desde H18: con el de pruebas, los correos para confirmar el email no llegan a los clientes |
-| `EMAIL_TOKEN_HASH_SECRET` | server | **Sí** desde H18: sin ella nadie puede confirmar su email ni ver "Mis pedidos" ([docs/env-vars.md](docs/env-vars.md)) |
+| `EMAIL_TOKEN_HASH_SECRET` | server | **Sí** desde H18: sin ella no se mandan los enlaces para confirmar el email, y quien se registró con contraseña no puede ver "Mis pedidos" ([docs/env-vars.md](docs/env-vars.md)) |
 | `ADMIN_EMAIL` | server | No (destino de las alertas de venta) |
 | `CONTACT_EMAILS` | server | No (destinatarios del formulario de contacto, separados por comas; si no está, `ADMIN_EMAIL`) |
 | `GOOGLE_CLIENT_ID` | server | No (sin ella, el botón de Google queda desactivado) |
@@ -137,7 +137,7 @@ diseño y el porqué de cada una están en **[docs/tarea3-diseno.md](docs/tarea3
 Lo que queda por hacer a mano antes de mergear `feature/mejoras-tecnicas` a `main`, y justo después.
 El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificacion-3b.md)**.
 
-**Antes del merge** (unos 20 minutos):
+**Antes del merge** (unos 20 minutos, sin contar H18: verificar el dominio en Resend depende de los DNS):
 1. **El secreto** `REFRESH_TOKEN_HASH_SECRET`: generarlo con `openssl rand -hex 32` y ponerlo en
    `server/.env` y en Vercel (`nave5-api`, Production). No se pasa por ningún chat. Sección 1; unos 2 min.
 2. **Las sesiones del bloque 3b en el navegador:** iniciar sesión, recargar, el 401 simulado y cerrar
@@ -152,7 +152,8 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
    - `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production), generada como la de las sesiones;
    - el dominio verificado en Resend, y `RESEND_FROM` con una dirección de ese dominio;
    - `CLIENT_URL` con la dirección pública de la web, porque de ella salen los enlaces;
-   - las 2 cuentas de administrador marcadas como verificadas (con permiso, como una migración).
+   - las 2 cuentas de administrador marcadas como verificadas (con permiso, como una migración),
+     justo antes del despliegue.
 6. **Dar permiso para el merge.**
 
 **Después del despliegue:**

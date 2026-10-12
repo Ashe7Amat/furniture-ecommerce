@@ -288,6 +288,10 @@ const actualizarPerfil = async (req, res) => {
     if (nuevaPassword) {
       const salt = await bcrypt.genSalt(10);
       updateFields.password = await bcrypt.hash(nuevaPassword, salt);
+      // Cambiar solo la contraseña anula un cambio de email pendiente: es lo que el aviso al email
+      // antiguo (correo 4) le dice que haga a quien no lo ha pedido. Sin el pendiente, su enlace
+      // ya no vale (verificarEmail lo compara con email_pendiente).
+      if (!estaCambiandoEmail && usuario.email_pendiente) updateFields.email_pendiente = null;
     }
 
     // H21: cambiar la contraseña cierra todas las sesiones de la cuenta (los refresh tokens de
@@ -431,6 +435,8 @@ const loginConGoogle = async (req, res) => {
       // inservible (la de antes la podría saber quien la creó), se cierran todas sus sesiones y
       // se avisa por correo. No se distingue una cuenta de Google de antes de H18 (tampoco
       // verificada): con ella pasa lo mismo, y solo cambia que se cierran sus otras sesiones.
+      // También se anula un cambio de email pendiente: lo pudo pedir quien creó la cuenta, y con
+      // su enlace se quedaría con ella (y con los pedidos que se acaban de asociar).
       const passwordInservible = await bcrypt.hash(crypto.randomUUID(), 10);
       await refreshTokens.revocarTodasDelUsuario(usuario.id);
       const { data: protegida, error: updateError } = await supabase
@@ -438,7 +444,8 @@ const loginConGoogle = async (req, res) => {
         .update({
           email_verificado: true,
           email_verificado_en: ahora,
-          password: passwordInservible
+          password: passwordInservible,
+          email_pendiente: null
         })
         .eq('id', usuario.id)
         .select()

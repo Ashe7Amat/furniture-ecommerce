@@ -60,12 +60,12 @@ export default function Profile() {
     );
   }
 
-  const pedirOtroCorreo = async () => {
+  const pedirCorreo = async (confirmacion) => {
     setReenviando(true);
     const res = await reenviarVerificacion();
     setReenviando(false);
     if (res.error) showToast(res.error, 'error');
-    else showToast('Te hemos enviado el correo.', 'success');
+    else showToast(confirmacion, 'success');
   };
 
   // Sin "te hemos enviado": las cuentas de antes de H18 nunca recibieron el correo.
@@ -75,7 +75,7 @@ export default function Profile() {
         Confirma tu email, <strong>{user.email}</strong>, para ver tus pedidos. Si no tienes el correo con
         el enlace, te mandamos uno nuevo.
       </p>
-      <button type="button" className="aviso-verificacion-btn" onClick={pedirOtroCorreo} disabled={reenviando}>
+      <button type="button" className="aviso-verificacion-btn" onClick={() => pedirCorreo('Te hemos enviado el correo.')} disabled={reenviando}>
         {reenviando ? 'Enviando...' : 'Enviar enlace'}
       </button>
     </div>
@@ -147,7 +147,7 @@ export default function Profile() {
             Te hemos enviado un enlace a <strong>{user.email_pendiente}</strong>. Hasta que lo confirmes,
             tu cuenta sigue con {user.email}.
           </p>
-          <button type="button" className="aviso-verificacion-btn" onClick={pedirOtroCorreo} disabled={reenviando}>
+          <button type="button" className="aviso-verificacion-btn" onClick={() => pedirCorreo('Te hemos enviado otro correo.')} disabled={reenviando}>
             {reenviando ? 'Enviando...' : 'Enviar otro'}
           </button>
         </div>

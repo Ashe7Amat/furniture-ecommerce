@@ -77,7 +77,7 @@ router.post('/login', limitadorAuth, validar(schemaLogin), loginCliente);
 router.post('/register', limitadorAuth, validar(schemaRegistro), registrarCliente);
 router.post('/google', limitadorAuth, validar(schemaGoogle), loginConGoogle);
 
-// Requiere sesión: solo se puede editar la propia cuenta (el email sale del token, no del body).
+// Requiere sesión: solo se puede editar la propia cuenta (sale del token, por su id; no del body).
 // El límite va después de verificarToken, que es quien dice de qué cuenta es la petición.
 router.post(
   '/perfil-update',

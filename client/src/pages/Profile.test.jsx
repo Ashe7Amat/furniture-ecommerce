@@ -327,6 +327,18 @@ describe('Profile — verificación del email (H18)', () => {
     );
   });
 
+  it('"Enviar otro" vuelve a mandar el enlace al email nuevo y lo confirma con un aviso', async () => {
+    reenviarVerificacion.mockResolvedValueOnce({ success: true });
+    const { showToast } = abrir({ user: { ...ANA, email_pendiente: 'ana.nueva@correo.es' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar otro' }));
+    });
+
+    expect(reenviarVerificacion).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith('Te hemos enviado otro correo.', 'success');
+  });
+
   it('al pedir el cambio de email, enseña el mensaje del servidor y el campo vuelve al email actual', async () => {
     const respuesta = {
       user: { ...ANA, email_pendiente: 'ana.nueva@correo.es' },

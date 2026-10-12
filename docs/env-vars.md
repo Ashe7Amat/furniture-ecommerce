@@ -166,7 +166,10 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   puede usar el dominio sandbox `onboarding@resend.dev` -- y ese dominio solo entrega a la
   dirección con la que se verificó la cuenta de Resend. Si se verifica un dominio propio
   (Dashboard > Domains), se cambia por una dirección real.
-- **Obligatoria:** no -- tiene un valor por defecto de pruebas.
+- **Obligatoria:** en local no -- tiene un valor por defecto de pruebas. **En producción sí**,
+  desde H18: con el remitente de pruebas, los correos para confirmar el email solo llegan a la
+  cuenta de Resend, y ningún cliente podría verificar su cuenta ni ver sus pedidos. En producción
+  va una dirección de un dominio propio verificado en Resend.
 - **Ejemplo:** `RESEND_FROM=Nave 5 Barcelona <onboarding@resend.dev>`
 
 ### `ADMIN_EMAIL`

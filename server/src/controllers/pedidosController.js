@@ -19,6 +19,19 @@ const EMAIL_SIN_VERIFICAR = {
   error: 'Confirma tu email para ver tus pedidos.',
   codigo: 'email_no_verificado'
 };
+const SESION_CADUCADA = { error: 'Tu sesión ha caducado. Vuelve a iniciar sesión.' };
+
+// Un access token firmado antes de que la cuenta quedara verificada no sirve aquí: puede ser de
+// quien registró el email de otra persona, cuando esa persona entra con Google y protege la cuenta
+// (se le revocan las sesiones, pero su access token vale hasta 1 hora y la cuenta acaba de recibir
+// los pedidos de invitado). Con un 401, el cliente renueva la sesión y reintenta: quien tiene una
+// sesión válida sigue sin notar nada, y la revocada se queda fuera. Se compara por segundos, como
+// `iat`, para no rechazar un token firmado en el mismo segundo que la verificación.
+const firmadoAntesDeVerificar = (usuarioToken, cuenta) => {
+  if (!cuenta.email_verificado_en || typeof usuarioToken.iat !== 'number') return false;
+  const verificadoEn = Math.floor(new Date(cuenta.email_verificado_en).getTime() / 1000);
+  return usuarioToken.iat < verificadoEn;
+};
 
 const obtenerMisPedidos = async (req, res) => {
   try {
@@ -27,7 +40,9 @@ const obtenerMisPedidos = async (req, res) => {
       return res.status(401).json({ error: 'No has iniciado sesión.' });
     }
 
-    const consultaCuenta = supabase.from('clientes').select('id, email_verificado');
+    const consultaCuenta = supabase
+      .from('clientes')
+      .select('id, email_verificado, email_verificado_en');
     const { data: cuenta, error: errorCuenta } = sub
       ? await consultaCuenta.eq('id', sub).maybeSingle()
       : await consultaCuenta.eq('email', email).maybeSingle();
@@ -37,6 +52,9 @@ const obtenerMisPedidos = async (req, res) => {
     }
     if (cuenta.email_verificado !== true) {
       return res.status(403).json(EMAIL_SIN_VERIFICAR);
+    }
+    if (firmadoAntesDeVerificar(req.usuario, cuenta)) {
+      return res.status(401).json(SESION_CADUCADA);
     }
 
     const { data, error } = await supabase
