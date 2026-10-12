@@ -1095,7 +1095,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H12 · contratos de error de `api.js` | Decidido el 29 sep. **12 oct:** hechos la tanda 0 (núcleo `peticion()`) y el arreglo de los 4 sitios del panel; falta migrar las llamadas al formato `{ data, error, status }` (el panel necesita el permiso D-a). Detalle en la sección H12 |
+| H12 · contratos de error de `api.js` | **Panel resuelto el 12 oct** (PR #2, merge `095c48b`): los borrados y el estado en lote avisan si fallan y cuentan los fallos. **Pendiente:** enseñar el motivo que da el servidor (el 409 de las reservas); se hace con el bloque de reservas (R-a en adelante). Detalle en la sección H12 |
 
 **Parcial:**
 
@@ -1368,7 +1368,7 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   "más de una fila" en vez de resolver de forma ambigua -- lo cual, dicho sea de paso, es el fallo seguro
   correcto (no elegir una fila al azar), pero merece una nota aquí por si se olvida el motivo.
 
-### H12 · MEDIA · EN CURSO: tanda 0 y los 4 sitios del panel hechos (12 oct 2026) · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
+### H12 · MEDIA · CERRADO EN PARTE: panel resuelto (12 oct 2026, PR #2); el motivo del servidor queda para las reservas · `api.js` tiene tres contratos de error distintos, y el panel ignora el de sus borrados
 
 - **El patrón:** ninguna función de `client/src/services/api.js` lanza el error a quien la llama. Todas lo capturan
   dentro y devuelven un valor. Pero no siempre el mismo:
@@ -1441,7 +1441,12 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
     y conserve el mensaje del servidor. Si se lanza un error tipado o se devuelve `{ data, error }` se decide en el
     diseño de 3b. Tiene que estar antes del bloque R-d de reservas, que necesita esos mensajes 409.
 
-#### Implementación, primera parte (12 oct 2026)
+#### Implementación, primera parte (12 oct 2026) · RESUELTA
+
+- **Merge:** PR #2 a `feature/mejoras-tecnicas` (`095c48b`), aprobado por el usuario el 12 oct. Sin merge a
+  `main` todavía: lo decide el usuario. CI en verde (cliente, servidor y E2E); mutantes del panel: 133 (132
+  detectados y 1 superviviente esperado), los 127 de antes más 6 de H12. Probado en el navegador con la API
+  simulada de los E2E y errores 500 forzados en los DELETE.
 
 - **Tanda 0, el núcleo:** `client/src/services/peticion.js`. `peticion(transporte, url, opciones, mensajeError)`
   nunca lanza y devuelve `{ data, error, status }` con las reglas del diseño de abajo (mensaje del servidor
@@ -1463,7 +1468,8 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   medias y con todo fallido) y los de `peticion.test.js` y `lotes.test.js`. La preparación de los demás tests
   del panel no se toca (D-a). Mutantes de inventario y categorías reapuntados, con 6 nuevos de H12: todos
   muertos.
-- **Lo que falta:** que el panel enseñe **el motivo** que da el servidor (lo necesitará el 409 de las
+- **Lo que falta (pendiente, decidido el 12 oct):** se hace con el bloque de reservas (R-a en adelante),
+  que es cuando hace falta. Que el panel enseñe **el motivo** que da el servidor (lo necesitará el 409 de las
   reservas). Pasa por migrar el panel a `{ data, error, status }`, que cambia la preparación de los tests
   congelados: sigue pendiente del permiso D-a. Las tandas 1 a 5 (contratos B y C) no dependen de ese permiso.
 
