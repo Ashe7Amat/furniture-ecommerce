@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { ToastContext } from '../../../context/ToastContext';
 import { updateMueble } from '../../../services/api';
@@ -21,6 +21,9 @@ const EditarMuebleModal = ({
 }) => {
   const { showToast } = useContext(ToastContext);
   const envio = useEstadoEnvio();
+  // La foto de antes de restaurar (el "antes y después" de la ficha): una nueva para subir, o quitar la que hay.
+  const [fotoAntes, setFotoAntes] = useState(null);
+  const [quitarAntes, setQuitarAntes] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,15 +33,19 @@ const EditarMuebleModal = ({
 
     // Las fotos nuevas se reducen antes de subirlas (H24, ver utils/imagen.js). Si ni así caben en
     // una petición, no se manda nada.
+    // La foto de antes va en la misma petición, así que se reduce y se pesa junto con las demás (al final).
+    const aSubir = fotoAntes ? [...archivosNuevos, fotoAntes] : archivosNuevos;
     let fotosNuevas = archivosNuevos;
-    if (archivosNuevos.length > 0) {
-      const preparadas = await prepararFotos(archivosNuevos, { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
+    let fotoAntesLista = fotoAntes;
+    if (aSubir.length > 0) {
+      const preparadas = await prepararFotos(aSubir, { alProgreso: (n, total) => envio.empezar(textoOptimizando(n, total)) });
       if (!preparadas.caben) {
-        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, archivosNuevos.length));
+        envio.acabarMal(textoDemasiadoPeso(preparadas.peso, aSubir.length));
         showToast('Las fotos pesan demasiado', 'error');
         return;
       }
-      fotosNuevas = preparadas.fotos;
+      fotosNuevas = fotoAntes ? preparadas.fotos.slice(0, -1) : preparadas.fotos;
+      if (fotoAntes) fotoAntesLista = preparadas.fotos[preparadas.fotos.length - 1];
       envio.empezar('Actualizando producto...');
     }
 
@@ -56,6 +63,8 @@ const EditarMuebleModal = ({
     for (const foto of fotosNuevas) {
       formDataToSend.append('imagenes', foto);
     }
+    if (fotoAntesLista) formDataToSend.append('imagen_antes', fotoAntesLista);
+    else if (quitarAntes) formDataToSend.append('quitar_imagen_antes', 'true');
 
     const res = await updateMueble(mueble.id, formDataToSend);
     if (res) {
@@ -63,6 +72,8 @@ const EditarMuebleModal = ({
       showToast('Producto actualizado correctamente', 'success');
       onCerrar();
       setArchivosNuevos([]);
+      setFotoAntes(null);
+      setQuitarAntes(false);
       onGuardado();
     } else {
       envio.acabarMal('Error al actualizar.');
@@ -183,6 +194,28 @@ const EditarMuebleModal = ({
               multiple
               accept="image/*"
               onChange={(e) => setArchivosNuevos(Array.from(e.target.files))}
+            />
+          </div>
+
+          {/* El "antes y después" de la ficha compara esta foto con la principal. Es opcional. */}
+          <div className="file-input-wrapper">
+            <label htmlFor="editar-mueble-foto-antes">Foto de antes de restaurar (opcional):</label>
+            {mueble.imagen_antes && !quitarAntes && !fotoAntes && (
+              <div className="foto-antes-actual">
+                <img src={mueble.imagen_antes} alt="Foto de antes de restaurar" className="foto-antes-miniatura" />
+                <button type="button" className="admin-btn-danger-ghost" onClick={() => setQuitarAntes(true)}>
+                  Quitar foto de antes
+                </button>
+              </div>
+            )}
+            {quitarAntes && !fotoAntes && (
+              <p className="field-hint">Se quitará al guardar.</p>
+            )}
+            <input
+              id="editar-mueble-foto-antes"
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFotoAntes(e.target.files[0] || null)}
             />
           </div>
 

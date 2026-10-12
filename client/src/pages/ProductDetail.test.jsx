@@ -366,3 +366,22 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
     expect(meta('meta[name="description"]')).toMatch(/^Almacén de ideas en el corazón de Barcelona/);
   });
 });
+
+describe('ProductDetail — antes y después de la restauración', () => {
+  it('con foto de antes, compara la de antes con la principal de ahora', async () => {
+    await montar({ ...MUEBLE, imagen_antes: 'https://img.test/antes.jpg' });
+    expect(screen.getByRole('slider', { name: 'Comparar antes y después de la restauración' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Aparador de roble, antes de restaurar' })).toHaveAttribute('src', 'https://img.test/antes.jpg');
+    expect(screen.getByRole('img', { name: 'Aparador de roble, después de restaurar' })).toHaveAttribute('src', 'https://img.test/1.jpg');
+  });
+
+  it('sin foto de antes (null, o una pieza de antes de la columna), no sale', async () => {
+    await montar({ ...MUEBLE, imagen_antes: null });
+    expect(screen.queryByRole('slider')).toBeNull();
+  });
+
+  it('con foto de antes pero sin ninguna foto de ahora, tampoco', async () => {
+    await montar({ ...MUEBLE, imagenes: [], imagen_antes: 'https://img.test/antes.jpg' });
+    expect(screen.queryByRole('slider')).toBeNull();
+  });
+});

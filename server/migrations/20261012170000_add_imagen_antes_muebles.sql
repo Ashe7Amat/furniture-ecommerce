@@ -1,0 +1,1 @@
+ALTER TABLE public.muebles ADD COLUMN imagen_antes text;

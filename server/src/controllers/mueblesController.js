@@ -31,8 +31,10 @@ const resolverCategoriaIdPorNombre = async (nombreCategoria) => {
 // (solo sirve para ordenar, y ordenar no necesita devolverla) ni `categoria_id` (la web usa
 // `categoria`; cuando cierre la migración A habrá que añadirla aquí).
 // `referencia` (NAV-SIL-001) sale también al público desde A6: el catálogo la enseña bajo el nombre.
+// `imagen_antes` (la foto de cómo llegó la pieza, o null) la usa el "antes y después" de la ficha.
+// NECESITA la migración add_imagen_antes_muebles aplicada: sin la columna, estas lecturas fallan.
 const COLUMNAS_PUBLICAS_MUEBLE =
-  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado, referencia';
+  'id, nombre, categoria, descripcion, precio_venta, precio_alquiler_dia, imagenes, estado, referencia, imagen_antes';
 
 // Columnas de la lectura del panel (GET /api/admin/muebles, solo administradores). Hoy son las
 // mismas que las públicas (en A5 añadía `referencia`, que desde A6 ya es pública), pero van aparte:
@@ -203,9 +205,21 @@ const editarMueble = async (req, res) => {
       }
     }
 
-    if (req.files && req.files.length > 0) {
+    // El PUT recibe dos campos de archivo (upload.fields en mueblesRoutes.js): las fotos y, como
+    // mucho, una foto de antes de restaurar. Un req.files en forma de lista se sigue aceptando.
+    const fotosSubidas = Array.isArray(req.files) ? req.files : req.files?.imagenes || [];
+    const fotoAntes = Array.isArray(req.files) ? undefined : req.files?.imagen_antes?.[0];
+
+    if (fotoAntes) {
+      const url = await uploadToSupabase(fotoAntes, 'muebles');
+      if (url) updateData.imagen_antes = url;
+    } else if (req.body.quitar_imagen_antes === 'true' || req.body.quitar_imagen_antes === true) {
+      updateData.imagen_antes = null;
+    }
+
+    if (fotosSubidas.length > 0) {
       const nuevasUrls = [];
-      for (const file of req.files) {
+      for (const file of fotosSubidas) {
         const url = await uploadToSupabase(file, 'muebles', { conMiniatura: true });
         if (url) nuevasUrls.push(url);
       }

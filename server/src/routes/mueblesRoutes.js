@@ -93,10 +93,14 @@ router.post(
   validar(schemaMuebleCrear),
   crearMueble
 );
+// Al editar, además de las fotos, una foto de antes de restaurar (el "antes y después" de la ficha).
 router.put(
   '/:id',
   verificarAdmin,
-  upload.array('imagenes', 5),
+  upload.fields([
+    { name: 'imagenes', maxCount: 5 },
+    { name: 'imagen_antes', maxCount: 1 }
+  ]),
   validar(schemaMuebleEditar),
   editarMueble
 );

@@ -19,6 +19,7 @@ const COLUMNAS_MUEBLE = [
   'descripcion',
   'estado',
   'id',
+  'imagen_antes', // la foto de antes de restaurar (o null), para el "antes y después" de la ficha
   'imagenes',
   'nombre',
   'precio_alquiler_dia',
@@ -35,6 +36,7 @@ const muebleConColumnasNuevas = {
   imagenes: ['https://img.test/a.jpg'],
   estado: 'disponible',
   referencia: 'NAV-APA-001',
+  imagen_antes: null,
   disponible: true,
   created_at: '2026-09-01T10:00:00Z',
   categoria_id: 7,
@@ -98,7 +100,7 @@ describe('contrato con supabase-js real: lo que se pide a PostgREST es la lista 
     await request(app).get('/api/categorias');
 
     const listaMueble =
-      'id,nombre,categoria,descripcion,precio_venta,precio_alquiler_dia,imagenes,estado,referencia';
+      'id,nombre,categoria,descripcion,precio_venta,precio_alquiler_dia,imagenes,estado,referencia,imagen_antes';
     assert.deepEqual(selects, [
       `/rest/v1/muebles ${listaMueble}`,
       `/rest/v1/muebles ${listaMueble}`,

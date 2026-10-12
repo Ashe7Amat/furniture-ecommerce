@@ -10,6 +10,7 @@ import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPie
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
+import AntesDespues from '../components/AntesDespues';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -113,6 +114,10 @@ const ProductDetail = () => {
                 </button>
               ))}
             </div>
+          )}
+          {/* Si la pieza tiene foto de cómo llegó, se compara con la principal de ahora. */}
+          {mueble.imagen_antes && mueble.imagenes?.[0] && (
+            <AntesDespues antes={mueble.imagen_antes} despues={mueble.imagenes[0]} nombre={mueble.nombre} />
           )}
         </div>
 
