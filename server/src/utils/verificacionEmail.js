@@ -39,7 +39,8 @@ const hashear = (token) =>
 const tabla = () => supabase.from('verificaciones_email');
 
 // Crea un enlace nuevo para `email` (el de la cuenta, o el pendiente si es un cambio) y devuelve el
-// token en claro, para el correo. Antes borra los que la cuenta tuviera sin usar.
+// token en claro, para el correo. Antes borra los que la cuenta tuviera sin usar del mismo motivo:
+// así pedir otro enlace de registro no anula el de un cambio de email a medias, ni al revés.
 const crear = async ({ clienteId, email, motivo }) => {
   if (!MOTIVOS.includes(motivo)) throw new Error(`Motivo de verificación desconocido: ${motivo}`);
   const token = crypto.randomBytes(32).toString('base64url');
@@ -48,6 +49,7 @@ const crear = async ({ clienteId, email, motivo }) => {
   const { error: errorBorrado } = await tabla()
     .delete()
     .eq('cliente_id', clienteId)
+    .eq('motivo', motivo)
     .is('usado_en', null);
   if (errorBorrado) throw errorBorrado;
 

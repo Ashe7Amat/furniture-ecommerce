@@ -264,19 +264,23 @@ describe('Profile — historial de pedidos', () => {
 describe('Profile — verificación del email (H18)', () => {
   const SIN_VERIFICAR = { ...ANA, email_verificado: false };
 
-  it('sin verificar, avisa arriba de que se ha mandado un correo, con el botón "Enviar otro"', () => {
+  it('sin verificar, pide arriba confirmar el email, con el botón "Enviar enlace"', () => {
     abrir({ user: SIN_VERIFICAR });
 
     const aviso = screen.getByRole('status');
-    expect(aviso).toHaveTextContent('Te hemos enviado un correo a ana@correo.es para confirmar tu email');
-    expect(within(aviso).getByRole('button', { name: 'Enviar otro' })).toBeInTheDocument();
+    expect(aviso).toHaveTextContent(
+      'Confirma tu email, ana@correo.es, para ver tus pedidos. Si no tienes el correo con el enlace, te mandamos uno nuevo.'
+    );
+    // Las cuentas de antes de H18 nunca recibieron el correo: el aviso no dice que se mandó.
+    expect(aviso).not.toHaveTextContent('Te hemos enviado');
+    expect(within(aviso).getByRole('button', { name: 'Enviar enlace' })).toBeInTheDocument();
   });
 
   it('una sesión de antes de H18 (sin el campo) cuenta como sin verificar', () => {
     const deAntes = { ...ANA };
     delete deAntes.email_verificado;
     abrir({ user: deAntes });
-    expect(screen.getByRole('status')).toHaveTextContent('para confirmar tu email');
+    expect(screen.getByRole('status')).toHaveTextContent('Confirma tu email');
   });
 
   it('verificada y sin cambios pendientes, no hay aviso', () => {
@@ -284,19 +288,19 @@ describe('Profile — verificación del email (H18)', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('"Enviar otro" pide otro correo y lo confirma con un aviso; si falla, enseña el motivo', async () => {
+  it('"Enviar enlace" pide el correo y lo confirma con un aviso; si falla, enseña el motivo', async () => {
     reenviarVerificacion.mockResolvedValueOnce({ success: true });
     const { showToast } = abrir({ user: SIN_VERIFICAR });
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Enviar otro' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar enlace' }));
     });
     expect(reenviarVerificacion).toHaveBeenCalledTimes(1);
-    expect(showToast).toHaveBeenCalledWith('Te hemos enviado otro correo.', 'success');
+    expect(showToast).toHaveBeenCalledWith('Te hemos enviado el correo.', 'success');
 
     reenviarVerificacion.mockResolvedValueOnce({ error: 'Ya te hemos enviado varios correos.' });
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Enviar otro' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar enlace' }));
     });
     expect(showToast).toHaveBeenLastCalledWith('Ya te hemos enviado varios correos.', 'error');
   });

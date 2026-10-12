@@ -7,6 +7,7 @@ const { OAuth2Client } = require('google-auth-library');
 const correos = require('../utils/email');
 const refreshTokens = require('../utils/refreshTokens');
 const verificacionEmail = require('../utils/verificacionEmail');
+const { enviarTodos } = require('../utils/enviarTodos');
 
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
@@ -78,14 +79,19 @@ const buscarCuentaDeSesion = async (usuarioToken, columnas) => {
 // Crea un enlace de verificación y manda su correo. Nunca lanza: si falta
 // EMAIL_TOKEN_HASH_SECRET o falla la base de datos, se registra y la cuenta sigue sin verificar
 // (desde Mi cuenta se puede pedir otro enlace). Devuelve true si el enlace se creó.
+// El correo se espera (con tope) antes de responder: en Vercel, un envío pendiente al responder
+// podría no completarse, y sin este correo la cuenta no se puede verificar (enviarTodos.js).
 const mandarEnlace = async ({ cliente, motivo, destino, enviar }) => {
   try {
     const token = await verificacionEmail.crear({ clienteId: cliente.id, email: destino, motivo });
-    enviar({
-      email: destino,
-      nombre: cliente.nombre,
-      url: verificacionEmail.urlVerificacion(token)
-    });
+    await enviarTodos([
+      () =>
+        enviar({
+          email: destino,
+          nombre: cliente.nombre,
+          url: verificacionEmail.urlVerificacion(token)
+        })
+    ]);
     return true;
   } catch (error) {
     console.error(`No se pudo crear el enlace de verificación (${motivo}):`, error.message);
@@ -212,13 +218,18 @@ const CAMBIO_EMAIL_NO_DISPONIBLE = {
 const actualizarPerfil = async (req, res) => {
   try {
     const { nuevoNombre, nuevoEmail, passwordActual, nuevaPassword } = req.body;
-    // El email de la cuenta a modificar viene del token verificado, nunca del body:
-    // así un usuario no puede editar la cuenta de otro cambiando el JSON de la petición.
-    const emailActual = req.usuario.email;
+    // La cuenta a modificar sale del token verificado, nunca del body: así un usuario no puede
+    // editar la cuenta de otro cambiando el JSON de la petición. Se busca por su id (`sub`), no por
+    // el email del token: tras confirmar un cambio de email, un token de antes (vale 1 hora) aún
+    // lleva el email viejo, que para entonces puede ser ya de otra cuenta.
+    const usuario = await buscarCuentaDeSesion(req.usuario, '*');
+    if (!usuario) {
+      return res.status(404).json({ error: 'El usuario no existe.' });
+    }
+    const emailActual = usuario.email;
 
     const estaCambiandoEmail = !!nuevoEmail && nuevoEmail !== emailActual;
     const estaCambiandoPassword = !!nuevaPassword;
-    let usuario = null; // solo se lee si cambian el email o la contraseña
     let tokenCambio = null; // el del enlace al email nuevo, si cambia el email
 
     // Solo verificar la contraseña si se está intentando cambiar email o contraseña
@@ -229,19 +240,7 @@ const actualizarPerfil = async (req, res) => {
         });
       }
 
-      // 1. Buscar al usuario en la base de datos para comparar contraseñas
-      const { data, error: fetchError } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('email', emailActual)
-        .single();
-
-      if (fetchError || !data) {
-        return res.status(404).json({ error: 'El usuario no existe.' });
-      }
-      usuario = data;
-
-      // 2. Verificar la contraseña actual
+      // 1. Verificar la contraseña actual
       const contraseñaCorrecta = await bcrypt.compare(passwordActual, usuario.password);
       if (!contraseñaCorrecta) {
         // H28: queda en el log quién lo intentó (el id de la cuenta), nunca la contraseña.
@@ -250,7 +249,7 @@ const actualizarPerfil = async (req, res) => {
       }
     }
 
-    // 3. Preparar los campos a actualizar
+    // 2. Preparar los campos a actualizar
     const updateFields = {};
     if (nuevoNombre !== undefined) updateFields.nombre = nuevoNombre;
     if (estaCambiandoEmail) {
@@ -285,7 +284,7 @@ const actualizarPerfil = async (req, res) => {
       updateFields.email_pendiente = nuevoEmail;
     }
 
-    // 4. Si se desea cambiar la contraseña (la longitud mínima ya la valida Zod)
+    // 3. Si se desea cambiar la contraseña (la longitud mínima ya la valida Zod)
     if (nuevaPassword) {
       const salt = await bcrypt.genSalt(10);
       updateFields.password = await bcrypt.hash(nuevaPassword, salt);
@@ -298,11 +297,11 @@ const actualizarPerfil = async (req, res) => {
     // confirmarse (verificarEmail), no al pedirse.
     if (estaCambiandoPassword) await refreshTokens.revocarTodasDelUsuario(usuario.id);
 
-    // 5. Ejecutar la actualización en Supabase
+    // 4. Ejecutar la actualización en Supabase
     const { data: dataActualizada, error: updateError } = await supabase
       .from('clientes')
       .update(updateFields)
-      .eq('email', emailActual)
+      .eq('id', usuario.id)
       .select();
 
     if (updateError || !dataActualizada || dataActualizada.length === 0) {
@@ -311,18 +310,22 @@ const actualizarPerfil = async (req, res) => {
     const cuenta = dataActualizada[0];
 
     // Correos del cambio de email (parte 3, correos 3 y 4): el enlace al email nuevo y el aviso
-    // al antiguo. No bloquean la respuesta y nunca lanzan.
+    // al antiguo. Nunca lanzan, y se esperan con tope antes de responder (enviarTodos.js).
     if (estaCambiandoEmail) {
-      correos.enviarConfirmarCambioEmail({
-        email: nuevoEmail,
-        nombre: cuenta.nombre,
-        url: verificacionEmail.urlVerificacion(tokenCambio)
-      });
-      correos.enviarAvisoCambioEmail({
-        email: emailActual,
-        nombre: cuenta.nombre,
-        emailNuevo: nuevoEmail
-      });
+      await enviarTodos([
+        () =>
+          correos.enviarConfirmarCambioEmail({
+            email: nuevoEmail,
+            nombre: cuenta.nombre,
+            url: verificacionEmail.urlVerificacion(tokenCambio)
+          }),
+        () =>
+          correos.enviarAvisoCambioEmail({
+            email: emailActual,
+            nombre: cuenta.nombre,
+            emailNuevo: nuevoEmail
+          })
+      ]);
     }
 
     // Se firma un access token nuevo (1 hora) porque lleva dentro el nombre/email/rol: si no se
@@ -443,7 +446,9 @@ const loginConGoogle = async (req, res) => {
       if (updateError) throw updateError;
       usuario = protegida;
       await verificacionEmail.asociarPedidosDeInvitado(usuario.id, usuario.email);
-      correos.enviarCuentaProtegida({ email: usuario.email, nombre: usuario.nombre });
+      await enviarTodos([
+        () => correos.enviarCuentaProtegida({ email: usuario.email, nombre: usuario.nombre })
+      ]);
     }
 
     const token = firmarToken(usuario);
@@ -586,6 +591,20 @@ const verificarEmail = async (req, res) => {
         .maybeSingle();
       if (errorOcupado) throw errorOcupado;
       if (ocupado) {
+        // El cambio ya no se puede hacer: se anula, para que "Enviar otro" no siga mandando
+        // enlaces a una dirección que ya es de otra cuenta. Si falla, solo se registra: el
+        // enlace ya está gastado y la respuesta es la misma.
+        const { error: errorAnular } = await supabase
+          .from('clientes')
+          .update({ email_pendiente: null })
+          .eq('id', cliente.id)
+          .eq('email_pendiente', enlace.email);
+        if (errorAnular) {
+          console.error(
+            'verificar-email: no se pudo anular el cambio de email:',
+            errorAnular.message
+          );
+        }
         return res.status(409).json({ error: 'Ese correo electrónico ya está en uso.' });
       }
       cambios.email = enlace.email;
@@ -604,7 +623,9 @@ const verificarEmail = async (req, res) => {
 
     await verificacionEmail.asociarPedidosDeInvitado(actualizada.id, actualizada.email);
     if (enlace.motivo === 'registro') {
-      correos.enviarCuentaActivada({ email: actualizada.email, nombre: actualizada.nombre });
+      await enviarTodos([
+        () => correos.enviarCuentaActivada({ email: actualizada.email, nombre: actualizada.nombre })
+      ]);
     }
 
     res.status(200).json({
@@ -628,7 +649,7 @@ const verificarEmail = async (req, res) => {
 // 8. PEDIR OTRO ENLACE (POST /api/auth/reenviar-verificacion) -- H18, parte 6, punto 3
 // Con sesión. El límite (3 cada hora por cuenta) va en authRoutes.js. Si la cuenta no está
 // verificada, manda otro enlace de registro; si lo está pero tiene un cambio de email a medias,
-// otro enlace al email pendiente. Crear un enlace borra los anteriores sin usar.
+// otro enlace al email pendiente. Crear un enlace borra los anteriores sin usar del mismo tipo.
 const reenviarVerificacion = async (req, res) => {
   try {
     const cliente = await buscarCuentaDeSesion(req.usuario, '*');

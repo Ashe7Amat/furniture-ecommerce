@@ -9,6 +9,7 @@ const supabase = require('../data/supabase');
 const email = require('./email');
 const { juntarItems, leerItemsDeMetadata } = require('./metadataStripe');
 const { escaparIlike } = require('./ilike');
+const { enviarTodos } = require('./enviarTodos');
 
 const CODIGO_VIOLACION_UNICIDAD = '23505';
 
@@ -226,29 +227,6 @@ const detectarConflictos = async (lineas, idPedido, resultados) => {
     }
   }
   return conflictos;
-};
-
-// Tiempo máximo que se espera a los emails antes de responder. Resend suele tardar menos de
-// un segundo, pero sin este tope una caída lenta del proveedor dejaría colgados al webhook
-// (Stripe acabaría dándolo por fallido y lo reintentaría) y la página de éxito del comprador.
-const TIEMPO_MAXIMO_EMAILS_MS = 8000;
-
-// Ninguna función de email lanza (capturan sus errores), pero se esperan aquí con allSettled
-// por si una lo hiciera: un fallo de correo nunca debe tumbar el pago. Se espera a que
-// terminen porque en Vercel la función se congela al responder y un envío pendiente podría
-// no completarse; por eso solo se deja de esperar pasado TIEMPO_MAXIMO_EMAILS_MS.
-const enviarTodos = async (envios) => {
-  let temporizador;
-  const limite = new Promise(resolver => {
-    temporizador = setTimeout(() => resolver('limite'), TIEMPO_MAXIMO_EMAILS_MS);
-  });
-  const enviados = Promise.allSettled(envios.map(envio => (async () => envio())())).then(() => 'enviados');
-
-  const resultado = await Promise.race([enviados, limite]);
-  clearTimeout(temporizador);
-  if (resultado === 'limite') {
-    console.warn(`Los emails tardan más de ${TIEMPO_MAXIMO_EMAILS_MS / 1000} s: se responde sin esperar a que terminen.`);
-  }
 };
 
 const avisarConflictos = async ({ conflictos, sessionId, cliente, total }) => {

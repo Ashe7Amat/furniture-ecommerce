@@ -65,17 +65,18 @@ export default function Profile() {
     const res = await reenviarVerificacion();
     setReenviando(false);
     if (res.error) showToast(res.error, 'error');
-    else showToast('Te hemos enviado otro correo.', 'success');
+    else showToast('Te hemos enviado el correo.', 'success');
   };
 
+  // Sin "te hemos enviado": las cuentas de antes de H18 nunca recibieron el correo.
   const avisoSinVerificar = (
     <div className="aviso-verificacion" role="status">
       <p>
-        Te hemos enviado un correo a <strong>{user.email}</strong> para confirmar tu email. Hasta que lo
-        confirmes no podrás ver tus pedidos.
+        Confirma tu email, <strong>{user.email}</strong>, para ver tus pedidos. Si no tienes el correo con
+        el enlace, te mandamos uno nuevo.
       </p>
       <button type="button" className="aviso-verificacion-btn" onClick={pedirOtroCorreo} disabled={reenviando}>
-        {reenviando ? 'Enviando...' : 'Enviar otro'}
+        {reenviando ? 'Enviando...' : 'Enviar enlace'}
       </button>
     </div>
   );

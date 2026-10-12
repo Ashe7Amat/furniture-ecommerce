@@ -110,6 +110,19 @@ describe('registro', () => {
     assert.match(url, /^https:\/\/tienda\.example\.com\/verificar-email\?token=[A-Za-z0-9_-]{43}$/);
   });
 
+  test('espera a que salga el correo antes de responder (en Vercel, uno pendiente podría perderse)', async () => {
+    let enviado = false;
+    espias.registro.mock.mockImplementation(async () => {
+      await new Promise((resolver) => setImmediate(resolver));
+      enviado = true;
+    });
+
+    const res = await registrar();
+
+    assert.equal(res.status, 201);
+    assert.equal(enviado, true);
+  });
+
   test('el enlace se guarda solo como HMAC, para el email de la cuenta, y caduca a las 24 horas', async () => {
     await registrar();
     const token = tokenDeUrl(espias.registro.mock.calls[0].arguments[0].url);
@@ -370,6 +383,24 @@ describe('POST /api/auth/reenviar-verificacion', () => {
     assert.equal(fake.tablas.verificaciones_email[0].motivo, 'cambio_email');
   });
 
+  test('sin verificar y con un cambio de email a medias, pedir otro enlace de registro no anula el del cambio', async () => {
+    const dani = cuenta('cli-dani', 'dani@example.com');
+    instalar({ clientes: [{ ...dani }] });
+    await request(app)
+      .post('/api/auth/perfil-update')
+      .set('Authorization', `Bearer ${tokenDe(dani)}`)
+      .send({ passwordActual: PASSWORD, nuevoEmail: 'dani.nueva@example.com' });
+    const delCambio = tokenDeUrl(espias.cambio.mock.calls[0].arguments[0].url);
+
+    const res = await reenviar(tokenDe(dani));
+
+    assert.equal(res.status, 200);
+    assert.equal(espias.registro.mock.calls[0].arguments[0].email, 'dani@example.com');
+    const confirmado = await verificar(delCambio);
+    assert.equal(confirmado.status, 200);
+    assert.equal(fake.tablas.clientes[0].email, 'dani.nueva@example.com');
+  });
+
   test('una cuenta ya verificada y sin cambios pendientes: 400', async () => {
     const dani = cuenta('cli-dani', 'dani@example.com', { email_verificado: true });
     instalar({ clientes: [{ ...dani }] });
@@ -618,6 +649,55 @@ describe('cambio de email (opción C)', () => {
     assert.equal(res.status, 409);
     assert.equal(res.body.error, 'Ese correo electrónico ya está en uso.');
     assert.equal(fake.tablas.clientes[0].email, 'ana@example.com');
+    // El cambio se anula: "Enviar otro" ya no manda enlaces a la dirección de la otra cuenta.
+    assert.equal(fake.tablas.clientes[0].email_pendiente, null);
+    const otro = await request(app)
+      .post('/api/auth/reenviar-verificacion')
+      .set('Authorization', `Bearer ${tokenDe(ANA)}`);
+    assert.equal(otro.status, 400);
+    assert.equal(espias.cambio.mock.callCount(), 1);
+  });
+
+  test('si falla anular el cambio tras el 409, responde igual y queda en el log', async () => {
+    const fallos = {};
+    instalar({ clientes: [{ ...ANA }], fallos });
+    await cambiar({ passwordActual: PASSWORD, nuevoEmail: 'ana.nueva@example.com' });
+    fake.tablas.clientes.push(cuenta('cli-intrusa', 'ana.nueva@example.com'));
+    fallos['clientes.update'] = { message: 'caída' };
+
+    const res = await verificar(tokenDeUrl(espias.cambio.mock.calls[0].arguments[0].url));
+
+    assert.equal(res.status, 409);
+    assert.ok(errores.mock.calls.some((c) => String(c.arguments[0]).includes('no se pudo anular')));
+  });
+
+  test('con un token de antes de confirmar un cambio, edita su cuenta (por el id), no la que ahora tiene ese email', async () => {
+    // Ana ya cambió a ana.nueva@; Bea se registró después con el email viejo de Ana. El token de
+    // Ana (vale 1 hora) aún lleva el email viejo.
+    const anaYaCambiada = { ...ANA, email: 'ana.nueva@example.com' };
+    const bea = cuenta('cli-bea', 'ana@example.com', { nombre: 'Bea' });
+    instalar({ clientes: [anaYaCambiada, { ...bea }] });
+
+    const res = await cambiar({ nuevoNombre: 'Ana B' }, tokenDe(ANA));
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.user.email, 'ana.nueva@example.com');
+    assert.equal(jwt.decode(res.body.token).sub, 'cli-ana');
+    assert.equal(fake.tablas.clientes[0].nombre, 'Ana B');
+    assert.equal(fake.tablas.clientes[1].nombre, 'Bea', 'la cuenta de Bea no se toca');
+  });
+
+  test('si la cuenta de la sesión ya no existe, 404', async () => {
+    instalar({ clientes: [] });
+
+    // Otro id: los fallos de perfil-update cuentan para el límite de intentos de cada cuenta (H28).
+    const res = await cambiar(
+      { nuevoNombre: 'Nadie' },
+      tokenDe({ id: 'cli-borrada', email: 'borrada@example.com' })
+    );
+
+    assert.equal(res.status, 404);
+    assert.equal(res.body.error, 'El usuario no existe.');
   });
 
   test('si después se pide otro cambio, el enlace del primero ya no vale', async () => {

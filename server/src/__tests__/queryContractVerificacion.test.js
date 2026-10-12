@@ -60,7 +60,7 @@ beforeEach(() => {
 afterEach(() => mock.restoreAll());
 
 describe('verificación del email — las peticiones que salen hacia PostgREST', () => {
-  test('crear: borra los enlaces sin usar de la cuenta y guarda solo el HMAC', async () => {
+  test('crear: borra los enlaces sin usar de la cuenta y del mismo motivo, y guarda solo el HMAC', async () => {
     const token = await verificacionEmail.crear({
       clienteId: 'cli-1',
       email: 'ana@example.com',
@@ -69,6 +69,7 @@ describe('verificación del email — las peticiones que salen hacia PostgREST',
 
     const [borrado] = de('DELETE');
     assert.equal(borrado.params.cliente_id, 'eq.cli-1');
+    assert.equal(borrado.params.motivo, 'eq.registro', 'solo los del mismo motivo');
     assert.equal(borrado.params.usado_en, 'is.null', 'los ya usados se conservan');
 
     const [insercion] = de('POST');

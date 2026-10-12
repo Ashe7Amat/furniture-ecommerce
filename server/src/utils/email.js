@@ -601,7 +601,7 @@ const construirCuentaProtegida = ({ nombre }) => {
   const titulo = 'Hemos protegido tu cuenta';
   const frases = [
     'Has entrado con Google en una cuenta que se había creado con tu email y una contraseña, sin confirmar.',
-    'Por seguridad, hemos anulado esa contraseña y cerrado las demás sesiones. A partir de ahora, entra con Google. Si quieres volver a tener contraseña, pídela desde Mi cuenta.'
+    'Por seguridad, hemos anulado esa contraseña y cerrado las demás sesiones. A partir de ahora, entra con Google.'
   ];
   const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${frases.map((f) => parrafo(f)).join('')}`;
   return {

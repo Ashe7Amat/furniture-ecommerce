@@ -120,6 +120,8 @@ describe('5. cuenta protegida', () => {
     assert.equal(subject, 'Hemos protegido tu cuenta de Nave 5 Barcelona');
     assert.match(html, /hemos anulado esa contraseña y cerrado las demás sesiones/);
     assert.match(text, /A partir de ahora, entra con Google/);
+    // No hay forma de pedir una contraseña nueva: el correo no lo promete.
+    assert.ok(!text.includes('contraseña, pídela'));
   });
 });
 
