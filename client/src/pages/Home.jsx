@@ -4,6 +4,9 @@ import { getMuebles, getCategorias } from '../services/api';
 import { textoPrecio } from '../utils/format';
 import { useScrollReveal } from '../utils/useScrollReveal';
 import { PLACEHOLDER_IMG } from '../utils/images';
+import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
+import ReferenciaProducto from '../components/ReferenciaProducto';
+import VistosEn from '../components/VistosEn';
 import '../styles/Home.css';
 
 // Fotos reales del almacén para el slider del hero (estilo banner rotativo tipo IKEA/Kave Home).
@@ -80,7 +83,11 @@ export default function Home() {
                     <p className="hero-description">
                         Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios.
                     </p>
-                    <Link to="/catalogo" className="btn-hero-black">Descubrir</Link>
+                    {/* Los dos caminos de Nave 5: piezas para casa y piezas para producciones. */}
+                    <div className="hero-acciones">
+                        <Link to="/catalogo" className="btn-hero-black">Ver catálogo</Link>
+                        <Link to={RUTA_ALQUILER} className="btn-hero-outline">Alquilar para rodajes</Link>
+                    </div>
                 </div>
                 <div className="hero-image-box">
                     {HERO_SLIDES.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
@@ -146,7 +153,7 @@ export default function Home() {
                     </div>
 
                     {loading ? (
-                        <div className="home-loading-feed">Cargando colecciones de Supabase...</div>
+                        <div className="home-loading-feed">Cargando piezas…</div>
                     ) : (
                         <div className="home-products-grid">
                             {destacados.map(mueble => (
@@ -157,6 +164,7 @@ export default function Home() {
                                     </div>
                                     <div className="home-card-meta">
                                         <h3>{mueble.nombre}</h3>
+                                        <ReferenciaProducto referencia={mueble.referencia} className="ref-producto--etiqueta" />
                                         <p className="home-card-desc">{mueble.descripcion}</p>
                                         <span className="home-card-price">
                                             {textoPrecio(mueble)}
@@ -167,6 +175,9 @@ export default function Home() {
                         </div>
                     )}
                 </section>
+
+                {/* PRODUCCIONES DONDE HAN SALIDO LAS PIEZAS (no se pinta mientras la lista esté vacía) */}
+                <VistosEn />
 
                 {/* GALERÍA DE AMBIENTE */}
                 <section className="home-gallery-section reveal-init" ref={galleryRef}>
@@ -179,11 +190,12 @@ export default function Home() {
                     </div>
                 </section>
 
-                {/* SOSTENIBILIDAD BANNER */}
+                {/* SEGUNDA VIDA. Antes decía "madera certificada FSC y materiales reciclados", texto de plantilla
+                    que no encaja con muebles restaurados; ahora cuenta lo mismo que "Sobre nosotros". */}
                 <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
                     <div className="sustainability-content">
-                        <h2>Diseño con impacto positivo</h2>
-                        <p>Muebles creados pensando en el mañana. Trabajamos con madera certificada FSC y materiales reciclados para reducir nuestra huella de carbono sin renunciar a la estética.</p>
+                        <h2>El mueble más sostenible es el que ya existe</h2>
+                        <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>
                     </div>
                 </section>
             </div>
