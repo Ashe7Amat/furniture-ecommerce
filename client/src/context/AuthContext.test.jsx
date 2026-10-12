@@ -264,3 +264,42 @@ describe('AuthContext — login y logout', () => {
     expect(localStorage.getItem('kaveUser')).toBeNull();
   });
 });
+
+// H18: la cuenta cambia sin tocar los tokens (p. ej. el email se confirma).
+describe('AuthContext — actualizarUsuario y la cuenta que trae la renovación (H18)', () => {
+  it('al cargar, la renovación trae la cuenta actual y la sesión se actualiza (también en localStorage)', async () => {
+    renovacion = async () => respuesta(200, { ...PAR_NUEVO, user: { ...ANA, email_verificado: true } });
+    instalarFetch();
+    sesionGuardada();
+
+    montar();
+
+    await waitFor(() => expect(ctx.user?.email_verificado).toBe(true));
+    expect(JSON.parse(localStorage.getItem('kaveUser')).email_verificado).toBe(true);
+    expect(getRefreshToken()).toBe('refresh-2');
+  });
+
+  it('actualizarUsuario mezcla los datos con la sesión y no toca los tokens', async () => {
+    instalarFetch();
+    sesionGuardada();
+    montar();
+    await waitFor(() => expect(estado()).toBe('sesion:Ana'));
+
+    act(() => ctx.actualizarUsuario({ email_verificado: true }));
+
+    expect(ctx.user).toEqual({ ...ANA, email_verificado: true });
+    expect(JSON.parse(localStorage.getItem('kaveUser'))).toEqual({ ...ANA, email_verificado: true });
+    expect(getAccessToken()).toBe('access-2');
+  });
+
+  it('sin sesión, actualizarUsuario no hace nada', async () => {
+    instalarFetch();
+    montar();
+    await waitFor(() => expect(estado()).toBe('sin-sesion'));
+
+    act(() => ctx.actualizarUsuario({ email_verificado: true }));
+
+    expect(ctx.user).toBeNull();
+    expect(localStorage.getItem('kaveUser')).toBeNull();
+  });
+});

@@ -27,6 +27,13 @@ const authHeaders = () => {
 //                  conexión, o el servidor reiniciándose tras un despliegue.
 let renovacionEnCurso = null;
 
+// H18: la renovación trae también la cuenta tal como está ahora (`user`), p. ej. con el email ya
+// confirmado desde otra pestaña o dispositivo. AuthContext se apunta aquí para recibirla.
+let avisoUsuarioRenovado = null;
+export const alRenovarUsuarioAvisar = (funcion) => {
+  avisoUsuarioRenovado = funcion;
+};
+
 const pedirRenovacion = async () => {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
@@ -54,6 +61,7 @@ const pedirRenovacion = async () => {
     const par = await response.json();
     setAccessToken(par.accessToken);
     setRefreshToken(par.refreshToken);
+    if (par.user && avisoUsuarioRenovado) avisoUsuarioRenovado(par.user);
     return 'renovada';
   } catch {
     return 'sin-conexion';
@@ -399,6 +407,38 @@ export const updateProfile = async (profileData) => {
   }
 };
 
+// H18: confirma el email con el token del enlace del correo (POST /api/auth/verificar-email). No
+// pide sesión: el enlace se puede abrir en cualquier navegador. Devuelve la respuesta del servidor
+// ({ success, motivo, user, sesionCerrada }) o { error }.
+export const verificarEmail = async (token) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/verificar-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'El enlace no es válido o ha caducado.');
+    return data;
+  } catch (error) {
+    console.error('Error en verificarEmail:', error);
+    return { error: error.message };
+  }
+};
+
+// H18: pide otro correo para confirmar el email (o el email pendiente de un cambio). Con sesión.
+export const reenviarVerificacion = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/auth/reenviar-verificacion`, { method: 'POST' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'No se ha podido enviar el correo.');
+    return data;
+  } catch (error) {
+    console.error('Error en reenviarVerificacion:', error);
+    return { error: error.message };
+  }
+};
+
 // Crea una sesión de pago real de Stripe (modo test o real, según la clave del servidor)
 // y devuelve la URL a la que hay que redirigir al comprador.
 export const crearSesionPago = async ({ items, clienteInfo }) => {
@@ -430,10 +470,16 @@ export const confirmarSesionPago = async (sessionId) => {
   }
 };
 
-// Lista los pedidos del cliente logueado (para su Historial de Pedidos en Mi Cuenta)
+// Lista los pedidos del cliente logueado (para su Historial de Pedidos en Mi Cuenta). H18: si la
+// cuenta no ha confirmado su email, el servidor responde 403 y aquí se devuelve
+// { sinVerificar: true } para que la página enseñe el aviso en vez de la lista.
 export const getMisPedidos = async () => {
   try {
     const response = await apiFetch(`${API_URL}/pedidos/mios`);
+    if (response.status === 403) {
+      const data = await response.json().catch(() => ({}));
+      if (data.codigo === 'email_no_verificado') return { sinVerificar: true };
+    }
     if (!response.ok) throw new Error('Error al obtener tus pedidos');
     return await response.json();
   } catch (error) {

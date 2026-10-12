@@ -29,6 +29,7 @@ const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const Terms = lazy(() => import('./pages/Terms'));
 const CheckoutExito = lazy(() => import('./pages/CheckoutExito'));
 const CheckoutCancelado = lazy(() => import('./pages/CheckoutCancelado'));
+const VerificarEmail = lazy(() => import('./pages/VerificarEmail'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Indicador mínimo mientras se descarga una página (solo se ve una fracción de segundo,
@@ -69,6 +70,9 @@ function App() {
 
                       <Route path="/checkout/exito" element={<CheckoutExito />} />
                       <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
+
+                      {/* H18: el enlace del correo para confirmar el email (no pide sesión) */}
+                      <Route path="/verificar-email" element={<VerificarEmail />} />
 
                       {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                       <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />

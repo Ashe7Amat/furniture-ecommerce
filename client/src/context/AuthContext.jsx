@@ -9,7 +9,7 @@ import {
   limpiarTokens,
   alCerrarSesionAvisar
 } from '../utils/authToken';
-import { renovarSesion, cerrarSesionEnServidor } from '../services/api';
+import { renovarSesion, cerrarSesionEnServidor, alRenovarUsuarioAvisar } from '../services/api';
 
 export const AuthContext = createContext();
 
@@ -44,6 +44,22 @@ export const AuthProvider = ({ children }) => {
     // 'rechazada' ya ha cerrado la sesión (api.js avisa a cerrarLocal)
     setLoading(false);
   }, []);
+
+  // Cambia los datos de la cuenta (p. ej. email_verificado tras confirmar el email) sin tocar los
+  // tokens. Sin sesión no hace nada.
+  const actualizarUsuario = useCallback((datos) => {
+    setUser((actual) => {
+      if (!actual) return actual;
+      const nuevo = { ...actual, ...datos };
+      localStorage.setItem('kaveUser', JSON.stringify(nuevo));
+      return nuevo;
+    });
+  }, []);
+
+  useEffect(() => {
+    alRenovarUsuarioAvisar(actualizarUsuario);
+    return () => alRenovarUsuarioAvisar(null);
+  }, [actualizarUsuario]);
 
   useEffect(() => {
     alCerrarSesionAvisar(cerrarLocal);
@@ -107,7 +123,15 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, loading, reconectando, reintentarSesion: confirmarSesion }}
+      value={{
+        user,
+        login,
+        logout,
+        actualizarUsuario,
+        loading,
+        reconectando,
+        reintentarSesion: confirmarSesion
+      }}
     >
       {children}
     </AuthContext.Provider>

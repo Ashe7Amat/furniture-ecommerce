@@ -78,3 +78,14 @@
 @keyframes girar {
   to { transform: rotate(360deg); }
 }
+
+/* H18: la página de confirmar el email (VerificarEmail.jsx) usa esta misma caja, con botones. */
+.checkout-resultado-box button.checkout-btn-solid {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.checkout-resultado-box button.checkout-btn-solid:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

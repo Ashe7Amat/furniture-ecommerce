@@ -2,7 +2,7 @@ import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { getMuebles, updateProfile, getMisPedidos } from '../services/api';
+import { getMuebles, updateProfile, getMisPedidos, reenviarVerificacion } from '../services/api';
 import { formatPrice, textoPrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -24,6 +24,11 @@ export default function Profile() {
   const [favMuebles, setFavMuebles] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [cargandoPedidos, setCargandoPedidos] = useState(false);
+  const [pedidosSinVerificar, setPedidosSinVerificar] = useState(false);
+  const [reenviando, setReenviando] = useState(false);
+  // H18: sin el email confirmado no se ven los pedidos (el servidor responde 403). Una sesión de
+  // antes de H18 no trae el campo: cuenta como sin verificar hasta que la renovación lo actualice.
+  const emailVerificado = user?.email_verificado === true;
 
   useEffect(() => {
     if (activeTab === 'favoritos') {
@@ -34,14 +39,15 @@ export default function Profile() {
   }, [activeTab, favorites]);
 
   useEffect(() => {
-    if (activeTab === 'pedidos') {
+    if (activeTab === 'pedidos' && emailVerificado) {
       setCargandoPedidos(true);
       getMisPedidos().then(data => {
+        setPedidosSinVerificar(data?.sinVerificar === true);
         setPedidos(Array.isArray(data) ? data : []);
         setCargandoPedidos(false);
       });
     }
-  }, [activeTab]);
+  }, [activeTab, emailVerificado]);
 
   const ETIQUETA_ESTADO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
   const CLASE_ESTADO = { procesando: 'badge-warning', enviado: 'badge-info', entregado: 'badge-success', cancelado: 'badge-danger' };
@@ -53,6 +59,26 @@ export default function Profile() {
       </div>
     );
   }
+
+  const pedirOtroCorreo = async () => {
+    setReenviando(true);
+    const res = await reenviarVerificacion();
+    setReenviando(false);
+    if (res.error) showToast(res.error, 'error');
+    else showToast('Te hemos enviado otro correo.', 'success');
+  };
+
+  const avisoSinVerificar = (
+    <div className="aviso-verificacion" role="status">
+      <p>
+        Te hemos enviado un correo a <strong>{user.email}</strong> para confirmar tu email. Hasta que lo
+        confirmes no podrás ver tus pedidos.
+      </p>
+      <button type="button" className="aviso-verificacion-btn" onClick={pedirOtroCorreo} disabled={reenviando}>
+        {reenviando ? 'Enviando...' : 'Enviar otro'}
+      </button>
+    </div>
+  );
 
   const handleUpdatePerfil = async (e) => {
     e.preventDefault();
@@ -93,7 +119,11 @@ export default function Profile() {
         setPasswordActual('');
         setNuevaPassword('');
         setConfirmarNuevaPassword('');
-        showToast('¡Perfil actualizado con éxito!', 'success');
+        // H18: un email nuevo no se aplica hasta confirmarlo desde él. El campo vuelve al email de
+        // la cuenta, y el aviso de arriba dice a dónde se ha mandado el enlace.
+        setEmail(data.user.email);
+        if (data.user.email_pendiente && estaCambiandoEmail) showToast(data.message, 'success');
+        else showToast('¡Perfil actualizado con éxito!', 'success');
       }
     } catch (error) {
       showToast('Error de conexión con el servidor', 'error');
@@ -108,6 +138,19 @@ export default function Profile() {
         <h1>Mi Cuenta</h1>
         <p className="welcome-text">Hola, <strong>{user.nombre}</strong>. Gestiona tus datos y revisa tus selecciones desde aquí.</p>
       </div>
+
+      {!emailVerificado && avisoSinVerificar}
+      {emailVerificado && user.email_pendiente && (
+        <div className="aviso-verificacion" role="status">
+          <p>
+            Te hemos enviado un enlace a <strong>{user.email_pendiente}</strong>. Hasta que lo confirmes,
+            tu cuenta sigue con {user.email}.
+          </p>
+          <button type="button" className="aviso-verificacion-btn" onClick={pedirOtroCorreo} disabled={reenviando}>
+            {reenviando ? 'Enviando...' : 'Enviar otro'}
+          </button>
+        </div>
+      )}
 
       <div className="profile-layout">
         <aside className="profile-tabs-menu">
@@ -226,7 +269,9 @@ export default function Profile() {
           {activeTab === 'pedidos' && (
             <div className="tab-pane-animate">
               <h2>Historial de Compras</h2>
-              {cargandoPedidos ? (
+              {!emailVerificado || pedidosSinVerificar ? (
+                <p className="empty-tab-text">Confirma tu email para ver tus pedidos.</p>
+              ) : cargandoPedidos ? (
                 <p className="empty-tab-text">Cargando tus pedidos...</p>
               ) : pedidos.length === 0 ? (
                 <div className="empty-tab empty-tab--pedidos">
