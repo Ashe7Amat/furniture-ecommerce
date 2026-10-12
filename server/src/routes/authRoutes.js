@@ -7,7 +7,9 @@ const {
   actualizarPerfil,
   loginConGoogle,
   refrescarSesion,
-  cerrarSesion
+  cerrarSesion,
+  verificarEmail,
+  reenviarVerificacion
 } = require('../controllers/authController');
 const { verificarToken } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -16,7 +18,8 @@ const {
   schemaLogin,
   schemaGoogle,
   schemaPerfilUpdate,
-  schemaRefresh
+  schemaRefresh,
+  schemaVerificarEmail
 } = require('../schemas/auth');
 
 // Límite anti fuerza-bruta: máximo 15 intentos de login/registro por IP cada 15 minutos.
@@ -56,6 +59,20 @@ const limitadorPerfil = rateLimit({
   }
 });
 
+// Pedir otro enlace de verificación del email (H18): 3 cada hora POR CUENTA, cuenten o no los que
+// salen bien (cada uno manda un correo). Mismo patrón de clave que limitadorPerfil.
+const limitadorReenvio = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) =>
+    `cuenta:${req.usuario.sub || String(req.usuario.email || '').toLowerCase()}`,
+  message: {
+    error: 'Ya te hemos enviado varios correos. Espera un rato antes de pedir otro.'
+  }
+});
+
 router.post('/login', limitadorAuth, validar(schemaLogin), loginCliente);
 router.post('/register', limitadorAuth, validar(schemaRegistro), registrarCliente);
 router.post('/google', limitadorAuth, validar(schemaGoogle), loginConGoogle);
@@ -74,5 +91,11 @@ router.post(
 // access token: el propio refresh token es la prueba, y el access token puede haber caducado ya.
 router.post('/refresh', validar(schemaRefresh), refrescarSesion);
 router.post('/logout', validar(schemaRefresh), cerrarSesion);
+
+// Verificación del email (docs/verificacion-email-diseno.md, parte 6). Confirmar no pide sesión (el
+// enlace se puede abrir en otro dispositivo); el token del enlace es la prueba, y los intentos
+// fallidos cuentan en el mismo límite por IP que el login. Pedir otro enlace sí pide sesión.
+router.post('/verificar-email', limitadorAuth, validar(schemaVerificarEmail), verificarEmail);
+router.post('/reenviar-verificacion', verificarToken, limitadorReenvio, reenviarVerificacion);
 
 module.exports = router;

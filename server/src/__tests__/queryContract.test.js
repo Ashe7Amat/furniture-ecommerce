@@ -126,11 +126,12 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
     assert.deepEqual(patch.cuerpo, { estado: 'vendido' }, 'disponible lo calcula el trigger');
   });
 
-  test('buscar la cuenta del comprador: ilike con el email escapado, solo el id y limit 2', () => {
+  test('buscar la cuenta del comprador: ilike con el email escapado, solo verificadas, solo el id y limit 2', () => {
     const { params } = de('GET', '/rest/v1/clientes')[0];
 
     assert.equal(params.select, 'id');
     assert.equal(params.email, 'ilike.ana@example.com');
+    assert.equal(params.email_verificado, 'eq.true', 'H18: solo cuentas con el email verificado');
     assert.equal(params.limit, '2', 'con 2 se distingue "una cuenta" de "varias" (ambiguo)');
   });
 

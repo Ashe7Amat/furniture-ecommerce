@@ -445,6 +445,175 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
   }
 };
 
+// ─── Correos de la verificación del email (H18, docs/verificacion-email-diseno.md, parte 3) ──────
+// Con la maqueta común. Como los demás correos a clientes, nunca lanzan: un fallo se registra y la
+// cuenta sigue su curso (desde Mi cuenta se puede pedir otro enlace).
+
+// Oculta la parte local del email para el aviso al email antiguo: "ana@gmail.com" -> "a***@gmail.com".
+const ocultarEmail = (direccion) => {
+  const texto = String(direccion ?? '');
+  const arroba = texto.lastIndexOf('@');
+  if (arroba < 1) return '***';
+  return `${texto[0]}***${texto.slice(arroba)}`;
+};
+
+const parrafo = (html, { secundario = false } = {}) =>
+  `\n              <p style="margin: 0 0 16px 0;${secundario ? ` color: ${COLOR_SECUNDARIO};` : ''}">${html}</p>`;
+
+// Envía un correo de cuenta ya construido. `tipo` solo sirve para el log.
+const enviarCorreoCuenta = async ({ tipo, para, asunto, html, texto }) => {
+  try {
+    if (!resend) {
+      registrarSimulacion(tipo, () => {
+        console.log('Para:', para);
+        console.log(texto);
+      });
+      return;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: REMITENTE,
+      to: para,
+      subject: asunto,
+      html,
+      text: texto,
+    });
+
+    if (error) {
+      console.error(`Error al enviar el correo de ${tipo} (Resend):`, error);
+      return;
+    }
+
+    console.log(`Correo de ${tipo} enviado. ID Resend:`, data?.id);
+  } catch (error) {
+    console.error(`Error al enviar el correo de ${tipo} (Resend):`, error.message || error);
+  }
+};
+
+const textoPlano = (titulo, lineas) =>
+  ['NAVE 5', '', titulo, '', ...lineas, '', `Nave 5 Barcelona · ${WEB_PUBLICA}`].join('\n');
+
+// 1. Confirmar el email (al registrarse). Sustituye al de bienvenida, para no mandar dos.
+const construirConfirmarRegistro = ({ nombre, url }) => {
+  const titulo = 'Confirma tu email';
+  const cuerpo = `${parrafo(`¡Hola, ${escaparHtml(nombre)}!`)}${parrafo(
+    'Gracias por unirte a Nave 5 Barcelona. Para activar tu cuenta, confirma que este email es tuyo:'
+  )}${botonEmail({
+    href: escaparHtml(url),
+    texto: 'Confirmar mi email',
+    textoAlternativo: `Si el botón no funciona, entra en ${escaparHtml(url)}`
+  })}${parrafo('<br>El enlace caduca en 24 horas. Si ha caducado, entra en tu cuenta y pide otro.', { secundario: true })}${parrafo(
+    'Si no has creado tú esta cuenta, ignora este correo: sin confirmarla, nadie podrá ver tus compras.',
+    { secundario: true }
+  )}`;
+  return {
+    asunto: 'Confirma tu email y bienvenido a Nave 5 Barcelona',
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [
+      `¡Hola, ${nombre || ''}!`,
+      'Gracias por unirte a Nave 5 Barcelona. Para activar tu cuenta, confirma que este email es tuyo:',
+      '',
+      `Confirmar mi email: ${url}`,
+      '',
+      'El enlace caduca en 24 horas. Si ha caducado, entra en tu cuenta y pide otro.',
+      'Si no has creado tú esta cuenta, ignora este correo: sin confirmarla, nadie podrá ver tus compras.'
+    ])
+  };
+};
+
+const enviarConfirmarRegistro = ({ email, nombre, url }) =>
+  enviarCorreoCuenta({ tipo: 'confirmar email (registro)', para: email, ...construirConfirmarRegistro({ nombre, url }) });
+
+// 2. Cuenta activada (después de confirmar): el de bienvenida de siempre, con la última frase
+// cambiada.
+const construirCuentaActivada = ({ nombre }) => ({
+  asunto: 'Tu cuenta de Nave 5 Barcelona ya está activa 🤎',
+  html: construirHtmlBienvenida(nombre).replace(
+    'A partir de ahora tienes acceso a tu panel de compras, puedes guardar tus piezas favoritas y disfrutar de un proceso de compra fluido y seguro.',
+    'Ya puedes ver tu historial de compras en Mi cuenta, guardar tus piezas favoritas y comprar en un momento.'
+  ),
+  texto: textoPlano('Tu cuenta ya está activa', [
+    `¡Hola, ${nombre || ''}!`,
+    'Te damos la bienvenida más cálida a Nave 5 Barcelona.',
+    'Ya puedes ver tu historial de compras en Mi cuenta, guardar tus piezas favoritas y comprar en un momento.'
+  ])
+});
+
+const enviarCuentaActivada = ({ email, nombre }) =>
+  enviarCorreoCuenta({ tipo: 'cuenta activada', para: email, ...construirCuentaActivada({ nombre }) });
+
+// 3. Confirmar el email nuevo (al cambiarlo; va a la dirección nueva).
+const construirConfirmarCambio = ({ nombre, url }) => {
+  const titulo = 'Confirma tu nuevo email';
+  const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${parrafo(
+    'Has pedido usar este email en tu cuenta de Nave 5 Barcelona. Para terminar el cambio, confírmalo:'
+  )}${botonEmail({
+    href: escaparHtml(url),
+    texto: 'Confirmar el nuevo email',
+    textoAlternativo: `Si el botón no funciona, entra en ${escaparHtml(url)}`
+  })}${parrafo(
+    '<br>Hasta que lo confirmes, tu cuenta sigue usando el email anterior. El enlace caduca en 24 horas.',
+    { secundario: true }
+  )}`;
+  return {
+    asunto: 'Confirma tu nuevo email en Nave 5 Barcelona',
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [
+      `Hola, ${nombre || ''}:`,
+      'Has pedido usar este email en tu cuenta de Nave 5 Barcelona. Para terminar el cambio, confírmalo:',
+      '',
+      `Confirmar el nuevo email: ${url}`,
+      '',
+      'Hasta que lo confirmes, tu cuenta sigue usando el email anterior. El enlace caduca en 24 horas.'
+    ])
+  };
+};
+
+const enviarConfirmarCambioEmail = ({ email, nombre, url }) =>
+  enviarCorreoCuenta({ tipo: 'confirmar email nuevo', para: email, ...construirConfirmarCambio({ nombre, url }) });
+
+// 4. Aviso al email antiguo (al pedir el cambio). El nuevo va con la parte local oculta.
+const construirAvisoCambio = ({ nombre, emailNuevo }) => {
+  const titulo = 'Se ha pedido cambiar el email de tu cuenta';
+  const oculto = ocultarEmail(emailNuevo);
+  const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${parrafo(
+    `Se ha pedido cambiar el email de tu cuenta de Nave 5 Barcelona por <strong>${escaparHtml(oculto)}</strong>.`
+  )}${parrafo(
+    'Si has sido tú, no hace falta hacer nada. Si no, entra en tu cuenta y cambia la contraseña: el cambio no se aplicará hasta que se confirme desde el email nuevo.',
+    { secundario: true }
+  )}`;
+  return {
+    asunto: 'Se ha pedido cambiar el email de tu cuenta',
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [
+      `Hola, ${nombre || ''}:`,
+      `Se ha pedido cambiar el email de tu cuenta de Nave 5 Barcelona por ${oculto}.`,
+      'Si has sido tú, no hace falta hacer nada. Si no, entra en tu cuenta y cambia la contraseña: el cambio no se aplicará hasta que se confirme desde el email nuevo.'
+    ])
+  };
+};
+
+const enviarAvisoCambioEmail = ({ email, nombre, emailNuevo }) =>
+  enviarCorreoCuenta({ tipo: 'aviso de cambio de email', para: email, ...construirAvisoCambio({ nombre, emailNuevo }) });
+
+// 5. Cuenta protegida: alguien entra con Google en una cuenta sin verificar que tenía contraseña.
+const construirCuentaProtegida = ({ nombre }) => {
+  const titulo = 'Hemos protegido tu cuenta';
+  const frases = [
+    'Has entrado con Google en una cuenta que se había creado con tu email y una contraseña, sin confirmar.',
+    'Por seguridad, hemos anulado esa contraseña y cerrado las demás sesiones. A partir de ahora, entra con Google. Si quieres volver a tener contraseña, pídela desde Mi cuenta.'
+  ];
+  const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${frases.map((f) => parrafo(f)).join('')}`;
+  return {
+    asunto: 'Hemos protegido tu cuenta de Nave 5 Barcelona',
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [`Hola, ${nombre || ''}:`, ...frases])
+  };
+};
+
+const enviarCuentaProtegida = ({ email, nombre }) =>
+  enviarCorreoCuenta({ tipo: 'cuenta protegida', para: email, ...construirCuentaProtegida({ nombre }) });
+
 // Quién recibe los mensajes del formulario de contacto: las direcciones de CONTACT_EMAILS
 // (separadas por comas, sin espacios ni huecos vacíos) o, si no hay ninguna, ADMIN_EMAIL, como
 // antes. Se lee en cada llamada. Los avisos de venta y las alertas siguen yendo solo a ADMIN_EMAIL.
@@ -574,5 +743,7 @@ const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
 };
 
 module.exports = {
-  enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin
+  enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin,
+  enviarConfirmarRegistro, enviarCuentaActivada, enviarConfirmarCambioEmail, enviarAvisoCambioEmail,
+  enviarCuentaProtegida, ocultarEmail
 };

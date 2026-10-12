@@ -3,30 +3,46 @@
 // Panel de administración: consulta y gestión de los pedidos generados por el checkout
 // (ver procesarSesionPagada() en utils/pagos.js, que es quien los crea).
 const supabase = require('../data/supabase');
-const { escaparIlike } = require('../utils/ilike');
 
 // 0. Listar los pedidos del cliente logueado (para su "Historial de Pedidos" en Mi Cuenta).
-//    El checkout es de invitado y no guarda un user_id, así que se identifican por el email
-//    con el que compró, comparado con el email de la cuenta logueada. ILIKE para no distinguir
-//    mayúsculas, pero con el email ESCAPADO: sin escapar, un "_" del email hacía de comodín y una
-//    cuenta "j_an@x.com" veía los pedidos de "juan@x.com" (H17).
+//    H18 (docs/verificacion-email-diseno.md, parte 6, punto 6): por `cliente_id`, no por el email
+//    del pedido, y solo si la cuenta tiene el email verificado. Antes buscaba por el email con el
+//    que se compró, y quien registrara el email de otra persona veía sus compras de invitado. Los
+//    pedidos de invitado se asocian a la cuenta al verificar el email (asociarPedidosDeInvitado).
+//    La cuenta se busca por su id (`sub` del token) o, en los tokens de antes de H28, por su email.
 // H36: solo las columnas que enseña "Mis pedidos" (Profile.jsx). Antes, select('*'): cualquier
 // columna interna que se añadiera a `pedidos` habría salido al cliente sin que nadie lo decidiera.
 // Nunca cliente_info (sus datos de entrega ya los conoce, y ahí podría acabar algo interno),
 // stripe_session_id ni cliente_id.
 const COLUMNAS_MIS_PEDIDOS = 'id, created_at, estado, total, items';
+const EMAIL_SIN_VERIFICAR = {
+  error: 'Confirma tu email para ver tus pedidos.',
+  codigo: 'email_no_verificado'
+};
 
 const obtenerMisPedidos = async (req, res) => {
   try {
-    const email = req.usuario?.email;
-    if (!email) {
+    const { sub, email } = req.usuario || {};
+    if (!sub && !email) {
       return res.status(401).json({ error: 'No has iniciado sesión.' });
+    }
+
+    const consultaCuenta = supabase.from('clientes').select('id, email_verificado');
+    const { data: cuenta, error: errorCuenta } = sub
+      ? await consultaCuenta.eq('id', sub).maybeSingle()
+      : await consultaCuenta.eq('email', email).maybeSingle();
+    if (errorCuenta) throw errorCuenta;
+    if (!cuenta) {
+      return res.status(401).json({ error: 'No has iniciado sesión.' });
+    }
+    if (cuenta.email_verificado !== true) {
+      return res.status(403).json(EMAIL_SIN_VERIFICAR);
     }
 
     const { data, error } = await supabase
       .from('pedidos')
       .select(COLUMNAS_MIS_PEDIDOS)
-      .ilike('cliente_info->>email', escaparIlike(email))
+      .eq('cliente_id', cuenta.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;

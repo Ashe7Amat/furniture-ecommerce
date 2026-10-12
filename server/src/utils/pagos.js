@@ -135,10 +135,12 @@ const marcarPiezas = async (lineas) => {
 };
 
 // Migración B (ver docs/tarea3-diseno.md): id de la cuenta cuyo email coincide con el que se
-// usó al comprar, o null. Mismo criterio que "Mis pedidos": email sin distinguir mayúsculas y
-// ESCAPADO, para que un "_" no haga de comodín (H17). Ojo: el email lo escribe el comprador en
-// el checkout de invitado, sin verificar (H18), así que cliente_id dice "se compró con el
-// email de esa cuenta", no "lo compró el titular de esa cuenta".
+// usó al comprar, o null. Email sin distinguir mayúsculas y ESCAPADO, para que un "_" no haga de
+// comodín (H17). H18: solo cuentas con el email VERIFICADO. Una cuenta sin verificar pudo crearla
+// cualquiera con el email de otra persona, y se quedaría con sus compras. Los pedidos que quedan
+// sin cuenta se asocian cuando alguien verifica ese email (utils/verificacionEmail.js). Ojo: el
+// email lo escribe el comprador en el checkout de invitado, sin verificar, así que cliente_id dice
+// "se compró con el email de esa cuenta", no "lo compró el titular de esa cuenta".
 // Nunca impide registrar el pedido: sin una coincidencia única (ninguna, o varias cuentas que
 // solo cambian en mayúsculas) o si la consulta falla, devuelve null y el pedido se guarda
 // igual; el backfill B3 puede rellenarlo después.
@@ -148,6 +150,7 @@ const buscarClienteIdPorEmail = async (emailComprador) => {
     .from('clientes')
     .select('id')
     .ilike('email', escaparIlike(emailComprador))
+    .eq('email_verificado', true)
     .limit(2);
 
   if (error) {
