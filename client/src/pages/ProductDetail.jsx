@@ -134,7 +134,7 @@ const ProductDetail = () => {
           </div>
           {/* A6: la referencia real (NAV-SIL-001). Sustituye a la "Ref. SKU-…" que había al final de
               la ficha, inventada con los 6 primeros caracteres del id. */}
-          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref" />
+          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref ref-producto--etiqueta" />
           {/* C2: antes, sin precio de venta salía "Consultar precio" aunque tuviera precio de alquiler */}
           <p className="pd-price font-display">{textoPrecio(mueble)}</p>
           

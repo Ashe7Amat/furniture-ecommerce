@@ -56,7 +56,7 @@ const ProductCard = ({ mueble }) => {
         </div>
         <div className="product-info">
           <h2 className="product-title">{mueble.nombre}</h2>
-          <ReferenciaProducto referencia={mueble.referencia} />
+          <ReferenciaProducto referencia={mueble.referencia} className="ref-producto--etiqueta" />
           <p className="product-description">{mueble.descripcion}</p>
           <span className="price-value">
             {/* C2: vendida, el precio tachado; vendida y sin precio, nada (antes salía "null €/día", y
