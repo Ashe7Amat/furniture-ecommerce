@@ -2,6 +2,7 @@
 // (sin DOM: así import.meta.url es la ruta del archivo y se puede leer vercel.json)
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { EMISORAS } from './utils/musica';
 
 // La CSP del cliente vive en client/vercel.json (la aplica Vercel; en `npm run dev` no hay CSP), así
 // que un origen que falte solo se nota en producción, como un aviso en la consola (hoy es
@@ -53,5 +54,14 @@ describe('CSP del cliente (vercel.json)', () => {
 
   it('el comprobador distingue: un origen que no está en la política no se permite', () => {
     expect(permite('script-src', 'https://ejemplo.com/script.js')).toBe(false);
+  });
+
+  // La radio de fondo (components/MusicaDeFondo.jsx) solo funciona si media-src abre cada emisora.
+  it.each(EMISORAS.map((e) => [e.nombre, e.url]))('media-src permite la emisora %s', (_nombre, url) => {
+    expect(permite('media-src', url)).toBe(true);
+  });
+
+  it('media-src no abre cualquier origen de audio', () => {
+    expect(permite('media-src', 'https://ejemplo.com/radio.mp3')).toBe(false);
   });
 });

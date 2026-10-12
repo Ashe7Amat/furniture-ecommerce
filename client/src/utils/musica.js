@@ -1,20 +1,21 @@
 // Datos y utilidades del reproductor de música de fondo (components/MusicaDeFondo.jsx).
 
-// Lista de canciones. Todas son instrumentales originales compuestos por código
-// (client/scripts/musica/*.py), así que no hay derechos de terceros. Para añadir o quitar una,
-// deja el archivo en public/audio/ y toca esta lista.
-export const PISTAS = [
-  { titulo: 'Après-midi à Nave 5', artista: 'Nave 5 Sessions', src: '/audio/nave5-chill.mp3' },
-  { titulo: 'Soleil de Poblenou', artista: 'Nave 5 Sessions', src: '/audio/soleil-poblenou.mp3' },
-  { titulo: 'Café Gràcia', artista: 'Nave 5 Sessions', src: '/audio/cafe-gracia.mp3' },
-  { titulo: 'Rue des Antiquaires', artista: 'Nave 5 Sessions', src: '/audio/rue-des-antiquaires.mp3' },
+// Emisoras: los flujos públicos de las radios temáticas de FIP (Radio France). Son en directo, así
+// que no hay duración ni barra de progreso. Si se añade una de otro dominio, hay que abrirlo también
+// en media-src de la CSP (client/vercel.json); lo comprueba cspVercel.test.js.
+const fip = (id) => `https://icecast.radiofrance.fr/${id}-midfi.mp3?id=radiofrance`;
+
+export const EMISORAS = [
+  { nombre: 'FIP Pop', descripcion: 'Pop francés e internacional', url: fip('fippop') },
+  { nombre: 'FIP Sacré français', descripcion: 'Canción francesa', url: fip('fipsacrefrancais') },
+  { nombre: 'FIP Groove', descripcion: 'Soul, funk y groove', url: fip('fipgroove') },
+  { nombre: 'FIP Jazz', descripcion: 'Jazz', url: fip('fipjazz') },
+  { nombre: 'FIP', descripcion: 'La mezcla ecléctica de FIP', url: fip('fip') },
 ];
 
 export const VOLUMEN = 0.35;
-// Si la canción ya lleva más de esto, "anterior" vuelve a su principio (como en cualquier reproductor).
-export const UMBRAL_REINICIO = 3;
 
-export const formatearTiempo = (segundos) => {
-  const s = Number.isFinite(segundos) && segundos > 0 ? Math.floor(segundos) : 0;
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-};
+// Solo en ordenador: en el móvil no hay música (decisión de Ashe, 12 oct 2026). Se mira cómo se
+// maneja el aparato (ratón que puede pasar por encima), no el ancho, para que estrechar la ventana
+// del ordenador no corte la radio.
+export const CONSULTA_ESCRITORIO = '(hover: hover) and (pointer: fine)';

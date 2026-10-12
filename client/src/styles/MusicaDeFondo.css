@@ -1,4 +1,4 @@
-/* ─── Música de fondo ──────────────────────────────────────────────────────────────────────────────
+/* ─── Radio de fondo (solo ordenador) ──────────────────────────────────────────────────────────────
    Plegado: botón redondo abajo a la izquierda (los avisos salen abajo a la derecha).
    Desplegado: una tarjeta compacta con las esquinas casi rectas de la tienda. */
 
@@ -7,13 +7,25 @@
   position: fixed;
   left: 24px;
   bottom: 24px;
-  z-index: 1500; /* Por debajo del carrito (1999), de los modales y del aviso de cookies */
+  /* Por encima de la cabecera (100-200) y las tarjetas; por debajo de la vista rápida (1000), el
+     carrito (1999), los demás modales y el aviso de cookies (5000), que así lo tapan y oscurecen. */
+  z-index: 900;
   background: color-mix(in srgb, var(--card-bg) 92%, transparent);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   color: var(--primary-color);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+}
+
+/* Mientras está el aviso de cookies, el botón queda tapado: fuera también del orden del tabulador. */
+body:has(.cookie-banner) .musica-boton {
+  display: none;
+}
+
+/* El pie oscuro deja sitio a la izquierda para que el botón no tape el copyright. */
+.con-musica .footer-bottom {
+  padding-left: max(4vw, 88px);
 }
 
 .musica-boton {
@@ -34,16 +46,13 @@
 /* ── Tarjeta desplegada ── */
 .musica-panel {
   width: 340px;
-  padding: 12px 12px 8px;
+  padding: 10px 10px 10px 12px;
   border-radius: var(--radius-md, 8px);
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    'portada info controles plegar'
-    'progreso progreso progreso progreso';
+  grid-template-areas: 'portada info controles plegar';
   align-items: center;
   column-gap: 10px;
-  row-gap: 6px;
   transform-origin: bottom left;
   animation: musica-aparece 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -74,23 +83,50 @@
   min-width: 0;
 }
 
-.musica-titulo {
+/* Estado arriba en versalitas espaciadas (como "ALMACÉN DE IDEAS" en la portada) y la emisora
+   debajo con la tipografía de títulos. */
+.musica-estado {
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+  white-space: nowrap;
+}
+
+.musica-estado.directo {
+  color: var(--accent-text);
+}
+
+/* Punto que late despacio mientras suena en directo. */
+.musica-estado.directo::before {
+  content: '';
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: musica-late 2s ease-in-out infinite;
+}
+
+@keyframes musica-late {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.musica-estado.fallo {
+  color: var(--danger-color);
+}
+
+.musica-nombre {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 500;
   font-size: 0.95rem;
   line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.musica-artista {
-  margin: 2px 0 0;
-  font-size: 0.64rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--secondary-color);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -126,6 +162,11 @@
   transform: scale(0.94);
 }
 
+/* Anillo de foco con el acento de texto: el de la tienda (#B38A70) no llega a 3:1 sobre la tarjeta. */
+.musica-panel .musica-ctrl:focus-visible {
+  outline-color: var(--accent-text);
+}
+
 .musica-play {
   width: 36px;
   height: 36px;
@@ -141,82 +182,6 @@
 .musica-plegar {
   grid-area: plegar;
   color: var(--secondary-color);
-}
-
-/* ── Progreso ── */
-.musica-progreso {
-  grid-area: progreso;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.musica-tiempo {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  color: var(--secondary-color);
-  min-width: 2.6em;
-  font-variant-numeric: tabular-nums;
-}
-
-.musica-tiempo:last-child {
-  text-align: right;
-}
-
-.musica-rango {
-  --progreso: 0%;
-  flex: 1;
-  height: 16px;
-  margin: 0;
-  background: transparent;
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.musica-rango:disabled {
-  cursor: default;
-}
-
-.musica-rango::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
-  background: linear-gradient(to right, var(--primary-color) var(--progreso), var(--border-color) var(--progreso));
-}
-
-.musica-rango::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: 10px;
-  height: 10px;
-  margin-top: -3.5px;
-  border-radius: 50%;
-  background: var(--primary-color);
-}
-
-.musica-rango::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border-color);
-}
-
-.musica-rango::-moz-range-progress {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--primary-color);
-}
-
-.musica-rango::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--primary-color);
-}
-
-.musica-rango:focus-visible {
-  outline: 2px solid var(--accent-color);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm, 4px);
 }
 
 /* ── Barras tipo ecualizador: quietas en pausa, se mueven mientras suena ── */
@@ -254,7 +219,17 @@
   50% { height: 18px; }
 }
 
-/* ── Móvil: la tarjeta ocupa el ancho con el mismo margen de 16px ── */
+/* Conectando: las barras respiran despacio en vez de bailar. */
+.musica-panel.cargando .musica-ondas span {
+  animation: musica-respira 1.4s ease-in-out infinite;
+}
+
+@keyframes musica-respira {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ── Ventana estrecha o zoom grande: la tarjeta ocupa el ancho y suelta la portada ── */
 @media (max-width: 600px) {
   .musica-boton,
   .musica-panel {
@@ -262,24 +237,49 @@
     bottom: 16px;
   }
 
-  .musica-boton {
-    width: 44px;
-    height: 44px;
-  }
-
   .musica-panel {
     width: auto;
     right: 16px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'info controles plegar';
   }
 
-  /* En pantallas táctiles, objetivos de al menos 40px */
-  .musica-ctrl { width: 40px; height: 40px; }
-  .musica-play { width: 42px; height: 42px; }
+  .musica-portada {
+    display: none;
+  }
+}
+
+/* Muy estrecho (p. ej. 400 % de zoom): los controles bajan a su propia fila. */
+@media (max-width: 400px) {
+  .musica-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'info plegar'
+      'controles controles';
+    row-gap: 6px;
+  }
+
+  .musica-controles {
+    justify-content: center;
+  }
+}
+
+/* Modo de alto contraste de Windows: sin esto las barras y el punto de directo desaparecen. */
+@media (forced-colors: active) {
+  .musica-ondas span,
+  .musica-estado.directo::before {
+    background: CanvasText;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sonando .musica-ondas span {
+  .sonando .musica-ondas span,
+  .musica-panel.cargando .musica-ondas span,
+  .musica-estado.directo::before {
     animation: none;
+  }
+
+  .sonando .musica-ondas span {
     height: 12px;
   }
 }
