@@ -15,6 +15,9 @@ const Ondas = () => (
   </span>
 );
 
+// HTMLMediaElement.HAVE_FUTURE_DATA: hay datos para seguir sonando.
+const CON_DATOS = 3;
+
 const useEsEscritorio = () => {
   const consulta = () => typeof window.matchMedia === 'function' && window.matchMedia(CONSULTA_ESCRITORIO).matches;
   const [esEscritorio, setEsEscritorio] = useState(consulta);
@@ -66,8 +69,18 @@ const Reproductor = () => {
     if (!audio) return;
     quiereSonar.current = true;
     setFallo(false);
+    // Ya está sonando (p. ej. llega la tecla Play del sistema con la música en marcha): play() no
+    // lanzaría "play" ni "playing", así que no hay nada que esperar.
+    if (!audio.paused && audio.readyState >= CON_DATOS) {
+      setSonando(true);
+      setCargando(false);
+      return;
+    }
     setCargando(true);
     audio.volume = VOLUMEN;
+    // Tras un fallo de carga, play() ya no vuelve a pedir el archivo; load() borra el error y
+    // lo intenta de nuevo (si no, con una sola canción quedaría roto hasta recargar la página).
+    if (audio.error) audio.load();
     try {
       await audio.play();
     } catch (error) {
@@ -132,7 +145,10 @@ const Reproductor = () => {
       try { ms.setActionHandler(accion, activas ? acciones[accion] : null); } catch { /* acción no soportada */ }
     });
     poner(true);
-    return () => poner(false);
+    return () => {
+      poner(false);
+      ms.metadata = null;
+    };
   }, [cancion, reproducir, pausar, anterior, siguiente]);
 
   const abrir = () => {
@@ -143,7 +159,7 @@ const Reproductor = () => {
   const activo = sonando || cargando;
   const alternar = () => (activo ? pausar() : reproducir());
   // Arriba, en pequeño, el artista; si está cargando o falla, eso en su lugar.
-  const linea = fallo ? 'No se puede reproducir' : cargando ? 'Cargando…' : cancion.artista;
+  const linea = fallo ? 'Error al cargar' : cargando ? 'Cargando…' : cancion.artista;
 
   return (
     <>
@@ -203,10 +219,15 @@ const Reproductor = () => {
             <Ondas />
           </div>
 
-          <div className="musica-info" role="status">
+          <div className="musica-info">
             <p className={`musica-estado${fallo ? ' fallo' : ''}${sonando && !cargando ? ' sonando' : ''}`}>{linea}</p>
             <p className="musica-nombre" title={`${cancion.titulo} · ${cancion.artista}`}>{cancion.titulo}</p>
           </div>
+          {/* Para lectores de pantalla: avisa al cambiar de canción o si falla, pero no del "Cargando…"
+              de cada arranque, que duraría un instante y repetiría todo dos veces. */}
+          <p className="musica-sr" role="status">
+            {fallo ? `No se puede reproducir ${cancion.titulo}` : `${cancion.titulo}, de ${cancion.artista}`}
+          </p>
 
           <div className="musica-controles">
             <button type="button" className="musica-ctrl" onClick={anterior} aria-label="Canción anterior">

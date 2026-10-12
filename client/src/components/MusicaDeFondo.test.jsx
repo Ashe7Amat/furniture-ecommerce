@@ -218,7 +218,7 @@ describe('MusicaDeFondo', () => {
     HTMLMediaElement.prototype.play.mockImplementationOnce(() => Promise.reject(error));
     pintar();
     await abrir();
-    expect(within(panel()).getByText('No se puede reproducir')).toBeInTheDocument();
+    expect(within(panel()).getByText('Error al cargar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
     await pulsar('Canción siguiente');
     expect(within(panel()).getByText('Artista Dos')).toBeInTheDocument();
@@ -231,7 +231,7 @@ describe('MusicaDeFondo', () => {
     const { container } = pintar();
     await abrir();
     await act(async () => { audioDe(container).dispatchEvent(new Event('error')); });
-    expect(within(panel()).getByText('No se puede reproducir')).toBeInTheDocument();
+    expect(within(panel()).getByText('Error al cargar')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
   });
 
@@ -241,7 +241,140 @@ describe('MusicaDeFondo', () => {
     pintar();
     await abrir();
     expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
-    expect(within(panel()).queryByText('No se puede reproducir')).not.toBeInTheDocument();
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+  });
+
+  it('tras un fallo de carga, reintentar la misma canción vuelve a pedir el archivo y quita el aviso', async () => {
+    const error = Object.assign(new Error('sin red'), { name: 'NotSupportedError' });
+    HTMLMediaElement.prototype.play.mockImplementationOnce(() => Promise.reject(error));
+    const { container } = pintar();
+    await abrir();
+    expect(within(panel()).getByText('Error al cargar')).toBeInTheDocument();
+    // Como el navegador: el elemento se queda con el error puesto y play() solo no reintenta.
+    Object.defineProperty(audioDe(container), 'error', { value: { code: 4 }, configurable: true });
+    await pulsar('Reproducir música');
+    expect(HTMLMediaElement.prototype.load).toHaveBeenCalledTimes(1);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+    expect(fuente(container)).toBe(canciones[0].url);
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+    expect(within(panel()).getByText('Artista Uno')).toBeInTheDocument();
+  });
+
+  it('tras un error de red a mitad, reanudar la misma canción quita el aviso', async () => {
+    const { container } = pintar();
+    await abrir();
+    await act(async () => {
+      pausado = true;
+      audioDe(container).dispatchEvent(new Event('error'));
+    });
+    await pulsar('Reproducir música');
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
+  });
+
+  it('un error con la música en pausa no da aviso', async () => {
+    const { container } = pintar();
+    await abrir();
+    await pulsar('Pausar música');
+    await act(async () => { audioDe(container).dispatchEvent(new Event('error')); });
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+  });
+
+  it('tras un error de red a mitad, cambiar de canción no la pone a sonar sola', async () => {
+    const { container } = pintar();
+    await abrir();
+    await act(async () => { audioDe(container).dispatchEvent(new Event('error')); });
+    await pulsar('Canción siguiente');
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+  });
+
+  it('cambiar de canción mientras carga: el AbortError de la anterior no da aviso', async () => {
+    const rechazos = [];
+    HTMLMediaElement.prototype.play.mockImplementation(function () {
+      pausado = false;
+      this.dispatchEvent(new Event('play'));
+      return new Promise((_, rechazar) => rechazos.push(rechazar));
+    });
+    const { container } = pintar();
+    await abrir();
+    await pulsar('Canción siguiente');
+    await act(async () => { rechazos[0](new DOMException('interrumpido por otra carga', 'AbortError')); });
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+    // La nueva sigue arrancando: cuando llega a sonar, se ve su artista.
+    await act(async () => { audioDe(container).dispatchEvent(new Event('playing')); });
+    expect(within(panel()).getByText('Artista Dos')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
+  });
+
+  it('pausar mientras carga: el AbortError no da aviso', async () => {
+    const rechazos = [];
+    HTMLMediaElement.prototype.play.mockImplementation(function () {
+      pausado = false;
+      this.dispatchEvent(new Event('play'));
+      return new Promise((_, rechazar) => rechazos.push(rechazar));
+    });
+    pintar();
+    await abrir();
+    await pulsar('Pausar música');
+    await act(async () => { rechazos[0](new DOMException('interrumpido por pause()', 'AbortError')); });
+    expect(within(panel()).queryByText('Error al cargar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+  });
+
+  it('si la canción se queda sin datos a mitad dice "Cargando…" hasta que vuelve a sonar', async () => {
+    const { container } = pintar();
+    await abrir();
+    await act(async () => { audioDe(container).dispatchEvent(new Event('waiting')); });
+    expect(within(panel()).getByText('Cargando…')).toBeInTheDocument();
+    expect(panel()).toHaveClass('cargando');
+    await act(async () => { audioDe(container).dispatchEvent(new Event('playing')); });
+    expect(within(panel()).getByText('Artista Uno')).toBeInTheDocument();
+    expect(panel()).not.toHaveClass('cargando');
+  });
+
+  it('si el sistema pausa mientras espera datos, queda en pausa y no en "Cargando…"', async () => {
+    const { container } = pintar();
+    await abrir();
+    await act(async () => { audioDe(container).dispatchEvent(new Event('waiting')); });
+    await act(async () => { audioDe(container).pause(); });
+    expect(screen.getByRole('button', { name: 'Reproducir música' })).toBeInTheDocument();
+    expect(within(panel()).queryByText('Cargando…')).not.toBeInTheDocument();
+  });
+
+  it('el botón redondo y el panel se marcan mientras suena (las barras se mueven) y el aviso de fallo se colorea', async () => {
+    const error = Object.assign(new Error('sin fuente'), { name: 'NotSupportedError' });
+    pintar();
+    expect(screen.getByRole('button', { name: 'Escuchar música' })).not.toHaveClass('sonando');
+    await abrir();
+    expect(panel()).toHaveClass('sonando');
+    await pulsar('Minimizar reproductor');
+    expect(screen.getByRole('button', { name: 'Abrir reproductor de música' })).toHaveClass('sonando');
+    await pulsar('Abrir reproductor de música');
+    await pulsar('Pausar música');
+    expect(panel()).not.toHaveClass('sonando');
+    HTMLMediaElement.prototype.play.mockImplementationOnce(() => Promise.reject(error));
+    await pulsar('Reproducir música');
+    expect(within(panel()).getByText('Error al cargar')).toHaveClass('fallo');
+  });
+
+  it('el aviso para lectores de pantalla dice la canción al cambiar y avisa si falla, sin el "Cargando…"', async () => {
+    const error = Object.assign(new Error('sin fuente'), { name: 'NotSupportedError' });
+    HTMLMediaElement.prototype.play.mockImplementation(function () {
+      pausado = false;
+      this.dispatchEvent(new Event('play'));
+      return new Promise(() => {});
+    });
+    pintar();
+    await abrir();
+    const aviso = within(panel()).getByRole('status');
+    expect(aviso).toHaveTextContent('Primera, de Artista Uno');
+    expect(aviso).not.toHaveTextContent('Cargando');
+    HTMLMediaElement.prototype.play.mockImplementationOnce(() => Promise.reject(error));
+    await pulsar('Canción siguiente');
+    expect(aviso).toHaveTextContent('No se puede reproducir Segunda');
+    await pulsar('Canción siguiente');
+    expect(aviso).toHaveTextContent('Tercera, de Artista Tres');
   });
 
   it('minimizar pliega el reproductor sin parar la música y devuelve el foco al botón', async () => {
@@ -316,6 +449,29 @@ describe('MusicaDeFondo', () => {
       unmount();
       expect(manejadores.play).toBeNull();
       expect(manejadores.nexttrack).toBeNull();
+      // Sin canción colgada en el widget del sistema.
+      expect(mediaSession.metadata).toBeNull();
+    } finally {
+      delete navigator.mediaSession;
+      delete window.MediaMetadata;
+    }
+  });
+
+  it('la tecla Play del sistema con la música ya sonando no la deja en "Cargando…"', async () => {
+    const manejadores = {};
+    const mediaSession = { metadata: null, setActionHandler: vi.fn((accion, fn) => { manejadores[accion] = fn; }) };
+    Object.defineProperty(navigator, 'mediaSession', { value: mediaSession, configurable: true });
+    window.MediaMetadata = function MediaMetadata(datos) { Object.assign(this, datos); };
+    try {
+      const { container } = pintar();
+      await abrir();
+      // Sonando y con datos: un play() de verdad no lanzaría ni "play" ni "playing".
+      Object.defineProperty(audioDe(container), 'readyState', { value: 4, configurable: true });
+      HTMLMediaElement.prototype.play.mockImplementation(() => Promise.resolve());
+      await act(async () => { manejadores.play(); });
+      expect(within(panel()).queryByText('Cargando…')).not.toBeInTheDocument();
+      expect(within(panel()).getByText('Artista Uno')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Pausar música' })).toBeInTheDocument();
     } finally {
       delete navigator.mediaSession;
       delete window.MediaMetadata;

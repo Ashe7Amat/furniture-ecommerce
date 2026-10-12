@@ -10,9 +10,9 @@
   /* Por encima de la cabecera (100-200) y las tarjetas; por debajo de la vista rápida (1000), el
      carrito (1999), los demás modales y el aviso de cookies (5000), que así lo tapan y oscurecen. */
   z-index: 900;
-  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  /* Opaco: con transparencia, sobre la foto oscura de la portada el artista en color de acento
+     bajaba de 4,5:1. */
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
   color: var(--primary-color);
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
@@ -43,9 +43,16 @@ body:has(.cookie-banner) .musica-boton {
   transform: scale(1.06);
 }
 
+/* Anillo de foco por dentro del botón, sobre su propio fondo: por fuera caería sobre la foto, el
+   pie o el fondo de la página, y con ninguno llega a 3:1 el color de foco general. */
+button.musica-boton:focus-visible {
+  outline-color: var(--accent-text);
+  outline-offset: -4px;
+}
+
 /* ── Tarjeta desplegada ── */
 .musica-panel {
-  width: 340px;
+  width: 380px;
   padding: 10px 10px 10px 12px;
   border-radius: var(--radius-md, 8px);
   display: grid;
@@ -165,6 +172,19 @@ body:has(.cookie-banner) .musica-boton {
 .musica-plegar {
   grid-area: plegar;
   color: var(--secondary-color);
+}
+
+/* Aviso solo para lectores de pantalla. */
+.musica-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Línea de progreso: fina, abajo, sin llegar a las esquinas redondeadas. */
