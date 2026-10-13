@@ -5,11 +5,11 @@ import Profile from './Profile';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
-import { getMuebles, updateProfile, getMisPedidos } from '../services/api';
+import { getMuebles, updateProfile, getMisPedidos, reenviarVerificacion } from '../services/api';
 
 vi.mock('../services/api');
 
-const ANA = { id: 'u1', nombre: 'Ana', email: 'ana@correo.es' };
+const ANA = { id: 'u1', nombre: 'Ana', email: 'ana@correo.es', email_verificado: true };
 
 const abrir = ({ user = ANA, favorites = [], ruta = '/cuenta' } = {}) => {
   const login = vi.fn();
@@ -258,6 +258,103 @@ describe('Profile — historial de pedidos', () => {
 
     expect(await screen.findByText(/Todavía no has hecho ninguna compra/)).toBeInTheDocument();
     expect(getMisPedidos).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Profile — verificación del email (H18)', () => {
+  const SIN_VERIFICAR = { ...ANA, email_verificado: false };
+
+  it('sin verificar, pide arriba confirmar el email, con el botón "Enviar enlace"', () => {
+    abrir({ user: SIN_VERIFICAR });
+
+    const aviso = screen.getByRole('status');
+    expect(aviso).toHaveTextContent(
+      'Confirma tu email, ana@correo.es, para ver tus pedidos. Si no tienes el correo con el enlace, te mandamos uno nuevo.'
+    );
+    // Las cuentas de antes de H18 nunca recibieron el correo: el aviso no dice que se mandó.
+    expect(aviso).not.toHaveTextContent('Te hemos enviado');
+    expect(within(aviso).getByRole('button', { name: 'Enviar enlace' })).toBeInTheDocument();
+  });
+
+  it('una sesión de antes de H18 (sin el campo) cuenta como sin verificar', () => {
+    const deAntes = { ...ANA };
+    delete deAntes.email_verificado;
+    abrir({ user: deAntes });
+    expect(screen.getByRole('status')).toHaveTextContent('Confirma tu email');
+  });
+
+  it('verificada y sin cambios pendientes, no hay aviso', () => {
+    abrir();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('"Enviar enlace" pide el correo y lo confirma con un aviso; si falla, enseña el motivo', async () => {
+    reenviarVerificacion.mockResolvedValueOnce({ success: true });
+    const { showToast } = abrir({ user: SIN_VERIFICAR });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar enlace' }));
+    });
+    expect(reenviarVerificacion).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith('Te hemos enviado el correo.', 'success');
+
+    reenviarVerificacion.mockResolvedValueOnce({ error: 'Ya te hemos enviado varios correos.' });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar enlace' }));
+    });
+    expect(showToast).toHaveBeenLastCalledWith('Ya te hemos enviado varios correos.', 'error');
+  });
+
+  it('sin verificar, el historial enseña el aviso en vez de la lista y no pide los pedidos', () => {
+    abrir({ user: SIN_VERIFICAR, ruta: '/cuenta?tab=pedidos' });
+
+    expect(screen.getByText('Confirma tu email para ver tus pedidos.')).toBeInTheDocument();
+    expect(getMisPedidos).not.toHaveBeenCalled();
+  });
+
+  it('si el servidor dice que no está verificada (403), también enseña el aviso', async () => {
+    getMisPedidos.mockResolvedValue({ sinVerificar: true });
+    abrir({ ruta: '/cuenta?tab=pedidos' });
+
+    expect(await screen.findByText('Confirma tu email para ver tus pedidos.')).toBeInTheDocument();
+  });
+
+  it('con un cambio de email pendiente, dice a dónde se mandó el enlace y que la cuenta sigue con el actual', () => {
+    abrir({ user: { ...ANA, email_pendiente: 'ana.nueva@correo.es' } });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Te hemos enviado un enlace a ana.nueva@correo.es. Hasta que lo confirmes, tu cuenta sigue con ana@correo.es.'
+    );
+  });
+
+  it('"Enviar otro" vuelve a mandar el enlace al email nuevo y lo confirma con un aviso', async () => {
+    reenviarVerificacion.mockResolvedValueOnce({ success: true });
+    const { showToast } = abrir({ user: { ...ANA, email_pendiente: 'ana.nueva@correo.es' } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enviar otro' }));
+    });
+
+    expect(reenviarVerificacion).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith('Te hemos enviado otro correo.', 'success');
+  });
+
+  it('al pedir el cambio de email, enseña el mensaje del servidor y el campo vuelve al email actual', async () => {
+    const respuesta = {
+      user: { ...ANA, email_pendiente: 'ana.nueva@correo.es' },
+      token: 'access-nuevo',
+      message: 'Te hemos enviado un enlace a ana.nueva@correo.es. Hasta que lo confirmes, tu cuenta sigue con ana@correo.es.'
+    };
+    updateProfile.mockResolvedValue(respuesta);
+    const { login, showToast } = abrir();
+    cambiar(screen.getByLabelText('Correo electrónico'), 'ana.nueva@correo.es');
+    cambiar(passwordActual(), 'la-de-siempre');
+
+    await guardar();
+
+    expect(login).toHaveBeenCalledWith(respuesta.user, 'access-nuevo', undefined);
+    expect(showToast).toHaveBeenCalledWith(respuesta.message, 'success');
+    expect(screen.getByLabelText('Correo electrónico')).toHaveValue('ana@correo.es');
   });
 });
 

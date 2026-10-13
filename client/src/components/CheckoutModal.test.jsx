@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CheckoutModal from './CheckoutModal';
 import { CartContext } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 import { crearSesionPago } from '../services/api';
 
 // crearSesionPago llama a fetch contra la API real -- se mockea, igual que Stripe/Resend/
@@ -235,5 +236,61 @@ describe('CheckoutModal — accesibilidad (H55)', () => {
     const { onClose } = renderCheckout();
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// H6/H18: con sesión y el email verificado, la compra usa el email de la cuenta, sin poder cambiarlo.
+describe('CheckoutModal — email de la cuenta (H18)', () => {
+  const conSesion = (user) =>
+    render(
+      <AuthContext.Provider value={{ user }}>
+        <CartContext.Provider
+          value={{ cartItems: [itemBase()], cartTotal: 90, validateCart: vi.fn().mockResolvedValue(true) }}
+        >
+          <CheckoutModal isOpen={true} onClose={vi.fn()} />
+        </CartContext.Provider>
+      </AuthContext.Provider>
+    );
+
+  const rellenarSinEmail = async (user) => {
+    await user.type(campoPor('Nombre y Apellidos'), 'Ana Martínez');
+    await user.type(campoPor('Teléfono de Contacto'), '600123456');
+    await user.type(campoPor('Dirección de Envío (Calle, número, piso, puerta)'), 'Calle Mayor 15');
+    await user.type(campoPor('Ciudad'), 'Barcelona');
+    await user.type(campoPor('Código Postal'), '08001');
+    await user.type(campoPor('Provincia'), 'Barcelona');
+  };
+
+  it('con el email verificado, el campo trae el de la cuenta, no se puede cambiar y el pago lo usa', async () => {
+    const user = userEvent.setup();
+    crearSesionPago.mockResolvedValue({ error: 'para no redirigir' });
+    conSesion({ nombre: 'Ana', email: 'ana@cuenta.es', email_verificado: true });
+
+    const campo = campoPor('Correo Electrónico');
+    expect(campo).toHaveValue('ana@cuenta.es');
+    expect(campo).toHaveAttribute('readonly');
+    expect(screen.getByText(/Es el email de tu cuenta/)).toBeInTheDocument();
+
+    await user.type(campo, 'otra@cosa.es');
+    expect(campo).toHaveValue('ana@cuenta.es');
+
+    await rellenarSinEmail(user);
+    await user.click(screen.getByRole('button', { name: /Pagar/ }));
+    expect(crearSesionPago).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clienteInfo: expect.objectContaining({ email: 'ana@cuenta.es' })
+      })
+    );
+  });
+
+  it('con sesión pero sin verificar, el email se escribe a mano como en una compra de invitado', async () => {
+    const user = userEvent.setup();
+    conSesion({ nombre: 'Ana', email: 'ana@cuenta.es', email_verificado: false });
+
+    const campo = campoPor('Correo Electrónico');
+    expect(campo).toHaveValue('');
+    expect(campo).not.toHaveAttribute('readonly');
+    await user.type(campo, 'otra@cosa.es');
+    expect(campo).toHaveValue('otra@cosa.es');
   });
 });

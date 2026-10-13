@@ -1,7 +1,61 @@
 # Verificación del email de las cuentas (H18) — diseño para decidir
 
-**Estado:** solo diseño (29 sep 2026). No hay nada implementado. Las partes 1 a 3 son para decidir con el
-cliente; las partes 4 a 8, para quien lo implemente.
+**Estado:** implementado en la rama `claude/project-thread-wq6mws` (PR #3, 12 oct 2026), con las propuestas
+de la parte 1 como decisiones por defecto. Revisado y aprobado por Ashe el 12 oct, con los arreglos de después
+de la primera revisión (hasta `c8b99d5`). Las partes 1 a 3 son para decidir con el cliente; las partes 4 a 8, para
+quien lo implemente.
+
+**Antes de que el código llegue a `main`** (sin esto, "Mis pedidos" deja de funcionar para todos los
+clientes, que nunca podrían confirmar su email):
+1. ~~La migración de la parte 5.~~ **Aplicada el 12 oct 2026** con permiso de Ashe:
+   `server/migrations/20261012165218_verificacion_email.sql` (mismo MD5 que lo registrado). Es aditiva: la web
+   que hay en `main` no la nota (revisado antes contra `main` y `feature/mejoras-tecnicas`). Las 5 cuentas
+   quedaron sin verificar, como dice la decisión 4.
+2. Las 2 cuentas de administrador marcadas como verificadas (el `UPDATE` de la parte 5), también con
+   `apply_migration` y con permiso, para que quede registrado. Mejor justo antes del despliegue: si se marca
+   antes, un cambio de email desde Mi cuenta con el código de `main` dejaría la marca en una dirección sin
+   confirmar. Sin la marca, si un administrador entra con Google pierde su contraseña (punto 8 de la parte 6).
+3. ~~`EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production).~~ **Puesta el 13 oct** por Ashe. Sin ella,
+   el registro con contraseña funciona pero no se manda ningún enlace, así que esas cuentas no pueden
+   verificarse (las que entran con Google sí quedan verificadas), y cambiar el email responde 503.
+4. ~~El dominio verificado en Resend y `RESEND_FROM` con una dirección de ese dominio (decisión 1).~~ **Hecho:**
+   `RESEND_FROM` es `contacto@nave5barcelona.com` (desde el 5 oct) y Ashe confirmó el 13 oct que Resend da
+   `nave5barcelona.com` por verificado. Verificar el dominio no basta: con el remitente de pruebas, Resend solo
+   entrega a la dirección de la cuenta de Resend.
+5. ~~`CLIENT_URL` con la dirección pública de la web.~~ **Comprobado el 13 oct:** es
+   `https://www.nave5barcelona.com`. Los enlaces de los correos salen de ella.
+6. Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de Resend.
+
+**Diferencias con el diseño, a propósito:**
+- El cambio de email que pide la contraseña actual sigue con el límite de intentos de H28, que ya estaba.
+- Confirmar el email nuevo también deja la cuenta verificada (quien confirma demuestra el buzón).
+- Al entrar con Google en una cuenta sin verificar se protege siempre (punto 8 de la parte 6): no hay columna
+  que diga si la cuenta se creó con contraseña o con Google, así que una cuenta de Google de antes de H18
+  recibe también el correo 5 y se le cierran las demás sesiones. Con 5 cuentas (2 de administrador, a 12 oct),
+  se acepta.
+- El checkout fija el email de la cuenta verificada en el cliente; el servidor no lo comprueba, porque la
+  sesión de pago no pide iniciar sesión.
+- El correo 5 no dice "si quieres volver a tener contraseña, pídela desde Mi cuenta": no hay forma de pedirla
+  (cambiarla exige la actual).
+- El aviso de Mi cuenta sin verificar no dice "te hemos enviado un correo", porque las cuentas de antes de H18
+  nunca lo recibieron: "Confirma tu email, {email}, para ver tus pedidos. Si no tienes el correo con el
+  enlace, te mandamos uno nuevo", con el botón "Enviar enlace".
+- Crear un enlace borra los anteriores sin usar del mismo motivo, no todos: pedir otro enlace de registro no
+  anula el de un cambio de email a medias.
+- Si al confirmar un cambio de email la dirección ya es de otra cuenta (409), el cambio pendiente se anula.
+- Los correos de la verificación se esperan antes de responder (con el tope de 8 segundos de los pagos): en
+  Vercel, un envío pendiente al responder podría no completarse.
+- `perfil-update` busca la cuenta por el id del token, no por su email: tras confirmar un cambio, un token de
+  antes aún lleva el email viejo, que puede ser ya de otra cuenta.
+- Al proteger una cuenta al entrar con Google (punto 8 de la parte 6) también se anula el cambio de email
+  pendiente: lo pudo pedir quien creó la cuenta, y con su enlace se quedaría con ella y con los pedidos que se
+  le acaban de asociar.
+- "Mis pedidos" no acepta un token de sesión firmado antes de que la cuenta se verificara (401, "Tu sesión ha
+  caducado"): si no, quien registró el email de otra persona seguiría viendo sus pedidos durante la hora que
+  dura su token, después de que la dueña entre con Google. La web renueva la sesión y lo reintenta sola, así
+  que a quien tiene una sesión legítima no le afecta; a quien se le protegió la cuenta no le deja renovar.
+- Cambiar solo la contraseña anula un cambio de email pendiente: es lo que el aviso al email antiguo (correo
+  4) le dice que haga a quien no lo ha pedido.
 
 ---
 
@@ -30,7 +84,7 @@ La solución es la habitual: mandar un correo con un enlace, y no dar por buena 
 | 1 | **Dominio propio en Resend** (el servicio de correo). Sin él, los correos solo llegan a la dirección del dueño de la cuenta de Resend, no a los clientes | **Imprescindible antes de nada.** Es verificar un dominio (por ejemplo nave5barcelona.com) en Resend, añadiendo unos registros DNS |
 | 2 | **Cuándo se pide verificar** (parte 2) | En el registro y al cambiar el email |
 | 3 | **Qué puede hacer una cuenta sin verificar** | Iniciar sesión, guardar favoritos y comprar; **no** ver "Mis pedidos" hasta verificar |
-| 4 | **Las cuentas que ya existen** (hoy hay 3, una es la del administrador) | Pedir que verifiquen al entrar la próxima vez; la del administrador se marca como verificada a mano |
+| 4 | **Las cuentas que ya existen** (3 el 29 sep, una de administrador; 5 el 12 oct, 2 de administrador) | Pedir que verifiquen al entrar la próxima vez; la del administrador se marca como verificada a mano |
 | 5 | **Los pedidos ya asociados a una cuenta** (hoy 2 de 3) | Revisarlos juntos: con 3 pedidos se hace a mano en un momento |
 | 6 | **Los textos de los correos** (parte 3) | Los de la parte 3, o los que se prefieran |
 | 7 | **Cuánto dura el enlace** | 24 horas, con un botón para pedir otro |
@@ -176,8 +230,8 @@ ALTER TABLE public.clientes
   DROP COLUMN email_verificado;
 ```
 
-- **Las cuentas existentes** quedan con `email_verificado = false` (decisión 4). La del administrador se marca
-  a mano, con el SQL aparte que haga el usuario:
+- **Las cuentas existentes** quedan con `email_verificado = false` (decisión 4). Las de administrador (2 a 12
+  oct) se marcan a mano, con `apply_migration` y con permiso, justo antes del despliegue (punto 2 de arriba):
   `UPDATE clientes SET email_verificado = true, email_verificado_en = now() WHERE rol = 'admin';`
 - **Las cuentas de Google** existentes se verifican solas la próxima vez que entren con Google.
 - **Secreto:** el HMAC puede reutilizar `REFRESH_TOKEN_HASH_SECRET` o tener uno propio. La propuesta es uno
@@ -238,7 +292,8 @@ ALTER TABLE public.clientes
 
 ## Parte 8 · Orden de trabajo y pruebas
 
-1. **Migración** (con permiso) y la marca manual de la cuenta del administrador.
+1. **Migración** (con permiso; aplicada el 12 oct) y la marca manual de las cuentas de administrador (punto 2
+   de arriba).
 2. **Servidor** (un commit por punto): verificar y reenviar; el registro; "Mis pedidos" y los pedidos nuevos;
    Google; el cambio de email.
 3. **Cliente:** la página, los avisos y el checkout.

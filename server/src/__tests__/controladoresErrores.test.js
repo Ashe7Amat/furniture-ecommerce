@@ -49,7 +49,7 @@ const sinDetalles = (res) => {
 };
 
 describe('pedidos', () => {
-  test('GET /api/pedidos/mios: un token sin email da 401, sin consultar nada', async () => {
+  test('GET /api/pedidos/mios: un token sin id ni email da 401, sin consultar nada', async () => {
     const fake = conFallo({});
     const sinEmail = firmar({ nombre: 'Raro', rol: 'cliente' });
 
@@ -63,7 +63,10 @@ describe('pedidos', () => {
   });
 
   test('GET /api/pedidos/mios: si falla la base de datos, 500 genérico', async () => {
-    conFallo({ 'pedidos.select': ERROR_BD });
+    conFallo(
+      { 'pedidos.select': ERROR_BD },
+      { clientes: [{ id: 'cli-ana', email: 'ana@example.com', email_verificado: true }] }
+    );
 
     const res = await request(app)
       .get('/api/pedidos/mios')
