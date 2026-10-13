@@ -536,6 +536,33 @@ describe('Google', () => {
     assert.equal(espias.protegida.mock.callCount(), 0);
   });
 
+  test('una cuenta nueva recibe las compras que hizo antes como invitada y las ve en Mis pedidos', async () => {
+    instalar({
+      pedidos: [
+        pedido('suyo', 'Nueva@Example.com'),
+        pedido('ajeno', 'otra@example.com'),
+        pedido('de-otra-cuenta', 'nueva@example.com', { cliente_id: 'cli-otra' })
+      ]
+    });
+
+    const res = await entrarConGoogle('nueva@example.com');
+
+    assert.equal(res.status, 200);
+    const id = fake.tablas.clientes[0].id;
+    assert.deepEqual(
+      fake.tablas.pedidos.map((p) => p.cliente_id),
+      [id, null, 'cli-otra']
+    );
+    const mios = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${res.body.token}`);
+    assert.equal(mios.status, 200);
+    assert.deepEqual(
+      mios.body.map((p) => p.id),
+      ['suyo']
+    );
+  });
+
   test('una cuenta sin verificar con ese email se protege: verificada, contraseña anulada, sesiones cerradas y aviso', async () => {
     const ajena = cuenta('cli-ajena', 'victima@example.com', { nombre: 'Víctima' });
     instalar({ clientes: [{ ...ajena }], pedidos: [pedido('invitado', 'victima@example.com')] });

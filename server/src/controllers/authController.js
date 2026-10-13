@@ -428,6 +428,9 @@ const loginConGoogle = async (req, res) => {
 
       if (insertError) throw insertError;
       usuario = nuevoUsuario;
+      // Nace verificada: recibe ya sus compras de invitado, como al confirmar el email (Mis
+      // pedidos las busca por cliente_id).
+      await verificacionEmail.asociarPedidosDeInvitado(usuario.id, usuario.email);
     } else if (usuario.email_verificado !== true) {
       // H18, caso 3 (parte 6, punto 8): una cuenta sin verificar con este email. Pudo crearla
       // con contraseña otra persona para adelantarse; Google acaba de demostrar que el email es

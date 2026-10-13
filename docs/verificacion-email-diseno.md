@@ -56,6 +56,9 @@ clientes, que nunca podrían confirmar su email):
   que a quien tiene una sesión legítima no le afecta; a quien se le protegió la cuenta no le deja renovar.
 - Cambiar solo la contraseña anula un cambio de email pendiente: es lo que el aviso al email antiguo (correo
   4) le dice que haga a quien no lo ha pedido.
+- Una cuenta nueva creada con Google recibe sus compras de invitado al crearse, como al confirmar el email:
+  "Mis pedidos" las busca por `cliente_id`, y sin esto dejaría de ver las que antes veía por email (hallado en
+  la revisión previa al despliegue, 13 oct).
 
 ---
 
