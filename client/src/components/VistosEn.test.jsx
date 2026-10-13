@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import VistosEn, { PRODUCCIONES } from './VistosEn';
+import VistosEn from './VistosEn';
+import { PRODUCCIONES } from '../utils/producciones';
 
 describe('VistosEn', () => {
   it('con la lista vacía no pinta nada (la del cliente aún no está)', () => {
