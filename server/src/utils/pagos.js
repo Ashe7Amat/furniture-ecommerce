@@ -165,7 +165,16 @@ const buscarClienteIdPorEmail = async (emailComprador) => {
 // inserta de verdad. Si otra petición lo registra a la vez, su INSERT choca con el nuestro
 // en la clave primaria (id derivado de la sesión, ver idPedidoDeSesion) o, cuando exista,
 // en el índice único de stripe_session_id: en ambos casos llega un 23505 y `creado` es false.
-const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId }) => {
+// También lo usan las reservas por fechas (utils/reservas.js), con su propio `metodoEntrega`
+// ('domicilio' o 'recogida' en tienda); la compra sigue siendo siempre a domicilio.
+const registrarPedido = async ({
+  lineas,
+  cliente,
+  clienteId,
+  total,
+  sessionId,
+  metodoEntrega = 'domicilio'
+}) => {
   const id = idPedidoDeSesion(sessionId);
   const { error } = await supabase.from('pedidos').insert({
     id,
@@ -173,7 +182,7 @@ const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId })
     cliente_info: cliente,
     cliente_id: clienteId,
     total,
-    metodo_entrega: 'domicilio',
+    metodo_entrega: metodoEntrega,
     direccion_envio: cliente.direccion || null,
     estado: 'procesando',
     stripe_session_id: sessionId
@@ -309,4 +318,4 @@ const avisarPagoSinRegistrar = async (session, error) => {
   })]);
 };
 
-module.exports = { procesarSesionPagada, avisarPagoSinRegistrar, idPedidoDeSesion };
+module.exports = { procesarSesionPagada, avisarPagoSinRegistrar, idPedidoDeSesion, registrarPedido };

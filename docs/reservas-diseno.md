@@ -21,7 +21,15 @@
 > cosas que el 6.3 no decía: la sesión de Stripe dura 31 minutos y no 30 (Stripe cuenta el mínimo desde que
 > recibe la petición), así que la provisional caduca a los 46; y reservar exige además **el email de la cuenta
 > verificado** (H18), con el mismo criterio que "Mis pedidos". La traducción del `23P01` y del `23505` a 409 la
-> hace el controlador, como el resto de errores de negocio, y no el manejador central. El resto de las preguntas de 10.1 (de la
+> hace el controlador, como el resto de errores de negocio, y no el manejador central.
+>
+> Hecho también el paso 8 (6.4): el webhook y la página de éxito confirman la reserva, registran su pedido
+> (`metodo_entrega` según la reserva: `domicilio` o `recogida`) y envían los emails una sola vez, y
+> `checkout.session.expired` libera las fechas. Toca `email.js` (dos plantillas nuevas: confirmación y reserva que
+> no se pudo confirmar) y `pagos.js` (solo para exportar `registrarPedido` con un `metodoEntrega` opcional; la
+> compra no cambia). El aviso al administrador de una reserva nueva usa `enviarAlertaAdmin`. **Paso manual antes
+> de encender las reservas:** suscribir el evento `checkout.session.expired` en el webhook del Dashboard de
+> Stripe. Falta el paso 9 (la compra respeta las reservas), que toca el flujo de compra y va aparte. El resto de las preguntas de 10.1 (de la
 > 5 en adelante) siguen pendientes del cliente o de su asesor, con los valores por defecto de este documento.
 >
 > Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.

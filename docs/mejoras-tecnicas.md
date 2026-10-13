@@ -1305,7 +1305,9 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
 - Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
   de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
-  pone). Falta el paso 8 (confirmar el pago) antes de poder encenderlo.
+  pone). Paso 8 (13 oct): el webhook y la página de éxito confirman la reserva pagada, registran su pedido y
+  envían los emails una sola vez; si las fechas ya eran de otra persona, avisan para reembolsar. Falta el paso 9
+  (la compra respeta las reservas), que toca el flujo de compra y va aparte.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

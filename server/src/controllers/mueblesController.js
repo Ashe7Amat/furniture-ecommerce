@@ -2,6 +2,7 @@ const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
+const reservas = require('../utils/reservas');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
 const { escaparIlike } = require('../utils/ilike');
@@ -393,6 +394,13 @@ const crearSesionPago = async (req, res) => {
   }
 };
 
+const MENSAJES_RESERVA_PAGADA = {
+  confirmada: 'Reserva confirmada. Te hemos enviado los detalles por email.',
+  conflicto:
+    'Hemos recibido tu pago, pero esas fechas ya no estaban libres. Te devolveremos el importe y te escribiremos por email.',
+  procesando: 'Pago recibido. Estamos confirmando tu reserva y te llegará un email en cuanto esté.'
+};
+
 // 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
 // (POST /api/stripe/webhook), que es quien normalmente registra la venta: si el webhook ya
 // la registró, o llega mientras tanto, procesarSesionPagada lo detecta y no repite nada.
@@ -420,8 +428,12 @@ const confirmarSesion = async (req, res) => {
     // base de datos falla un momento), al comprador no se le dice que su pago ha fallado.
     // Si hay webhook configurado, Stripe volverá a intentarlo solo; si no lo hay, nadie lo
     // reintentará, así que se avisa por email al administrador para que lo registre a mano.
+    const esReserva = session.metadata?.tipo === 'reserva';
+    let resultado = null;
     try {
-      await pagos.procesarSesionPagada(session);
+      resultado = esReserva
+        ? await reservas.procesarReservaPagada(session)
+        : await pagos.procesarSesionPagada(session);
     } catch (error) {
       console.error(
         `No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`,
@@ -432,10 +444,27 @@ const confirmarSesion = async (req, res) => {
       }
     }
 
+    const total = (session.amount_total || 0) / 100;
+    if (esReserva) {
+      // Reservas por fechas (6.4): la página de éxito necesita saber si las fechas son suyas o si
+      // el pago llegó cuando ya eran de otra persona (se le devolverá).
+      const estado =
+        resultado?.estado === 'confirmada' || resultado?.estado === 'conflicto'
+          ? resultado.estado
+          : 'procesando';
+      return res.status(200).json({
+        success: true,
+        tipo: 'reserva',
+        estado,
+        message: MENSAJES_RESERVA_PAGADA[estado],
+        total
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Pago confirmado. El catálogo ha sido actualizado.',
-      total: (session.amount_total || 0) / 100
+      total
     });
   } catch (error) {
     console.error('Error al confirmar la sesión de pago:', error.message);
