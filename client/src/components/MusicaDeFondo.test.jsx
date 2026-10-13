@@ -9,9 +9,9 @@ import { CONSULTA_ESCRITORIO } from '../utils/musica';
 // lee el componente, así que un test puede dejarla con menos canciones (y restaurarla al acabar).
 const { canciones } = vi.hoisted(() => ({
   canciones: [
-    { titulo: 'Primera', artista: 'Artista Uno', url: '/audio/primera.mp3', fuente: 'https://pixabay.com/music/primera/' },
-    { titulo: 'Segunda', artista: 'Artista Dos', url: '/audio/segunda.mp3', fuente: 'https://pixabay.com/music/segunda/' },
-    { titulo: 'Tercera', artista: 'Artista Tres', url: '/audio/tercera.mp3', fuente: 'https://pixabay.com/music/tercera/' },
+    { titulo: 'Primera', artista: 'Artista Uno', url: '/audio/primera.mp3', pixabay: 1 },
+    { titulo: 'Segunda', artista: 'Artista Dos', url: '/audio/segunda.mp3', pixabay: 2 },
+    { titulo: 'Tercera', artista: 'Artista Tres', url: '/audio/tercera.mp3', pixabay: 3 },
   ],
 }));
 vi.mock('../utils/musica', async (importOriginal) => ({ ...(await importOriginal()), CANCIONES: canciones }));
