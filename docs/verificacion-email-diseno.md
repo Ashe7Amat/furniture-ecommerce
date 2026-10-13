@@ -15,14 +15,15 @@ clientes, que nunca podrían confirmar su email):
    `apply_migration` y con permiso, para que quede registrado. Mejor justo antes del despliegue: si se marca
    antes, un cambio de email desde Mi cuenta con el código de `main` dejaría la marca en una dirección sin
    confirmar. Sin la marca, si un administrador entra con Google pierde su contraseña (punto 8 de la parte 6).
-3. `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production); a 12 oct no está. Sin ella, el registro con
-   contraseña funciona pero no se manda ningún enlace, así que esas cuentas no pueden verificarse (las que
-   entran con Google sí quedan verificadas), y cambiar el email responde 503.
-4. El dominio verificado en Resend y `RESEND_FROM` con una dirección de ese dominio (decisión 1). Verificar el
-   dominio no basta: con el remitente de pruebas, Resend solo entrega a la dirección de la cuenta de Resend.
-   `RESEND_FROM` está en Vercel (vista el 12 oct; creada el 5 oct), pero no se ha mirado su valor.
-5. `CLIENT_URL` con la dirección pública de la web: los enlaces de los correos salen de ella. Existe en
-   producción (no se ha mirado su valor).
+3. ~~`EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production).~~ **Puesta el 13 oct** por Ashe. Sin ella,
+   el registro con contraseña funciona pero no se manda ningún enlace, así que esas cuentas no pueden
+   verificarse (las que entran con Google sí quedan verificadas), y cambiar el email responde 503.
+4. ~~El dominio verificado en Resend y `RESEND_FROM` con una dirección de ese dominio (decisión 1).~~ **Hecho:**
+   `RESEND_FROM` es `contacto@nave5barcelona.com` (desde el 5 oct) y Ashe confirmó el 13 oct que Resend da
+   `nave5barcelona.com` por verificado. Verificar el dominio no basta: con el remitente de pruebas, Resend solo
+   entrega a la dirección de la cuenta de Resend.
+5. ~~`CLIENT_URL` con la dirección pública de la web.~~ **Comprobado el 13 oct:** es
+   `https://www.nave5barcelona.com`. Los enlaces de los correos salen de ella.
 6. Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de Resend.
 
 **Diferencias con el diseño, a propósito:**

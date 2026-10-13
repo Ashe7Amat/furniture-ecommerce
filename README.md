@@ -149,9 +149,12 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
    funcionar para todos los clientes. Detalle en
    [docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md), al principio:
    - la migración aplicada en Supabase (hecho el 12 oct, `20261012165218_verificacion_email`);
-   - `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production), generada como la de las sesiones;
-   - el dominio verificado en Resend, y `RESEND_FROM` con una dirección de ese dominio;
-   - `CLIENT_URL` con la dirección pública de la web, porque de ella salen los enlaces;
+   - `EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production), generada como la de las sesiones
+     (puesta el 13 oct);
+   - el dominio verificado en Resend, y `RESEND_FROM` con una dirección de ese dominio (hecho: verificado
+     según Ashe el 13 oct, `RESEND_FROM` en `contacto@nave5barcelona.com`);
+   - `CLIENT_URL` con la dirección pública de la web, porque de ella salen los enlaces (comprobado el
+     13 oct: `https://www.nave5barcelona.com`);
    - las 2 cuentas de administrador marcadas como verificadas (con permiso, como una migración),
      justo antes del despliegue.
 6. **Dar permiso para el merge.**
