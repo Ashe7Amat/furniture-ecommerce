@@ -1,15 +1,19 @@
 # Reservas por fechas — Diseño
 
-> **Estado: BORRADOR — pendiente de confirmación del cliente** (23 sep 2026). Primera revisión técnica hecha y
-> sus cambios incorporados, y segunda revisión (secciones 3, 4 y 6) con sus cambios también incorporados. **No se
-> implementa nada hasta tener las cuatro decisiones bloqueantes del cliente** (10.1: modelo de fianza, sesión
-> obligatoria y alquiler fuera de la cesta, cómo se cuentan los días y si hay alquileres de menos de un día)
-> **y hasta cerrar la tarea 3.**
+> **Estado: EN IMPLEMENTACIÓN desde el 13 oct 2026, sin las respuestas del cliente.** El propietario decidió
+> empezar sin esperarlas. Se programa primero lo que no depende de las cuatro decisiones bloqueantes (10.1: modelo
+> de fianza, sesión obligatoria y alquiler fuera de la cesta, cómo se cuentan los días y si hay alquileres de menos
+> de un día), con los valores por defecto de este documento, y la forma de contar los días queda como ajuste
+> (`conteoDias` en `server/src/utils/reglasAlquiler.js`). **La migración de la tabla no se aplica hasta saber la
+> respuesta a la pregunta 4** (alquileres de menos de un día), que es la única que cambia el modelo de datos, y con
+> el OK explícito del propietario. Las tareas 3 y 4, que el diseño ponía como requisito, ya están cerradas y en
+> `main`. Hecho: el paso 5 del bloque R-a (configuración, fechas en hora de Madrid y cálculo del precio).
+>
+> Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 
 Diseño de la nueva funcionalidad de **alquiler de muebles por rango de fechas** ("como un hotel"). Es un
-documento de diseño: no hay código, no se ha aplicado ninguna migración y no se ha tocado `main`. Vive en la
-rama `feature/reservas-diseno`, sacada de `main` para no mezclarse con las migraciones de la tarea 3, que
-siguen su propio curso en `feature/mejoras-tecnicas`.
+documento de diseño. Nació en la rama `feature/reservas-diseno` (sacada de `main` el 23 sep) y desde el 13 oct
+vive en `feature/mejoras-tecnicas`, junto al código que lo implementa.
 
 **Todo lo que este documento afirma sobre el sistema actual está comprobado, no supuesto** (23 sep 2026):
 
