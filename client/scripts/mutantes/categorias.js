@@ -99,6 +99,12 @@ export const MUTANTES = [
     reemplazo: "showToast('Categoría borrada', 'success');"
   },
   {
+    nombre: 'H12: borrar avisa de éxito sin mirar la respuesta',
+    archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
+    buscar: 'if (!(await deleteCategoria(id))) {',
+    reemplazo: 'if (!(await deleteCategoria(id)) && false) {'
+  },
+  {
     nombre: 'el lápiz no abre el modal de edición',
     archivo: 'src/pages/admin/pestanas/CategoriasTab.jsx',
     buscar: 'onClick={() => abrirEditorCategoria(cat)}',

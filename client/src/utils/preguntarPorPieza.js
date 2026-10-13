@@ -14,10 +14,15 @@ export const rutaPreguntarPorPieza = (mueble) => {
   return `/contacto?${params.toString()}`;
 };
 
-// El mensaje con el que empieza el formulario de contacto, o '' si la URL no trae ninguna pieza.
+// El botón "Alquilar para rodajes" de la portada: al formulario de contacto, con el mensaje empezado.
+export const RUTA_ALQUILER = '/contacto?motivo=alquiler';
+export const MENSAJE_ALQUILER = 'Hola, queremos alquilar piezas para un rodaje o evento. Os contamos las fechas y lo que buscamos:';
+
+// El mensaje con el que empieza el formulario de contacto, o '' si la URL no trae ninguna pieza ni el
+// motivo del alquiler. Si trae las dos cosas, manda la pieza.
 export const mensajeSobrePieza = (searchParams) => {
   const pieza = (searchParams.get('pieza') || '').trim().slice(0, MAX_NOMBRE);
-  if (!pieza) return '';
+  if (!pieza) return searchParams.get('motivo') === 'alquiler' ? MENSAJE_ALQUILER : '';
   const ref = (searchParams.get('ref') || '').trim().slice(0, MAX_REFERENCIA);
   return `Hola, me interesa la pieza "${pieza}"${ref ? ` (ref. ${ref})` : ''}. ¿Me podéis dar más información?`;
 };

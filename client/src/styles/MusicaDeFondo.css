@@ -1,0 +1,314 @@
+/* ─── Música de fondo (solo ordenador) ──────────────────────────────────────────────────────────────
+   Plegado: botón redondo abajo a la izquierda (los avisos salen abajo a la derecha).
+   Desplegado: una tarjeta compacta con las esquinas casi rectas de la tienda. */
+
+.musica-boton,
+.musica-panel {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  /* Por encima de la cabecera (100-200) y las tarjetas; por debajo de la vista rápida (1000), el
+     carrito (1999), los demás modales y el aviso de cookies (5000), que así lo tapan y oscurecen. */
+  z-index: 900;
+  /* Opaco: con transparencia, sobre la foto oscura de la portada el artista en color de acento
+     bajaba de 4,5:1. */
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--primary-color);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+}
+
+/* Mientras está el aviso de cookies, el botón queda tapado: fuera también del orden del tabulador. */
+body:has(.cookie-banner) .musica-boton {
+  display: none;
+}
+
+/* El pie oscuro deja sitio a la izquierda para que el botón no tape el copyright. */
+.con-musica .footer-bottom {
+  padding-left: max(4vw, 88px);
+}
+
+.musica-boton {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.musica-boton:hover {
+  transform: scale(1.06);
+}
+
+/* Anillo de foco por dentro del botón, sobre su propio fondo: por fuera caería sobre la foto, el
+   pie o el fondo de la página, y con ninguno llega a 3:1 el color de foco general. */
+button.musica-boton:focus-visible {
+  outline-color: var(--accent-text);
+  outline-offset: -4px;
+}
+
+/* ── Tarjeta desplegada ── */
+.musica-panel {
+  width: 380px;
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  grid-template-areas: 'portada info controles plegar';
+  align-items: center;
+  column-gap: 10px;
+  transform-origin: bottom left;
+  animation: musica-aparece 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes musica-aparece {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.musica-portada {
+  grid-area: portada;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--surface-alt);
+  color: var(--secondary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.musica-panel.sonando .musica-portada {
+  color: var(--accent-text);
+}
+
+.musica-info {
+  grid-area: info;
+  min-width: 0;
+}
+
+/* Artista (o estado) arriba en versalitas espaciadas, como "ALMACÉN DE IDEAS" en la portada, y la
+   canción debajo con la tipografía de títulos. */
+.musica-estado {
+  margin: 0 0 2px;
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.musica-estado.sonando {
+  color: var(--accent-text);
+}
+
+.musica-estado.fallo {
+  color: var(--danger-color);
+}
+
+.musica-nombre {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.musica-controles {
+  grid-area: controles;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.musica-ctrl {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.musica-ctrl:hover {
+  background: var(--surface-alt);
+}
+
+.musica-ctrl:active {
+  transform: scale(0.94);
+}
+
+/* Anillo de foco con el acento de texto: el de la tienda (#B38A70) no llega a 3:1 sobre la tarjeta. */
+.musica-panel .musica-ctrl:focus-visible {
+  outline-color: var(--accent-text);
+}
+
+.musica-play {
+  width: 36px;
+  height: 36px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+}
+
+.musica-play:hover {
+  background: var(--primary-color);
+  opacity: 0.88;
+}
+
+.musica-plegar {
+  grid-area: plegar;
+  color: var(--secondary-color);
+}
+
+/* Aviso solo para lectores de pantalla. */
+.musica-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Línea de progreso: fina, abajo, sin llegar a las esquinas redondeadas. */
+.musica-progreso {
+  position: absolute;
+  left: var(--radius-md, 8px);
+  right: var(--radius-md, 8px);
+  bottom: 0;
+  height: 2px;
+  background: var(--border-color);
+  overflow: hidden;
+}
+
+.musica-progreso span {
+  display: block;
+  height: 100%;
+  background: var(--accent-text);
+  transform-origin: left;
+  transition: transform 0.25s linear;
+}
+
+/* ── Barras tipo ecualizador: quietas en pausa, se mueven mientras suena ── */
+.musica-ondas {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 18px;
+}
+
+.musica-ondas span {
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.musica-ondas span:nth-child(2) { height: 12px; }
+.musica-ondas span:nth-child(3) { height: 9px; }
+
+.musica-boton.sonando {
+  color: var(--accent-text);
+}
+
+.sonando .musica-ondas span {
+  animation: musica-onda 1s ease-in-out infinite;
+}
+
+.sonando .musica-ondas span:nth-child(2) { animation-delay: -0.3s; }
+.sonando .musica-ondas span:nth-child(3) { animation-delay: -0.6s; }
+.sonando .musica-ondas span:nth-child(4) { animation-delay: -0.15s; }
+
+@keyframes musica-onda {
+  0%, 100% { height: 4px; }
+  50% { height: 18px; }
+}
+
+/* Conectando: las barras respiran despacio en vez de bailar. */
+.musica-panel.cargando .musica-ondas span {
+  animation: musica-respira 1.4s ease-in-out infinite;
+}
+
+@keyframes musica-respira {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ── Ventana estrecha o zoom grande: la tarjeta ocupa el ancho y suelta la portada ── */
+@media (max-width: 600px) {
+  .musica-boton,
+  .musica-panel {
+    left: 16px;
+    bottom: 16px;
+  }
+
+  .musica-panel {
+    width: auto;
+    right: 16px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: 'info controles plegar';
+  }
+
+  .musica-portada {
+    display: none;
+  }
+}
+
+/* Muy estrecho (p. ej. 400 % de zoom): los controles bajan a su propia fila. */
+@media (max-width: 400px) {
+  .musica-panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'info plegar'
+      'controles controles';
+    row-gap: 6px;
+  }
+
+  .musica-controles {
+    justify-content: center;
+  }
+}
+
+/* Modo de alto contraste de Windows: sin esto las barras y la línea de progreso desaparecen. */
+@media (forced-colors: active) {
+  .musica-ondas span,
+  .musica-progreso span {
+    background: CanvasText;
+  }
+
+  .musica-progreso {
+    background: GrayText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sonando .musica-ondas span,
+  .musica-panel.cargando .musica-ondas span {
+    animation: none;
+  }
+
+  .musica-progreso span {
+    transition: none;
+  }
+
+  .sonando .musica-ondas span {
+    height: 12px;
+  }
+}

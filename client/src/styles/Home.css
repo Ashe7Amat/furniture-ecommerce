@@ -107,6 +107,32 @@
     transform: translateY(-1px);
 }
 
+/* Los dos botones del hero: catálogo (lleno) y alquiler (solo borde). En móvil se apilan. */
+.hero-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.btn-hero-outline {
+    display: inline-block;
+    padding: 14px 32px;
+    border: 1px solid #F5F2EC;
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    transition: background 0.3s, color 0.3s, transform 0.3s;
+}
+
+.btn-hero-outline:hover {
+    background: #F5F2EC;
+    color: #1a1a1a;
+    transform: translateY(-1px);
+}
+
 /* Slider del hero: las fotos se apilan y hacen crossfade, estilo IKEA/Kave Home */
 .hero-slide-img {
     position: absolute;
@@ -194,6 +220,12 @@
 
     .hero-description {
         margin-bottom: 28px;
+    }
+
+    .hero-acciones {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
     }
 
     .hero-slide-dots {
@@ -373,6 +405,58 @@
     font-size: 16px;
     font-weight: 500;
     font-variant-numeric: tabular-nums;
+}
+
+/* "Vistos en": los nombres de las producciones en la tipografía de la marca, separados por una línea
+   fina. Solo se pinta si hay alguna (components/VistosEn.jsx). */
+.home-vistos-en {
+    margin-bottom: 80px;
+    padding: 36px 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.vistos-en-titulo {
+    margin: 0 0 20px;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--secondary-color);
+}
+
+.vistos-en-lista {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 40px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.vistos-en-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.vistos-en-nombre {
+    font-family: var(--font-display);
+    font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+    font-style: italic;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.vistos-en-tipo {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--secondary-color);
 }
 
 /* Gallery Section */

@@ -408,16 +408,48 @@ describe('Inventario — acciones en lote', () => {
     expect(updateMueble).toHaveBeenCalledWith('m4', { estado: 'disponible' });
   });
 
-  it('"Aplicar estado" avisa de éxito aunque falle', async () => {
-    // CARACTERIZACIÓN: comportamiento actual incorrecto (H12): enseña éxito aunque updateMueble devuelva null.
+  it('si falla "Aplicar estado", avisa del error, no recarga y deja la pieza seleccionada', async () => {
+    // CAMBIADO A PROPÓSITO (H12): antes avisaba de éxito aunque updateMueble devolviera null.
     updateMueble.mockResolvedValue(null);
     const { user, showToast } = await abrirInventario();
     await user.click(casilla('Silla Tolix'));
 
     await user.click(screen.getByRole('button', { name: 'Aplicar estado' }));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith('Estado actualizado en 1 producto', 'success'));
-    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'error');
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo actualizar el estado', 'error'));
+    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'success');
+    expect(getMuebles).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('1 seleccionado')).toBeInTheDocument();
+  });
+
+  it('"Aplicar estado" a medias cuenta los fallos, recarga y deja seleccionadas solo las que fallaron (H12)', async () => {
+    updateMueble.mockImplementation(async (id) => (id === 'm4' ? null : { success: true }));
+    const { user, showToast } = await abrirInventario();
+    await user.click(casilla('Silla Tolix'));
+    await user.click(casilla('Aparador'));
+
+    await user.click(screen.getByRole('button', { name: 'Aplicar estado' }));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('1 de 2 completados. El otro no se pudo procesar.', 'error'));
+    expect(getMuebles).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('1 seleccionado')).toBeInTheDocument();
+    expect(casilla('Aparador')).toBeChecked();
+    expect(casilla('Silla Tolix')).not.toBeChecked();
+  });
+
+  it('si falla "Aplicar estado" en todas, lo dice con el número de piezas (H12)', async () => {
+    updateMueble.mockResolvedValue(null);
+    const { user, showToast } = await abrirInventario();
+    await user.click(casilla('Silla Tolix'));
+    await user.click(casilla('Aparador'));
+
+    await user.click(screen.getByRole('button', { name: 'Aplicar estado' }));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith('No se pudo actualizar el estado de ninguno de los 2 productos', 'error')
+    );
+    expect(getMuebles).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('2 seleccionados')).toBeInTheDocument();
   });
 
   it('"Eliminar seleccionados" pide confirmación y, al confirmar, borra cada una, avisa, vacía la selección y recarga', async () => {
@@ -457,8 +489,8 @@ describe('Inventario — acciones en lote', () => {
     await waitFor(() => expect(showToast).toHaveBeenCalledWith('1 producto eliminado', 'success'));
   });
 
-  it('"Eliminar seleccionados" avisa de éxito aunque falle', async () => {
-    // CARACTERIZACIÓN: comportamiento actual incorrecto (H12): enseña éxito aunque deleteMueble devuelva null.
+  it('si falla "Eliminar seleccionados", avisa del error, no recarga y deja la pieza seleccionada', async () => {
+    // CAMBIADO A PROPÓSITO (H12): antes avisaba de éxito aunque deleteMueble devolviera null.
     deleteMueble.mockResolvedValue(null);
     const { user, showToast } = await abrirInventario();
     await user.click(casilla('Silla Tolix'));
@@ -466,8 +498,40 @@ describe('Inventario — acciones en lote', () => {
     await user.click(screen.getByRole('button', { name: 'Eliminar seleccionados' }));
     await user.click(dialogo('Eliminar productos seleccionados').getByRole('button', { name: 'Eliminar' }));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith('1 producto eliminado', 'success'));
-    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'error');
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo eliminar el producto', 'error'));
+    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'success');
+    expect(getMuebles).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('1 seleccionado')).toBeInTheDocument();
+  });
+
+  it('"Eliminar seleccionados" a medias cuenta los fallos, recarga y deja seleccionadas solo las que fallaron (H12)', async () => {
+    deleteMueble.mockImplementation(async (id) => (id === 'm1' ? { success: true } : null));
+    const { user, showToast } = await abrirInventario();
+    await user.click(casilla('Silla Tolix'));
+    await user.click(casilla('Mesa de roble'));
+    await user.click(casilla('Aparador'));
+
+    await user.click(screen.getByRole('button', { name: 'Eliminar seleccionados' }));
+    await user.click(dialogo('Eliminar productos seleccionados').getByRole('button', { name: 'Eliminar' }));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('1 de 3 completados. Los otros 2 no se pudieron procesar.', 'error'));
+    expect(deleteMueble).toHaveBeenCalledTimes(3);
+    expect(getMuebles).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('2 seleccionados')).toBeInTheDocument();
+  });
+
+  it('si falla "Eliminar seleccionados" en todas, lo dice con el número de piezas (H12)', async () => {
+    deleteMueble.mockResolvedValue(null);
+    const { user, showToast } = await abrirInventario();
+    await user.click(casilla('Silla Tolix'));
+    await user.click(casilla('Aparador'));
+
+    await user.click(screen.getByRole('button', { name: 'Eliminar seleccionados' }));
+    await user.click(dialogo('Eliminar productos seleccionados').getByRole('button', { name: 'Eliminar' }));
+
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo eliminar ninguno de los 2 productos', 'error'));
+    expect(getMuebles).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('2 seleccionados')).toBeInTheDocument();
   });
 
   it('cancelar la confirmación no borra nada y mantiene la selección', async () => {
@@ -522,16 +586,18 @@ describe('Inventario — acciones por fila', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { level: 3, name: 'Eliminar Mueble' })).not.toBeInTheDocument());
   });
 
-  it('"Eliminar" en la fila avisa de éxito aunque falle', async () => {
-    // CARACTERIZACIÓN: comportamiento actual incorrecto (H12): enseña éxito aunque deleteMueble devuelva null.
+  it('si falla "Eliminar" en la fila, avisa del error, no recarga y cierra el diálogo', async () => {
+    // CAMBIADO A PROPÓSITO (H12): antes avisaba de éxito aunque deleteMueble devolviera null.
     deleteMueble.mockResolvedValue(null);
     const { user, showToast } = await abrirInventario();
 
     await user.click(fila('Mesa de roble').getByRole('button', { name: 'Eliminar' }));
     await user.click(dialogo('Eliminar Mueble').getByRole('button', { name: 'Eliminar' }));
 
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith('Mueble eliminado con éxito', 'success'));
-    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'error');
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo eliminar el mueble', 'error'));
+    expect(showToast).not.toHaveBeenCalledWith(expect.anything(), 'success');
+    expect(getMuebles).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole('heading', { level: 3, name: 'Eliminar Mueble' })).not.toBeInTheDocument());
   });
 
   it('cancelar la confirmación de la fila no borra nada', async () => {
