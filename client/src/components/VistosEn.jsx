@@ -1,8 +1,6 @@
-// "Vistos en": producciones (series, anuncios, sesiones de fotos, eventos) donde han salido piezas de
-// Nave 5. La lista la da el cliente: mientras esté vacía, la sección no se pinta. Para añadir una,
-// basta con una línea en PRODUCCIONES, por ejemplo { nombre: 'Las chicas del cable', tipo: 'Serie' }.
-export const PRODUCCIONES = [];
+import { PRODUCCIONES } from '../utils/producciones';
 
+// Sección "Vistos en" de la portada; la lista está en utils/producciones.js.
 const VistosEn = ({ producciones = PRODUCCIONES }) => {
   if (!producciones.length) return null;
   return (
