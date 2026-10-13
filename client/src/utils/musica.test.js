@@ -2,7 +2,7 @@
 // (sin DOM: así import.meta.url es la ruta del archivo y se puede comprobar client/public/audio)
 import { describe, it, expect } from 'vitest';
 import { readdirSync, statSync } from 'node:fs';
-import { CANCIONES } from './musica';
+import { CANCIONES, CONSULTA_ESCRITORIO } from './musica';
 
 const audio = new URL('../../public/audio/', import.meta.url);
 // Un mp3 de 128 kbps de 6 minutos pesa unos 6 MB; más que esto es que no se ha recomprimido.
@@ -36,5 +36,14 @@ describe('canciones de la música de fondo', () => {
   it('no sobra ningún mp3 en public/audio (se subiría a la web sin usarse)', () => {
     const usados = CANCIONES.map((c) => c.url.replace('/audio/', '')).sort();
     expect(readdirSync(audio).filter((f) => f.endsWith('.mp3')).sort()).toEqual(usados);
+  });
+});
+
+describe('cuándo sale el reproductor', () => {
+  // jsdom no evalúa media queries (los tests del componente simulan matchMedia), así que aquí solo se
+  // puede vigilar la consulta. Con el puntero principal no salía en portátiles con pantalla táctil.
+  it('basta con tener algún ratón o touchpad, aunque el puntero principal sea táctil', () => {
+    expect(CONSULTA_ESCRITORIO).toMatch(/\(any-pointer: fine\)/);
+    expect(CONSULTA_ESCRITORIO).not.toMatch(/(^|[^-])(pointer|hover):/);
   });
 });
