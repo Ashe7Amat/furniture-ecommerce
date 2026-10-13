@@ -72,4 +72,51 @@ describe('CookieConsent', () => {
     renderConsent();
     expect(screen.getByRole('link', { name: 'Política de Privacidad' })).toHaveAttribute('href', '/privacidad');
   });
+
+  // El botón de la música se sube encima del aviso con este alto (styles/MusicaDeFondo.css). jsdom no
+  // calcula tamaños: el alto se simula.
+  describe('alto del aviso en --alto-aviso-cookies', () => {
+    const alto = () => document.documentElement.style.getPropertyValue('--alto-aviso-cookies');
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('mientras está abierto, deja su alto, y al cerrarlo lo quita', async () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(96);
+      renderConsent();
+      expect(alto()).toBe('96px');
+
+      await userEvent.click(screen.getByText('Solo esenciales'));
+      expect(alto()).toBe('');
+    });
+
+    it('si cambia de alto (ventana más estrecha, el texto ocupa más líneas), lo actualiza', () => {
+      let avisar;
+      const desconectar = vi.fn();
+      vi.stubGlobal('ResizeObserver', class {
+        constructor(fn) { avisar = fn; }
+        observe() {}
+        disconnect() { desconectar(); }
+      });
+      const altura = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(96);
+      const { unmount } = renderConsent();
+      expect(alto()).toBe('96px');
+
+      altura.mockReturnValue(180);
+      avisar();
+      expect(alto()).toBe('180px');
+
+      unmount();
+      expect(desconectar).toHaveBeenCalledTimes(1);
+    });
+
+    it('si un bloqueador de avisos de cookies lo oculta (mide 0), queda en 0px y el botón no se mueve', () => {
+      renderConsent();
+      expect(alto()).toBe('0px');
+    });
+
+    it('con un consentimiento ya guardado, no deja nada', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ analytics: false, date: new Date().toISOString() }));
+      renderConsent();
+      expect(alto()).toBe('');
+    });
+  });
 });

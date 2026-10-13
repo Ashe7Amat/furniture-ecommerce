@@ -1,7 +1,7 @@
 // @vitest-environment node
 // (sin DOM: así import.meta.url es la ruta del archivo y se puede comprobar client/public/audio)
 import { describe, it, expect } from 'vitest';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { CANCIONES, CONSULTA_ESCRITORIO } from './musica';
 
 const audio = new URL('../../public/audio/', import.meta.url);
@@ -45,5 +45,13 @@ describe('cuándo sale el reproductor', () => {
   it('basta con tener algún ratón o touchpad, aunque el puntero principal sea táctil', () => {
     expect(CONSULTA_ESCRITORIO).toMatch(/\(any-pointer: fine\)/);
     expect(CONSULTA_ESCRITORIO).not.toMatch(/(^|[^-])(pointer|hover):/);
+  });
+
+  // Con un bloqueador de avisos de cookies, el aviso sigue en la página pero oculto, y nunca se cierra:
+  // si el botón se escondiera mientras existe el aviso, esa persona no lo vería nunca (13 oct 2026).
+  it('el aviso de cookies no esconde el botón: lo sube encima con --alto-aviso-cookies', () => {
+    const css = readFileSync(new URL('../styles/MusicaDeFondo.css', import.meta.url), 'utf8');
+    expect(css).not.toMatch(/cookie-banner/);
+    expect(css.match(/bottom:\s*calc\(\d+px \+ var\(--alto-aviso-cookies, 0px\)\);/g)).toHaveLength(2);
   });
 });
