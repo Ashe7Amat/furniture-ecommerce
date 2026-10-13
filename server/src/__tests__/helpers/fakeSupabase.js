@@ -26,6 +26,11 @@
 //   - en `reservas`, la columna generada rango_ocupado se calcula en cada fila (también en las
 //     iniciales, porque en la base de datos siempre existe) con el mismo texto canónico que
 //     devuelve Postgres: "[inicio,fin+margen)", "[inicio,)" sin fin, o "empty".
+//   - en `reservas`, cada insert y cada update pasa por las restricciones de la migración R2
+//     (docs/reservas-sql/r2_crear_reservas.sql): la exclusión reservas_sin_solape (23P01: misma
+//     pieza, rangos que se solapan, las dos en un estado que ocupa), el índice de una sola
+//     provisional por cliente y UNIQUE (stripe_session_id, mueble_id) (los dos, 23505). Si una fila
+//     lo incumple no se escribe nada, como en Postgres. Las filas iniciales no se comprueban.
 // Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
@@ -58,6 +63,48 @@ const rangosSeSolapan = (a, b) =>
   (a.hasta === null || b.desde === null || b.desde < a.hasta) &&
   (b.hasta === null || a.desde === null || a.desde < b.hasta);
 
+// Las restricciones de la tabla `reservas` que puede incumplir una fila frente a las demás, con el
+// error que daría Postgres (o null si cumple todas). El predicado de la exclusión es el de la
+// migración: solo cuentan las filas en un estado que ocupa el calendario.
+const ESTADOS_QUE_OCUPAN = ['pendiente', 'confirmada', 'en_curso', 'devuelta'];
+const violacionReservas = (fila, otras) => {
+  const unicidad = (indice) => ({
+    code: '23505',
+    message: `duplicate key value violates unique constraint "${indice}"`
+  });
+  if (
+    fila.estado === 'pendiente' &&
+    fila.cliente_id != null &&
+    otras.some((o) => o.estado === 'pendiente' && o.cliente_id === fila.cliente_id)
+  ) {
+    return unicidad('reservas_una_pendiente_por_cliente');
+  }
+  if (
+    fila.stripe_session_id != null &&
+    otras.some(
+      (o) => o.stripe_session_id === fila.stripe_session_id && o.mueble_id === fila.mueble_id
+    )
+  ) {
+    return unicidad('reservas_sesion_mueble_key');
+  }
+  const ocupa = (f) => ESTADOS_QUE_OCUPAN.includes(f.estado);
+  if (
+    ocupa(fila) &&
+    otras.some(
+      (o) =>
+        ocupa(o) &&
+        o.mueble_id === fila.mueble_id &&
+        rangosSeSolapan(leerRangoTexto(o.rango_ocupado), leerRangoTexto(fila.rango_ocupado))
+    )
+  ) {
+    return {
+      code: '23P01',
+      message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
+    };
+  }
+  return null;
+};
+
 const crearFakeSupabase = ({
   muebles = [],
   pedidos = [],
@@ -81,7 +128,12 @@ const crearFakeSupabase = ({
     reservas: reservas.map((fila) => ({ ...fila, rango_ocupado: rangoOcupado(fila) }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
-  const estado = { unicidadRechazada: 0 };
+  const estado = { unicidadRechazada: 0, exclusionRechazada: 0 };
+  const rechazarEscritura = (error) => {
+    if (error.code === '23505') estado.unicidadRechazada++;
+    else estado.exclusionRechazada++;
+    return { data: null, error };
+  };
   let secuencia = 0;
 
   const contiene = (elemento, patron) =>
@@ -178,7 +230,7 @@ const crearFakeSupabase = ({
       const nuevasFilas = entrada.map((datos) => ({ id: `${nombre}-${++secuencia}`, ...datos }));
       nuevasFilas.forEach((fila) => aplicarTriggers(nombre, fila));
 
-      for (const fila of nuevasFilas) {
+      for (const [i, fila] of nuevasFilas.entries()) {
         const duplicaId = filas.some((f) => f.id === fila.id);
         const duplicaSesion =
           nombre === 'pedidos' &&
@@ -186,12 +238,14 @@ const crearFakeSupabase = ({
           fila.stripe_session_id &&
           filas.some((f) => f.stripe_session_id === fila.stripe_session_id);
         if (duplicaId || duplicaSesion) {
-          estado.unicidadRechazada++;
-          return {
-            data: null,
-            error: { code: '23505', message: 'duplicate key value violates unique constraint' }
-          };
+          return rechazarEscritura({
+            code: '23505',
+            message: 'duplicate key value violates unique constraint'
+          });
         }
+        const violacion =
+          nombre === 'reservas' && violacionReservas(fila, [...filas, ...nuevasFilas.slice(0, i)]);
+        if (violacion) return rechazarEscritura(violacion);
       }
 
       filas.push(...nuevasFilas);
@@ -209,6 +263,23 @@ const crearFakeSupabase = ({
 
     if (consulta.accion === 'update') {
       const afectadas = filas.filter(coincide);
+      if (nombre === 'reservas') {
+        // Se comprueba cómo quedarían las filas antes de tocar ninguna: si una incumple, no cambia
+        // nada (la sentencia entera falla).
+        const propuestas = afectadas.map((fila) => {
+          const copia = { ...fila, ...consulta.datos };
+          aplicarTriggers(nombre, copia);
+          return copia;
+        });
+        const resto = filas.filter((fila) => !afectadas.includes(fila));
+        for (const [i, propuesta] of propuestas.entries()) {
+          const violacion = violacionReservas(propuesta, [
+            ...resto,
+            ...propuestas.filter((_, j) => j !== i)
+          ]);
+          if (violacion) return rechazarEscritura(violacion);
+        }
+      }
       afectadas.forEach((fila) => {
         Object.assign(fila, consulta.datos);
         aplicarTriggers(nombre, fila);

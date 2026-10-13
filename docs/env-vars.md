@@ -222,6 +222,19 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
   minutos (`s-maxage=120` más `stale-while-revalidate=300`), así que el cambio puede tardar en verse.
 - **Ejemplo:** `MOSTRAR_PRECIOS=false` (catálogo sin precios ni compra) o `MOSTRAR_PRECIOS=true`
 
+### `RESERVAS_ACTIVAS`
+- **Qué hace:** interruptor del servidor para las reservas por fechas (`docs/reservas-diseno.md`, 9.1).
+  - `true`: `POST /api/reservas/sesion-pago` crea reservas provisionales y sus sesiones de pago.
+  - Cualquier otro valor, o sin poner: esa ruta responde 403 sin mirar nada más, y la web se comporta como
+    hoy aunque el código nuevo esté desplegado. La disponibilidad y el presupuesto (solo lectura) no dependen
+    de ella.
+- **Formato:** `true` exacto, en minúsculas, como `MOSTRAR_PRECIOS`.
+- **Obligatoria:** no. **Por defecto, sin poner, está apagado.** No se enciende hasta el lanzamiento (bloque
+  R-f): antes hace falta la migración R2 aplicada y la confirmación de pagos (paso 8). Con los precios ocultos
+  (`MOSTRAR_PRECIOS`) tampoco se puede reservar.
+- **Al cambiarla:** en Vercel hay que redesplegar.
+- **Ejemplo:** `RESERVAS_ACTIVAS=false`
+
 ## Cliente (`client/.env`)
 
 ### `VITE_API_URL`

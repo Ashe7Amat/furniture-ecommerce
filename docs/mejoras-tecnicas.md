@@ -1125,7 +1125,7 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 
 | Hallazgo | Estado |
 |---|---|
-| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas (en curso desde el 13 oct, bloque R-a) |
+| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas (en curso desde el 13 oct, bloques R-a y R-b) |
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
 | H13 · formularios que sobreviven al cambio de pestaña | UX |
 | H15 · categoría preseleccionada | UX |
@@ -1303,6 +1303,9 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   principio de `docs/reservas-diseno.md`). Hechos los pasos 5 y 6 del bloque R-a
   (precio, fechas en hora de Madrid y los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de
   las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
+- Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
+  de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
+  pone). Falta el paso 8 (confirmar el pago) antes de poder encenderlo.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

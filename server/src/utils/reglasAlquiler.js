@@ -24,6 +24,13 @@ const REGLAS_ALQUILER = Object.freeze({
   antelacionMinDias: 2,
   antelacionMaxMeses: 6,
 
+  // Cuánto se tarda como mucho en pagar una reserva (6.3). La reserva provisional dura lo mismo que
+  // la sesión de pago de Stripe, que no se puede alargar una vez creada (30 min es lo mínimo que
+  // admite Stripe, y 24 h lo máximo), más una gracia para que el aviso de un pago hecho en el último
+  // minuto llegue antes de que otra persona pueda quedarse esas fechas. No cambian el precio.
+  duracionSesionMin: 30,
+  graciaWebhookMin: 15,
+
   // Días libres entre una reserva y la siguiente de la misma pieza (pregunta 15). Se copia en cada
   // reserva al crearla (T7).
   diasMargen: 2,
@@ -38,6 +45,10 @@ const REGLAS_ALQUILER = Object.freeze({
   // Coste de cada trayecto, en céntimos con IVA incluido (5.3, pregunta 7: SIN DECIDIR si va
   // incluido o aparte). 0 = incluido en el precio.
   tarifasTrayectoCentimos: Object.freeze({ domicilio: 0, tienda: 0 }),
+
+  // Política de cancelación (8.4): 'manual' = sin reembolso automático, decide el administrador,
+  // hasta que el asesor legal valide la tabla del cliente. Se copia en cada reserva al aceptarla.
+  politicaCancelacion: 'manual',
 
   // Tipo de IVA por concepto, en % (5.5, pregunta 6: lo confirma el asesor del cliente). Vacío
   // mientras tanto: los importes son totales con IVA incluido y el desglose deja el tipo y la cuota

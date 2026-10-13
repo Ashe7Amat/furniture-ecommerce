@@ -3,59 +3,26 @@
 // Panel de administración: consulta y gestión de los pedidos generados por el checkout
 // (ver procesarSesionPagada() en utils/pagos.js, que es quien los crea).
 const supabase = require('../data/supabase');
+const { buscarCuentaVerificada } = require('../utils/cuentaVerificada');
 
 // 0. Listar los pedidos del cliente logueado (para su "Historial de Pedidos" en Mi Cuenta).
 //    H18 (docs/verificacion-email-diseno.md, parte 6, punto 6): por `cliente_id`, no por el email
-//    del pedido, y solo si la cuenta tiene el email verificado. Antes buscaba por el email con el
-//    que se compró, y quien registrara el email de otra persona veía sus compras de invitado. Los
-//    pedidos de invitado se asocian a la cuenta al verificar el email (asociarPedidosDeInvitado).
-//    La cuenta se busca por su id (`sub` del token) o, en los tokens de antes de H28, por su email.
+//    del pedido, y solo si la cuenta tiene el email verificado (utils/cuentaVerificada.js). Antes
+//    buscaba por el email con el que se compró, y quien registrara el email de otra persona veía sus
+//    compras de invitado. Los pedidos de invitado se asocian a la cuenta al verificar el email
+//    (asociarPedidosDeInvitado).
 // H36: solo las columnas que enseña "Mis pedidos" (Profile.jsx). Antes, select('*'): cualquier
 // columna interna que se añadiera a `pedidos` habría salido al cliente sin que nadie lo decidiera.
 // Nunca cliente_info (sus datos de entrega ya los conoce, y ahí podría acabar algo interno),
 // stripe_session_id ni cliente_id.
 const COLUMNAS_MIS_PEDIDOS = 'id, created_at, estado, total, items';
-const EMAIL_SIN_VERIFICAR = {
-  error: 'Confirma tu email para ver tus pedidos.',
-  codigo: 'email_no_verificado'
-};
-const SESION_CADUCADA = { error: 'Tu sesión ha caducado. Vuelve a iniciar sesión.' };
-
-// Un access token firmado antes de que la cuenta quedara verificada no sirve aquí: puede ser de
-// quien registró el email de otra persona, cuando esa persona entra con Google y protege la cuenta
-// (se le revocan las sesiones, pero su access token vale hasta 1 hora y la cuenta acaba de recibir
-// los pedidos de invitado). Con un 401, el cliente renueva la sesión y reintenta: quien tiene una
-// sesión válida sigue sin notar nada, y la revocada se queda fuera. Se compara por segundos, como
-// `iat`, para no rechazar un token firmado en el mismo segundo que la verificación.
-const firmadoAntesDeVerificar = (usuarioToken, cuenta) => {
-  if (!cuenta.email_verificado_en || typeof usuarioToken.iat !== 'number') return false;
-  const verificadoEn = Math.floor(new Date(cuenta.email_verificado_en).getTime() / 1000);
-  return usuarioToken.iat < verificadoEn;
-};
 
 const obtenerMisPedidos = async (req, res) => {
   try {
-    const { sub, email } = req.usuario || {};
-    if (!sub && !email) {
-      return res.status(401).json({ error: 'No has iniciado sesión.' });
-    }
-
-    const consultaCuenta = supabase
-      .from('clientes')
-      .select('id, email_verificado, email_verificado_en');
-    const { data: cuenta, error: errorCuenta } = sub
-      ? await consultaCuenta.eq('id', sub).maybeSingle()
-      : await consultaCuenta.eq('email', email).maybeSingle();
-    if (errorCuenta) throw errorCuenta;
-    if (!cuenta) {
-      return res.status(401).json({ error: 'No has iniciado sesión.' });
-    }
-    if (cuenta.email_verificado !== true) {
-      return res.status(403).json(EMAIL_SIN_VERIFICAR);
-    }
-    if (firmadoAntesDeVerificar(req.usuario, cuenta)) {
-      return res.status(401).json(SESION_CADUCADA);
-    }
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      mensajeSinVerificar: 'Confirma tu email para ver tus pedidos.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
 
     const { data, error } = await supabase
       .from('pedidos')
