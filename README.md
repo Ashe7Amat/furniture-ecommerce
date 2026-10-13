@@ -156,7 +156,7 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
    - `CLIENT_URL` con la dirección pública de la web, porque de ella salen los enlaces (comprobado el
      13 oct: `https://www.nave5barcelona.com`);
    - las 2 cuentas de administrador marcadas como verificadas (con permiso, como una migración),
-     justo antes del despliegue.
+     justo antes del despliegue (hecho el 13 oct, `20261013112123_marcar_admins_verificados`).
 6. **Dar permiso para el merge.**
 
 **Después del despliegue:**
@@ -167,7 +167,7 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
    Sección 6.
 4. `RESEND_API_KEY` puesta en producción (H27). Sección 6.
 5. H18: registrarse con un email que no sea el de la cuenta de Resend, recibir el correo, confirmar y
-   ver "Mis pedidos".
+   ver "Mis pedidos" (hecho el 13 oct).
 
 ## Cómo se despliega
 
@@ -195,8 +195,7 @@ sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se
   `REFRESH_TOKEN_HASH_SECRET` y comprobar a mano las sesiones con refresh token (bloque 3b) antes y
   después de desplegarlas.
 - **[docs/verificacion-email-diseno.md](docs/verificacion-email-diseno.md)** -- diseño de la
-  verificación del email de las cuentas (H18), implementado en el PR #3, y lo que falta antes de
-  desplegarlo.
+  verificación del email de las cuentas (H18), en producción desde el 13 oct, y cómo volver atrás.
 - **[docs/tarea4-diseno.md](docs/tarea4-diseno.md)** -- diseño y cierre del refactor del panel de
   administración por pestañas (tarea 4), con los tests de caracterización y la comprobación por
   mutación.

@@ -1107,7 +1107,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H18 · el registro no verifica el email | Alta. Implementado en el PR #3 (12 oct 2026), aprobado por Ashe con los arreglos de después de la primera revisión (tres huecos de seguridad del cambio de email y de Google). Migración aplicada el 12 oct (`20261012165218`). El 13 oct ya están `EMAIL_TOKEN_HASH_SECRET`, el dominio de Resend verificado con `RESEND_FROM` y `CLIENT_URL`. Antes de `main` faltan las 2 cuentas de administrador verificadas, justo antes del despliegue (`docs/verificacion-email-diseno.md`, al principio) |
+| H18 · el registro no verifica el email | Alta. **En producción desde el 13 oct 2026**: PR #3 (aprobado por Ashe con los arreglos de después de la primera revisión), PR #11 (una cuenta nueva de Google recibe sus compras de invitado, hallado en la revisión previa al despliegue) y PR #10 a `main`. Migraciones `20261012165218` y `20261013112123` (las 2 cuentas de administrador, marcadas justo antes del merge). Prueba de después del despliegue hecha el 13 oct (`docs/verificacion-email-diseno.md`, al principio) |
 | H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
 
 **Deuda aceptada:**

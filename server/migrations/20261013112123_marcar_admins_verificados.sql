@@ -1,0 +1,1 @@
+UPDATE clientes SET email_verificado = true, email_verificado_en = now() WHERE rol = 'admin';
