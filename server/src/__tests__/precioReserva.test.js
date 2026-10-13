@@ -1,0 +1,276 @@
+// Tests de utils/precioReserva.js: el precio de un alquiler por fechas, calculado siempre en el
+// servidor y en céntimos (docs/reservas-diseno.md, sección 5), y las reglas que tiene que cumplir
+// una reserva para poder presupuestarse.
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+
+const {
+  calcularPrecioReserva,
+  diasFacturados,
+  limitesDeInicio,
+  duracionesConPrecioMasBajo
+} = require('../utils/precioReserva');
+const { REGLAS_ALQUILER } = require('../utils/reglasAlquiler');
+const { ErrorValidacion } = require('../utils/errores');
+const { sumarDias } = require('../utils/fechasMadrid');
+
+const HOY = '2026-10-13';
+
+// Reglas de prueba con descuentos y envío de verdad, para que los números signifiquen algo. Las
+// reales (REGLAS_ALQUILER) tienen hoy los porcentajes y el envío a 0, a falta del cliente.
+const reglas = (cambios = {}) => ({
+  ...REGLAS_ALQUILER,
+  tramosDescuento: [
+    { desdeDias: 7, porcentaje: 10 },
+    { desdeDias: 30, porcentaje: 25 }
+  ],
+  tarifasTrayectoCentimos: { domicilio: 4500, tienda: 0 },
+  ...cambios
+});
+
+const presupuesto = (cambios = {}) =>
+  calcularPrecioReserva({
+    precioDia: 25,
+    fechaInicio: '2026-10-20',
+    fechaFin: '2026-10-23',
+    entrega: 'domicilio',
+    recogida: 'tienda',
+    hoy: HOY,
+    reglas: reglas(),
+    ...cambios
+  });
+
+const rechaza = (cambios, mensaje) =>
+  assert.throws(
+    () => presupuesto(cambios),
+    (err) => err instanceof ErrorValidacion && err.message === mensaje
+  );
+
+describe('calcularPrecioReserva — importes', () => {
+  test('sin descuento: días × precio, más el envío, todo en céntimos', () => {
+    const p = presupuesto();
+    assert.equal(p.dias, 3);
+    assert.equal(p.precio_dia, 2500);
+    assert.equal(p.subtotal_alquiler, 7500);
+    assert.equal(p.tramo, null);
+    assert.equal(p.descuento, 0);
+    assert.deepEqual(p.entrega, { modo: 'domicilio', importe: 4500 });
+    assert.deepEqual(p.recogida, { modo: 'tienda', importe: 0 });
+    assert.equal(p.importe_total, 12000);
+  });
+
+  test('guarda las fechas, la forma de contar los días y la versión de las reglas', () => {
+    const p = presupuesto();
+    assert.equal(p.fecha_inicio, '2026-10-20');
+    assert.equal(p.fecha_fin, '2026-10-23');
+    assert.equal(p.conteo_dias, 'noches');
+    assert.equal(p.version_reglas, REGLAS_ALQUILER.version);
+  });
+
+  const tramos = [
+    // [días, tramo esperado, subtotal, descuento]
+    [6, null, 15000, 0],
+    [7, { desde_dias: 7, porcentaje: 10 }, 17500, 1750],
+    [29, { desde_dias: 7, porcentaje: 10 }, 72500, 7250],
+    [30, { desde_dias: 30, porcentaje: 25 }, 75000, 18750],
+    [180, { desde_dias: 30, porcentaje: 25 }, 450000, 112500]
+  ];
+  for (const [n, tramo, subtotal, descuento] of tramos) {
+    test(`${n} días: se aplica el mayor tramo alcanzado a todo el alquiler`, () => {
+      const p = presupuesto({ fechaInicio: '2026-10-20', fechaFin: sumarDias('2026-10-20', n) });
+      assert.equal(p.dias, n);
+      assert.deepEqual(p.tramo, tramo);
+      assert.equal(p.subtotal_alquiler, subtotal);
+      assert.equal(p.descuento, descuento);
+      assert.equal(p.importe_total, subtotal - descuento + 4500);
+    });
+  }
+
+  test('el orden de los tramos en la configuración no importa', () => {
+    const p = presupuesto({
+      fechaFin: '2026-11-30',
+      reglas: reglas({
+        tramosDescuento: [
+          { desdeDias: 30, porcentaje: 25 },
+          { desdeDias: 7, porcentaje: 10 }
+        ]
+      })
+    });
+    assert.deepEqual(p.tramo, { desde_dias: 30, porcentaje: 25 });
+  });
+
+  test('el descuento se redondea al céntimo y el total cuadra con las líneas', () => {
+    // 7 días × 19,99 € = 139,93 €; el 10 % son 13,993 € → 13,99 €.
+    const p = presupuesto({ precioDia: '19.99', fechaFin: '2026-10-27' });
+    assert.equal(p.precio_dia, 1999);
+    assert.equal(p.subtotal_alquiler, 13993);
+    assert.equal(p.descuento, 1399);
+    const sumaLineas = p.lineas.reduce((s, l) => s + l.importe_total, 0);
+    assert.equal(p.importe_total, sumaLineas);
+    for (const l of p.lineas) assert.ok(Number.isInteger(l.importe_total), l.concepto);
+  });
+
+  test('el precio por día admite el texto que devuelve Postgres para un numeric', () => {
+    assert.equal(presupuesto({ precioDia: '25.50' }).precio_dia, 2550);
+  });
+
+  test('con las reglas reales de hoy no hay descuento ni coste de envío', () => {
+    const p = presupuesto({ fechaFin: '2026-11-30', reglas: REGLAS_ALQUILER });
+    assert.equal(p.descuento, 0);
+    assert.equal(p.importe_total, p.subtotal_alquiler);
+  });
+});
+
+describe('calcularPrecioReserva — cómo se cuentan los días (pregunta 3 del cliente)', () => {
+  test('por defecto, del lunes 19 al miércoles 21 son 2 días (como noches de hotel)', () => {
+    const p = presupuesto({ fechaInicio: '2026-10-19', fechaFin: '2026-10-21' });
+    assert.equal(p.dias, 2);
+    assert.equal(p.subtotal_alquiler, 5000);
+  });
+
+  test("con 'ambos_extremos' son 3, cambiando solo la configuración", () => {
+    const p = presupuesto({
+      fechaInicio: '2026-10-19',
+      fechaFin: '2026-10-21',
+      reglas: reglas({ conteoDias: 'ambos_extremos' })
+    });
+    assert.equal(p.dias, 3);
+    assert.equal(p.conteo_dias, 'ambos_extremos');
+    assert.equal(p.subtotal_alquiler, 7500);
+  });
+
+  test("con 'ambos_extremos' la recogida sigue teniendo que ser después de la entrega", () => {
+    rechaza(
+      {
+        fechaInicio: '2026-10-19',
+        fechaFin: '2026-10-19',
+        reglas: reglas({ conteoDias: 'ambos_extremos' })
+      },
+      'La recogida tiene que ser después del día de entrega.'
+    );
+  });
+
+  test('los cambios de hora no cambian los días facturados', () => {
+    assert.equal(diasFacturados('2026-10-24', '2026-10-27'), 3);
+    assert.equal(diasFacturados('2027-03-27', '2027-03-29'), 2);
+  });
+});
+
+describe('calcularPrecioReserva — IVA por concepto (pendiente del asesor)', () => {
+  test('sin tipo configurado, el tipo y la cuota van en null', () => {
+    for (const l of presupuesto().lineas) {
+      assert.equal(l.tipo_iva, null, l.concepto);
+      assert.equal(l.cuota_iva, null, l.concepto);
+    }
+    assert.deepEqual(
+      presupuesto().lineas.map((l) => l.concepto),
+      ['alquiler', 'entrega', 'recogida']
+    );
+  });
+
+  test('con un tipo configurado, la cuota sale del total con IVA incluido', () => {
+    const p = presupuesto({ reglas: reglas({ ivaPorConcepto: { alquiler: 21 } }) });
+    const [alquiler, entrega] = p.lineas;
+    // 75 € con un 21 % incluido: base 61,98 €, cuota 13,02 €.
+    assert.equal(alquiler.tipo_iva, 21);
+    assert.equal(alquiler.cuota_iva, 1302);
+    assert.equal(entrega.tipo_iva, null);
+    assert.equal(p.importe_total, 12000);
+  });
+
+  test('un tipo del 0 % es un tipo, no un vacío', () => {
+    const [, entrega] = presupuesto({ reglas: reglas({ ivaPorConcepto: { entrega: 0 } }) }).lineas;
+    assert.equal(entrega.tipo_iva, 0);
+    assert.equal(entrega.cuota_iva, 0);
+  });
+});
+
+describe('calcularPrecioReserva — reglas que se rechazan', () => {
+  test('una pieza sin precio de alquiler no se puede alquilar', () => {
+    for (const precioDia of [null, undefined, 0, -5, '', 'abc']) {
+      rechaza({ precioDia }, 'Esta pieza no se puede alquilar.');
+    }
+  });
+
+  test('fechas que faltan o no existen', () => {
+    for (const cambios of [
+      { fechaInicio: undefined },
+      { fechaFin: '' },
+      { fechaInicio: '2026-02-30' },
+      { fechaFin: '23/10/2026' }
+    ]) {
+      rechaza(cambios, 'Elige las fechas de entrega y de recogida.');
+    }
+  });
+
+  test('la recogida el mismo día o antes de la entrega', () => {
+    rechaza({ fechaFin: '2026-10-20' }, 'La recogida tiene que ser después del día de entrega.');
+    rechaza({ fechaFin: '2026-10-19' }, 'La recogida tiene que ser después del día de entrega.');
+  });
+
+  test('antelación mínima: con 2 días, hoy 13 la entrega más temprana es el 15', () => {
+    rechaza(
+      { fechaInicio: '2026-10-14', fechaFin: '2026-10-16' },
+      'La entrega más temprana posible es el 15/10/2026.'
+    );
+    assert.equal(presupuesto({ fechaInicio: '2026-10-15', fechaFin: '2026-10-16' }).dias, 1);
+  });
+
+  test('antelación máxima: con 6 meses, hoy 13 de octubre la última entrega es el 13 de abril', () => {
+    rechaza(
+      { fechaInicio: '2027-04-14', fechaFin: '2027-04-16' },
+      'Por ahora solo se puede reservar con entrega hasta el 13/04/2027.'
+    );
+    assert.equal(presupuesto({ fechaInicio: '2027-04-13', fechaFin: '2027-04-14' }).dias, 1);
+  });
+
+  test('duración mínima y máxima, con el texto en singular o en plural', () => {
+    rechaza(
+      { fechaFin: '2026-10-21', reglas: reglas({ duracionMinDias: 2 }) },
+      'El alquiler mínimo es de 2 días.'
+    );
+    rechaza(
+      { fechaFin: '2026-10-22', reglas: reglas({ duracionMaxDias: 1 }) },
+      'El alquiler máximo es de 1 día.'
+    );
+    rechaza({ fechaFin: '2027-04-19' }, 'El alquiler máximo es de 180 días.');
+    assert.equal(presupuesto({ fechaFin: '2027-04-18' }).dias, 180);
+  });
+
+  test('entrega y recogida tienen que ser a domicilio o en la tienda', () => {
+    rechaza({ entrega: 'dron' }, 'Elige si la entrega es a domicilio o en la tienda.');
+    rechaza({ entrega: undefined }, 'Elige si la entrega es a domicilio o en la tienda.');
+    rechaza({ recogida: 'toString' }, 'Elige si la recogida es a domicilio o en la tienda.');
+  });
+});
+
+describe('limitesDeInicio', () => {
+  test('con las reglas reales: hoy + 2 días y hoy + 6 meses', () => {
+    assert.deepEqual(limitesDeInicio('2026-10-13'), {
+      primerInicio: '2026-10-15',
+      ultimoInicio: '2027-04-13'
+    });
+  });
+  test('alrededor del cambio de hora de octubre', () => {
+    assert.deepEqual(limitesDeInicio('2026-10-24'), {
+      primerInicio: '2026-10-26',
+      ultimoInicio: '2027-04-24'
+    });
+  });
+});
+
+describe('duracionesConPrecioMasBajo — avisar si un día más sale más barato', () => {
+  test('con un 20 % desde 7 días, 7 días cuestan menos que 6', () => {
+    const r = reglas({ tramosDescuento: [{ desdeDias: 7, porcentaje: 20 }] });
+    assert.deepEqual(duracionesConPrecioMasBajo(r), [7]);
+  });
+  test('con un 10 % desde 7 y un 25 % desde 30, solo baja en el segundo salto', () => {
+    // 6 días = 600 € y 7 días = 630 € (sube); 29 días = 2.610 € y 30 días = 2.250 € (baja).
+    assert.deepEqual(duracionesConPrecioMasBajo(reglas()), [30]);
+  });
+  test('con las reglas reales de hoy no baja en ningún punto', () => {
+    // Si el cliente fija tramos que hacen bajar el precio, este test se actualiza con esas
+    // duraciones, una vez el cliente sepa que pasa.
+    assert.deepEqual(duracionesConPrecioMasBajo(), []);
+  });
+});
