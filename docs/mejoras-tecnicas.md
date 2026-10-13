@@ -1299,7 +1299,8 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
 - **En curso desde el 13 oct 2026:** lo resuelven las reservas por fechas (`docs/reservas-diseno.md`). Se
-  empezó sin las respuestas del cliente, con lo que no depende de ellas: hechos los pasos 5 y 6 del bloque R-a
+  empezó sin las respuestas del cliente; las cuatro decisiones bloqueantes las tomó Ashe el 13 oct (están al
+  principio de `docs/reservas-diseno.md`). Hechos los pasos 5 y 6 del bloque R-a
   (precio, fechas en hora de Madrid y los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de
   las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
 

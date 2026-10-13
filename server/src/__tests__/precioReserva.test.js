@@ -32,7 +32,9 @@ const presupuesto = (cambios = {}) =>
   calcularPrecioReserva({
     precioDia: 25,
     fechaInicio: '2026-10-20',
+    horaEntrega: '10:00',
     fechaFin: '2026-10-23',
+    horaRecogida: '10:00',
     entrega: 'domicilio',
     recogida: 'tienda',
     hoy: HOY,
@@ -59,11 +61,12 @@ describe('calcularPrecioReserva — importes', () => {
     assert.equal(p.importe_total_centimos, 12000);
   });
 
-  test('guarda las fechas, la forma de contar los días y la versión de las reglas', () => {
+  test('guarda las fechas, las horas y la versión de las reglas', () => {
     const p = presupuesto();
     assert.equal(p.fecha_inicio, '2026-10-20');
+    assert.equal(p.hora_entrega, '10:00');
     assert.equal(p.fecha_fin, '2026-10-23');
-    assert.equal(p.conteo_dias, 'noches');
+    assert.equal(p.hora_recogida, '10:00');
     assert.equal(p.version_reglas, REGLAS_ALQUILER.version);
   });
 
@@ -121,38 +124,60 @@ describe('calcularPrecioReserva — importes', () => {
   });
 });
 
-describe('calcularPrecioReserva — cómo se cuentan los días (pregunta 3 del cliente)', () => {
-  test('por defecto, del lunes 19 al miércoles 21 son 2 días (como noches de hotel)', () => {
-    const p = presupuesto({ fechaInicio: '2026-10-19', fechaFin: '2026-10-21' });
-    assert.equal(p.dias, 2);
-    assert.equal(p.subtotal_alquiler_centimos, 5000);
+describe('calcularPrecioReserva — días en bloques de 24 h desde la hora de entrega', () => {
+  const dias = (fechaInicio, horaEntrega, fechaFin, horaRecogida) =>
+    presupuesto({ fechaInicio, horaEntrega, fechaFin, horaRecogida }).dias;
+
+  test('del lunes 19 por la mañana al miércoles 21 a la misma hora son 2 días', () => {
+    assert.equal(dias('2026-10-19', '10:00', '2026-10-21', '10:00'), 2);
   });
 
-  test("con 'ambos_extremos' son 3, cambiando solo la configuración", () => {
-    const p = presupuesto({
-      fechaInicio: '2026-10-19',
-      fechaFin: '2026-10-21',
-      reglas: reglas({ conteoDias: 'ambos_extremos' })
-    });
-    assert.equal(p.dias, 3);
-    assert.equal(p.conteo_dias, 'ambos_extremos');
-    assert.equal(p.subtotal_alquiler_centimos, 7500);
+  test('si la recogida es más tarde que la hora de entrega, empieza otro día', () => {
+    assert.equal(dias('2026-10-19', '10:00', '2026-10-21', '10:01'), 3);
+    assert.equal(dias('2026-10-19', '10:00', '2026-10-21', '18:00'), 3);
   });
 
-  test("con 'ambos_extremos' la recogida sigue teniendo que ser después de la entrega", () => {
+  test('si la recogida es antes de la hora de entrega, no', () => {
+    assert.equal(dias('2026-10-19', '10:00', '2026-10-21', '09:59'), 2);
+  });
+
+  test('de una tarde a la mañana siguiente es 1 día', () => {
+    assert.equal(dias('2026-10-19', '18:00', '2026-10-20', '10:00'), 1);
+    assert.equal(dias('2026-10-19', '18:00', '2026-10-20', '18:00'), 1);
+    assert.equal(dias('2026-10-19', '18:00', '2026-10-20', '18:30'), 2);
+  });
+
+  test('no hay alquileres de menos de un día: la recogida el mismo día no vale a ninguna hora', () => {
     rechaza(
       {
         fechaInicio: '2026-10-19',
+        horaEntrega: '09:00',
         fechaFin: '2026-10-19',
-        reglas: reglas({ conteoDias: 'ambos_extremos' })
+        horaRecogida: '20:00'
       },
       'La recogida tiene que ser después del día de entrega.'
     );
   });
 
   test('los cambios de hora no cambian los días facturados', () => {
-    assert.equal(diasFacturados('2026-10-24', '2026-10-27'), 3);
-    assert.equal(diasFacturados('2027-03-27', '2027-03-29'), 2);
+    // Del 24 al 27 de octubre de 2026 hay 73 horas reales (el 25 tiene 25), y del 27 al 29 de
+    // marzo de 2027, 47 (el 28 tiene 23): cuenta la hora del reloj.
+    assert.equal(diasFacturados('2026-10-24', '10:00', '2026-10-27', '10:00'), 3);
+    assert.equal(diasFacturados('2027-03-27', '10:00', '2027-03-29', '10:00'), 2);
+  });
+
+  test('el precio sale de esos días', () => {
+    const p = presupuesto({ horaEntrega: '10:00', horaRecogida: '12:00' });
+    assert.equal(p.dias, 4);
+    assert.equal(p.subtotal_alquiler_centimos, 10000);
+  });
+
+  test('la duración máxima cuenta el día de más', () => {
+    assert.equal(presupuesto({ fechaFin: '2027-04-18', horaRecogida: '10:00' }).dias, 180);
+    rechaza(
+      { fechaFin: '2027-04-18', horaRecogida: '10:30' },
+      'El alquiler máximo es de 180 días.'
+    );
   });
 });
 
@@ -189,6 +214,19 @@ describe('calcularPrecioReserva — reglas que se rechazan', () => {
   test('una pieza sin precio de alquiler no se puede alquilar', () => {
     for (const precioDia of [null, undefined, 0, -5, '', 'abc']) {
       rechaza({ precioDia }, 'Esta pieza no se puede alquilar.');
+    }
+  });
+
+  test('horas que faltan o mal escritas', () => {
+    for (const cambios of [
+      { horaEntrega: undefined },
+      { horaRecogida: '' },
+      { horaEntrega: '9:00' },
+      { horaRecogida: '24:00' },
+      { horaEntrega: '10:60' },
+      { horaRecogida: ['10:00'] }
+    ]) {
+      rechaza(cambios, 'Elige la hora de entrega y la de recogida.');
     }
   });
 

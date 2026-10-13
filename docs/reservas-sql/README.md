@@ -3,10 +3,10 @@
 Bloque R-a de `docs/reservas-diseno.md` (sección 11, pasos 1 a 3). **Nada de esto está aplicado.** Cuando se
 aplique, cada migración se copia a `server/migrations/` con la versión real, como dice su `README.md`.
 
-**Antes de aplicar hacen falta dos cosas:**
-1. La respuesta del cliente a la pregunta 4 (alquileres de menos de un día). Si la respuesta es sí, las fechas
-   pasan a `timestamptz` y `daterange` a `tstzrange` (10.1 del diseño), y esto se reescribe.
-2. El OK explícito del propietario, por separado para la prueba desechable y para cada migración.
+**Antes de aplicar hace falta el OK explícito de Ashe**, por separado para la prueba desechable y para cada
+migración. Las decisiones que cambiaban la tabla ya están tomadas (13 oct 2026): no hay alquileres de menos de un
+día, así que el calendario sigue por días, y los días se cobran en bloques de 24 h desde la hora de entrega, así
+que cada alquiler guarda su hora de entrega y de recogida.
 
 | Archivo | Qué hace |
 |---|---|
@@ -17,21 +17,25 @@ aplique, cada migración se copia a `server/migrations/` con la versión real, c
 
 Con la tabla vacía, ninguno de los dos disparadores hace nada, y ningún código la lee ni la escribe todavía.
 
-## Diferencia con el borrador del diseño
+## Diferencias con el borrador del diseño
 
-El disparador de `fin_ocupacion` es `BEFORE INSERT OR UPDATE` (de cualquier columna) con
+- **`hora_entrega` y `hora_recogida`** (`time`, hora de Madrid): obligatorias en los alquileres y vacías en
+  bloqueos y ventas. Salen de la respuesta de Ashe a la pregunta 3 (días en bloques de 24 h desde la hora de
+  entrega). Solo cuentan para el precio: el calendario se sigue ocupando por días, con el margen.
+- El disparador de `fin_ocupacion` es `BEFORE INSERT OR UPDATE` (de cualquier columna) con
 `WHEN (NEW.estado = 'devuelta' AND NEW.devuelta_en IS NOT NULL)`, en vez de `BEFORE UPDATE OF estado,
 devuelta_en`. Así también cubre una reserva que se da de alta ya devuelta, y que alguien cambie
 `fin_ocupacion` a mano en una reserva devuelta (el caso 8d de la prueba). Sigue tocando solo su propia fila.
 
-## Comprobado en local (13 oct 2026)
+## Comprobado en local (13 oct 2026, también después de añadir las horas)
 
 Con PostgreSQL 16.15 y unas tablas `muebles`, `clientes` y `pedidos` mínimas (Supabase usa la 17.6):
 - R1 + R2 + `r2_pruebas.sql` en una transacción terminan con el error a propósito `PRUEBA SUPERADA`, y
   después no queda ni la tabla ni la extensión.
-- La prueba detecta los fallos: se rompió la migración de 7 formas (sin margen en el rango, sin el disparador,
+- La prueba detecta los fallos: se rompió la migración de 9 formas (sin margen en el rango, sin el disparador,
   sin los `IS NOT NULL` de la CHECK, sin el índice de una provisional por cliente, con `devuelta` fuera de la
-  restricción, con UTC en vez de hora de Madrid y sin `updated_at`), y en cada una falló el caso que tocaba.
+  restricción, con UTC en vez de hora de Madrid, sin `updated_at`, sin exigir las horas en un alquiler y
+  aceptándolas en un bloqueo), y en cada una falló el caso que tocaba.
 - R1 y R2 aplicadas de verdad, y después sus `.down.sql`: no queda ni la tabla, ni las funciones, ni la
   extensión.
 

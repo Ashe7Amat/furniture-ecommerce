@@ -129,7 +129,6 @@ describe('calcularDisponibilidad', () => {
   test('las reglas salen tal cual, sin nombres internos', () => {
     assert.deepEqual(disponibilidad([]).reglas, {
       version: 1,
-      conteo_dias: 'noches',
       duracion_min_dias: 1,
       duracion_max_dias: 180,
       antelacion_min_dias: 2,

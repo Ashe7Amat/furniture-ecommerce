@@ -23,37 +23,37 @@ BEGIN
   ---------------------------------------------------------------------------------------------------
   -- 1. Solapes entre alquileres, y el margen. A: del 10 al 13 de junio con 2 días de margen, así que
   --    ocupa del 10 al 15 (exclusivo).
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m1, 'alquiler', 'confirmada', '2030-06-10', '2030-06-13', '2030-06-13', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m1, 'alquiler', 'confirmada', '2030-06-10', '2030-06-13', '2030-06-13', 2, '10:00', '10:00');
 
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-    VALUES (m1, 'alquiler', 'confirmada', '2030-06-12', '2030-06-20', '2030-06-20', 2);
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+    VALUES (m1, 'alquiler', 'confirmada', '2030-06-12', '2030-06-20', '2030-06-20', 2, '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 1a: se aceptó un alquiler solapado';
   EXCEPTION WHEN exclusion_violation THEN NULL;
   END;
 
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-    VALUES (m1, 'alquiler', 'confirmada', '2030-06-14', '2030-06-16', '2030-06-16', 2);
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+    VALUES (m1, 'alquiler', 'confirmada', '2030-06-14', '2030-06-16', '2030-06-16', 2, '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 1b: se aceptó un alquiler dentro del margen';
   EXCEPTION WHEN exclusion_violation THEN NULL;
   END;
 
   -- Justo después del margen, sí. Y antes de A: termina el 8 + 2 de margen = 10, sin tocar a A.
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m1, 'alquiler', 'confirmada', '2030-06-15', '2030-06-17', '2030-06-17', 2);
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m1, 'alquiler', 'confirmada', '2030-06-05', '2030-06-08', '2030-06-08', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m1, 'alquiler', 'confirmada', '2030-06-15', '2030-06-17', '2030-06-17', 2, '10:00', '10:00');
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m1, 'alquiler', 'confirmada', '2030-06-05', '2030-06-08', '2030-06-08', 2, '10:00', '10:00');
 
   -- Otra pieza, mismas fechas: sin problema.
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m2, 'alquiler', 'confirmada', '2030-06-10', '2030-06-13', '2030-06-13', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'confirmada', '2030-06-10', '2030-06-13', '2030-06-13', 2, '10:00', '10:00');
 
   -- Las canceladas y expiradas no ocupan el calendario.
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m1, 'alquiler', 'cancelada', '2030-06-10', '2030-06-13', '2030-06-13', 2),
-         (m1, 'alquiler', 'expirada', '2030-06-10', '2030-06-13', '2030-06-13', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m1, 'alquiler', 'cancelada', '2030-06-10', '2030-06-13', '2030-06-13', 2, '10:00', '10:00'),
+         (m1, 'alquiler', 'expirada', '2030-06-10', '2030-06-13', '2030-06-13', 2, '10:00', '10:00');
 
   ---------------------------------------------------------------------------------------------------
   -- 2. Una venta (rango abierto por arriba) contra un alquiler futuro, en los dos órdenes.
@@ -73,8 +73,8 @@ BEGIN
   END IF;
 
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-    VALUES (m1, 'alquiler', 'confirmada', '2031-01-10', '2031-01-12', '2031-01-12', 2);
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+    VALUES (m1, 'alquiler', 'confirmada', '2031-01-10', '2031-01-12', '2031-01-12', 2, '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 2c: se aceptó un alquiler de una pieza vendida';
   EXCEPTION WHEN exclusion_violation THEN NULL;
   END;
@@ -90,22 +90,21 @@ BEGIN
 
   ---------------------------------------------------------------------------------------------------
   -- 4. Una provisional caducada estorba hasta que se marca expirada; después, no.
-  INSERT INTO public.reservas
-    (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en)
-  VALUES (m2, 'alquiler', 'pendiente', '2030-07-01', '2030-07-03', '2030-07-03', 2, c1, now() - interval '1 minute')
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'pendiente', '2030-07-01', '2030-07-03', '2030-07-03', 2, c1, now() - interval '1 minute', '10:00', '10:00')
   RETURNING id INTO r;
 
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-    VALUES (m2, 'alquiler', 'confirmada', '2030-07-02', '2030-07-04', '2030-07-04', 2);
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'confirmada', '2030-07-02', '2030-07-04', '2030-07-04', 2, '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 4a: una provisional sin marcar como expirada tendría que estorbar';
   EXCEPTION WHEN exclusion_violation THEN NULL;
   END;
 
   UPDATE public.reservas SET estado = 'expirada'
   WHERE mueble_id = m2 AND estado = 'pendiente' AND expira_en < now();
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m2, 'alquiler', 'confirmada', '2030-07-02', '2030-07-04', '2030-07-04', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'confirmada', '2030-07-02', '2030-07-04', '2030-07-04', 2, '10:00', '10:00');
 
   -- Pagada tarde: volver de expirada a confirmada choca con la que ya ocupó esas fechas.
   BEGIN
@@ -116,13 +115,11 @@ BEGIN
 
   ---------------------------------------------------------------------------------------------------
   -- 5. Una provisional por cliente.
-  INSERT INTO public.reservas
-    (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en)
-  VALUES (m2, 'alquiler', 'pendiente', '2030-08-01', '2030-08-03', '2030-08-03', 2, c2, now() + interval '45 minutes');
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'pendiente', '2030-08-01', '2030-08-03', '2030-08-03', 2, c2, now() + interval '45 minutes', '10:00', '10:00');
   BEGIN
-    INSERT INTO public.reservas
-      (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en)
-    VALUES (m2, 'alquiler', 'pendiente', '2030-09-01', '2030-09-03', '2030-09-03', 2, c2, now() + interval '45 minutes');
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, cliente_id, expira_en, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'pendiente', '2030-09-01', '2030-09-03', '2030-09-03', 2, c2, now() + interval '45 minutes', '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 5: se aceptaron dos provisionales del mismo cliente';
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
@@ -140,8 +137,8 @@ BEGIN
   ---------------------------------------------------------------------------------------------------
   -- 7. Las CHECK que impiden filas que ocuparían mal el calendario.
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin)
-    VALUES (m2, 'alquiler', 'confirmada', '2032-01-01', '2032-01-03');
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'confirmada', '2032-01-01', '2032-01-03', '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 7a: se aceptó un alquiler sin fin_ocupacion (ocuparía la pieza para siempre)';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
@@ -152,8 +149,8 @@ BEGIN
   EXCEPTION WHEN check_violation THEN NULL;
   END;
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, expira_en)
-    VALUES (m2, 'alquiler', 'pendiente', '2032-01-01', '2032-01-03', '2032-01-03', now());
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, expira_en, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'pendiente', '2032-01-01', '2032-01-03', '2032-01-03', now(), '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 7c: se aceptó una provisional sin cliente';
   EXCEPTION WHEN check_violation THEN NULL;
   END;
@@ -170,18 +167,32 @@ BEGIN
   EXCEPTION WHEN check_violation THEN NULL;
   END;
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion)
-    VALUES (m2, 'alquiler', 'confirmada', '2032-01-05', '2032-01-03', '2032-01-03');
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'confirmada', '2032-01-05', '2032-01-03', '2032-01-03', '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 7f: se aceptó un alquiler que acaba antes de empezar';
   EXCEPTION WHEN data_exception OR check_violation THEN NULL;
+  END;
+
+  BEGIN
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion)
+    VALUES (m2, 'alquiler', 'confirmada', '2032-01-01', '2032-01-03', '2032-01-03');
+    RAISE EXCEPTION 'FALLO 7g: se aceptó un alquiler sin hora de entrega ni de recogida';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO public.reservas
+      (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, hora_entrega, hora_recogida)
+    VALUES (m2, 'bloqueo', 'confirmada', '2032-01-01', '2032-01-03', '2032-01-03', '10:00', '10:00');
+    RAISE EXCEPTION 'FALLO 7h: se aceptó un bloqueo con horas';
+  EXCEPTION WHEN check_violation THEN NULL;
   END;
 
   ---------------------------------------------------------------------------------------------------
   -- 8. Al devolver, fin_ocupacion pasa a ser el día de devolución en hora de Madrid (3.4). Las tres
   --    reservas van del 1 al 10 de octubre de 2030 en m2, cada una en un año distinto para no chocar.
   --    a) A tiempo, a las 23:30 UTC del 9 (en Madrid ya es el 10: horario de verano, UTC+2).
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en)
-  VALUES (m2, 'alquiler', 'en_curso', '2033-10-01', '2033-10-10', '2033-10-10', 2, '2033-10-01 09:00+00')
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'en_curso', '2033-10-01', '2033-10-10', '2033-10-10', 2, '2033-10-01 09:00+00', '10:00', '10:00')
   RETURNING id INTO r;
   UPDATE public.reservas SET estado = 'devuelta', devuelta_en = '2033-10-09 23:30+00' WHERE id = r;
   SELECT fin_ocupacion, rango_ocupado INTO fin, rango FROM public.reservas WHERE id = r;
@@ -190,27 +201,27 @@ BEGIN
   END IF;
 
   --    b) Antes de tiempo, el 4: los días sobrantes se liberan, menos el margen.
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en)
-  VALUES (m2, 'alquiler', 'en_curso', '2034-10-01', '2034-10-10', '2034-10-10', 2, '2034-10-01 09:00+00')
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'en_curso', '2034-10-01', '2034-10-10', '2034-10-10', 2, '2034-10-01 09:00+00', '10:00', '10:00')
   RETURNING id INTO r;
   UPDATE public.reservas SET estado = 'devuelta', devuelta_en = '2034-10-04 10:00+00' WHERE id = r;
   SELECT fin_ocupacion INTO fin FROM public.reservas WHERE id = r;
   IF fin <> '2034-10-04' THEN
     RAISE EXCEPTION 'FALLO 8b: devolución anticipada, fin_ocupacion %', fin;
   END IF;
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-  VALUES (m2, 'alquiler', 'confirmada', '2034-10-06', '2034-10-08', '2034-10-08', 2);
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'confirmada', '2034-10-06', '2034-10-08', '2034-10-08', 2, '10:00', '10:00');
   BEGIN
-    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen)
-    VALUES (m2, 'alquiler', 'confirmada', '2034-10-05', '2034-10-06', '2034-10-06', 0);
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, hora_entrega, hora_recogida)
+    VALUES (m2, 'alquiler', 'confirmada', '2034-10-05', '2034-10-06', '2034-10-06', 0, '10:00', '10:00');
     RAISE EXCEPTION 'FALLO 8b: el margen de una devuelta tendría que seguir protegido';
   EXCEPTION WHEN exclusion_violation THEN NULL;
   END;
 
   --    c) Tarde, el 26 de octubre a las 23:30 UTC: ya en horario de invierno (UTC+1), en Madrid es el
   --       27 a las 00:30. Antes se había ampliado fin_ocupacion por el retraso.
-  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en)
-  VALUES (m2, 'alquiler', 'en_curso', '2031-10-01', '2031-10-10', '2031-10-10', 2, '2031-10-01 09:00+00')
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, entregada_en, hora_entrega, hora_recogida)
+  VALUES (m2, 'alquiler', 'en_curso', '2031-10-01', '2031-10-10', '2031-10-10', 2, '2031-10-01 09:00+00', '10:00', '10:00')
   RETURNING id INTO r;
   UPDATE public.reservas SET fin_ocupacion = '2031-10-20' WHERE id = r;
   UPDATE public.reservas SET estado = 'devuelta', devuelta_en = '2031-10-26 23:30+00' WHERE id = r;

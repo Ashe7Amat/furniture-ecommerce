@@ -32,6 +32,10 @@ const desdeMs = (ms) => new Date(ms).toISOString().slice(0, 10);
 const esFechaValida = (texto) =>
   typeof texto === 'string' && FORMATO_FECHA.test(texto) && desdeMs(aMs(texto)) === texto;
 
+// 'HH:MM' de 00:00 a 23:59: la hora de entrega o de recogida, en hora de Madrid.
+const esHoraValida = (texto) =>
+  typeof texto === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(texto);
+
 const sumarDias = (fecha, dias) => desdeMs(aMs(fecha) + dias * MS_DIA);
 
 // Días de calendario de `desde` a `hasta` (negativo si `hasta` va antes).
@@ -51,4 +55,12 @@ const sumarMeses = (fecha, meses) => {
 // '2026-10-25' → '25/10/2026', para los mensajes que se enseñan al cliente.
 const fechaLegible = (fecha) => fecha.split('-').reverse().join('/');
 
-module.exports = { hoyEnMadrid, esFechaValida, sumarDias, diasEntre, sumarMeses, fechaLegible };
+module.exports = {
+  hoyEnMadrid,
+  esFechaValida,
+  esHoraValida,
+  sumarDias,
+  diasEntre,
+  sumarMeses,
+  fechaLegible
+};

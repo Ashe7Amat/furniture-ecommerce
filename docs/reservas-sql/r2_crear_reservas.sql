@@ -6,6 +6,10 @@ CREATE TABLE public.reservas (
     CHECK (estado IN ('pendiente', 'confirmada', 'en_curso', 'devuelta', 'cancelada', 'expirada')),
   fecha_inicio date NOT NULL,
   fecha_fin date,
+  -- Hora de entrega y de recogida, en hora de Madrid (solo alquiler): el precio se cobra en bloques de
+  -- 24 h desde la hora de entrega. El calendario sigue ocupándose por días.
+  hora_entrega time,
+  hora_recogida time,
   fin_ocupacion date,
   dias_margen smallint NOT NULL DEFAULT 0 CHECK (dias_margen >= 0),
   rango_ocupado daterange GENERATED ALWAYS AS
@@ -49,12 +53,15 @@ CREATE TABLE public.reservas (
   -- y un fin_ocupacion nulo en un alquiler ocuparía el calendario de la pieza para siempre.
   CONSTRAINT reservas_alquiler_fechas CHECK (tipo <> 'alquiler' OR (
     fecha_fin IS NOT NULL AND fin_ocupacion IS NOT NULL AND fecha_fin > fecha_inicio
+    AND hora_entrega IS NOT NULL AND hora_recogida IS NOT NULL
     AND (fin_ocupacion >= fecha_fin OR estado = 'devuelta'))),
   CONSTRAINT reservas_bloqueo_fechas CHECK (tipo <> 'bloqueo' OR (
     fecha_fin IS NOT NULL AND fin_ocupacion IS NOT NULL AND fecha_fin > fecha_inicio
-    AND fin_ocupacion = fecha_fin AND dias_margen = 0 AND cliente_id IS NULL)),
+    AND fin_ocupacion = fecha_fin AND dias_margen = 0 AND cliente_id IS NULL
+    AND hora_entrega IS NULL AND hora_recogida IS NULL)),
   CONSTRAINT reservas_venta_sin_fin CHECK (tipo <> 'venta' OR (
-    fecha_fin IS NULL AND fin_ocupacion IS NULL AND dias_margen = 0)),
+    fecha_fin IS NULL AND fin_ocupacion IS NULL AND dias_margen = 0
+    AND hora_entrega IS NULL AND hora_recogida IS NULL)),
   CONSTRAINT reservas_pendiente_completa CHECK (estado <> 'pendiente' OR (
     expira_en IS NOT NULL AND tipo = 'alquiler' AND cliente_id IS NOT NULL)),
   CONSTRAINT reservas_estados_por_tipo CHECK (tipo = 'alquiler' OR estado IN ('confirmada', 'cancelada')),

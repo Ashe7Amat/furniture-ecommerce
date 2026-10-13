@@ -1,16 +1,22 @@
 # Reservas por fechas — Diseño
 
-> **Estado: EN IMPLEMENTACIÓN desde el 13 oct 2026, sin las respuestas del cliente.** El propietario decidió
-> empezar sin esperarlas. Se programa primero lo que no depende de las cuatro decisiones bloqueantes (10.1: modelo
-> de fianza, sesión obligatoria y alquiler fuera de la cesta, cómo se cuentan los días y si hay alquileres de menos
-> de un día), con los valores por defecto de este documento, y la forma de contar los días queda como ajuste
-> (`conteoDias` en `server/src/utils/reglasAlquiler.js`). **La migración de la tabla no se aplica hasta saber la
-> respuesta a la pregunta 4** (alquileres de menos de un día), que es la única que cambia el modelo de datos, y con
-> el OK explícito del propietario. Las tareas 3 y 4, que el diseño ponía como requisito, ya están cerradas y en
-> `main`. Hecho del bloque R-a: los pasos 5 y 6 (configuración, fechas en hora de Madrid, cálculo del precio y
-> los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2 sin aplicar, con su prueba
-> desechable comprobada en local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden
-> llegar a `main` antes que la migración R2.
+> **Estado: EN IMPLEMENTACIÓN desde el 13 oct 2026.** El propietario decidió empezar sin esperar al cliente y
+> contestó él mismo las cuatro preguntas bloqueantes de diseño (10.1) el 13 oct:
+> 1. **Fianza: A**, cobrarla y devolverla. Solo afecta a R-e, que sigue esperando la confirmación por escrito
+>    del soporte de Stripe de que se puede reembolsar un pago con tarjeta unos 194 días después (6.6).
+> 2. **Reservar exige iniciar sesión, y el alquiler no pasa por la cesta** (T8 y T9, tal cual).
+> 3. **Días facturados en bloques de 24 h desde la hora de entrega**: del lunes 1 por la mañana al miércoles 3
+>    a la misma hora son 2 días; si la recogida es más tarde que esa hora, 3. **Cambia T3:** cada alquiler
+>    guarda su hora de entrega y de recogida (`hora_entrega`, `hora_recogida`), que solo cuentan para el precio;
+>    el calendario se sigue ocupando por días (T2).
+> 4. **No hay alquileres de menos de un día.** El modelo por días se queda; si un día hace falta para rodajes,
+>    se añade granularidad horaria.
+>
+> Hecho del bloque R-a: los pasos 5 y 6 (reglas, fechas en hora de Madrid, cálculo del precio y los endpoints
+> de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2 sin aplicar, con su prueba desechable
+> comprobada en local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden llegar a `main`
+> antes que la migración R2, que espera el OK explícito del propietario. El resto de las preguntas de 10.1 (de la
+> 5 en adelante) siguen pendientes del cliente o de su asesor, con los valores por defecto de este documento.
 >
 > Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 

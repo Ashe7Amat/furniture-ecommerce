@@ -168,7 +168,9 @@ describe('GET /api/muebles/:id/presupuesto', () => {
   const url = (id, consulta) => `/api/muebles/${id}/presupuesto?${new URLSearchParams(consulta)}`;
   const valida = {
     fecha_inicio: dia(10),
+    hora_entrega: '10:00',
     fecha_fin: dia(13),
+    hora_recogida: '10:00',
     entrega: 'domicilio',
     recogida: 'tienda'
   };

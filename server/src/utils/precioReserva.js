@@ -9,13 +9,24 @@
 // vez, al entrar. Los importes son totales con IVA incluido.
 const { ErrorValidacion } = require('./errores');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
-const { esFechaValida, sumarDias, diasEntre, sumarMeses, fechaLegible } = require('./fechasMadrid');
+const {
+  esFechaValida,
+  esHoraValida,
+  sumarDias,
+  diasEntre,
+  sumarMeses,
+  fechaLegible
+} = require('./fechasMadrid');
 
 const dias = (n) => (n === 1 ? '1 día' : `${n} días`);
 
-// Días que se cobran entre la entrega y la recogida, según cómo se cuenten (reglas.conteoDias).
-const diasFacturados = (fechaInicio, fechaFin, reglas = REGLAS_ALQUILER) =>
-  diasEntre(fechaInicio, fechaFin) + (reglas.conteoDias === 'ambos_extremos' ? 1 : 0);
+// Días que se cobran: bloques de 24 h desde la hora de entrega (decisión de Ashe, 13 oct 2026, a la
+// pregunta 3). Del lunes 1 a las 10:00 al miércoles 3 a las 10:00 son 2 días, como las noches de un
+// hotel; si la recogida es más tarde que esa hora (el miércoles a las 10:30), empieza un tercero.
+// Se cuenta con la hora del reloj de Madrid y no con horas reales, así que un cambio de hora en
+// medio (un día de 23 o 25 horas) no añade ni quita ningún día.
+const diasFacturados = (fechaInicio, horaEntrega, fechaFin, horaRecogida) =>
+  diasEntre(fechaInicio, fechaFin) + (horaRecogida > horaEntrega ? 1 : 0);
 
 // Primer y último día en que puede empezar un alquiler reservado hoy.
 const limitesDeInicio = (hoy, reglas = REGLAS_ALQUILER) => ({
@@ -56,13 +67,15 @@ const validarTrayecto = (valor, reglas, mensaje) => {
   return reglas.tarifasTrayectoCentimos[valor];
 };
 
-// Calcula el presupuesto de alquilar una pieza de `fechaInicio` (día de entrega) a `fechaFin` (día
-// de recogida). Lanza ErrorValidacion, con un mensaje que se puede enseñar tal cual, si la reserva
-// incumple alguna regla.
+// Calcula el presupuesto de alquilar una pieza de `fechaInicio` a las `horaEntrega` (día y hora de
+// entrega, 'YYYY-MM-DD' y 'HH:MM' en hora de Madrid) a `fechaFin` a las `horaRecogida`. Lanza
+// ErrorValidacion, con un mensaje que se puede enseñar tal cual, si la reserva incumple alguna regla.
 const calcularPrecioReserva = ({
   precioDia,
   fechaInicio,
+  horaEntrega,
   fechaFin,
+  horaRecogida,
   entrega,
   recogida,
   hoy,
@@ -75,6 +88,10 @@ const calcularPrecioReserva = ({
   if (!esFechaValida(fechaInicio) || !esFechaValida(fechaFin)) {
     throw new ErrorValidacion('Elige las fechas de entrega y de recogida.');
   }
+  if (!esHoraValida(horaEntrega) || !esHoraValida(horaRecogida)) {
+    throw new ErrorValidacion('Elige la hora de entrega y la de recogida.');
+  }
+  // No hay alquileres de menos de un día (pregunta 4): la recogida es, como pronto, al día siguiente.
   if (fechaFin <= fechaInicio) {
     throw new ErrorValidacion('La recogida tiene que ser después del día de entrega.');
   }
@@ -91,7 +108,7 @@ const calcularPrecioReserva = ({
     );
   }
 
-  const n = diasFacturados(fechaInicio, fechaFin, reglas);
+  const n = diasFacturados(fechaInicio, horaEntrega, fechaFin, horaRecogida);
   if (n < reglas.duracionMinDias) {
     throw new ErrorValidacion(`El alquiler mínimo es de ${dias(reglas.duracionMinDias)}.`);
   }
@@ -114,9 +131,10 @@ const calcularPrecioReserva = ({
   return {
     version_reglas: reglas.version,
     fecha_inicio: fechaInicio,
+    hora_entrega: horaEntrega,
     fecha_fin: fechaFin,
+    hora_recogida: horaRecogida,
     dias: n,
-    conteo_dias: reglas.conteoDias,
     precio_dia_centimos: precioDiaCentimos,
     subtotal_alquiler_centimos: alquiler.subtotal,
     tramo: alquiler.tramo

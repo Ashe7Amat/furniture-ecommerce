@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
   hoyEnMadrid,
   esFechaValida,
+  esHoraValida,
   sumarDias,
   diasEntre,
   sumarMeses,
@@ -65,6 +66,15 @@ describe('esFechaValida', () => {
       20261013
     ]) {
       assert.equal(esFechaValida(f), false, String(f));
+    }
+  });
+});
+
+describe('esHoraValida', () => {
+  test('HH:MM de 00:00 a 23:59', () => {
+    for (const h of ['00:00', '09:30', '10:00', '23:59']) assert.equal(esHoraValida(h), true, h);
+    for (const h of ['24:00', '9:30', '10:60', '10:00:00', '10h', '', null, 1000, ['10:00']]) {
+      assert.equal(esHoraValida(h), false, String(h));
     }
   });
 });

@@ -114,7 +114,6 @@ const calcularDisponibilidad = ({
     precio_dia_centimos: mostrarPrecio && precioCentimos > 0 ? precioCentimos : null,
     reglas: {
       version: reglas.version,
-      conteo_dias: reglas.conteoDias,
       duracion_min_dias: reglas.duracionMinDias,
       duracion_max_dias: reglas.duracionMaxDias,
       antelacion_min_dias: reglas.antelacionMinDias,

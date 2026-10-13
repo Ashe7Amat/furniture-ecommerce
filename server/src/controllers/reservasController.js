@@ -72,7 +72,7 @@ const obtenerDisponibilidad = async (req, res) => {
   }
 };
 
-// GET /api/muebles/:id/presupuesto?fecha_inicio=&fecha_fin=&entrega=&recogida=
+// GET /api/muebles/:id/presupuesto?fecha_inicio=&hora_entrega=&fecha_fin=&hora_recogida=&entrega=&recogida=
 // Solo el precio (5.1): si las fechas están libres lo dice la disponibilidad, y lo garantizará la
 // base de datos al reservar.
 const obtenerPresupuesto = async (req, res) => {
@@ -86,11 +86,13 @@ const obtenerPresupuesto = async (req, res) => {
       throw new ErrorValidacion('Esta pieza no se puede alquilar.');
     }
 
-    const { fecha_inicio, fecha_fin, entrega, recogida } = req.query;
+    const { fecha_inicio, hora_entrega, fecha_fin, hora_recogida, entrega, recogida } = req.query;
     const presupuesto = calcularPrecioReserva({
       precioDia: mueble.precio_alquiler_dia,
       fechaInicio: fecha_inicio,
+      horaEntrega: hora_entrega,
       fechaFin: fecha_fin,
+      horaRecogida: hora_recogida,
       entrega,
       recogida,
       hoy: hoyEnMadrid()

@@ -4,22 +4,17 @@
 // Cada reserva guarda su propio desglose con `version`, así que cambiar una regla no altera lo que
 // ya se aceptó. Sube `version` cada vez que cambie algo que afecte al precio.
 //
-// TODOS LOS VALORES SON PROVISIONALES: son los valores por defecto del diseño y están pendientes
-// de confirmar con el cliente (sección 10.1 del diseño). Los que dependen de una pregunta concreta
-// lo dicen al lado.
+// LOS VALORES SON PROVISIONALES: son los valores por defecto del diseño y están pendientes de
+// confirmar con el cliente (sección 10.1 del diseño). Los que dependen de una pregunta concreta lo
+// dicen al lado.
 const REGLAS_ALQUILER = Object.freeze({
   version: 1,
 
-  // Cómo se cuentan los días facturados (pregunta 3 del cliente, decisión T3). Con entrega el
-  // lunes 1 y recogida el miércoles 3:
-  // - 'noches': 2 días (fin − inicio, como las noches de un hotel). Valor por defecto del diseño.
-  // - 'ambos_extremos': 3 días (fin − inicio + 1).
-  // Solo cambia el precio: en las dos, la recogida tiene que ser posterior a la entrega, y lo que
-  // ocupa el calendario de la pieza es lo mismo.
-  conteoDias: 'noches',
+  // Los días facturados no son una regla configurable: son bloques de 24 h desde la hora de entrega
+  // (decisión de Ashe, 13 oct 2026; ver diasFacturados en precioReserva.js).
 
-  // Límites de la duración, en días facturados (pregunta 9; el mínimo depende también de la 4, los
-  // alquileres de menos de un día, que este modelo por días no admite).
+  // Límites de la duración, en días facturados (pregunta 9). No hay alquileres de menos de un día
+  // (pregunta 4, decidido el 13 oct): la recogida es, como pronto, al día siguiente de la entrega.
   duracionMinDias: 1,
   duracionMaxDias: 180,
 
