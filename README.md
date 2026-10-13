@@ -167,7 +167,7 @@ El paso a paso de cada punto está en **[docs/verificacion-3b.md](docs/verificac
    Sección 6.
 4. `RESEND_API_KEY` puesta en producción (H27). Sección 6.
 5. H18: registrarse con un email que no sea el de la cuenta de Resend, recibir el correo, confirmar y
-   ver "Mis pedidos".
+   ver "Mis pedidos" (hecho el 13 oct).
 
 ## Cómo se despliega
 

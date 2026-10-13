@@ -1107,7 +1107,7 @@ número.
 
 | Hallazgo | Estado |
 |---|---|
-| H18 · el registro no verifica el email | Alta. **En producción desde el 13 oct 2026**: PR #3 (aprobado por Ashe con los arreglos de después de la primera revisión), PR #11 (una cuenta nueva de Google recibe sus compras de invitado, hallado en la revisión previa al despliegue) y PR #10 a `main`. Migraciones `20261012165218` y `20261013112123` (las 2 cuentas de administrador, marcadas justo antes del merge). Falta la prueba de después del despliegue (`docs/verificacion-email-diseno.md`, al principio) |
+| H18 · el registro no verifica el email | Alta. **En producción desde el 13 oct 2026**: PR #3 (aprobado por Ashe con los arreglos de después de la primera revisión), PR #11 (una cuenta nueva de Google recibe sus compras de invitado, hallado en la revisión previa al despliegue) y PR #10 a `main`. Migraciones `20261012165218` y `20261013112123` (las 2 cuentas de administrador, marcadas justo antes del merge). Prueba de después del despliegue hecha el 13 oct (`docs/verificacion-email-diseno.md`, al principio) |
 | H6 · la confirmación va al email tecleado | Se cierra con H18, y usando el email de la cuenta en el checkout |
 
 **Deuda aceptada:**

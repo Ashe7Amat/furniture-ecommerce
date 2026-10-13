@@ -26,12 +26,16 @@ clientes, que nunca podrían confirmar su email):
    entrega a la dirección de la cuenta de Resend.
 5. ~~`CLIENT_URL` con la dirección pública de la web.~~ **Comprobado el 13 oct:** es
    `https://www.nave5barcelona.com`. Los enlaces de los correos salen de ella.
-6. Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de Resend.
+6. ~~Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de
+   Resend.~~ **Hecha el 13 oct** con un alias de Gmail: el correo llegó en segundos a la bandeja de entrada, con
+   el enlace en `www.nave5barcelona.com`. Sin confirmar, "Mis pedidos" dio 403. Al confirmar llegó el correo
+   de cuenta activada y el enlace dejó de valer. El token de antes dio 401, y con la sesión renovada "Mis
+   pedidos" respondió.
 
 **Si hay que volver atrás** (revisado antes del despliegue, 13 oct):
 - En el plan Hobby de Vercel solo se puede volver al despliegue de producción inmediatamente anterior, y hay que
   hacerlo en `nave5-api` y `nave5-demo` a la vez: con solo uno, la web dice cosas falsas (cuentas sin verificar
-  o "Mis pedidos" vacío). Por eso no se sube nada más a `main` hasta hacer la prueba del punto 6.
+  o "Mis pedidos" vacío). Por eso no se subió nada más a `main` hasta hacer la prueba del punto 6.
 - Los despliegues de antes de H18 (commit `2e60218`): `nave5-api` `dpl_63PiuTqaSCBKpuE4fmsTwcpjmBL1` y
   `nave5-demo` `dpl_FTXHFXSPM42d5EBBjqBD2cNY4hRh`.
 - La base de datos se queda como está: el código de antes no lee las columnas nuevas. No se ejecuta ningún
