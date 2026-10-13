@@ -13,8 +13,12 @@ const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
-const tokenCliente = (email) =>
-  jwt.sign({ email, nombre: 'Cliente', rol: 'cliente' }, process.env.JWT_SECRET);
+// Con `sub` (el id de la cuenta), como los tokens de hoy; sin él, como los de antes de H28.
+const tokenCliente = (email, sub) =>
+  jwt.sign(
+    { ...(sub && { sub }), email, nombre: 'Cliente', rol: 'cliente' },
+    process.env.JWT_SECRET
+  );
 const tokenAdmin = jwt.sign(
   { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
   process.env.JWT_SECRET
@@ -23,27 +27,45 @@ const tokenAdmin = jwt.sign(
 let fake;
 afterEach(() => mock.restoreAll());
 
+// H18: "Mis pedidos" busca por cliente_id, y solo con el email de la cuenta verificado. Antes buscaba
+// por el email del pedido (con el ILIKE escapado de H17), y quien registraba el email de otra
+// persona veía sus compras de invitado.
 describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
   beforeEach(() => {
     fake = crearFakeSupabase({
+      clientes: [
+        { id: 'cli-ana', email: 'ana@example.com', email_verificado: true },
+        { id: 'cli-bea', email: 'bea@example.com', email_verificado: false },
+        { id: 'cli-nadie', email: 'nadie@example.com', email_verificado: true }
+      ],
       pedidos: [
         {
           id: 'p1',
+          cliente_id: 'cli-ana',
           cliente_info: { email: 'ana@example.com' },
           estado: 'entregado',
           created_at: '2026-01-01'
         },
         {
           id: 'p2',
+          cliente_id: 'cli-ana',
           cliente_info: { email: 'ANA@EXAMPLE.COM' },
           estado: 'procesando',
           created_at: '2026-02-01'
         },
         {
           id: 'p3',
+          cliente_id: null,
           cliente_info: { email: 'otro@example.com' },
           estado: 'enviado',
           created_at: '2026-01-15'
+        },
+        {
+          id: 'p4',
+          cliente_id: 'cli-bea',
+          cliente_info: { email: 'bea@example.com' },
+          estado: 'enviado',
+          created_at: '2026-01-20'
         }
       ]
     });
@@ -55,20 +77,64 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
     assert.equal(res.status, 401);
   });
 
-  test('devuelve solo los pedidos del email logueado, comparado sin distinguir mayúsculas', async () => {
+  test('devuelve solo los pedidos asociados a la cuenta (cliente_id)', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com', 'cli-ana')}`);
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.map((p) => p.id).sort(), ['p1', 'p2']);
+  });
+
+  test('los tokens sin `sub` (de antes de H28) buscan la cuenta por su email', async () => {
     const res = await request(app)
       .get('/api/pedidos/mios')
       .set('Authorization', `Bearer ${tokenCliente('ana@example.com')}`);
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.length, 2);
-    assert.ok(res.body.every((p) => p.id !== 'p3'));
+    assert.deepEqual(res.body.map((p) => p.id).sort(), ['p1', 'p2']);
+  });
+
+  test('un pedido de invitado con el email de la cuenta no sale hasta que se asocia', async () => {
+    fake.tablas.pedidos.push({
+      id: 'invitado',
+      cliente_id: null,
+      cliente_info: { email: 'ana@example.com' },
+      estado: 'procesando',
+      created_at: '2026-03-01'
+    });
+
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com', 'cli-ana')}`);
+
+    assert.ok(!res.body.some((p) => p.id === 'invitado'));
+  });
+
+  test('una cuenta sin verificar recibe 403 con un código para el cliente, y no se leen pedidos', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('bea@example.com', 'cli-bea')}`);
+
+    assert.equal(res.status, 403);
+    assert.deepEqual(res.body, {
+      error: 'Confirma tu email para ver tus pedidos.',
+      codigo: 'email_no_verificado'
+    });
+  });
+
+  test('una cuenta que ya no existe: 401', async () => {
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('borrada@example.com', 'cli-borrada')}`);
+
+    assert.equal(res.status, 401);
   });
 
   test('más recientes primero', async () => {
     const res = await request(app)
       .get('/api/pedidos/mios')
-      .set('Authorization', `Bearer ${tokenCliente('ana@example.com')}`);
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com', 'cli-ana')}`);
 
     assert.deepEqual(
       res.body.map((p) => p.id),
@@ -81,7 +147,6 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
       ...fake.tablas.pedidos[0],
       total: 120,
       items: [{ productId: 'm1', nombre: 'Silla', modalidad: 'compra', cantidad: 1, precio: 120 }],
-      cliente_id: 'cliente-ana',
       stripe_session_id: 'cs_test_secreto',
       direccion_envio: 'Calle Falsa 123',
       metodo_entrega: 'domicilio'
@@ -89,7 +154,7 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
 
     const res = await request(app)
       .get('/api/pedidos/mios')
-      .set('Authorization', `Bearer ${tokenCliente('ana@example.com')}`);
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com', 'cli-ana')}`);
 
     assert.equal(res.status, 200);
     const permitidas = ['created_at', 'estado', 'id', 'items', 'total'];
@@ -104,71 +169,53 @@ describe('GET /api/pedidos/mios — obtenerMisPedidos', () => {
     assert.ok(!JSON.stringify(res.body).includes('cs_test_secreto'));
   });
 
-  test('un cliente sin pedidos recibe un array vacío, no un error', async () => {
+  test('un cliente verificado sin pedidos recibe un array vacío, no un error', async () => {
     const res = await request(app)
       .get('/api/pedidos/mios')
-      .set('Authorization', `Bearer ${tokenCliente('nadie@example.com')}`);
+      .set('Authorization', `Bearer ${tokenCliente('nadie@example.com', 'cli-nadie')}`);
 
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, []);
   });
+
+  test('si falla la lectura de la cuenta, 500 genérico', async () => {
+    fake.fallos['clientes.select'] = { message: 'caída' };
+    mock.method(console, 'error', () => {});
+    const res = await request(app)
+      .get('/api/pedidos/mios')
+      .set('Authorization', `Bearer ${tokenCliente('ana@example.com', 'cli-ana')}`);
+
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Error interno al obtener tus pedidos.' });
+  });
 });
 
 describe('GET /api/pedidos/mios — H17: el email de la cuenta no hace de patrón', () => {
-  // El registro acepta emails con '_' y no verifica que el email sea de quien se registra (H18).
-  // Sin escapar, "juan_perez@example.com" coincidía por ILIKE con "juan.perez@example.com".
+  // Con un token sin `sub`, la cuenta se busca por igualdad exacta del email: un "_" no hace de
+  // comodín y "juan_perez" nunca encuentra la cuenta de "juan.perez" (ni sus pedidos).
   beforeEach(() => {
     fake = crearFakeSupabase({
+      clientes: [{ id: 'cli-juan', email: 'juan.perez@example.com', email_verificado: true }],
       pedidos: [
         {
           id: 'ajeno',
+          cliente_id: 'cli-juan',
           cliente_info: { email: 'juan.perez@example.com' },
           estado: 'entregado',
           created_at: '2026-01-01'
-        },
-        {
-          id: 'propio',
-          cliente_info: { email: 'juan_perez@example.com' },
-          estado: 'procesando',
-          created_at: '2026-02-01'
         }
       ]
     });
     mock.method(supabase, 'from', fake.from);
   });
 
-  test('una cuenta con "_" en el email NO ve el pedido de otro email que solo cambia en ese carácter', async () => {
+  test('un token con "juan_perez@example.com" no ve los pedidos de la cuenta "juan.perez"', async () => {
     const res = await request(app)
       .get('/api/pedidos/mios')
       .set('Authorization', `Bearer ${tokenCliente('juan_perez@example.com')}`);
 
-    assert.equal(res.status, 200);
-    assert.deepEqual(
-      res.body.map((p) => p.id),
-      ['propio']
-    );
-  });
-
-  test('la cuenta del otro email tampoco ve el pedido de la del "_"', async () => {
-    const res = await request(app)
-      .get('/api/pedidos/mios')
-      .set('Authorization', `Bearer ${tokenCliente('juan.perez@example.com')}`);
-
-    assert.deepEqual(
-      res.body.map((p) => p.id),
-      ['ajeno']
-    );
-  });
-
-  test('con el email en otras mayúsculas, sigue viendo solo los suyos', async () => {
-    const res = await request(app)
-      .get('/api/pedidos/mios')
-      .set('Authorization', `Bearer ${tokenCliente('JUAN_PEREZ@EXAMPLE.COM')}`);
-
-    assert.deepEqual(
-      res.body.map((p) => p.id),
-      ['propio']
-    );
+    assert.equal(res.status, 401);
+    assert.ok(!JSON.stringify(res.body).includes('ajeno'));
   });
 });
 

@@ -61,8 +61,20 @@ const schemaRefresh = z.object({
     .max(200, MENSAJE_SIN_REFRESH)
 });
 
+// POST /api/auth/verificar-email (H18). El token son 32 bytes en base64url (43 caracteres), como
+// el refresh token: el tope solo evita hashear textos enormes. Un cuerpo sin token es una petición
+// mal formada (400); un token que no vale da el 400 genérico del controlador.
+const MENSAJE_SIN_TOKEN_EMAIL = 'Falta el enlace de verificación.';
+const schemaVerificarEmail = z.object({
+  token: z
+    .string({ error: () => MENSAJE_SIN_TOKEN_EMAIL })
+    .min(1, MENSAJE_SIN_TOKEN_EMAIL)
+    .max(200, MENSAJE_SIN_TOKEN_EMAIL)
+});
+
 module.exports = {
   schemaRegistro,
+  schemaVerificarEmail,
   schemaLogin,
   schemaGoogle,
   schemaPerfilUpdate,

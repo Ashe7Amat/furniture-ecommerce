@@ -1,12 +1,18 @@
 // client/src/components/CheckoutModal.jsx
 import { useState, useContext, useEffect, useRef } from 'react';
 import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
+import { AuthContext } from '../context/AuthContext';
 import { crearSesionPago } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/CheckoutModal.css';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
   const { cartItems, cartTotal, validateCart } = useContext(CartContext);
+  // H6/H18: con sesión y el email de la cuenta verificado, la compra usa ese email, sin poder
+  // cambiarlo (así la confirmación y el pedido van a una dirección comprobada). Sin sesión, o sin
+  // verificar, el campo se rellena a mano como siempre (compra de invitado).
+  const auth = useContext(AuthContext);
+  const emailCuenta = auth?.user?.email_verificado ? auth.user.email : null;
   const [activeTab, setActiveTab] = useState('card');
   const [paymentStatus, setPaymentStatus] = useState('idle'); // idle, checking, redirecting
   const [payError, setPayError] = useState('');
@@ -95,9 +101,11 @@ const CheckoutModal = ({ isOpen, onClose }) => {
     }
   };
 
+  const emailCompra = emailCuenta || email;
+
   // --- CÁLCULO DE VALIDEZ DE FORMULARIO ---
   const isGeneralFormInvalid =
-    validateEmail(email) !== '' ||
+    validateEmail(emailCompra) !== '' ||
     validateFullName(fullName) !== '' ||
     validatePhone(phone) !== '' ||
     validateAddress(address) !== '' ||
@@ -145,7 +153,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
       items: itemsToSend,
       clienteInfo: {
         nombre: fullName,
-        email: email,
+        email: emailCompra,
         telefono: phone,
         direccion: `${address}, ${zipCode} ${city} (${provincia})`,
         notas: notes || 'Ninguna'
@@ -243,10 +251,17 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 type="email"
                 placeholder="ana@ejemplo.com"
                 maxLength="254"
-                value={email}
+                value={emailCompra}
                 onChange={handleEmailChange}
-                onBlur={() => handleBlur('email', email, validateEmail)}
+                onBlur={() => handleBlur('email', emailCompra, validateEmail)}
+                readOnly={!!emailCuenta}
+                aria-describedby={emailCuenta ? 'checkout-email-cuenta' : undefined}
               />
+              {emailCuenta && (
+                <span id="checkout-email-cuenta" className="checkout-email-cuenta">
+                  Es el email de tu cuenta: ahí te llegará la confirmación del pedido.
+                </span>
+              )}
               {touched.email && errors.email && <span className="error-text">{errors.email}</span>}
             </div>
 
