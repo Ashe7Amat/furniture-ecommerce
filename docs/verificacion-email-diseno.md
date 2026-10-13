@@ -2,7 +2,8 @@
 
 **Estado:** implementado en la rama `claude/project-thread-wq6mws` (PR #3, 12 oct 2026), con las propuestas
 de la parte 1 como decisiones por defecto. Revisado y aprobado por Ashe el 12 oct, con los arreglos de después
-de la primera revisión (hasta `c8b99d5`). Las partes 1 a 3 son para decidir con el cliente; las partes 4 a 8, para
+de la primera revisión (hasta `c8b99d5`). **En producción desde el 13 oct 2026** (PR #10 a `main`, merge
+`c8711ad`), con el arreglo del PR #11. Las partes 1 a 3 son para decidir con el cliente; las partes 4 a 8, para
 quien lo implemente.
 
 **Antes de que el código llegue a `main`** (sin esto, "Mis pedidos" deja de funcionar para todos los
@@ -11,8 +12,9 @@ clientes, que nunca podrían confirmar su email):
    `server/migrations/20261012165218_verificacion_email.sql` (mismo MD5 que lo registrado). Es aditiva: la web
    que hay en `main` no la nota (revisado antes contra `main` y `feature/mejoras-tecnicas`). Las 5 cuentas
    quedaron sin verificar, como dice la decisión 4.
-2. Las 2 cuentas de administrador marcadas como verificadas (el `UPDATE` de la parte 5), también con
-   `apply_migration` y con permiso, para que quede registrado. Mejor justo antes del despliegue: si se marca
+2. ~~Las 2 cuentas de administrador marcadas como verificadas.~~ **Hecho el 13 oct** con permiso de Ashe,
+   justo antes del merge: `server/migrations/20261013112123_marcar_admins_verificados.sql`. Era el `UPDATE` de
+   la parte 5, con `apply_migration` para que quede registrado. Justo antes del despliegue porque, si se marca
    antes, un cambio de email desde Mi cuenta con el código de `main` dejaría la marca en una dirección sin
    confirmar. Sin la marca, si un administrador entra con Google pierde su contraseña (punto 8 de la parte 6).
 3. ~~`EMAIL_TOKEN_HASH_SECRET` en Vercel (`nave5-api`, Production).~~ **Puesta el 13 oct** por Ashe. Sin ella,
@@ -24,7 +26,22 @@ clientes, que nunca podrían confirmar su email):
    entrega a la dirección de la cuenta de Resend.
 5. ~~`CLIENT_URL` con la dirección pública de la web.~~ **Comprobado el 13 oct:** es
    `https://www.nave5barcelona.com`. Los enlaces de los correos salen de ella.
-6. Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de Resend.
+6. ~~Después del despliegue, la prueba de la parte 8, punto 5, con un email que no sea el de la cuenta de
+   Resend.~~ **Hecha el 13 oct** con un alias de Gmail: el correo llegó en segundos a la bandeja de entrada, con
+   el enlace en `www.nave5barcelona.com`. Sin confirmar, "Mis pedidos" dio 403. Al confirmar llegó el correo
+   de cuenta activada y el enlace dejó de valer. El token de antes dio 401, y con la sesión renovada "Mis
+   pedidos" respondió.
+
+**Si hay que volver atrás** (revisado antes del despliegue, 13 oct):
+- En el plan Hobby de Vercel solo se puede volver al despliegue de producción inmediatamente anterior, y hay que
+  hacerlo en `nave5-api` y `nave5-demo` a la vez: con solo uno, la web dice cosas falsas (cuentas sin verificar
+  o "Mis pedidos" vacío). Por eso no se subió nada más a `main` hasta hacer la prueba del punto 6.
+- Los despliegues de antes de H18 (commit `2e60218`): `nave5-api` `dpl_63PiuTqaSCBKpuE4fmsTwcpjmBL1` y
+  `nave5-demo` `dpl_FTXHFXSPM42d5EBBjqBD2cNY4hRh`.
+- La base de datos se queda como está: el código de antes no lee las columnas nuevas. No se ejecuta ningún
+  `.down.sql`.
+- Tras un Instant Rollback, Vercel deja de publicar solo lo que llega a `main` hasta que se promueve un
+  despliegue.
 
 **Diferencias con el diseño, a propósito:**
 - El cambio de email que pide la contraseña actual sigue con el límite de intentos de H28, que ya estaba.
