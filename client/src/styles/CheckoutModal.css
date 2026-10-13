@@ -238,6 +238,13 @@
   100% { transform: rotate(360deg); }
 }
 
+.checkout-email-cuenta {
+  display: block;
+  color: var(--secondary-color);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
 .error-text {
   color: var(--danger-color);
   font-size: 0.8rem;

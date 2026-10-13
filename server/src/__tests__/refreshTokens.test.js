@@ -20,6 +20,7 @@ process.env.RESEND_API_KEY = ''; // nunca enviar correos de verdad
 const supabase = require('../data/supabase');
 const app = require('../index');
 const refreshTokens = require('../utils/refreshTokens');
+const email = require('../utils/email');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 
 const PASSWORD = 'contraseña-de-ana';
@@ -374,7 +375,9 @@ describe('H21: cambiar la contraseña o el email cierra todas las sesiones', () 
     assert.equal((await refrescar(deBea)).status, 200, 'las sesiones de otras cuentas no se tocan');
   });
 
-  test('cambiar el email también', async () => {
+  test('pedir el cambio de email no revoca nada; confirmarlo desde el enlace revoca todas (H18)', async () => {
+    const enlaces = mock.method(email, 'enviarConfirmarCambioEmail', () => {});
+    mock.method(email, 'enviarAvisoCambioEmail', () => {});
     const sesion = await iniciarSesion();
 
     const res = await actualizar(sesion.token, {
@@ -383,10 +386,18 @@ describe('H21: cambiar la contraseña o el email cierra todas las sesiones', () 
     });
 
     assert.equal(res.status, 200);
-    assert.ok(res.body.refreshToken);
-    assert.equal((await refrescar(sesion.refreshToken)).status, 401);
-    const refrescado = await refrescar(res.body.refreshToken);
-    assert.equal(jwt.decode(refrescado.body.accessToken).email, 'ana.nueva@example.com');
+    assert.equal('refreshToken' in res.body, false, 'el email todavía no ha cambiado');
+    assert.equal((await refrescar(sesion.refreshToken)).status, 200);
+
+    const token = new URL(enlaces.mock.calls[0].arguments[0].url).searchParams.get('token');
+    const confirmacion = await request(app).post('/api/auth/verificar-email').send({ token });
+    assert.equal(confirmacion.status, 200);
+    assert.equal(confirmacion.body.sesionCerrada, true);
+    assert.deepEqual(
+      fake.tablas.refresh_tokens.filter((f) => f.user_id === 'cli-ana' && f.revoked_at == null),
+      [],
+      'todas las sesiones de la cuenta quedan cerradas'
+    );
   });
 
   test('cambiar solo el nombre no revoca nada y la respuesta no trae refreshToken', async () => {

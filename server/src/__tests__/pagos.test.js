@@ -104,7 +104,7 @@ describe('procesarSesionPagada — compra normal', () => {
       muebles: MUEBLES_DE_PRUEBA().map((m) =>
         m.id === 'mueble-1' ? { ...m, referencia: 'NAV-SOF-001' } : m
       ),
-      clientes: [{ id: 'cliente-ana', email: 'ana@example.com' }]
+      clientes: [{ id: 'cliente-ana', email: 'ana@example.com', email_verificado: true }]
     });
     await procesarSesionPagada(crearSesion());
 
@@ -182,9 +182,39 @@ describe('procesarSesionPagada — cliente_id (migración B)', () => {
   const pedidoGuardado = () => fake.tablas.pedidos[0];
 
   test('si el email del comprador es el de una cuenta, el pedido guarda su id (sin distinguir mayúsculas)', async () => {
-    instalarDobles({ clientes: [{ id: 'cliente-ana', email: 'ANA@example.com' }] });
+    instalarDobles({
+      clientes: [{ id: 'cliente-ana', email: 'ANA@example.com', email_verificado: true }]
+    });
 
     await procesarSesionPagada(crearSesion()); // compra con "ana@example.com"
+
+    assert.equal(pedidoGuardado().cliente_id, 'cliente-ana');
+  });
+
+  test('H18: una cuenta con ese email pero SIN verificar no se queda el pedido (cliente_id a null)', async () => {
+    instalarDobles({
+      clientes: [{ id: 'cliente-ana', email: 'ana@example.com', email_verificado: false }]
+    });
+
+    await procesarSesionPagada(crearSesion());
+
+    assert.equal(pedidoGuardado().cliente_id, null);
+    assert.equal(
+      correos.cliente.mock.calls[0].arguments[0].conCuenta,
+      false,
+      'sin botón a "Mis pedidos"'
+    );
+  });
+
+  test('H18: entre una sin verificar y una verificada que solo cambian en mayúsculas, gana la verificada', async () => {
+    instalarDobles({
+      clientes: [
+        { id: 'cliente-falsa', email: 'ANA@example.com', email_verificado: false },
+        { id: 'cliente-ana', email: 'ana@example.com', email_verificado: true }
+      ]
+    });
+
+    await procesarSesionPagada(crearSesion());
 
     assert.equal(pedidoGuardado().cliente_id, 'cliente-ana');
   });
@@ -199,7 +229,9 @@ describe('procesarSesionPagada — cliente_id (migración B)', () => {
   });
 
   test('un "_" en el email del comprador no hace de comodín (H17): no se asigna a otra cuenta', async () => {
-    instalarDobles({ clientes: [{ id: 'cliente-juan', email: 'juan.perez@example.com' }] });
+    instalarDobles({
+      clientes: [{ id: 'cliente-juan', email: 'juan.perez@example.com', email_verificado: true }]
+    });
 
     await procesarSesionPagada(sesionConEmail('juan_perez@example.com'));
 
@@ -209,8 +241,8 @@ describe('procesarSesionPagada — cliente_id (migración B)', () => {
   test('si varias cuentas coinciden (solo cambian en mayúsculas), es ambiguo: cliente_id a null', async () => {
     instalarDobles({
       clientes: [
-        { id: 'cliente-1', email: 'Ana@example.com' },
-        { id: 'cliente-2', email: 'ana@EXAMPLE.com' }
+        { id: 'cliente-1', email: 'Ana@example.com', email_verificado: true },
+        { id: 'cliente-2', email: 'ana@EXAMPLE.com', email_verificado: true }
       ]
     });
 

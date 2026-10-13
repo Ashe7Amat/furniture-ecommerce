@@ -14,6 +14,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 // pasa sin él lo borra y lo restaura dentro del propio test.
 process.env.REFRESH_TOKEN_HASH_SECRET =
   process.env.REFRESH_TOKEN_HASH_SECRET || 'secreto-de-prueba-para-refresh-tokens';
+// Secreto del HMAC de los enlaces de verificación del email (utils/verificacionEmail.js, H18).
+process.env.EMAIL_TOKEN_HASH_SECRET =
+  process.env.EMAIL_TOKEN_HASH_SECRET || 'secreto-de-prueba-para-enlaces-de-email';
 // Fase C: los tests de siempre comprueban el catálogo con precios y la compra, así que aquí se
 // enseñan (MOSTRAR_PRECIOS=true). Se fija sin mirar lo que hubiera: un server/.env local con otro
 // valor no debe cambiar el resultado de los tests. Los que prueban los precios ocultos la cambian

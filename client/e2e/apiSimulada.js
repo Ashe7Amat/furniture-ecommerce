@@ -38,8 +38,8 @@ export const MUEBLES = [
   mueble('m5', 'Mesa Auxiliar de Hierro', 'Mesas y mobiliario', 'NAV-MES-002')
 ];
 
-export const ADMIN = { id: 'u-admin', nombre: 'Admin Nave 5', email: 'admin@nave5.test', rol: 'admin' };
-export const CLIENTE = { id: 'u-ana', nombre: 'Ana', email: 'ana@correo.test', rol: 'cliente' };
+export const ADMIN = { id: 'u-admin', nombre: 'Admin Nave 5', email: 'admin@nave5.test', rol: 'admin', email_verificado: true };
+export const CLIENTE = { id: 'u-ana', nombre: 'Ana', email: 'ana@correo.test', rol: 'cliente', email_verificado: true };
 export const CONTRASENA = 'contraseña-de-prueba';
 
 const json = (route, cuerpo, status = 200) =>

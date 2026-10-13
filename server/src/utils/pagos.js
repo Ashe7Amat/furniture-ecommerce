@@ -9,6 +9,7 @@ const supabase = require('../data/supabase');
 const email = require('./email');
 const { juntarItems, leerItemsDeMetadata } = require('./metadataStripe');
 const { escaparIlike } = require('./ilike');
+const { enviarTodos } = require('./enviarTodos');
 
 const CODIGO_VIOLACION_UNICIDAD = '23505';
 
@@ -135,10 +136,12 @@ const marcarPiezas = async (lineas) => {
 };
 
 // Migración B (ver docs/tarea3-diseno.md): id de la cuenta cuyo email coincide con el que se
-// usó al comprar, o null. Mismo criterio que "Mis pedidos": email sin distinguir mayúsculas y
-// ESCAPADO, para que un "_" no haga de comodín (H17). Ojo: el email lo escribe el comprador en
-// el checkout de invitado, sin verificar (H18), así que cliente_id dice "se compró con el
-// email de esa cuenta", no "lo compró el titular de esa cuenta".
+// usó al comprar, o null. Email sin distinguir mayúsculas y ESCAPADO, para que un "_" no haga de
+// comodín (H17). H18: solo cuentas con el email VERIFICADO. Una cuenta sin verificar pudo crearla
+// cualquiera con el email de otra persona, y se quedaría con sus compras. Los pedidos que quedan
+// sin cuenta se asocian cuando alguien verifica ese email (utils/verificacionEmail.js). Ojo: el
+// email lo escribe el comprador en el checkout de invitado, sin verificar, así que cliente_id dice
+// "se compró con el email de esa cuenta", no "lo compró el titular de esa cuenta".
 // Nunca impide registrar el pedido: sin una coincidencia única (ninguna, o varias cuentas que
 // solo cambian en mayúsculas) o si la consulta falla, devuelve null y el pedido se guarda
 // igual; el backfill B3 puede rellenarlo después.
@@ -148,6 +151,7 @@ const buscarClienteIdPorEmail = async (emailComprador) => {
     .from('clientes')
     .select('id')
     .ilike('email', escaparIlike(emailComprador))
+    .eq('email_verificado', true)
     .limit(2);
 
   if (error) {
@@ -223,29 +227,6 @@ const detectarConflictos = async (lineas, idPedido, resultados) => {
     }
   }
   return conflictos;
-};
-
-// Tiempo máximo que se espera a los emails antes de responder. Resend suele tardar menos de
-// un segundo, pero sin este tope una caída lenta del proveedor dejaría colgados al webhook
-// (Stripe acabaría dándolo por fallido y lo reintentaría) y la página de éxito del comprador.
-const TIEMPO_MAXIMO_EMAILS_MS = 8000;
-
-// Ninguna función de email lanza (capturan sus errores), pero se esperan aquí con allSettled
-// por si una lo hiciera: un fallo de correo nunca debe tumbar el pago. Se espera a que
-// terminen porque en Vercel la función se congela al responder y un envío pendiente podría
-// no completarse; por eso solo se deja de esperar pasado TIEMPO_MAXIMO_EMAILS_MS.
-const enviarTodos = async (envios) => {
-  let temporizador;
-  const limite = new Promise(resolver => {
-    temporizador = setTimeout(() => resolver('limite'), TIEMPO_MAXIMO_EMAILS_MS);
-  });
-  const enviados = Promise.allSettled(envios.map(envio => (async () => envio())())).then(() => 'enviados');
-
-  const resultado = await Promise.race([enviados, limite]);
-  clearTimeout(temporizador);
-  if (resultado === 'limite') {
-    console.warn(`Los emails tardan más de ${TIEMPO_MAXIMO_EMAILS_MS / 1000} s: se responde sin esperar a que terminen.`);
-  }
 };
 
 const avisarConflictos = async ({ conflictos, sessionId, cliente, total }) => {

@@ -33,7 +33,8 @@ const PEDIDO = {
   total: 50
 };
 
-// Las cinco funciones, cada una con datos del comprador.
+// Las funciones, cada una con datos del comprador (desde H18, también los correos de la cuenta).
+const URL_ENLACE = 'https://tienda.example.com/verificar-email?token=abc';
 const ENVIOS = [
   ['enviarNotificacionVenta', () => email.enviarNotificacionVenta(PEDIDO)],
   ['enviarConfirmacionCliente', () => email.enviarConfirmacionCliente(PEDIDO)],
@@ -57,6 +58,41 @@ const ENVIOS = [
           `Dirección de entrega: ${COMPRADOR.direccion}`
         ]
       })
+  ],
+  [
+    'enviarConfirmarRegistro',
+    () =>
+      email.enviarConfirmarRegistro({
+        email: COMPRADOR.email,
+        nombre: COMPRADOR.nombre,
+        url: URL_ENLACE
+      })
+  ],
+  [
+    'enviarCuentaActivada',
+    () => email.enviarCuentaActivada({ email: COMPRADOR.email, nombre: COMPRADOR.nombre })
+  ],
+  [
+    'enviarConfirmarCambioEmail',
+    () =>
+      email.enviarConfirmarCambioEmail({
+        email: COMPRADOR.email,
+        nombre: COMPRADOR.nombre,
+        url: URL_ENLACE
+      })
+  ],
+  [
+    'enviarAvisoCambioEmail',
+    () =>
+      email.enviarAvisoCambioEmail({
+        email: COMPRADOR.email,
+        nombre: COMPRADOR.nombre,
+        emailNuevo: 'nueva@correo.test'
+      })
+  ],
+  [
+    'enviarCuentaProtegida',
+    () => email.enviarCuentaProtegida({ email: COMPRADOR.email, nombre: COMPRADOR.nombre })
   ]
 ];
 

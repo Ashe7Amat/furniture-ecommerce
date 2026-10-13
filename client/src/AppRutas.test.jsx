@@ -40,6 +40,7 @@ describe('App — rutas', () => {
     ['/privacidad', 'Política de Privacidad'],
     ['/terminos', 'Términos y Condiciones'],
     ['/checkout/cancelado', 'Pago cancelado'],
+    ['/verificar-email?token=abc', 'Confirma tu email'],
     ['/esto-no-existe', 'Esta pieza no está en el almacén']
   ])('%s pinta su página', async (ruta, titulo) => {
     visitar(ruta);
