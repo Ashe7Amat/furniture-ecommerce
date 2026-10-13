@@ -7,7 +7,10 @@
 > (`conteoDias` en `server/src/utils/reglasAlquiler.js`). **La migración de la tabla no se aplica hasta saber la
 > respuesta a la pregunta 4** (alquileres de menos de un día), que es la única que cambia el modelo de datos, y con
 > el OK explícito del propietario. Las tareas 3 y 4, que el diseño ponía como requisito, ya están cerradas y en
-> `main`. Hecho: el paso 5 del bloque R-a (configuración, fechas en hora de Madrid y cálculo del precio).
+> `main`. Hecho del bloque R-a: los pasos 5 y 6 (configuración, fechas en hora de Madrid, cálculo del precio y
+> los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2 sin aplicar, con su prueba
+> desechable comprobada en local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden
+> llegar a `main` antes que la migración R2.
 >
 > Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 

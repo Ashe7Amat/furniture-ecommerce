@@ -1,7 +1,7 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / limit / range / order / insert /
+// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / overlaps (rangos) / limit / range / order / insert /
 // update / delete / single / maybeSingle, y select(columnas, { count: 'exact', head }) para contar
 // (como supabase-js, devuelve `count` con el total de filas que cumplen los filtros, sin contar
 // limit ni range; con head: true, data es null). Se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
@@ -23,17 +23,41 @@
 //     él, igual que las que ya están en la base de datos.
 //   - select('a, b') devuelve solo esas columnas, como PostgREST (H26: así se puede comprobar que
 //     un endpoint público no expone una columna que no ha pedido).
+//   - en `reservas`, la columna generada rango_ocupado se calcula en cada fila (también en las
+//     iniciales, porque en la base de datos siempre existe) con el mismo texto canónico que
+//     devuelve Postgres: "[inicio,fin+margen)", "[inicio,)" sin fin, o "empty".
 // Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
 //   muebles, pedidos, categorias, clientes, refresh_tokens, mensajes_contacto,
-//   verificaciones_email  filas iniciales
+//   verificaciones_email, reservas  filas iniciales
 //   indiceUnicoStripe    emula el índice único de pedidos.stripe_session_id (código 23505)
 //   fallos               { 'tabla.accion': error | (consulta) => error|null } hace fallar esa
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
 //                        añadir y quitar durante el test para simular reintentos. Con función,
 //                        `consulta.usa` es el conjunto de métodos encadenados (p. ej. 'contains')
+const { sumarDias } = require('../../utils/fechasMadrid');
+
+// Copia de la columna generada reservas.rango_ocupado:
+//   daterange(fecha_inicio, fin_ocupacion + dias_margen, '[)')
+const rangoOcupado = ({ fecha_inicio, fin_ocupacion, dias_margen = 0 }) => {
+  if (fin_ocupacion == null) return `[${fecha_inicio},)`;
+  const fin = sumarDias(fin_ocupacion, dias_margen);
+  return fin > fecha_inicio ? `[${fecha_inicio},${fin})` : 'empty';
+};
+
+// Un daterange en texto ("[a,b)", "[a,)" o "empty") como { desde, hasta } (null = sin límite).
+const leerRangoTexto = (texto) => {
+  const partes = /^\[([^,]*),([^)]*)\)$/.exec(texto);
+  return partes ? { desde: partes[1] || null, hasta: partes[2] || null } : null;
+};
+const rangosSeSolapan = (a, b) =>
+  a !== null &&
+  b !== null &&
+  (a.hasta === null || b.desde === null || b.desde < a.hasta) &&
+  (b.hasta === null || a.desde === null || a.desde < b.hasta);
+
 const crearFakeSupabase = ({
   muebles = [],
   pedidos = [],
@@ -42,6 +66,7 @@ const crearFakeSupabase = ({
   refresh_tokens = [],
   mensajes_contacto = [],
   verificaciones_email = [],
+  reservas = [],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -52,7 +77,8 @@ const crearFakeSupabase = ({
     clientes: clientes.map((fila) => ({ ...fila })),
     refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
     mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila })),
-    verificaciones_email: verificaciones_email.map((fila) => ({ ...fila }))
+    verificaciones_email: verificaciones_email.map((fila) => ({ ...fila })),
+    reservas: reservas.map((fila) => ({ ...fila, rango_ocupado: rangoOcupado(fila) }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };
@@ -129,6 +155,9 @@ const crearFakeSupabase = ({
   const triggers = {
     muebles: (fila) => {
       fila.disponible = (fila.estado ?? 'disponible') === 'disponible';
+    },
+    reservas: (fila) => {
+      fila.rango_ocupado = rangoOcupado(fila);
     }
   };
   const aplicarTriggers = (nombre, fila) => triggers[nombre]?.(fila);
@@ -365,6 +394,12 @@ const crearFakeSupabase = ({
             );
         }
         return usar('contains');
+      },
+      // && de rangos: como el filtro "ov" de PostgREST con un rango en texto ("[a,b)" o "[a,)").
+      overlaps: (columna, rango) => {
+        const buscado = leerRangoTexto(rango);
+        consulta.filtros.push((f) => rangosSeSolapan(leerRangoTexto(f[columna] ?? ''), buscado));
+        return usar('overlaps');
       },
       insert: (datos) => {
         consulta.accion = 'insert';

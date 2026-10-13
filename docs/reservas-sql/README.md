@@ -68,5 +68,7 @@ SELECT relrowsecurity FROM pg_class WHERE oid = 'public.reservas'::regclass;
 -- true
 ```
 
-Después, con el cliente real de `supabase-js`, el contrato del 4.3 (que PostgREST devuelve de verdad
-`23P01`): va con los endpoints, en el paso 6.
+Después, con la tabla ya creada (y vacía), comprobar contra la base real que
+`GET /api/muebles/<id>/disponibilidad` responde 200 con `ocupado: []`: confirma que PostgREST acepta el filtro
+de rangos (`rango_ocupado=ov.[hoy,)`) que fija `queryContractReservas.test.js`. El contrato del `23P01` (4.3)
+va con la primera escritura, en R-b.

@@ -4,8 +4,9 @@
 // probarla con tablas de casos. La usarán el presupuesto que ve el cliente, la creación del pago y
 // el cálculo de reembolsos, así que el precio se calcula en un solo sitio y nunca en el navegador.
 //
-// Todo en céntimos enteros (T10): los euros con decimales solo aparecen al leer el precio de la
-// pieza, y se pasan a céntimos una vez, al entrar. Los importes son totales con IVA incluido.
+// Todo en céntimos enteros (T10), y cada campo con importes lo dice en su nombre (`_centimos`):
+// los euros con decimales solo aparecen al leer el precio de la pieza, y se pasan a céntimos una
+// vez, al entrar. Los importes son totales con IVA incluido.
 const { ErrorValidacion } = require('./errores');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
 const { esFechaValida, sumarDias, diasEntre, sumarMeses, fechaLegible } = require('./fechasMadrid');
@@ -42,14 +43,16 @@ const linea = (concepto, importe, reglas) => {
   const tieneTipo = typeof tipo === 'number';
   return {
     concepto,
-    importe_total: importe,
+    importe_centimos: importe,
     tipo_iva: tieneTipo ? tipo : null,
-    cuota_iva: tieneTipo ? Math.round((importe * tipo) / (100 + tipo)) : null
+    cuota_iva_centimos: tieneTipo ? Math.round((importe * tipo) / (100 + tipo)) : null
   };
 };
 
 const validarTrayecto = (valor, reglas, mensaje) => {
-  if (!Object.hasOwn(reglas.tarifasTrayectoCentimos, valor)) throw new ErrorValidacion(mensaje);
+  if (typeof valor !== 'string' || !Object.hasOwn(reglas.tarifasTrayectoCentimos, valor)) {
+    throw new ErrorValidacion(mensaje);
+  }
   return reglas.tarifasTrayectoCentimos[valor];
 };
 
@@ -114,15 +117,15 @@ const calcularPrecioReserva = ({
     fecha_fin: fechaFin,
     dias: n,
     conteo_dias: reglas.conteoDias,
-    precio_dia: precioDiaCentimos,
-    subtotal_alquiler: alquiler.subtotal,
+    precio_dia_centimos: precioDiaCentimos,
+    subtotal_alquiler_centimos: alquiler.subtotal,
     tramo: alquiler.tramo
       ? { desde_dias: alquiler.tramo.desdeDias, porcentaje: alquiler.tramo.porcentaje }
       : null,
-    descuento: alquiler.descuento,
-    entrega: { modo: entrega, importe: importeEntrega },
-    recogida: { modo: recogida, importe: importeRecogida },
-    importe_total: alquiler.importe + importeEntrega + importeRecogida,
+    descuento_centimos: alquiler.descuento,
+    entrega: { modo: entrega, importe_centimos: importeEntrega },
+    recogida: { modo: recogida, importe_centimos: importeRecogida },
+    importe_total_centimos: alquiler.importe + importeEntrega + importeRecogida,
     lineas: [
       linea('alquiler', alquiler.importe, reglas),
       linea('entrega', importeEntrega, reglas),

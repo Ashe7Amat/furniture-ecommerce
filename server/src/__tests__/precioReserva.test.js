@@ -50,13 +50,13 @@ describe('calcularPrecioReserva — importes', () => {
   test('sin descuento: días × precio, más el envío, todo en céntimos', () => {
     const p = presupuesto();
     assert.equal(p.dias, 3);
-    assert.equal(p.precio_dia, 2500);
-    assert.equal(p.subtotal_alquiler, 7500);
+    assert.equal(p.precio_dia_centimos, 2500);
+    assert.equal(p.subtotal_alquiler_centimos, 7500);
     assert.equal(p.tramo, null);
-    assert.equal(p.descuento, 0);
-    assert.deepEqual(p.entrega, { modo: 'domicilio', importe: 4500 });
-    assert.deepEqual(p.recogida, { modo: 'tienda', importe: 0 });
-    assert.equal(p.importe_total, 12000);
+    assert.equal(p.descuento_centimos, 0);
+    assert.deepEqual(p.entrega, { modo: 'domicilio', importe_centimos: 4500 });
+    assert.deepEqual(p.recogida, { modo: 'tienda', importe_centimos: 0 });
+    assert.equal(p.importe_total_centimos, 12000);
   });
 
   test('guarda las fechas, la forma de contar los días y la versión de las reglas', () => {
@@ -80,9 +80,9 @@ describe('calcularPrecioReserva — importes', () => {
       const p = presupuesto({ fechaInicio: '2026-10-20', fechaFin: sumarDias('2026-10-20', n) });
       assert.equal(p.dias, n);
       assert.deepEqual(p.tramo, tramo);
-      assert.equal(p.subtotal_alquiler, subtotal);
-      assert.equal(p.descuento, descuento);
-      assert.equal(p.importe_total, subtotal - descuento + 4500);
+      assert.equal(p.subtotal_alquiler_centimos, subtotal);
+      assert.equal(p.descuento_centimos, descuento);
+      assert.equal(p.importe_total_centimos, subtotal - descuento + 4500);
     });
   }
 
@@ -102,22 +102,22 @@ describe('calcularPrecioReserva — importes', () => {
   test('el descuento se redondea al céntimo y el total cuadra con las líneas', () => {
     // 7 días × 19,99 € = 139,93 €; el 10 % son 13,993 € → 13,99 €.
     const p = presupuesto({ precioDia: '19.99', fechaFin: '2026-10-27' });
-    assert.equal(p.precio_dia, 1999);
-    assert.equal(p.subtotal_alquiler, 13993);
-    assert.equal(p.descuento, 1399);
-    const sumaLineas = p.lineas.reduce((s, l) => s + l.importe_total, 0);
-    assert.equal(p.importe_total, sumaLineas);
-    for (const l of p.lineas) assert.ok(Number.isInteger(l.importe_total), l.concepto);
+    assert.equal(p.precio_dia_centimos, 1999);
+    assert.equal(p.subtotal_alquiler_centimos, 13993);
+    assert.equal(p.descuento_centimos, 1399);
+    const sumaLineas = p.lineas.reduce((s, l) => s + l.importe_centimos, 0);
+    assert.equal(p.importe_total_centimos, sumaLineas);
+    for (const l of p.lineas) assert.ok(Number.isInteger(l.importe_centimos), l.concepto);
   });
 
   test('el precio por día admite el texto que devuelve Postgres para un numeric', () => {
-    assert.equal(presupuesto({ precioDia: '25.50' }).precio_dia, 2550);
+    assert.equal(presupuesto({ precioDia: '25.50' }).precio_dia_centimos, 2550);
   });
 
   test('con las reglas reales de hoy no hay descuento ni coste de envío', () => {
     const p = presupuesto({ fechaFin: '2026-11-30', reglas: REGLAS_ALQUILER });
-    assert.equal(p.descuento, 0);
-    assert.equal(p.importe_total, p.subtotal_alquiler);
+    assert.equal(p.descuento_centimos, 0);
+    assert.equal(p.importe_total_centimos, p.subtotal_alquiler_centimos);
   });
 });
 
@@ -125,7 +125,7 @@ describe('calcularPrecioReserva — cómo se cuentan los días (pregunta 3 del c
   test('por defecto, del lunes 19 al miércoles 21 son 2 días (como noches de hotel)', () => {
     const p = presupuesto({ fechaInicio: '2026-10-19', fechaFin: '2026-10-21' });
     assert.equal(p.dias, 2);
-    assert.equal(p.subtotal_alquiler, 5000);
+    assert.equal(p.subtotal_alquiler_centimos, 5000);
   });
 
   test("con 'ambos_extremos' son 3, cambiando solo la configuración", () => {
@@ -136,7 +136,7 @@ describe('calcularPrecioReserva — cómo se cuentan los días (pregunta 3 del c
     });
     assert.equal(p.dias, 3);
     assert.equal(p.conteo_dias, 'ambos_extremos');
-    assert.equal(p.subtotal_alquiler, 7500);
+    assert.equal(p.subtotal_alquiler_centimos, 7500);
   });
 
   test("con 'ambos_extremos' la recogida sigue teniendo que ser después de la entrega", () => {
@@ -160,7 +160,7 @@ describe('calcularPrecioReserva — IVA por concepto (pendiente del asesor)', ()
   test('sin tipo configurado, el tipo y la cuota van en null', () => {
     for (const l of presupuesto().lineas) {
       assert.equal(l.tipo_iva, null, l.concepto);
-      assert.equal(l.cuota_iva, null, l.concepto);
+      assert.equal(l.cuota_iva_centimos, null, l.concepto);
     }
     assert.deepEqual(
       presupuesto().lineas.map((l) => l.concepto),
@@ -173,15 +173,15 @@ describe('calcularPrecioReserva — IVA por concepto (pendiente del asesor)', ()
     const [alquiler, entrega] = p.lineas;
     // 75 € con un 21 % incluido: base 61,98 €, cuota 13,02 €.
     assert.equal(alquiler.tipo_iva, 21);
-    assert.equal(alquiler.cuota_iva, 1302);
+    assert.equal(alquiler.cuota_iva_centimos, 1302);
     assert.equal(entrega.tipo_iva, null);
-    assert.equal(p.importe_total, 12000);
+    assert.equal(p.importe_total_centimos, 12000);
   });
 
   test('un tipo del 0 % es un tipo, no un vacío', () => {
     const [, entrega] = presupuesto({ reglas: reglas({ ivaPorConcepto: { entrega: 0 } }) }).lineas;
     assert.equal(entrega.tipo_iva, 0);
-    assert.equal(entrega.cuota_iva, 0);
+    assert.equal(entrega.cuota_iva_centimos, 0);
   });
 });
 
@@ -241,6 +241,8 @@ describe('calcularPrecioReserva — reglas que se rechazan', () => {
     rechaza({ entrega: 'dron' }, 'Elige si la entrega es a domicilio o en la tienda.');
     rechaza({ entrega: undefined }, 'Elige si la entrega es a domicilio o en la tienda.');
     rechaza({ recogida: 'toString' }, 'Elige si la recogida es a domicilio o en la tienda.');
+    // ?recogida=tienda&recogida=tienda llega a Express como un array.
+    rechaza({ recogida: ['tienda'] }, 'Elige si la recogida es a domicilio o en la tienda.');
   });
 });
 
