@@ -13,9 +13,13 @@ const { ErrorValidacion, ErrorConflicto, ErrorReintentable } = require('./errore
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
 const { calcularPrecioReserva } = require('./precioReserva');
 const { hoyEnMadrid, fechaLegible } = require('./fechasMadrid');
+const {
+  CODIGO_EXCLUSION,
+  CODIGO_UNICIDAD,
+  liberarProvisionalesCaducadas,
+  escribirEnCalendario
+} = require('./calendarioReservas');
 
-const CODIGO_EXCLUSION = '23P01';
-const CODIGO_UNICIDAD = '23505';
 const MS_MINUTO = 60 * 1000;
 
 // Stripe cuenta la duración mínima de la sesión (30 min) desde que recibe la petición, no desde que
@@ -31,31 +35,6 @@ const MENSAJE_REINTENTAR_PAGO =
 // Interruptor del servidor (9.1). Apagado, que es lo que pasa si no se pone, nadie puede crear una
 // reserva aunque el código esté desplegado. Solo "true" lo enciende, como MOSTRAR_PRECIOS.
 const reservasActivas = () => process.env.RESERVAS_ACTIVAS === 'true';
-
-// 4.6: la restricción no puede mirar la hora, así que una provisional cuyo plazo ya pasó sigue
-// ocupando el calendario hasta que alguien la marque expirada. Esto se hace antes de cada escritura
-// en el calendario de la pieza, nunca con un proceso programado.
-const liberarProvisionalesCaducadas = async (muebleId, ahora = new Date()) => {
-  const { error } = await supabase
-    .from('reservas')
-    .update({ estado: 'expirada' })
-    .eq('mueble_id', muebleId)
-    .eq('estado', 'pendiente')
-    .lt('expira_en', ahora.toISOString());
-  if (error) throw error;
-};
-
-// Toda escritura que ocupe el calendario de una pieza pasa por aquí (4.6): primero se limpian las
-// provisionales caducadas, y un 23P01 solo cuenta como conflicto si vuelve a salir después de limpiar
-// otra vez (pudo caducar una entre la limpieza y la escritura). `escribir` lanza la consulta y
-// devuelve lo mismo que supabase-js, { data, error }.
-const escribirEnCalendario = async (muebleId, escribir) => {
-  await liberarProvisionalesCaducadas(muebleId);
-  const resultado = await escribir();
-  if (resultado.error?.code !== CODIGO_EXCLUSION) return resultado;
-  await liberarProvisionalesCaducadas(muebleId);
-  return escribir();
-};
 
 const cancelacion = (motivo, ahora) => ({
   estado: 'cancelada',

@@ -72,21 +72,10 @@ const violacionReservas = (fila, otras) => {
     code: '23505',
     message: `duplicate key value violates unique constraint "${indice}"`
   });
-  if (
-    fila.estado === 'pendiente' &&
-    fila.cliente_id != null &&
-    otras.some((o) => o.estado === 'pendiente' && o.cliente_id === fila.cliente_id)
-  ) {
-    return unicidad('reservas_una_pendiente_por_cliente');
-  }
-  if (
-    fila.stripe_session_id != null &&
-    otras.some(
-      (o) => o.stripe_session_id === fila.stripe_session_id && o.mueble_id === fila.mueble_id
-    )
-  ) {
-    return unicidad('reservas_sesion_mueble_key');
-  }
+  // En el orden en que las comprueba Postgres, que es el de creación en R2 (comprobado en
+  // PostgreSQL 16): primero la exclusión, luego la unicidad de (stripe_session_id, mueble_id) y por
+  // último el índice de una provisional por cliente. Así, repetir la venta de una sesión, o el doble
+  // clic de una reserva con las mismas fechas, da 23P01 y no 23505.
   const ocupa = (f) => ESTADOS_QUE_OCUPAN.includes(f.estado);
   if (
     ocupa(fila) &&
@@ -101,6 +90,21 @@ const violacionReservas = (fila, otras) => {
       code: '23P01',
       message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
     };
+  }
+  if (
+    fila.stripe_session_id != null &&
+    otras.some(
+      (o) => o.stripe_session_id === fila.stripe_session_id && o.mueble_id === fila.mueble_id
+    )
+  ) {
+    return unicidad('reservas_sesion_mueble_key');
+  }
+  if (
+    fila.estado === 'pendiente' &&
+    fila.cliente_id != null &&
+    otras.some((o) => o.estado === 'pendiente' && o.cliente_id === fila.cliente_id)
+  ) {
+    return unicidad('reservas_una_pendiente_por_cliente');
   }
   return null;
 };
@@ -246,6 +250,18 @@ const crearFakeSupabase = ({
         const violacion =
           nombre === 'reservas' && violacionReservas(fila, [...filas, ...nuevasFilas.slice(0, i)]);
         if (violacion) return rechazarEscritura(violacion);
+        // La clave ajena de reservas.mueble_id. Postgres la comprueba al final de la sentencia,
+        // después de las restricciones de arriba: por eso va la última.
+        if (nombre === 'reservas' && !tablas.muebles.some((m) => m.id === fila.mueble_id)) {
+          return {
+            data: null,
+            error: {
+              code: '23503',
+              message:
+                'insert or update on table "reservas" violates foreign key constraint "reservas_mueble_id_fkey"'
+            }
+          };
+        }
       }
 
       filas.push(...nuevasFilas);
@@ -300,6 +316,21 @@ const crearFakeSupabase = ({
 
     if (consulta.accion === 'delete') {
       const aBorrar = filas.filter(coincide);
+      // reservas.mueble_id es ON DELETE RESTRICT: una pieza con filas en el calendario (de cualquier
+      // estado) no se puede borrar, y no se borra nada.
+      if (
+        nombre === 'muebles' &&
+        aBorrar.some((m) => (tablas.reservas || []).some((r) => r.mueble_id === m.id))
+      ) {
+        return {
+          data: null,
+          error: {
+            code: '23503',
+            message:
+              'update or delete on table "muebles" violates foreign key constraint "reservas_mueble_id_fkey" on table "reservas"'
+          }
+        };
+      }
       aBorrar.forEach((fila) => {
         const idx = filas.indexOf(fila);
         if (idx !== -1) filas.splice(idx, 1);

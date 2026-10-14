@@ -1306,8 +1306,12 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 - Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
   de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
   pone). Paso 8 (13 oct): el webhook y la página de éxito confirman la reserva pagada, registran su pedido y
-  envían los emails una sola vez; si las fechas ya eran de otra persona, avisan para reembolsar. Falta el paso 9
-  (la compra respeta las reservas), que toca el flujo de compra y va aparte.
+  envían los emails una sola vez; si las fechas ya eran de otra persona, avisan para reembolsar. Paso 9 (13 oct):
+  la compra respeta las reservas. No se cobra una pieza ocupada de hoy en adelante, y cada compra pagada deja su
+  fila de venta en el calendario; si el calendario no la admite, el pedido se registra sin marcar la pieza y se
+  avisa al administrador. Toca el flujo de compra sin interruptor, así que R2 tiene que estar aplicada antes de
+  llevarlo a `main`. Dos consecuencias para el panel: volver a poner una pieza vendida como disponible cancela su
+  venta del calendario, y una pieza con ventas o reservas registradas ya no se puede borrar (409 que lo explica).
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

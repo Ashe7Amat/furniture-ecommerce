@@ -29,8 +29,16 @@
 > no se pudo confirmar) y `pagos.js` (solo para exportar `registrarPedido` con un `metodoEntrega` opcional; la
 > compra no cambia). El aviso al administrador de una reserva nueva usa `enviarAlertaAdmin`. **Paso manual antes
 > de encender las reservas:** suscribir el evento `checkout.session.expired` en el webhook del Dashboard de
-> Stripe. Falta el paso 9 (la compra respeta las reservas), que toca el flujo de compra y va aparte. El resto de las preguntas de 10.1 (de la
-> 5 en adelante) siguen pendientes del cliente o de su asesor, con los valores por defecto de este documento.
+> Stripe.
+>
+> Hecho también el paso 9 (6.7): `crear-sesion-pago` rechaza la compra de una pieza ocupada de hoy en adelante
+> (la misma definición que la ficha, `ocupacionDesdeHoy`), y al confirmar el pago cada pieza comprada deja su
+> fila de venta antes de marcarse como vendida. Si el calendario no la admite, el pedido se registra, la pieza
+> no se toca y llega un solo aviso al administrador. **Toca el flujo de compra actual** y no va detrás del
+> interruptor (9.1): desde que llegue a `main` cada compra deja su fila, así que **la migración R2 tiene que
+> estar aplicada antes**. Una corrección al 6.7: un reintento de la misma venta da `23P01`, no `23505` (ver
+> el 6.7). El resto de las preguntas de 10.1 (de la 5 en adelante) siguen pendientes del cliente o de su
+> asesor, con los valores por defecto de este documento.
 >
 > Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 
@@ -435,6 +443,11 @@ CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
   falla con `23P01`, igual que `pagos.js` ya se apoya en el `23505` de la clave única para su idempotencia.
 - **Dos inserciones simultáneas que se solapan:** la segunda espera a que la primera termine; si la primera
   confirma, la segunda falla con `23P01`; si la primera se deshace, la segunda entra. No hay ventana de carrera.
+  **Matiz (14 oct, revisión del paso 9):** Postgres mete la entrada del índice antes de mirar los conflictos, y
+  dos inserciones casi simultáneas pueden esperarse la una a la otra: Postgres aborta una con **`40P01`**
+  (interbloqueo). En PostgreSQL 16, con dos sesiones insertando la misma venta, pasó en unos 2 de cada 1.000
+  pares. Nada se solapa igualmente; el servidor trata el `40P01` como un `23P01` (`escribirEnCalendario` limpia y
+  reintenta una vez, y el reintento ya ve la otra escritura terminada).
 
 ### 4.2 Viabilidad en Supabase
 
@@ -896,11 +909,34 @@ dos, en el lanzamiento (commits 23 y 25), van con la segunda.
      `stripe_session_id`, mediante un **`INSERT` normal**. El `23505` (índice único `(stripe_session_id,
      mueble_id)`) se toma como "ya estaba insertada", el mismo patrón que `registrarPedido`. **Nunca con
      `upsert(..., { ignoreDuplicates: true })`** (3.2): fallaría con `42P10` o se tragaría el `23P01`.
-  3. **Solo si la inserción funcionó o dio `23505`**, `marcarPiezas` pone la pieza en `vendido`, como hoy. **Con
-     `23P01` no se toca `muebles.estado`**: si no, quedaría una pieza `vendido` sin fila de venta y con un alquiler
+     **Corrección (13 oct, al implementarlo):** Postgres comprueba las restricciones en el orden en que se
+     crearon, y en R2 la exclusión va antes que la unicidad. Repetir la venta de la misma sesión da **`23P01`**
+     (se solapa con su propia venta), no `23505` (comprobado en PostgreSQL 16). Así que tras un `23P01` se
+     lee la venta confirmada de la pieza (solo puede haber una: todas van sin fin). Si es de esa sesión, es "ya
+     estaba insertada"; si es de otra, es la **doble venta** de siempre (la pieza se marca `vendido`, que ya lo
+     estaba, y el aviso es el de "Posible doble venta", sin proponer entrega diferida); si no hay ninguna, el
+     choque es con un alquiler o un bloqueo y es **conflicto**. El doble de los tests comprueba las
+     restricciones en ese mismo orden. Por la misma razón, el
+     doble clic de una reserva con las mismas fechas da `23P01` ("esas fechas se acaban de reservar") y no el
+     `23505` del índice de una provisional por cliente; los dos son 409 y ninguno deja nada a medias.
+  3. **Salvo en conflicto**, `marcarPiezas` pone la pieza en `vendido`, como hoy. **Con un `23P01` que no es una
+     venta no se toca `muebles.estado`**: si no, quedaría una pieza `vendido` sin fila de venta y con un alquiler
      vivo, el estado incoherente que el 3.3 quiere evitar, y la migración del 9.2 le crearía después una venta que
      no existe.
-  4. Registrar el pedido y seguir como hoy.
+     **Añadido (14 oct, revisión del paso 9):** si `marcarPiezas` encuentra la pieza en **otro** estado (alquilada
+     con el alquiler por días de la cesta, o vendida a mano), es la doble venta de siempre y la fila de venta de
+     esta sesión **se cancela** (`cancelada_por = 'sistema'`, con el motivo). Si se quedara, la pieza no se
+     podría volver a vender cuando quedara libre.
+  4. Registrar el pedido y seguir como hoy. **Antes de avisar** de un conflicto se mira si la otra llamada de la
+     misma sesión (webhook o página de éxito) llegó a dejar la venta: entre una y otra el calendario puede cambiar
+     (caduca una provisional, o pasa la medianoche), y el aviso no puede decir "no se ha registrado la venta" si sí
+     se registró.
+  5. **Deshacer una venta (14 oct):** mientras `muebles.estado` se edite a mano (hasta el 3.3), cuando el
+     administrador vuelve a poner una pieza de `vendido` a `disponible` (por ejemplo, tras cancelar y reembolsar
+     la compra), su venta del calendario se cancela en la misma petición. Si no, la comprobación previa la seguiría
+     rechazando como vendida. Y como `reservas.mueble_id` es `ON DELETE RESTRICT`, una pieza con cualquier fila en
+     el calendario (también cancelada) **ya no se puede borrar** del inventario: el panel recibe un 409 que lo
+     explica.
 
   Todo esto va **antes** de registrar el pedido, en el mismo punto que `marcarPiezas` hoy. Si se insertara después,
   un fallo entre ambos pasos dejaría la venta sin registrar para siempre, porque el reintento ve el pedido y no

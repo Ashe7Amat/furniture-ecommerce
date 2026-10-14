@@ -42,6 +42,24 @@ const ocupaElCalendario = (fila, ahora) =>
 const seSolapan = (rango, desde, hasta) =>
   (hasta === null || rango.desde < hasta) && (rango.hasta === null || rango.hasta > desde);
 
+// "Ocupada desde hoy" (6.7), la única definición: las filas que ocupan el calendario (sin las
+// provisionales caducadas) y llegan a hoy o más allá, margen incluido. La usan la ficha (comprable,
+// aquí abajo) y la compra antes de cobrar (utils/calendarioReservas.js). Si cada una mirase otra
+// cosa, la ficha ofrecería comprar piezas que el pago rechaza, o el pago dejaría pasar compras que
+// chocarían con la restricción después de cobrar.
+const ocupacionDesdeHoy = (filas, hoy, ahora) =>
+  filas
+    .filter((fila) => ocupaElCalendario(fila, ahora))
+    .map((fila) => ({ tipo: fila.tipo, rango: leerRango(fila.rango_ocupado) }))
+    .filter(({ rango }) => rango && seSolapan(rango, hoy, null));
+
+// El primer día libre después de todo lo que ocupa (el final exclusivo más lejano), o null si algo
+// no tiene fin (una venta).
+const finDeLaOcupacion = (ocupadas) =>
+  ocupadas.some((o) => o.rango.hasta === null)
+    ? null
+    : ocupadas.map((o) => o.rango.hasta).reduce((a, b) => (b > a ? b : a));
+
 // Las fechas de ?desde=&hasta= de la consulta, con sus valores por defecto: de hoy a la última
 // entrega posible más la duración máxima. Un `desde` anterior a hoy se lleva a hoy: el calendario
 // no enseña el pasado.
@@ -75,10 +93,7 @@ const calcularDisponibilidad = ({
   mostrarPrecio,
   reglas = REGLAS_ALQUILER
 }) => {
-  const ocupadas = filas
-    .filter((fila) => ocupaElCalendario(fila, ahora))
-    .map((fila) => ({ tipo: fila.tipo, rango: leerRango(fila.rango_ocupado) }))
-    .filter(({ rango }) => rango && seSolapan(rango, hoy, null));
+  const ocupadas = ocupacionDesdeHoy(filas, hoy, ahora);
 
   // Mientras muebles.estado se edite a mano (hasta el lanzamiento, R-f), una pieza marcada como
   // vendida en el panel cuenta como vendida aunque no tenga su fila de venta.
@@ -86,7 +101,7 @@ const calcularDisponibilidad = ({
   const precioCentimos = Math.round(Number(mueble.precio_alquiler_dia) * 100);
   const { primerInicio, ultimoInicio } = limitesDeInicio(hoy, reglas);
 
-  // Comprable = nada la ocupa de hoy en adelante (la misma definición que usará el pago, 6.7). Una
+  // Comprable = nada la ocupa de hoy en adelante (la misma definición que usa el pago, 6.7). Una
   // pieza marcada a mano como alquilada (el alquiler sin fechas de antes, H7) tampoco.
   const comprable = !vendida && mueble.estado === 'disponible' && ocupadas.length === 0;
   let motivoNoComprable = null;
@@ -97,9 +112,7 @@ const calcularDisponibilidad = ({
   // Si lo único que impide comprar son reservas, desde qué día se podría entregar (la entrega
   // diferida, 6.7): el final de lo último que ocupa la pieza.
   const comprableDesde =
-    motivoNoComprable === 'reservas_activas'
-      ? ocupadas.map((o) => o.rango.hasta).reduce((a, b) => (b > a ? b : a))
-      : null;
+    motivoNoComprable === 'reservas_activas' ? finDeLaOcupacion(ocupadas) : null;
 
   return {
     mueble_id: mueble.id,
@@ -142,6 +155,8 @@ module.exports = {
   MAX_DIAS_CONSULTA,
   leerRango,
   ocupaElCalendario,
+  ocupacionDesdeHoy,
+  finDeLaOcupacion,
   ventanaDeConsulta,
   calcularDisponibilidad
 };
