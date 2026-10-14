@@ -14,7 +14,19 @@ const {
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
-const { schemaMuebleCrear, schemaMuebleEditar, schemaCarritoPago } = require('../schemas/muebles');
+const {
+  schemaMuebleCrear,
+  schemaMuebleEditar,
+  schemaCarritoPago
+} = require('../schemas/muebles');
+const {
+  obtenerDisponibilidad,
+  obtenerPresupuesto
+} = require('../controllers/reservasController');
+const {
+  schemaDisponibilidadQuery,
+  schemaPresupuestoQuery
+} = require('../schemas/reservas');
 
 // Esta ruta es pública y cada llamada consulta a Stripe y a la base de datos. Un comprador
 // la usa una vez (o unas pocas si recarga la página de éxito), así que 20 por IP cada 15
@@ -79,6 +91,17 @@ router.post(
   crearSesionPago
 );
 router.get('/confirmar-sesion', limitadorConfirmacion, confirmarSesion);
+
+router.get(
+  '/:id/disponibilidad',
+  validar(schemaDisponibilidadQuery, 'query'),
+  obtenerDisponibilidad
+);
+router.get(
+  '/:id/presupuesto',
+  validar(schemaPresupuestoQuery, 'query'),
+  obtenerPresupuesto
+);
 
 router.get('/:id', obtenerMueblePorId);
 

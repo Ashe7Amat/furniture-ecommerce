@@ -42,6 +42,7 @@ const crearFakeSupabase = ({
   refresh_tokens = [],
   mensajes_contacto = [],
   verificaciones_email = [],
+  reservas = [],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -52,7 +53,8 @@ const crearFakeSupabase = ({
     clientes: clientes.map((fila) => ({ ...fila })),
     refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
     mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila })),
-    verificaciones_email: verificaciones_email.map((fila) => ({ ...fila }))
+    verificaciones_email: verificaciones_email.map((fila) => ({ ...fila })),
+    reservas: reservas.map((fila) => ({ ...fila }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0 };
@@ -60,6 +62,37 @@ const crearFakeSupabase = ({
 
   const contiene = (elemento, patron) =>
     Object.entries(patron).every(([clave, valor]) => elemento && elemento[clave] === valor);
+
+  const sumarDiasISO = (fechaStr, dias) => {
+    if (!fechaStr || !dias) return fechaStr;
+    const [año, mes, dia] = fechaStr.split('-').map(Number);
+    const d = new Date(Date.UTC(año, mes - 1, dia + dias));
+    return d.toISOString().slice(0, 10);
+  };
+
+  const parsearRangoDaterange = (rango) => {
+    if (!rango) return null;
+    if (typeof rango === 'string') {
+      const m = rango.match(/^([[({])([^,]*),([^\])}]*)([\])}]?)$/);
+      if (!m) return null;
+      return {
+        inf: m[2].trim() || null,
+        sup: m[3].trim() || null
+      };
+    }
+    return null;
+  };
+
+  const rangosSeSolapan = (r1, r2) => {
+    const p1 = parsearRangoDaterange(r1);
+    const p2 = parsearRangoDaterange(r2);
+    if (!p1 || !p2) return false;
+    const a = p1.inf;
+    const b = p1.sup;
+    const c = p2.inf;
+    const d = p2.sup;
+    return (d === null || a < d) && (b === null || c < b);
+  };
 
   // .single()/.maybeSingle() aplican igual detrás de un update()/delete() que detrás de un
   // select() -- p. ej. `.update({...}).eq('id', id).select().single()` sobre un id que no
@@ -129,6 +162,17 @@ const crearFakeSupabase = ({
   const triggers = {
     muebles: (fila) => {
       fila.disponible = (fila.estado ?? 'disponible') === 'disponible';
+    },
+    reservas: (fila) => {
+      if (!fila.rango_ocupado && fila.fecha_inicio) {
+        if (fila.fin_ocupacion) {
+          const margen = Number(fila.dias_margen || 0);
+          const finConMargen = sumarDiasISO(fila.fin_ocupacion, margen);
+          fila.rango_ocupado = `[${fila.fecha_inicio},${finConMargen})`;
+        } else {
+          fila.rango_ocupado = `[${fila.fecha_inicio},)`;
+        }
+      }
     }
   };
   const aplicarTriggers = (nombre, fila) => triggers[nombre]?.(fila);
@@ -162,6 +206,61 @@ const crearFakeSupabase = ({
             data: null,
             error: { code: '23505', message: 'duplicate key value violates unique constraint' }
           };
+        }
+
+        if (nombre === 'reservas') {
+          const estadosActivos = ['pendiente', 'confirmada', 'en_curso', 'devuelta'];
+          if (estadosActivos.includes(fila.estado)) {
+            const conflicto = filas.some(
+              (f) =>
+                f.id !== fila.id &&
+                f.mueble_id === fila.mueble_id &&
+                estadosActivos.includes(f.estado) &&
+                rangosSeSolapan(f.rango_ocupado, fila.rango_ocupado)
+            );
+            if (conflicto) {
+              return {
+                data: null,
+                error: {
+                  code: '23P01',
+                  message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
+                }
+              };
+            }
+          }
+          if (fila.estado === 'pendiente' && fila.cliente_id) {
+            const duplicaCliente = filas.some(
+              (f) => f.id !== fila.id && f.cliente_id === fila.cliente_id && f.estado === 'pendiente'
+            );
+            if (duplicaCliente) {
+              return {
+                data: null,
+                error: {
+                  code: '23505',
+                  message:
+                    'duplicate key value violates unique constraint "idx_reservas_un_pendiente_por_cliente"'
+                }
+              };
+            }
+          }
+          if (fila.stripe_session_id && fila.mueble_id) {
+            const duplicaSesionMueble = filas.some(
+              (f) =>
+                f.id !== fila.id &&
+                f.stripe_session_id === fila.stripe_session_id &&
+                f.mueble_id === fila.mueble_id
+            );
+            if (duplicaSesionMueble) {
+              return {
+                data: null,
+                error: {
+                  code: '23505',
+                  message:
+                    'duplicate key value violates unique constraint "idx_reservas_stripe_session_mueble"'
+                }
+              };
+            }
+          }
         }
       }
 
@@ -319,6 +418,31 @@ const crearFakeSupabase = ({
           (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) < valor
         );
         return usar('lt');
+      },
+      lte: (columna, valor) => {
+        consulta.filtros.push(
+          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) <= valor
+        );
+        return usar('lte');
+      },
+      gt: (columna, valor) => {
+        consulta.filtros.push(
+          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) > valor
+        );
+        return usar('gt');
+      },
+      gte: (columna, valor) => {
+        consulta.filtros.push(
+          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) >= valor
+        );
+        return usar('gte');
+      },
+      overlaps: (columna, patron) => {
+        consulta.filtros.push((f) => {
+          const rangoFila = valorDeColumna(f, columna);
+          return rangosSeSolapan(rangoFila, patron);
+        });
+        return usar('overlaps');
       },
       // LIKE: los mismos comodines que ILIKE, pero distinguiendo mayúsculas, como en Postgres. Lo
       // usa utils/referencia.js para buscar la última referencia de un código (NAV-SIL-%).
