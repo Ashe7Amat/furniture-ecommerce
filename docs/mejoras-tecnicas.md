@@ -1125,7 +1125,7 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 
 | Hallazgo | Estado |
 |---|---|
-| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas |
+| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas (en curso desde el 13 oct, bloques R-a y R-b) |
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
 | H13 · formularios que sobreviven al cambio de pestaña | UX |
 | H15 · categoría preseleccionada | UX |
@@ -1298,6 +1298,23 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
+- **En curso desde el 13 oct 2026:** lo resuelven las reservas por fechas (`docs/reservas-diseno.md`). Se
+  empezó sin las respuestas del cliente; las cuatro decisiones bloqueantes las tomó Ashe el 13 oct (están al
+  principio de `docs/reservas-diseno.md`). Hechos los pasos 5 y 6 del bloque R-a
+  (precio, fechas en hora de Madrid y los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de
+  las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
+- Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
+  de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
+  pone). Paso 8 (13 oct): el webhook y la página de éxito confirman la reserva pagada, registran su pedido y
+  envían los emails una sola vez; si las fechas ya eran de otra persona, avisan para reembolsar. Paso 9 (13 oct):
+  la compra respeta las reservas. No se cobra una pieza ocupada de hoy en adelante, y cada compra pagada deja su
+  fila de venta en el calendario; si el calendario no la admite, el pedido se registra sin marcar la pieza y se
+  avisa al administrador. Toca el flujo de compra sin interruptor, así que R2 tiene que estar aplicada antes de
+  llevarlo a `main`. Dos consecuencias para el panel: volver a poner una pieza vendida como disponible cancela su
+  venta del calendario, y una pieza con ventas o reservas registradas ya no se puede borrar (409 que lo explica).
+- Bloque R-c, paso 13, parte del servidor (14 oct): `GET /api/reservas/mias` y
+  `POST /api/reservas/:id/solicitar-cancelacion` (la solicitud queda en el historial de la reserva y avisa al
+  administrador por email; cancela siempre él, 8.4). Detrás del interruptor.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

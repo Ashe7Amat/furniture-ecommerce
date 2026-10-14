@@ -10,6 +10,7 @@ const email = require('./email');
 const { juntarItems, leerItemsDeMetadata } = require('./metadataStripe');
 const { escaparIlike } = require('./ilike');
 const { enviarTodos } = require('./enviarTodos');
+const { registrarVenta, cancelarVentaDeSesion, tieneVentaDeSesion } = require('./calendarioReservas');
 
 const CODIGO_VIOLACION_UNICIDAD = '23505';
 
@@ -135,6 +136,48 @@ const marcarPiezas = async (lineas) => {
   return resultados;
 };
 
+// Reservas por fechas (docs/reservas-diseno.md, 6.7): cada pieza comprada deja su fila de venta en
+// el calendario, de hoy sin fin. Devuelve, por pieza comprada, lo que dijo registrarVenta. Va antes
+// de marcar las piezas y de registrar el pedido: si se hiciera después, un fallo entre medias dejaría
+// la venta sin fila para siempre, porque el reintento ve el pedido y no repite nada. Con 'conflicto'
+// (la pieza tenía un alquiler o un bloqueo) la pieza NO se marca como vendida: quedaría vendida sin
+// fila de venta y con un alquiler vivo. Con 'vendida' (otra venta) sí, como antes: ya lo estaba. En
+// los dos casos el pedido se registra igual y se avisa al admin.
+// Los alquileres por días de la cesta (el flujo antiguo, H7) no tienen fechas: no dejan fila.
+const registrarVentas = async (lineas, sessionId) => {
+  const ventas = new Map();
+  for (const linea of lineas) {
+    if (linea.modalidad !== 'compra') continue;
+    ventas.set(linea.productId, await registrarVenta({ muebleId: linea.productId, sessionId }));
+  }
+  return ventas;
+};
+
+// Después de marcar las piezas: si una pieza comprada ya era de otro según `muebles.estado` (alquilada
+// con el alquiler por días de la cesta, o vendida a mano fuera de la web), es la doble venta de
+// siempre y su fila de venta, recién insertada (o de un intento anterior), se cancela. Si se quedara,
+// la pieza no se podría volver a vender cuando quedara libre. Se anota en `ventas` como 'anulada'.
+const anularVentasDeOtroEstado = async (resultados, ventas, sessionId) => {
+  for (const r of resultados) {
+    const venta = ventas.get(r.productId);
+    if (venta !== 'registrada' && venta !== 'ya_registrada') continue;
+    if (!r.actual || r.actual === 'disponible' || r.actual === r.deseado) continue;
+    await cancelarVentaDeSesion({ muebleId: r.productId, sessionId, estadoDeLaPieza: r.actual });
+    ventas.set(r.productId, 'anulada');
+  }
+};
+
+// El webhook y la página de éxito procesan la misma sesión a la vez, y el calendario puede cambiar
+// entre una y otra (caduca una provisional, o pasa la medianoche): una puede dar 'conflicto' y la
+// otra registrar la venta. Solo avisa quien registra el pedido, así que antes de avisar se mira si la
+// venta de esta sesión ya está; si está, no era un conflicto (y la otra llamada ya marcó la pieza).
+const revisarConflictos = async (ventas, sessionId) => {
+  for (const [productId, venta] of ventas) {
+    if (venta !== 'conflicto') continue;
+    if (await tieneVentaDeSesion({ muebleId: productId, sessionId })) ventas.set(productId, 'ya_registrada');
+  }
+};
+
 // Migración B (ver docs/tarea3-diseno.md): id de la cuenta cuyo email coincide con el que se
 // usó al comprar, o null. Email sin distinguir mayúsculas y ESCAPADO, para que un "_" no haga de
 // comodín (H17). H18: solo cuentas con el email VERIFICADO. Una cuenta sin verificar pudo crearla
@@ -165,7 +208,16 @@ const buscarClienteIdPorEmail = async (emailComprador) => {
 // inserta de verdad. Si otra petición lo registra a la vez, su INSERT choca con el nuestro
 // en la clave primaria (id derivado de la sesión, ver idPedidoDeSesion) o, cuando exista,
 // en el índice único de stripe_session_id: en ambos casos llega un 23505 y `creado` es false.
-const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId }) => {
+// También lo usan las reservas por fechas (utils/reservas.js), con su propio `metodoEntrega`
+// ('domicilio' o 'recogida' en tienda); la compra sigue siendo siempre a domicilio.
+const registrarPedido = async ({
+  lineas,
+  cliente,
+  clienteId,
+  total,
+  sessionId,
+  metodoEntrega = 'domicilio'
+}) => {
   const id = idPedidoDeSesion(sessionId);
   const { error } = await supabase.from('pedidos').insert({
     id,
@@ -173,7 +225,7 @@ const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId })
     cliente_info: cliente,
     cliente_id: clienteId,
     total,
-    metodo_entrega: 'domicilio',
+    metodo_entrega: metodoEntrega,
     direccion_envio: cliente.direccion || null,
     estado: 'procesando',
     stripe_session_id: sessionId
@@ -188,22 +240,34 @@ const registrarPedido = async ({ lineas, cliente, clienteId, total, sessionId })
 
 // Doble venta: dos compradores han pagado la misma pieza única (p. ej. una sesión de pago
 // que se dejó abierta mientras otra persona la compraba o la alquilaba). Hay conflicto si
-// se da alguna de estas dos señales, ninguna de las cuales salta con un simple reintento
+// se da alguna de estas tres señales, ninguna de las cuales salta con un simple reintento
 // ni con el gemelo webhook/respaldo (que dejan la pieza en el MISMO estado buscado):
 //   - la pieza estaba en otro estado que el buscado (vendida/alquilada por otra persona)
 //   - OTRO pedido no cancelado ya incluye esa pieza como compra
+//   - el calendario de la pieza no admitió su fila de venta (registrarVentas, 6.7): ya tenía otra
+//     venta, o un alquiler o un bloqueo
 // Es un aviso: si la consulta falla se registra y se sigue, nunca se pierde un pedido.
 //
 // El filtro jsonb va como CADENA JSON: si se pasara un array de objetos, postgrest-js lo
 // serializaría como literal de array de Postgres ("{[object Object]}") y la base de datos
 // lo rechazaría siempre. Lo fija el test de contrato queryContract.test.js.
-const detectarConflictos = async (lineas, idPedido, resultados) => {
+const detectarConflictos = async (lineas, idPedido, resultados, ventas) => {
   const conflictos = [];
   for (const linea of lineas) {
     const motivos = [];
     const resultado = resultados.find(r => r.productId === linea.productId);
     if (resultado && resultado.actual && resultado.actual !== 'disponible' && resultado.actual !== resultado.deseado) {
       motivos.push(`la pieza ya figuraba como "${resultado.actual}" cuando se cobró`);
+    }
+    if (ventas.get(linea.productId) === 'anulada') {
+      motivos.push('su venta no se ha dejado en el calendario');
+    }
+    const enCalendario = ventas.get(linea.productId) === 'conflicto';
+    if (enCalendario) {
+      motivos.push('tenía reservas o un bloqueo en el calendario cuando se cobró: no se ha registrado la venta ni se ha marcado como vendida');
+    }
+    if (ventas.get(linea.productId) === 'vendida') {
+      motivos.push('el calendario ya tenía registrada otra venta de esta pieza');
     }
 
     let pedidoAnteriorId = null;
@@ -223,12 +287,15 @@ const detectarConflictos = async (lineas, idPedido, resultados) => {
     }
 
     if (motivos.length > 0) {
-      conflictos.push({ productId: linea.productId, nombre: linea.nombre, motivos, pedidoAnteriorId });
+      conflictos.push({ productId: linea.productId, nombre: linea.nombre, motivos, pedidoAnteriorId, enCalendario });
     }
   }
   return conflictos;
 };
 
+// Un solo aviso por compra, con todas sus piezas en conflicto. Si alguna tenía reservas, el
+// administrador puede reembolsar o, si el comprador acepta, entregarla cuando quede libre (la
+// entrega diferida del 6.7).
 const avisarConflictos = async ({ conflictos, sessionId, cliente, total }) => {
   for (const c of conflictos) {
     console.error(
@@ -236,14 +303,18 @@ const avisarConflictos = async ({ conflictos, sessionId, cliente, total }) => {
       `Se ha cobrado la sesión ${sessionId}. Revisar y valorar un reembolso.`
     );
   }
+  const conReservas = conflictos.some(c => c.enCalendario);
   await enviarTodos([() => email.enviarAlertaAdmin({
-    asunto: 'Posible doble venta de una pieza única',
+    asunto: conReservas ? 'Compra cobrada de una pieza con reservas' : 'Posible doble venta de una pieza única',
     detalles: [
       ...conflictos.map(c => `"${c.nombre}" (${c.productId}): ${c.motivos.join('; ')}.`),
       `Sesión de Stripe del cobro afectado: ${sessionId}`,
       `Comprador: ${cliente.nombre || 'sin nombre'} <${cliente.email || 'sin email'}>`,
       `Importe cobrado: ${total.toFixed(2)} €`,
-      'Revisa ambos pedidos en el panel y, si procede, reembolsa el segundo desde el Dashboard de Stripe.'
+      'Revisa ambos pedidos en el panel y, si procede, reembolsa el segundo desde el Dashboard de Stripe.',
+      ...(conReservas
+        ? ['Si la pieza tenía reservas, también puedes ofrecer al comprador entregársela cuando quede libre. La venta no consta en el calendario: habrá que registrarla a mano desde ese día.']
+        : [])
     ]
   })]);
 };
@@ -254,9 +325,9 @@ const avisarConflictos = async ({ conflictos, sessionId, cliente, total }) => {
 // reintente, y el respaldo de confirmar-sesion lo registra en el log y avisa al admin.
 //
 // El orden importa. Si la sesión ya tiene pedido no se toca NADA (ni las piezas, que el admin
-// pudo cambiar después). Si no, marcar las piezas es idempotente y va antes de registrar el
-// pedido: un fallo en cualquier paso previo deja un reintento limpio, y solo quien consigue
-// registrar el pedido envía los emails.
+// pudo cambiar después). Si no, la fila de venta de cada pieza (6.7) y marcar las piezas son
+// idempotentes y van antes de registrar el pedido: un fallo en cualquier paso previo deja un
+// reintento limpio, y solo quien consigue registrar el pedido envía los emails.
 const procesarSesionPagada = async (session) => {
   const total = (session.amount_total || 0) / 100;
 
@@ -269,13 +340,16 @@ const procesarSesionPagada = async (session) => {
 
   const cliente = leerClienteDeSesion(session);
   const lineas = await cargarLineasPagadas(items);
-  const resultados = await marcarPiezas(lineas);
+  const ventas = await registrarVentas(lineas, session.id);
+  const resultados = await marcarPiezas(lineas.filter(l => ventas.get(l.productId) !== 'conflicto'));
+  await anularVentasDeOtroEstado(resultados, ventas, session.id);
   const clienteId = await buscarClienteIdPorEmail(cliente.email);
 
   const { creado, id } = await registrarPedido({ lineas, cliente, clienteId, total, sessionId: session.id });
   if (!creado) return { estado: 'ya_procesada', total, conflictos: [] };
 
-  const conflictos = await detectarConflictos(lineas, id, resultados);
+  await revisarConflictos(ventas, session.id);
+  const conflictos = await detectarConflictos(lineas, id, resultados, ventas);
 
   await enviarTodos([
     () => email.enviarNotificacionVenta({ items: lineas, clienteInfo: cliente, total, fecha: new Date() }),
@@ -309,4 +383,4 @@ const avisarPagoSinRegistrar = async (session, error) => {
   })]);
 };
 
-module.exports = { procesarSesionPagada, avisarPagoSinRegistrar, idPedidoDeSesion };
+module.exports = { procesarSesionPagada, avisarPagoSinRegistrar, idPedidoDeSesion, registrarPedido };
