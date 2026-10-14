@@ -4,11 +4,23 @@
 // no se puede llevar a `main` antes que ella.
 const supabase = require('../data/supabase');
 const stripeUtil = require('../utils/stripe');
-const { ErrorValidacion, ErrorConflicto, ErrorReintentable } = require('../utils/errores');
+const email = require('../utils/email');
+const {
+  ErrorValidacion,
+  ErrorConflicto,
+  ErrorReintentable,
+  ErrorNoEncontrado
+} = require('../utils/errores');
 const { preciosVisibles } = require('../utils/precios');
 const { buscarCuentaVerificada } = require('../utils/cuentaVerificada');
 const { iniciarPagoDeReserva } = require('../utils/reservas');
-const { hoyEnMadrid } = require('../utils/fechasMadrid');
+const { hoyEnMadrid, fechaLegible } = require('../utils/fechasMadrid');
+const {
+  referenciaDeReserva,
+  horaCorta,
+  actualizarReserva
+} = require('../utils/calendarioReservas');
+const { enviarTodos } = require('../utils/enviarTodos');
 const { calcularPrecioReserva } = require('../utils/precioReserva');
 const {
   ESTADOS_QUE_OCUPAN,
@@ -150,9 +162,196 @@ const crearSesionPagoReserva = async (req, res) => {
   }
 };
 
+// ─── Mis reservas (bloque R-c, commit 13) ────────────────────────────────────────────────────────
+
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Lo que lee "Mis reservas". Nunca datos de Stripe, el historial entero ni nada interno: se arma la
+// respuesta campo a campo (H36).
+const COLUMNAS_MIS_RESERVAS =
+  'id, pedido_id, mueble_id, estado, fecha_inicio, hora_entrega, fecha_fin, hora_recogida, ' +
+  'modo_entrega, modo_devolucion, direccion_entrega, importe_total, precio_desglose, ' +
+  'stripe_payment_intent_id, expira_en, conflicto_en, historial';
+
+const cancelacionSolicitada = (fila) =>
+  (fila.historial || []).some((linea) => linea.tipo === 'cancelacion_solicitada');
+
+// El estado que ve el cliente. null = no se enseña: una reserva que nunca llegó a pagarse (caducó, o
+// el cliente empezó otra) no es una reserva para él. Una pagada que no se pudo confirmar sí se
+// enseña, porque se le va a devolver el dinero.
+const estadoParaElCliente = (fila, ahora) => {
+  if (fila.conflicto_en) return 'no_confirmada';
+  if (fila.estado === 'pendiente') {
+    return new Date(fila.expira_en) > ahora ? 'esperando_pago' : null;
+  }
+  if (fila.estado === 'cancelada') return fila.stripe_payment_intent_id ? 'cancelada' : null;
+  if (['confirmada', 'en_curso', 'devuelta'].includes(fila.estado)) return fila.estado;
+  return null;
+};
+
+// GET /api/reservas/mias -- las reservas de alquiler de la cuenta (por cliente_id, como "Mis pedidos"
+// desde H18), con el email verificado. Las más lejanas en el calendario primero.
+const obtenerMisReservas = async (req, res) => {
+  try {
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      mensajeSinVerificar: 'Confirma tu email para ver tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const { data: filas, error } = await supabase
+      .from('reservas')
+      .select(COLUMNAS_MIS_RESERVAS)
+      .eq('cliente_id', cuenta.id)
+      .eq('tipo', 'alquiler')
+      .order('fecha_inicio', { ascending: false });
+    if (error) throw error;
+
+    const ahora = new Date();
+    const visibles = filas
+      .map((fila) => ({ fila, estado: estadoParaElCliente(fila, ahora) }))
+      .filter(({ estado }) => estado !== null);
+
+    const ids = [...new Set(visibles.map(({ fila }) => fila.mueble_id))];
+    let piezas = [];
+    if (ids.length > 0) {
+      const { data, error: errorPiezas } = await supabase
+        .from('muebles')
+        .select('id, nombre, imagenes')
+        .in('id', ids);
+      if (errorPiezas) throw errorPiezas;
+      piezas = data;
+    }
+
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json(
+      visibles.map(({ fila, estado }) => {
+        const pieza = piezas.find((p) => p.id === fila.mueble_id);
+        const solicitada = cancelacionSolicitada(fila);
+        return {
+          id: fila.id,
+          referencia: referenciaDeReserva(fila),
+          estado,
+          pieza: {
+            id: fila.mueble_id,
+            nombre: pieza ? pieza.nombre : 'Pieza retirada del catálogo',
+            imagen: pieza?.imagenes?.[0] || null
+          },
+          fecha_inicio: fila.fecha_inicio,
+          hora_entrega: horaCorta(fila.hora_entrega),
+          fecha_fin: fila.fecha_fin,
+          hora_recogida: horaCorta(fila.hora_recogida),
+          modo_entrega: fila.modo_entrega,
+          modo_devolucion: fila.modo_devolucion,
+          direccion_entrega: fila.direccion_entrega,
+          dias: fila.precio_desglose?.dias ?? null,
+          importe_total_centimos:
+            fila.importe_total === null ? null : Math.round(Number(fila.importe_total) * 100),
+          cancelacion_solicitada: solicitada,
+          puede_solicitar_cancelacion: estado === 'confirmada' && !solicitada
+        };
+      })
+    );
+  } catch (error) {
+    console.error('Error al obtener mis reservas:', error.message || error);
+    res.status(500).json({ error: 'Error interno al obtener tus reservas.' });
+  }
+};
+
+const MENSAJE_RESERVA_NO_ENCONTRADA = 'No encontramos esa reserva.';
+
+// POST /api/reservas/:id/solicitar-cancelacion -- en la primera versión cancela siempre el
+// administrador (8.4, T13): el cliente solo lo pide. La solicitud queda en el historial de la reserva
+// (el panel la enseña aunque el email se pierda) y se avisa al administrador por email.
+const solicitarCancelacionReserva = async (req, res) => {
+  try {
+    if (!FORMATO_UUID.test(req.params.id)) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      columnas: 'id, email',
+      mensajeSinVerificar: 'Confirma tu email para gestionar tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const motivo = req.body.motivo || '';
+    let resultado;
+    try {
+      resultado = await actualizarReserva(req.params.id, {
+        columnas:
+          'cliente_id, tipo, estado, conflicto_en, pedido_id, fecha_inicio, hora_entrega, ' +
+          'fecha_fin, hora_recogida, datos_contacto, importe_total',
+        decidir: (fila) => {
+          // La de otro cliente, igual que si no existiera.
+          if (fila.cliente_id !== cuenta.id || fila.tipo !== 'alquiler') {
+            throw new ErrorNoEncontrado(MENSAJE_RESERVA_NO_ENCONTRADA);
+          }
+          if (cancelacionSolicitada(fila)) {
+            throw new ErrorConflicto(
+              'Ya nos has pedido cancelar esta reserva. Te escribiremos pronto.'
+            );
+          }
+          if (fila.estado !== 'confirmada' || fila.conflicto_en) {
+            throw new ErrorConflicto(
+              'Esta reserva ya no se puede cancelar desde aquí. Escríbenos y lo vemos.'
+            );
+          }
+          return {
+            cambios: {},
+            entrada: {
+              tipo: 'cancelacion_solicitada',
+              detalle: motivo || 'Sin motivo.',
+              por: 'cliente'
+            }
+          };
+        }
+      });
+    } catch (error) {
+      if (error instanceof ErrorNoEncontrado) {
+        return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+      }
+      throw error;
+    }
+    const { reserva } = resultado;
+
+    const { data: mueble, error: errorMueble } = await supabase
+      .from('muebles')
+      .select('nombre')
+      .eq('id', reserva.mueble_id)
+      .maybeSingle();
+    if (errorMueble) console.error('No se pudo leer la pieza de la reserva:', errorMueble.message);
+    const contacto = reserva.datos_contacto || {};
+    await enviarTodos([
+      () =>
+        email.enviarAlertaAdmin({
+          asunto: 'Solicitud de cancelación de una reserva',
+          detalles: [
+            `Reserva #${referenciaDeReserva(reserva)} de ${mueble?.nombre || 'una pieza'} (${reserva.mueble_id})`,
+            `Entrega: ${fechaLegible(reserva.fecha_inicio)} a las ${horaCorta(reserva.hora_entrega)}`,
+            `Recogida: ${fechaLegible(reserva.fecha_fin)} a las ${horaCorta(reserva.hora_recogida)}`,
+            `Cliente: ${contacto.nombre || 'sin nombre'} <${contacto.email || cuenta.email}> · ${contacto.telefono || 'sin teléfono'}`,
+            `Motivo: ${motivo || 'no lo ha indicado'}`,
+            `Importe pagado: ${reserva.importe_total === null ? 'desconocido' : `${Number(reserva.importe_total).toFixed(2)} €`}`,
+            'La política de cancelación es manual: decide el reembolso y cancela la reserva desde el panel (Reservas).'
+          ]
+        })
+    ]);
+
+    res.status(200).json({
+      mensaje:
+        'Hemos recibido tu solicitud. Te escribiremos para confirmar la cancelación y el reembolso.'
+    });
+  } catch (error) {
+    if (error instanceof ErrorConflicto) return res.status(409).json({ error: error.message });
+    console.error('Error al solicitar la cancelación de una reserva:', error.message || error);
+    res.status(500).json({ error: 'No hemos podido enviar tu solicitud. Inténtalo de nuevo.' });
+  }
+};
+
 module.exports = {
   obtenerDisponibilidad,
   obtenerPresupuesto,
   crearSesionPagoReserva,
+  obtenerMisReservas,
+  solicitarCancelacionReserva,
   MENSAJE_ALQUILER_CERRADO
 };

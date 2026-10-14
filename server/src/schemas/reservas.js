@@ -56,4 +56,16 @@ const schemaSesionPagoReserva = z
     }
   );
 
-module.exports = { schemaSesionPagoReserva };
+// POST /api/reservas/:id/solicitar-cancelacion (8.4): el motivo es opcional.
+const schemaSolicitarCancelacion = z.object(
+  {
+    motivo: z
+      .string({ error: () => 'Escribe el motivo como texto.' })
+      .trim()
+      .max(500, 'El motivo es demasiado largo (máximo 500 caracteres).')
+      .optional()
+  },
+  { error: () => 'Revisa tu solicitud.' }
+);
+
+module.exports = { schemaSesionPagoReserva, schemaSolicitarCancelacion };

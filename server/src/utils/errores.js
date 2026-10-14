@@ -34,4 +34,13 @@ class ErrorReintentable extends Error {
   }
 }
 
-module.exports = { ErrorValidacion, ErrorConflicto, ErrorReintentable };
+// Lo que se pide no existe (o no es de quien lo pide: una reserva de otro cliente se trata igual, para
+// no revelar que existe). Se responde 404 con su mensaje.
+class ErrorNoEncontrado extends Error {
+  constructor(mensaje) {
+    super(mensaje);
+    this.name = 'ErrorNoEncontrado';
+  }
+}
+
+module.exports = { ErrorValidacion, ErrorConflicto, ErrorReintentable, ErrorNoEncontrado };

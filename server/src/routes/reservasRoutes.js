@@ -3,12 +3,14 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const {
   crearSesionPagoReserva,
+  obtenerMisReservas,
+  solicitarCancelacionReserva,
   MENSAJE_ALQUILER_CERRADO
 } = require('../controllers/reservasController');
 const { reservasActivas } = require('../utils/reservas');
 const { verificarToken } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
-const { schemaSesionPagoReserva } = require('../schemas/reservas');
+const { schemaSesionPagoReserva, schemaSolicitarCancelacion } = require('../schemas/reservas');
 
 // Reservas por fechas que escriben (docs/reservas-diseno.md, bloque R-b). La disponibilidad y el
 // presupuesto, que solo leen, están en mueblesRoutes.js.
@@ -40,6 +42,30 @@ router.post(
   verificarToken,
   validar(schemaSesionPagoReserva),
   crearSesionPagoReserva
+);
+
+// "Mis reservas" en la cuenta del cliente (bloque R-c, commit 13).
+router.get('/mias', exigirReservasActivas, verificarToken, obtenerMisReservas);
+
+// La solicitud de cancelación solo envía un email al administrador (8.4: en la primera versión cancela
+// siempre él), pero cada una es un correo: pocas por IP.
+const limitadorSolicitudes = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Demasiadas solicitudes seguidas. Espera unos minutos antes de volver a intentarlo.'
+  }
+});
+
+router.post(
+  '/:id/solicitar-cancelacion',
+  exigirReservasActivas,
+  limitadorSolicitudes,
+  verificarToken,
+  validar(schemaSolicitarCancelacion),
+  solicitarCancelacionReserva
 );
 
 module.exports = router;

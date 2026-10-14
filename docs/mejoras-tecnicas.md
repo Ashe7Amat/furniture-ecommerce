@@ -1312,6 +1312,9 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   avisa al administrador. Toca el flujo de compra sin interruptor, así que R2 tiene que estar aplicada antes de
   llevarlo a `main`. Dos consecuencias para el panel: volver a poner una pieza vendida como disponible cancela su
   venta del calendario, y una pieza con ventas o reservas registradas ya no se puede borrar (409 que lo explica).
+- Bloque R-c, paso 13, parte del servidor (14 oct): `GET /api/reservas/mias` y
+  `POST /api/reservas/:id/solicitar-cancelacion` (la solicitud queda en el historial de la reserva y avisa al
+  administrador por email; cancela siempre él, 8.4). Detrás del interruptor.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

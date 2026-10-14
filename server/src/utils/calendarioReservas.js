@@ -4,6 +4,7 @@
 const supabase = require('../data/supabase');
 const { ESTADOS_QUE_OCUPAN, ocupacionDesdeHoy, finDeLaOcupacion } = require('./disponibilidad');
 const { hoyEnMadrid } = require('./fechasMadrid');
+const { ErrorConflicto, ErrorNoEncontrado } = require('./errores');
 
 const CODIGO_EXCLUSION = '23P01';
 const CODIGO_UNICIDAD = '23505';
@@ -125,6 +126,66 @@ const registrarVenta = async ({ muebleId, sessionId, ahora = new Date() }) => {
   return data[0].stripe_session_id === sessionId ? 'ya_registrada' : 'vendida';
 };
 
+// La referencia de una reserva para las personas: la de su pedido, que es la que el cliente ve en sus
+// emails ("Reserva #A1B2C3D4", email.js), o la suya si no tiene pedido (las que se crean en el panel).
+const referenciaDeReserva = ({ id, pedido_id }) =>
+  String(pedido_id || id)
+    .slice(0, 8)
+    .toUpperCase();
+
+// 'HH:MM' de una columna `time`, que PostgREST devuelve como 'HH:MM:SS'.
+const horaCorta = (hora) => (hora ? String(hora).slice(0, 5) : null);
+
+const MENSAJE_RESERVA_CAMBIADA =
+  'La reserva ha cambiado mientras la guardábamos. Recarga y vuelve a intentarlo.';
+
+// Cambia una reserva y añade una línea a su historial. El historial es jsonb y se reescribe entero,
+// así que dos escrituras a la vez podrían pisarse una línea. Para que no pase, el UPDATE solo vale si
+// la fila sigue como se leyó (`updated_at`, que pone la base de datos en cada cambio, R2); si otra
+// escritura la cambió entre medias, se vuelve a leer y se decide otra vez con la fila nueva.
+//   - `columnas`: las que se leen (y se devuelven); siempre se añaden id, mueble_id, historial y
+//     updated_at.
+//   - `decidir(fila)`: devuelve { cambios, entrada } (la línea del historial, sin la fecha) o lanza un
+//     error que se puede enseñar (p. ej. ErrorConflicto si la acción ya no tiene sentido).
+//   - `ocupa`: true si el cambio puede ocupar más calendario (ampliar, confirmar...): entonces pasa por
+//     escribirEnCalendario (4.6).
+// Devuelve { reserva } con la fila ya cambiada, o { choque: fila } si la base de datos lo rechazó por
+// solaparse con otra (23P01), para que quien llama diga con qué choca. Cualquier otro error se lanza.
+const actualizarReserva = async (
+  id,
+  { columnas, decidir, ocupa = false, ahora = new Date(), intentos = 3 }
+) => {
+  const select = `${columnas}, id, mueble_id, historial, updated_at`;
+  for (let intento = 0; intento < intentos; intento += 1) {
+    const { data: fila, error } = await supabase
+      .from('reservas')
+      .select(select)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!fila) throw new ErrorNoEncontrado('Reserva no encontrada.');
+
+    const { cambios, entrada } = decidir(fila);
+    const actualizar = () =>
+      supabase
+        .from('reservas')
+        .update({
+          ...cambios,
+          historial: [...(fila.historial || []), { fecha: ahora.toISOString(), ...entrada }]
+        })
+        .eq('id', id)
+        .eq('updated_at', fila.updated_at)
+        .select(select);
+    const { data, error: errorActualizar } = ocupa
+      ? await escribirEnCalendario(fila.mueble_id, actualizar)
+      : await actualizar();
+    if (errorActualizar?.code === CODIGO_EXCLUSION) return { choque: fila };
+    if (errorActualizar) throw errorActualizar;
+    if (data.length > 0) return { reserva: data[0] };
+  }
+  throw new ErrorConflicto(MENSAJE_RESERVA_CAMBIADA);
+};
+
 // Cancela las ventas confirmadas que cumplen `filtros` (columna: valor), con su motivo y una línea en
 // el historial. Como mucho hay una por pieza (todas van sin fin); se lee para añadir la línea. El
 // UPDATE solo vale si sigue confirmada: repetirlo no cambia nada.
@@ -207,5 +268,9 @@ module.exports = {
   registrarVenta,
   cancelarVentasDeLaPieza,
   cancelarVentaDeSesion,
-  tieneVentaDeSesion
+  tieneVentaDeSesion,
+  referenciaDeReserva,
+  horaCorta,
+  actualizarReserva,
+  MENSAJE_RESERVA_CAMBIADA
 };

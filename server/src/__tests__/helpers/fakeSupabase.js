@@ -1,7 +1,7 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / overlaps (rangos) / limit / range / order / insert /
+// Soporta: select / eq / neq / in / is / lt / lte / gte / not / or / like / ilike / contains / overlaps (rangos) / limit / range / order / insert /
 // update / delete / single / maybeSingle, y select(columnas, { count: 'exact', head }) para contar
 // (como supabase-js, devuelve `count` con el total de filas que cumplen los filtros, sin contar
 // limit ni range; con head: true, data es null). Se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
@@ -17,6 +17,12 @@
 //   - update() devuelve las filas afectadas para poder encadenar .select()
 //   - contains() solo acepta una cadena JSON (un array de objetos falla con 22P02) y neq()
 //     excluye las filas NULL, como SQL
+//   - lt/lte/gte, not() y or() siguen la lógica de tres valores de SQL: comparar con NULL no
+//     cumple nunca, y su NOT tampoco (not('c', 'eq', x) no devuelve las filas con c NULL); solo
+//     not('c', 'is', null) las separa. or() entiende la cadena de PostgREST ('a.neq.x,b.gte.y'),
+//     solo con condiciones simples (eq, neq, lt, lte, gt, gte, is, con o sin not.): un and()/or()
+//     anidado o un valor entre comillas lanza, para que un test no pase con una consulta que el doble
+//     no sabe leer. Los valores se comparan como texto (fechas ISO, enumerados)
 //   - en `muebles`, cada fila insertada o actualizada pasa por el equivalente del trigger
 //     trg_sync_disponible_desde_estado (BEFORE INSERT OR UPDATE): `disponible` se recalcula
 //     siempre desde `estado`, pisando lo que se haya mandado. Las filas iniciales no pasan por
@@ -31,6 +37,9 @@
 //     pieza, rangos que se solapan, las dos en un estado que ocupa), el índice de una sola
 //     provisional por cliente y UNIQUE (stripe_session_id, mueble_id) (los dos, 23505). Si una fila
 //     lo incumple no se escribe nada, como en Postgres. Las filas iniciales no se comprueban.
+//   - en `reservas`, los dos disparadores de R2: cada escritura cambia `updated_at` (las filas
+//     iniciales tienen uno fijo si no traen el suyo) y, al marcar una reserva `devuelta` con su
+//     `devuelta_en`, `fin_ocupacion` pasa a ser el día de la devolución en hora de Madrid.
 // Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
@@ -42,7 +51,7 @@
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
 //                        añadir y quitar durante el test para simular reintentos. Con función,
 //                        `consulta.usa` es el conjunto de métodos encadenados (p. ej. 'contains')
-const { sumarDias } = require('../../utils/fechasMadrid');
+const { sumarDias, hoyEnMadrid } = require('../../utils/fechasMadrid');
 
 // Copia de la columna generada reservas.rango_ocupado:
 //   daterange(fecha_inicio, fin_ocupacion + dias_margen, '[)')
@@ -129,7 +138,11 @@ const crearFakeSupabase = ({
     refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
     mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila })),
     verificaciones_email: verificaciones_email.map((fila) => ({ ...fila })),
-    reservas: reservas.map((fila) => ({ ...fila, rango_ocupado: rangoOcupado(fila) }))
+    reservas: reservas.map((fila) => ({
+      updated_at: '2025-12-31T00:00:00.000Z',
+      ...fila,
+      rango_ocupado: rangoOcupado(fila)
+    }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
   const estado = { unicidadRechazada: 0, exclusionRechazada: 0 };
@@ -139,6 +152,7 @@ const crearFakeSupabase = ({
     return { data: null, error };
   };
   let secuencia = 0;
+  let reloj = 0;
 
   const contiene = (elemento, patron) =>
     Object.entries(patron).every(([clave, valor]) => elemento && elemento[clave] === valor);
@@ -213,7 +227,14 @@ const crearFakeSupabase = ({
       fila.disponible = (fila.estado ?? 'disponible') === 'disponible';
     },
     reservas: (fila) => {
+      // reservas_fin_ocupacion_al_devolver (R2), que va antes de calcular el rango.
+      if (fila.estado === 'devuelta' && fila.devuelta_en) {
+        fila.fin_ocupacion = hoyEnMadrid(new Date(fila.devuelta_en));
+      }
       fila.rango_ocupado = rangoOcupado(fila);
+      // reservas_actualizar_updated_at (R2): cada escritura cambia updated_at. Aquí basta con que
+      // sea distinto en cada una.
+      fila.updated_at = new Date(Date.UTC(2026, 0, 1) + ++reloj).toISOString();
     }
   };
   const aplicarTriggers = (nombre, fila) => triggers[nombre]?.(fila);
