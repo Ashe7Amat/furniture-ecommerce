@@ -460,7 +460,7 @@ describe('página de éxito (confirmar-sesion) de una reserva', () => {
       success: true,
       tipo: 'reserva',
       estado: 'confirmada',
-      message: 'Reserva confirmada. Te hemos enviado los detalles por email.',
+      message: 'Te hemos enviado los detalles por email.',
       total: 75
     });
   });
@@ -471,7 +471,7 @@ describe('página de éxito (confirmar-sesion) de una reserva', () => {
     assert.equal(res.body.estado, 'conflicto');
     assert.equal(
       res.body.message,
-      'Hemos recibido tu pago, pero esas fechas ya no estaban libres. Te devolveremos el importe y te escribiremos por email.'
+      'Hemos recibido tu pago, pero se ocuparon mientras pagabas. Te devolveremos el importe y te escribiremos por email.'
     );
   });
 
@@ -482,7 +482,7 @@ describe('página de éxito (confirmar-sesion) de una reserva', () => {
     assert.equal(res.body.estado, 'procesando');
     assert.equal(
       res.body.message,
-      'Pago recibido. Estamos confirmando tu reserva y te llegará un email en cuanto esté.'
+      'Estamos confirmando tu reserva y te llegará un email en cuanto esté.'
     );
   });
 

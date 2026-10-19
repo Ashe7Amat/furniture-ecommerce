@@ -445,10 +445,12 @@ const crearSesionPago = async (req, res) => {
 };
 
 const MENSAJES_RESERVA_PAGADA = {
-  confirmada: 'Reserva confirmada. Te hemos enviado los detalles por email.',
+  // La página de éxito pone el título (Reserva confirmada, Esas fechas ya no estaban libres, Pago
+  // recibido): el mensaje no lo repite (19 oct).
+  confirmada: 'Te hemos enviado los detalles por email.',
   conflicto:
-    'Hemos recibido tu pago, pero esas fechas ya no estaban libres. Te devolveremos el importe y te escribiremos por email.',
-  procesando: 'Pago recibido. Estamos confirmando tu reserva y te llegará un email en cuanto esté.',
+    'Hemos recibido tu pago, pero se ocuparon mientras pagabas. Te devolveremos el importe y te escribiremos por email.',
+  procesando: 'Estamos confirmando tu reserva y te llegará un email en cuanto esté.',
   // Pagada, confirmada y cancelada después desde el panel (19 oct): ni conflicto ni otro email.
   cancelada: 'Esta reserva está cancelada. Si tienes cualquier duda, escríbenos.'
 };
