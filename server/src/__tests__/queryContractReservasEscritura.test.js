@@ -54,6 +54,7 @@ const ERROR_UNICIDAD = {
 
 let peticiones;
 let respuestaInsercion;
+let provisionalesVivas; // lo que responde la consulta de provisionales vivas del cliente (expira_en=gte.)
 const fetchFalso = async (url, init = {}) => {
   const u = new URL(url);
   const metodo = (init.method || 'GET').toUpperCase();
@@ -75,7 +76,12 @@ const fetchFalso = async (url, init = {}) => {
     ]);
   }
   if (u.pathname === '/rest/v1/reservas') {
-    if (metodo === 'GET') return json(200, []);
+    if (metodo === 'GET') {
+      return json(
+        200,
+        u.searchParams.get('expira_en')?.startsWith('gte.') ? provisionalesVivas : []
+      );
+    }
     if (metodo === 'POST') return respuestaInsercion(unObjeto);
     // PATCH: con .select() devuelve las filas cambiadas; sin él, nada.
     return u.searchParams.has('select') ? json(200, [{ id: RESERVA }]) : json(204);
@@ -105,6 +111,7 @@ let crearSesion;
 beforeEach(() => {
   process.env.RESERVAS_ACTIVAS = 'true';
   peticiones = [];
+  provisionalesVivas = [];
   respuestaInsercion = (unObjeto) => json(201, unObjeto ? { id: RESERVA } : [{ id: RESERVA }]);
   const real = createClient('https://contrato.supabase.co', 'clave-de-prueba', {
     auth: { persistSession: false },
@@ -132,9 +139,24 @@ describe('contrato de POST /api/reservas/sesion-pago con supabase-js real', () =
     assert.deepEqual(res.body, { error: MENSAJE_FECHAS_OCUPADAS });
     assert.deepEqual(
       peticiones.filter((p) => p.ruta === '/rest/v1/reservas').map((p) => p.metodo),
-      ['GET', 'PATCH', 'POST', 'PATCH', 'POST']
+      ['GET', 'PATCH', 'POST', 'PATCH', 'POST', 'GET']
     );
     assert.equal(crearSesion.mock.callCount(), 0);
+    // Antes de decir "fechas ocupadas" se mira si chocó con una provisional suya que va a la vez.
+    const { params } = de('GET', '/rest/v1/reservas').at(-1);
+    assert.equal(params.select, 'id');
+    assert.equal(params.cliente_id, `eq.${ANA}`);
+    assert.equal(params.estado, 'eq.pendiente');
+    assert.match(params.expira_en, /^gte\.\d{4}-\d\d-\d\dT/);
+    assert.equal(params.limit, '1');
+  });
+
+  test('si el 23P01 es con una provisional suya que va a la vez (doble clic), 409 "vuelve a intentarlo"', async () => {
+    respuestaInsercion = () => json(409, ERROR_EXCLUSION);
+    provisionalesVivas = [{ id: RESERVA }];
+    const res = await reservar();
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
   });
 
   test('el 23505 del índice de una provisional por cliente es un 409 "vuelve a intentarlo"', async () => {

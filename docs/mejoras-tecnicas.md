@@ -1315,6 +1315,15 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 - Bloque R-c, paso 13, parte del servidor (14 oct): `GET /api/reservas/mias` y
   `POST /api/reservas/:id/solicitar-cancelacion` (la solicitud queda en el historial de la reserva y avisa al
   administrador por email; cancela siempre él, 8.4). Detrás del interruptor.
+- Bloque R-d, paso 14, servidor del panel (19 oct): `GET /api/admin/reservas` (vistas del 8.1), las acciones
+  sobre cada reserva (entregar, recoger, ampliar, cancelar con reembolso, reintentar reembolso, levantar
+  bloqueo) y las altas sin pago web (bloqueo, alquiler fuera de la web o contrato antiguo, venta). Solo
+  administradores y detrás del interruptor.
+- Revisión del paso 9, último revisor (19 oct): si Stripe reintenta una compra cuya venta ya se había
+  cancelado (anulada en un intento anterior, o la pieza vuelta a poner a la venta), ya no se vuelve a marcar
+  como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a
+  intentarlo" y no "esas fechas se acaban de reservar". Tests nuevos que fijan el "hoy" de Madrid pasada la
+  medianoche y el caso de una pieza borrada, y tres casos más en `r2_pruebas.sql` (6b a 6d).
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

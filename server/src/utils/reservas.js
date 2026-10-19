@@ -102,6 +102,20 @@ const liberarProvisionalesDelCliente = async (clienteId, stripe, ahora) => {
   }
 };
 
+// Si el cliente tiene una provisional viva. Después del paso 4 solo puede ser de otra petición suya
+// que va a la vez.
+const tieneOtraProvisional = async (clienteId, ahora) => {
+  const { data, error } = await supabase
+    .from('reservas')
+    .select('id')
+    .eq('cliente_id', clienteId)
+    .eq('estado', 'pendiente')
+    .gte('expira_en', ahora.toISOString())
+    .limit(1);
+  if (error) throw error;
+  return data.length > 0;
+};
+
 const euros = (centimos) => centimos / 100;
 const eurosLegibles = (centimos) => `${(centimos / 100).toFixed(2).replace('.', ',')} €`;
 const dias = (n) => (n === 1 ? '1 día' : `${n} días`);
@@ -244,7 +258,13 @@ const iniciarPagoDeReserva = async ({
     supabase.from('reservas').insert(fila).select('id').single()
   );
   if (error) {
-    if (error.code === CODIGO_EXCLUSION) throw new ErrorConflicto(MENSAJE_FECHAS_OCUPADAS);
+    // Con las mismas fechas, la provisional que crea otra petición suya a la vez (doble clic, otra
+    // pestaña) da 23P01 antes que el índice de una por cliente: no es que se las haya quitado otra
+    // persona, así que recibe el mismo "vuelve a intentarlo" (4.4).
+    if (error.code === CODIGO_EXCLUSION) {
+      const suya = await tieneOtraProvisional(cuenta.id, ahora);
+      throw new ErrorConflicto(suya ? MENSAJE_OTRA_RESERVA : MENSAJE_FECHAS_OCUPADAS);
+    }
     // El índice de una sola provisional por cliente: otra pestaña suya ha creado la suya a la vez.
     if (error.code === CODIGO_UNICIDAD) throw new ErrorConflicto(MENSAJE_OTRA_RESERVA);
     throw error;

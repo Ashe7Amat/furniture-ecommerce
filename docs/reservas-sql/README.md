@@ -38,6 +38,9 @@ Con PostgreSQL 16.15 y unas tablas `muebles`, `clientes` y `pedidos` mínimas (S
   aceptándolas en un bloqueo), y en cada una falló el caso que tocaba.
 - R1 y R2 aplicadas de verdad, y después sus `.down.sql`: no queda ni la tabla, ni las funciones, ni la
   extensión.
+- 19 oct: con los casos 6b a 6d (la venta repetida de una sesión da `23P01` mientras ocupa y `23505` ya
+  cancelada, y una pieza que no existe da `23503`), la prueba sigue terminando en `PRUEBA SUPERADA`, y con la
+  unicidad creada antes que la exclusión falla en el caso 6b.
 
 ## La prueba desechable contra la base real (paso 1 de R-a)
 

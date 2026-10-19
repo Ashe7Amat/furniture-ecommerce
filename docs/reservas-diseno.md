@@ -509,7 +509,7 @@ CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
 | Situación | Qué ocurre | Resultado |
 |---|---|---|
 | Dos clientes reservan fechas que se solapan a la vez | Las dos reservas provisionales chocan en la restricción | El segundo recibe 409 **antes de pagar** |
-| El mismo cliente pulsa dos veces "Reservar" | La segunda petición cancela primero la reserva provisional anterior del mismo cliente y caduca su sesión de Stripe (6.3, paso 4). Si las dos pasan ese paso a la vez, el índice único "una provisional por cliente" hace fallar la segunda inserción (`23505`) | Una sola sesión de pago válida; la otra pestaña recibe 409 "vuelve a intentarlo" |
+| El mismo cliente pulsa dos veces "Reservar" | La segunda petición cancela primero la reserva provisional anterior del mismo cliente y caduca su sesión de Stripe (6.3, paso 4). Si las dos pasan ese paso a la vez, el índice único "una provisional por cliente" hace fallar la segunda inserción (`23505`; con las mismas fechas, antes la exclusión, `23P01`, y se comprueba que el choque es con una provisional suya, 6.7) | Una sola sesión de pago válida; la otra pestaña recibe 409 "vuelve a intentarlo" |
 | Webhook y página de éxito confirman la misma reserva a la vez | La confirmación es un `UPDATE ... WHERE estado IN ('pendiente','expirada')` y solo una llamada lo aplica; el `INSERT` del pedido choca en su clave (`23505`, patrón actual) y la otra lo da por hecho **sin cortar el proceso** (6.4) | Un pedido, una reserva confirmada, un juego de emails (los envía quien gana la marca `confirmacion_enviada_en`) |
 | Pago que llega tarde (reserva provisional ya caducada) | Se intenta pasar `expirada` → `confirmada`; la restricción decide | Fechas libres: se confirma. Ocupadas: aviso al administrador y reembolso (6.4) |
 | Alguien compra mientras otro reserva | La venta se registra como fila `tipo = 'venta'` desde hoy y sin fin; choca con cualquier alquiler activo o futuro | Si gana la reserva, la compra termina en conflicto (aviso y reembolso o entrega diferida); si gana la compra, la reserva recibe 409 (6.7) |
@@ -917,8 +917,16 @@ dos, en el lanzamiento (commits 23 y 25), van con la segunda.
      estaba, y el aviso es el de "Posible doble venta", sin proponer entrega diferida); si no hay ninguna, el
      choque es con un alquiler o un bloqueo y es **conflicto**. El doble de los tests comprueba las
      restricciones en ese mismo orden. Por la misma razón, el
-     doble clic de una reserva con las mismas fechas da `23P01` ("esas fechas se acaban de reservar") y no el
-     `23505` del índice de una provisional por cliente; los dos son 409 y ninguno deja nada a medias.
+     doble clic de una reserva con las mismas fechas da `23P01` y no el `23505` del índice de una provisional
+     por cliente; los dos son 409 y ninguno deja nada a medias.
+     **Matiz (19 oct):** ese doble clic recibía "esas fechas se acaban de reservar" por unas fechas que tenía él
+     mismo. Ahora, tras el `23P01`, se mira si el cliente tiene una provisional viva (después del paso 4 del 6.3
+     solo puede ser de otra petición suya a la vez) y, si la tiene, recibe el "vuelve a intentarlo" de la fila 2
+     del 4.4. El `23505` de la unicidad (sesión, pieza) solo llega cuando la venta de esa sesión existe pero ya no
+     ocupa, es decir, **cancelada** (se anuló en un intento anterior, paso 3, o el administrador volvió a poner la
+     pieza a la venta, paso 5, y Stripe reintenta después). Entonces la venta no se vuelve a dejar, la pieza no
+     se marca y el administrador recibe el aviso. `r2_pruebas.sql` (casos 6b a 6d) fija los tres códigos contra
+     Postgres de verdad.
   3. **Salvo en conflicto**, `marcarPiezas` pone la pieza en `vendido`, como hoy. **Con un `23P01` que no es una
      venta no se toca `muebles.estado`**: si no, quedaría una pieza `vendido` sin fila de venta y con un alquiler
      vivo, el estado incoherente que el 3.3 quiere evitar, y la migración del 9.2 le crearía después una venta que

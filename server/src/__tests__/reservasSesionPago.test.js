@@ -673,6 +673,10 @@ describe('fallos y carreras', () => {
 
     assert.equal(estados[0], 200);
     assert.ok([200, 409].includes(estados[1]), `estados: ${estados}`);
+    // Si la segunda choca, es con la suya: "vuelve a intentarlo", no "esas fechas se acaban de
+    // reservar" (4.4).
+    const rechazada = respuestas.find((r) => r.status === 409);
+    if (rechazada) assert.deepEqual(rechazada.body, { error: MENSAJE_OTRA_RESERVA });
     const pendientes = deAna().filter((r) => r.estado === 'pendiente');
     assert.equal(pendientes.length, 1);
     const abiertas = [...stripe.sesiones].filter(([, estado]) => estado === 'open');
@@ -701,6 +705,45 @@ describe('fallos y carreras', () => {
     const res = await reservar(cuerpo());
     assert.equal(res.status, 200);
     assert.equal(intentos, 2);
+  });
+
+  test('si choca con una provisional suya que otra pestaña acaba de crear: 409 "vuelve a intentarlo"', async () => {
+    fake.fallos['reservas.insert'] = () => {
+      // Entre el paso 4 y la inserción, otra petición suya deja su provisional por las mismas fechas.
+      if (!filas().some((r) => r.id === 'r-otra-pestana')) {
+        filas().push(
+          reserva({
+            id: 'r-otra-pestana',
+            estado: 'pendiente',
+            cliente_id: ANA,
+            expira_en: new Date(Date.now() + 20 * 60_000).toISOString()
+          })
+        );
+      }
+      return { code: '23P01', message: 'conflicting key value' };
+    };
+    const res = await reservar(cuerpo());
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+  });
+
+  test('una provisional suya ya caducada no cuenta: el choque es con otra persona', async () => {
+    fake.fallos['reservas.insert'] = () => {
+      if (!filas().some((r) => r.id === 'r-caducada')) {
+        filas().push(
+          reserva({
+            id: 'r-caducada',
+            mueble_id: VENDIDA,
+            estado: 'pendiente',
+            cliente_id: ANA,
+            expira_en: new Date(Date.now() - 60_000).toISOString()
+          })
+        );
+      }
+      return { code: '23P01', message: 'conflicting key value' };
+    };
+    const res = await reservar(cuerpo());
+    assert.deepEqual(res.body, { error: MENSAJE_FECHAS_OCUPADAS });
   });
 
   test('si vuelve a chocar después de limpiar, es un conflicto de verdad', async () => {

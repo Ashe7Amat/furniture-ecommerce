@@ -124,14 +124,30 @@ const marcarPiezas = async (lineas) => {
     // No se actualizó nada: la pieza no estaba disponible (o ya no existe). Se mira cómo
     // está, sin tocarla. Que ya esté en el estado buscado es lo normal en un reintento o
     // cuando el webhook y el respaldo coinciden; cualquier otro estado es de otra persona.
-    const { data: pieza, error: errorLectura } = await supabase
-      .from('muebles')
-      .select('estado')
-      .eq('id', linea.productId)
-      .maybeSingle();
+    resultados.push({ productId: linea.productId, deseado, actual: await leerEstadoDePieza(linea.productId) });
+  }
+  return resultados;
+};
 
-    if (errorLectura) throw errorLectura;
-    resultados.push({ productId: linea.productId, deseado, actual: pieza ? pieza.estado : null });
+// El estado de una pieza, o null si ya no existe.
+const leerEstadoDePieza = async (productId) => {
+  const { data: pieza, error } = await supabase
+    .from('muebles')
+    .select('estado')
+    .eq('id', productId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return pieza ? pieza.estado : null;
+};
+
+// Las piezas compradas cuya venta ya estaba cancelada en el calendario ('deshecha'): no se marcan,
+// porque volverían a quedar vendidas sin fila de venta (y quizá con un alquiler nuevo). Solo se mira
+// su estado, para el aviso.
+const mirarPiezas = async (lineas) => {
+  const resultados = [];
+  for (const linea of lineas) {
+    resultados.push({ productId: linea.productId, deseado: 'vendido', actual: await leerEstadoDePieza(linea.productId) });
   }
   return resultados;
 };
@@ -141,8 +157,9 @@ const marcarPiezas = async (lineas) => {
 // de marcar las piezas y de registrar el pedido: si se hiciera después, un fallo entre medias dejaría
 // la venta sin fila para siempre, porque el reintento ve el pedido y no repite nada. Con 'conflicto'
 // (la pieza tenía un alquiler o un bloqueo) la pieza NO se marca como vendida: quedaría vendida sin
-// fila de venta y con un alquiler vivo. Con 'vendida' (otra venta) sí, como antes: ya lo estaba. En
-// los dos casos el pedido se registra igual y se avisa al admin.
+// fila de venta y con un alquiler vivo. Tampoco con 'deshecha' (su venta ya estaba cancelada). Con
+// 'vendida' (otra venta) sí, como antes: ya lo estaba. En todos el pedido se registra igual y se
+// avisa al admin.
 // Los alquileres por días de la cesta (el flujo antiguo, H7) no tienen fechas: no dejan fila.
 const registrarVentas = async (lineas, sessionId) => {
   const ventas = new Map();
@@ -240,12 +257,14 @@ const registrarPedido = async ({
 
 // Doble venta: dos compradores han pagado la misma pieza única (p. ej. una sesión de pago
 // que se dejó abierta mientras otra persona la compraba o la alquilaba). Hay conflicto si
-// se da alguna de estas tres señales, ninguna de las cuales salta con un simple reintento
+// se da alguna de estas señales, ninguna de las cuales salta con un simple reintento
 // ni con el gemelo webhook/respaldo (que dejan la pieza en el MISMO estado buscado):
 //   - la pieza estaba en otro estado que el buscado (vendida/alquilada por otra persona)
 //   - OTRO pedido no cancelado ya incluye esa pieza como compra
 //   - el calendario de la pieza no admitió su fila de venta (registrarVentas, 6.7): ya tenía otra
 //     venta, o un alquiler o un bloqueo
+//   - la fila de venta de esta sesión ya estaba cancelada ('deshecha'): solo pasa en un reintento
+//     después de que algo la anulara, así que tampoco salta con un reintento normal
 // Es un aviso: si la consulta falla se registra y se sigue, nunca se pierde un pedido.
 //
 // El filtro jsonb va como CADENA JSON: si se pasara un array de objetos, postgrest-js lo
@@ -261,6 +280,9 @@ const detectarConflictos = async (lineas, idPedido, resultados, ventas) => {
     }
     if (ventas.get(linea.productId) === 'anulada') {
       motivos.push('su venta no se ha dejado en el calendario');
+    }
+    if (ventas.get(linea.productId) === 'deshecha') {
+      motivos.push('su venta ya estaba cancelada en el calendario (de un intento anterior, o la pieza se volvió a poner a la venta): no se ha vuelto a registrar ni se ha marcado como vendida');
     }
     const enCalendario = ventas.get(linea.productId) === 'conflicto';
     if (enCalendario) {
@@ -341,7 +363,11 @@ const procesarSesionPagada = async (session) => {
   const cliente = leerClienteDeSesion(session);
   const lineas = await cargarLineasPagadas(items);
   const ventas = await registrarVentas(lineas, session.id);
-  const resultados = await marcarPiezas(lineas.filter(l => ventas.get(l.productId) !== 'conflicto'));
+  const sinMarcar = (l) => ['conflicto', 'deshecha'].includes(ventas.get(l.productId));
+  const resultados = [
+    ...(await marcarPiezas(lineas.filter(l => !sinMarcar(l)))),
+    ...(await mirarPiezas(lineas.filter(l => ventas.get(l.productId) === 'deshecha')))
+  ];
   await anularVentasDeOtroEstado(resultados, ventas, session.id);
   const clienteId = await buscarClienteIdPorEmail(cliente.email);
 

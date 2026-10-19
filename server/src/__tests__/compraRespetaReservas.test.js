@@ -124,6 +124,27 @@ const sesionConItems = (items, cambios = {}) => {
   return { ...base, metadata: { ...base.metadata, items: JSON.stringify(items) }, ...cambios };
 };
 
+// Congela el reloj (solo Date) mientras dura `fn`. Los temporizadores falsos de node:test aún son
+// experimentales en Node 22.
+const conElRelojEn = async (iso, fn) => {
+  const DateReal = Date;
+  const instante = DateReal.parse(iso);
+  global.Date = class extends DateReal {
+    constructor(...args) {
+      super(...(args.length > 0 ? args : [instante]));
+    }
+
+    static now() {
+      return instante;
+    }
+  };
+  try {
+    return await fn();
+  } finally {
+    global.Date = DateReal;
+  }
+};
+
 const filasDe = (tipo) => fake.tablas.reservas.filter((r) => r.tipo === tipo);
 const estadoDe = (id) => fake.tablas.muebles.find((m) => m.id === id).estado;
 
@@ -214,6 +235,22 @@ describe('antes de cobrar: crear-sesion-pago mira el calendario', () => {
     ]);
     assert.equal(res.status, 400);
     assert.match(res.body.error, /^"Mesa de comedor" tiene reservas/);
+  });
+
+  test('"hoy" es el de Madrid: pasada la medianoche allí (22:30 UTC), un alquiler que acabó ayer no impide comprar', async () => {
+    await conElRelojEn('2026-10-13T22:30:00Z', async () => {
+      // Ocupó [5 oct, 14 oct), margen incluido.
+      instalar({
+        reservas: [
+          alquiler({
+            fecha_inicio: '2026-10-05',
+            fecha_fin: '2026-10-12',
+            fin_ocupacion: '2026-10-12'
+          })
+        ]
+      });
+      assert.equal((await comprarSofa()).status, 200);
+    });
   });
 
   test('el alquiler por días de la cesta (el flujo antiguo, sin fechas) no mira el calendario', async () => {
@@ -322,11 +359,37 @@ describe('al confirmar el pago: la fila de venta (6.7)', () => {
     assert.ok(fake.estado.exclusionRechazada >= 1);
   });
 
-  test('si la base de datos devolviera 23505 (la unicidad antes que la exclusión), también es "ya registrada"', async () => {
+  test('si la base de datos devolviera 23505 con la venta de la sesión aún confirmada, es "ya registrada"', async () => {
+    instalar({ reservas: [venta({ fecha_inicio: hoy, stripe_session_id: 'cs_test_123' })] });
     fake.fallos['reservas.insert'] = { code: '23505', message: 'duplicate key value' };
     const resultado = await procesarSesionPagada(crearSesion());
     assert.deepEqual(resultado.conflictos, []);
     assert.equal(estadoDe('mueble-1'), 'vendido');
+  });
+
+  test('si tras anular la venta falla el pedido, el reintento no la vuelve a dejar y avisa una vez', async () => {
+    instalar({
+      muebles: MUEBLES_DE_PRUEBA().map((m) =>
+        m.id === 'mueble-1' ? { ...m, estado: 'alquilado' } : m
+      )
+    });
+    fake.fallos['pedidos.insert'] = { message: 'conexión perdida' };
+    await assert.rejects(procesarSesionPagada(crearSesion()));
+    delete fake.fallos['pedidos.insert'];
+
+    // Su venta ya está cancelada y no ocupa: el reintento choca en la unicidad (sesión, pieza).
+    const resultado = await procesarSesionPagada(crearSesion());
+
+    assert.equal(resultado.estado, 'procesada');
+    assert.ok(fake.estado.unicidadRechazada >= 1, 'el 23505 de verdad, no uno inyectado');
+    assert.deepEqual(
+      filasDe('venta').map((r) => r.estado),
+      ['cancelada']
+    );
+    assert.equal(estadoDe('mueble-1'), 'alquilado');
+    assert.equal(correos.alerta.mock.callCount(), 1);
+    const { detalles } = correos.alerta.mock.calls[0].arguments[0];
+    assert.match(detalles[0], /ya figuraba como "alquilado".*su venta ya estaba cancelada/);
   });
 
   test('el webhook y la página de éxito a la vez: una sola fila de venta, un solo pedido y ningún aviso', async () => {
@@ -524,13 +587,35 @@ describe('al confirmar el pago: la fila de venta (6.7)', () => {
     assert.equal(estadoDe('mueble-2'), 'alquilado');
   });
 
-  test('una pieza que ya no está en el catálogo: el pedido se registra igual, sin fila de venta', async () => {
+  test('una pieza que ya no está en el catálogo: el pedido se registra igual, sin fila de venta ni aviso', async () => {
     const resultado = await procesarSesionPagada(
       sesionConItems([{ productId: 'mueble-borrado', modalidad: 'compra' }])
     );
     assert.equal(resultado.estado, 'procesada');
     assert.equal(fake.tablas.reservas.length, 0);
     assert.equal(fake.tablas.pedidos.length, 1);
+    // Como antes de las reservas: no es un choque con el calendario ni una doble venta.
+    assert.deepEqual(resultado.conflictos, []);
+    assert.equal(correos.alerta.mock.callCount(), 0);
+  });
+
+  test('"hoy" es el de Madrid: pasada la medianoche allí (22:30 UTC), la venta empieza el día siguiente', async () => {
+    await conElRelojEn('2026-10-13T22:30:00Z', async () => {
+      // Ocupó [5 oct, 14 oct), margen incluido: el 14 ya está libre en Madrid, el 13 no.
+      instalar({
+        reservas: [
+          alquiler({
+            fecha_inicio: '2026-10-05',
+            fecha_fin: '2026-10-12',
+            fin_ocupacion: '2026-10-12'
+          })
+        ]
+      });
+      const resultado = await procesarSesionPagada(crearSesion());
+      assert.deepEqual(resultado.conflictos, []);
+      assert.equal(filasDe('venta')[0].fecha_inicio, '2026-10-14');
+      assert.equal(estadoDe('mueble-1'), 'vendido');
+    });
   });
 
   test('si falla la base de datos al insertar la venta: lanza y no registra nada (Stripe reintenta)', async () => {
@@ -603,6 +688,29 @@ describe('el administrador vuelve a poner a la venta una pieza vendida', () => {
     const resultado = await procesarSesionPagada(crearSesion({ id: 'cs_nueva' }));
     assert.deepEqual(resultado.conflictos, []);
     assert.equal(estadoDe('mueble-1'), 'vendido');
+  });
+
+  test('si Stripe reintenta una compra cuya venta se deshizo en el panel: no la vuelve a marcar y avisa', async () => {
+    // El primer intento deja la venta y la pieza vendida, y muere al registrar el pedido.
+    fake.fallos['pedidos.insert'] = { message: 'conexión perdida' };
+    await assert.rejects(procesarSesionPagada(crearSesion()));
+    delete fake.fallos['pedidos.insert'];
+    // Mientras, el administrador la vuelve a poner a la venta, y su venta se cancela.
+    assert.equal((await ponerEstado('mueble-1', 'disponible')).status, 200);
+
+    const resultado = await procesarSesionPagada(crearSesion());
+
+    assert.equal(resultado.estado, 'procesada');
+    assert.equal(fake.tablas.pedidos.length, 1);
+    assert.equal(estadoDe('mueble-1'), 'disponible');
+    assert.deepEqual(
+      filasDe('venta').map((r) => r.estado),
+      ['cancelada']
+    );
+    assert.equal(correos.alerta.mock.callCount(), 1);
+    const { detalles } = correos.alerta.mock.calls[0].arguments[0];
+    assert.match(detalles[0], /su venta ya estaba cancelada en el calendario/);
+    assert.equal(resultado.conflictos[0].enCalendario, false);
   });
 
   test('editar una pieza que ya estaba disponible no toca su calendario (una venta con entrega diferida sigue)', async () => {

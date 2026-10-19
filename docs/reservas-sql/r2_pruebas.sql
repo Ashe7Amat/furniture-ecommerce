@@ -11,6 +11,7 @@ DECLARE
   c1 uuid := (SELECT id FROM public.clientes ORDER BY id LIMIT 1);
   c2 uuid := (SELECT id FROM public.clientes ORDER BY id LIMIT 1 OFFSET 1);
   r uuid;
+  v uuid;
   fin date;
   rango daterange;
   antes timestamptz;
@@ -132,6 +133,36 @@ BEGIN
     VALUES (m2, 'bloqueo', 'confirmada', '2030-11-01', '2030-11-02', '2030-11-02', 'cs_prueba');
     RAISE EXCEPTION 'FALLO 6: se repitió la misma sesión para la misma pieza';
   EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+
+  -- 6b. La venta repetida de una sesión (el reintento del pago de una compra, 6.7). Mientras su venta
+  --     ocupa el calendario, la repetición choca antes con la exclusión (23P01) que con la unicidad,
+  --     porque la exclusión se creó antes. Ya cancelada, choca con la unicidad (23505). Y una pieza
+  --     que no existe da la clave ajena (23503). registrarVenta (calendarioReservas.js) y el doble de
+  --     los tests (fakeSupabase.js) dependen de este orden. Va en 2035, después de todo lo de m2.
+  INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, stripe_session_id)
+  VALUES (m2, 'venta', 'confirmada', '2035-01-01', 'cs_venta') RETURNING id INTO v;
+  BEGIN
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, stripe_session_id)
+    VALUES (m2, 'venta', 'confirmada', '2035-01-01', 'cs_venta');
+    RAISE EXCEPTION 'FALLO 6b: se repitió la venta de una sesión';
+  EXCEPTION
+    WHEN exclusion_violation THEN NULL;
+    WHEN unique_violation THEN
+      RAISE EXCEPTION 'FALLO 6b: la venta repetida chocó con la unicidad antes que con la exclusión (ha cambiado el orden de las restricciones: revisar registrarVenta y fakeSupabase.js)';
+  END;
+  UPDATE public.reservas SET estado = 'cancelada', cancelada_en = now(), cancelada_por = 'admin' WHERE id = v;
+  BEGIN
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, stripe_session_id)
+    VALUES (m2, 'venta', 'confirmada', '2035-01-01', 'cs_venta');
+    RAISE EXCEPTION 'FALLO 6c: se repitió una venta cancelada de la misma sesión';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO public.reservas (mueble_id, tipo, estado, fecha_inicio, stripe_session_id)
+    VALUES (gen_random_uuid(), 'venta', 'confirmada', '2035-01-01', 'cs_venta_sin_pieza');
+    RAISE EXCEPTION 'FALLO 6d: se aceptó la venta de una pieza que no existe';
+  EXCEPTION WHEN foreign_key_violation THEN NULL;
   END;
 
   ---------------------------------------------------------------------------------------------------

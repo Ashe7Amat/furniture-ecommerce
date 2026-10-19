@@ -79,6 +79,9 @@ const leerOcupacionParaCompra = async (muebleIds, ahora = new Date()) => {
 //   'ya_registrada'  ya estaba (un reintento, o el webhook y la página de éxito a la vez);
 //   'vendida'        la pieza ya tenía otra venta (la doble venta de siempre, H5);
 //   'conflicto'      la pieza tenía un alquiler o un bloqueo en el calendario;
+//   'deshecha'       la venta de esta sesión ya estaba, pero cancelada (en un intento anterior se
+//                    anuló por el estado de la pieza, o el admin la volvió a poner a la venta): no se
+//                    vuelve a dejar, y la pieza no se marca;
 //   'sin_pieza'      la pieza ya no existe en el catálogo (el pedido se registra igual).
 // Un INSERT normal, nunca upsert(..., { ignoreDuplicates: true }) (3.2): fallaría con 42P10 o se
 // tragaría el 23P01.
@@ -89,6 +92,8 @@ const leerOcupacionParaCompra = async (muebleIds, ahora = new Date()) => {
 // tras un 23P01 se mira la venta confirmada de la pieza, que solo puede haber una (todas van sin fin
 // y se solaparían): si es de esta sesión, ya estaba; si es de otra, es una doble venta y no un choque
 // con reservas, para que el aviso al administrador no proponga entregarla "cuando quede libre".
+// El 23505 solo llega cuando la venta de esta sesión existe pero ya no ocupa el calendario, es decir,
+// cancelada; si estuviera confirmada (no debería), ya estaba.
 const registrarVenta = async ({ muebleId, sessionId, ahora = new Date() }) => {
   const fila = {
     mueble_id: muebleId,
@@ -110,7 +115,9 @@ const registrarVenta = async ({ muebleId, sessionId, ahora = new Date() }) => {
     supabase.from('reservas').insert(fila)
   );
   if (!error) return 'registrada';
-  if (error.code === CODIGO_UNICIDAD) return 'ya_registrada';
+  if (error.code === CODIGO_UNICIDAD) {
+    return (await tieneVentaDeSesion({ muebleId, sessionId })) ? 'ya_registrada' : 'deshecha';
+  }
   if (error.code === CODIGO_CLAVE_AJENA) return 'sin_pieza';
   if (!chocaEnCalendario(error)) throw error;
 
