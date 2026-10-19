@@ -413,3 +413,16 @@
   line-height: 1.5;
   color: var(--secondary-color);
 }
+
+/* Reservas por fechas: la pieza tiene reservas que llegan a hoy o más allá y no se puede comprar
+   ahora (docs/reservas-diseno.md, 6.7). Se explica hasta cuándo y se ofrece preguntar. */
+.pd-aviso-reservas {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--secondary-color);
+}
+.pd-aviso-reservas a {
+  color: var(--accent-text);
+  font-weight: 600;
+}

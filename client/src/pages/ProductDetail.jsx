@@ -1,8 +1,8 @@
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, lazy, Suspense } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { descripcionParaMeta } from '../utils/descripcionMeta';
-import { getMuebleById } from '../services/api';
+import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
@@ -10,6 +10,18 @@ import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPie
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
+import { reservasActivas, sumarDias, fechaCorta } from '../utils/reservas';
+
+// Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
+// descargan si el interruptor está encendido y la pieza se puede alquilar.
+const PanelReserva = lazy(() => import('../components/reservas/PanelReserva'));
+
+// Hasta qué día tiene reservas una pieza que no se puede comprar por ellas: el día antes del primero
+// libre (`comprable_desde`, 7.1).
+const textoReservasHasta = (comprableDesde) =>
+  comprableDesde
+    ? `Esta pieza tiene reservas hasta el ${fechaCorta(sumarDias(comprableDesde, -1))}.`
+    : 'Esta pieza tiene reservas.';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -23,6 +35,14 @@ const ProductDetail = () => {
   const [mainImage, setMainImage] = useState('');
   const [openAccordion, setOpenAccordion] = useState('');
   const [modalidad, setModalidad] = useState('compra');
+  // Con el interruptor de las reservas encendido: la disponibilidad de la pieza (7.1), guardada con
+  // el id que la pidió para no enseñar la de otra pieza mientras llega la nueva. `recargas` la vuelve
+  // a pedir (tras un 409 al reservar). Si falla, la ficha se queda como antes: sin calendario y sin
+  // bloquear la compra.
+  const conReservas = reservasActivas();
+  const [disponibilidad, setDisponibilidad] = useState({ para: null });
+  const [recargas, setRecargas] = useState(0);
+  const muebleId = mueble?.id;
 
   useEffect(() => {
     const fetchMueble = async () => {
@@ -44,6 +64,25 @@ const ProductDetail = () => {
     };
     fetchMueble();
   }, [id]);
+
+  useEffect(() => {
+    if (!conReservas || !muebleId) return undefined;
+    let vigente = true;
+    getDisponibilidad(muebleId).then(({ data }) => {
+      if (!vigente) return;
+      // Si falla una recarga, se queda la que había.
+      setDisponibilidad((anterior) =>
+        data
+          ? { para: muebleId, estado: 'lista', datos: data }
+          : anterior.para === muebleId
+            ? anterior
+            : { para: muebleId, estado: 'fallo' }
+      );
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [conReservas, muebleId, recargas]);
 
   // <title>, descripción e imagen para compartir de esta pieza: "{nombre} | Nave 5 Barcelona", el
   // principio de su descripción y su primera foto (la de portada, aunque se esté viendo otra). Mientras
@@ -76,14 +115,29 @@ const ProductDetail = () => {
     setOpenAccordion(openAccordion === section ? '' : section);
   };
 
+  // Con las reservas, la cesta es solo para comprar (6.1): el alquiler va por el calendario.
   const handleAddToCart = () => {
-    addToCart(mueble, modalidad);
+    addToCart(mueble, conReservas ? 'compra' : modalidad);
   };
 
   // C3: disponible y sin precios a la vista (ocultos por MOSTRAR_PRECIOS, o sin ninguno), no se
   // compra: se pregunta. Sin precios, "Cantidad" y "Modalidad" no dicen nada (el alquiler saldría
   // "No disponible" aunque lo esté), así que tampoco se enseñan.
   const preguntar = mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && !tienePrecio(mueble);
+
+  // Reservas por fechas, solo con el interruptor encendido.
+  const disp = conReservas && disponibilidad.para === mueble.id ? disponibilidad : null;
+  const datosDisp = disp?.estado === 'lista' ? disp.datos : null;
+  const conCalendario = Boolean(datosDisp?.alquilable && datosDisp.precio_dia_centimos != null);
+  // Con reservas que llegan a hoy o más allá no se puede comprar (6.7): se explica y se ofrece preguntar.
+  const bloqueadaPorReservas =
+    datosDisp?.comprable === false && datosDisp.motivo_no_comprable === 'reservas_activas';
+  // Lo que no se puede comprar según el servidor (7.1) tampoco se ofrece, sea cual sea el motivo: una
+  // venta con entrega diferida deja la pieza "disponible" en el catálogo y el pago la rechazaría.
+  const noComprable = datosDisp?.comprable === false;
+  const vendidaEnCalendario = datosDisp?.motivo_no_comprable === 'vendida';
+  // Una pieza disponible sin precio de venta no va a la cesta: se alquila por fechas o se pregunta.
+  const sinCompra = conReservas && !mueble.precio_venta && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado';
 
   return (
     <div className="pd-container">
@@ -147,6 +201,15 @@ const ProductDetail = () => {
               <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
                 {TEXTO_PREGUNTAR}
               </Link>
+            ) : sinCompra ? (
+              // Con las reservas, una pieza sin precio de venta no se compra en la web: se alquila con el
+              // calendario de abajo o, si no lo hay (no se puede alquilar, o falló la disponibilidad),
+              // se pregunta.
+              disp && !conCalendario && (
+                <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
+                  {TEXTO_PREGUNTAR}
+                </Link>
+              )
             ) : (
             <>
             <div className="pd-quantity-wrapper">
@@ -158,6 +221,8 @@ const ProductDetail = () => {
               </div>
             </div>
 
+            {/* Con las reservas, la cesta es solo para comprar: sin "Alquilar por días" (6.1). */}
+            {!conReservas && (
             <div className="pd-options-wrapper">
               <label className="pd-label">Modalidad</label>
               <div className="pd-options-grid">
@@ -179,21 +244,40 @@ const ProductDetail = () => {
                 </button>
               </div>
             </div>
+            )}
 
             <button 
               className="pd-cta-btn" 
-              disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado' || cestaLlena}
+              disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado' || cestaLlena || noComprable}
               onClick={handleAddToCart}
+              aria-describedby={bloqueadaPorReservas ? 'pd-aviso-reservas' : undefined}
             >
-              {mueble.estado === 'vendido' ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : (cestaLlena ? 'Cesta llena' : 'Añadir a mi cesta'))}
+              {mueble.estado === 'vendido' || vendidaEnCalendario ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : (cestaLlena ? 'Cesta llena' : 'Añadir a mi cesta'))}
             </button>
             {/* H35: con la cesta en el máximo de piezas, se dice por qué no se puede añadir. */}
             {cestaLlena && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && (
               <p className="pd-cesta-llena" role="status">{CESTA_LLENA}</p>
             )}
+            {bloqueadaPorReservas && (
+              <p id="pd-aviso-reservas" className="pd-aviso-reservas">
+                {textoReservasHasta(datosDisp.comprable_desde)} Si quieres comprarla, pregúntanos.{' '}
+                <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
+              </p>
+            )}
             </>
             )}
           </div>
+
+          {conCalendario && (
+            <Suspense fallback={null}>
+              <PanelReserva
+                key={mueble.id}
+                mueble={mueble}
+                disponibilidad={datosDisp}
+                onRecargar={() => setRecargas((n) => n + 1)}
+              />
+            </Suspense>
+          )}
 
           {/* ACORDEON DE DETALLES */}
           <div className="pd-accordion-container">

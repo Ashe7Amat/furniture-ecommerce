@@ -6,7 +6,12 @@ import { loginUser, registerUser } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/AuthModal.css';
 
-const AuthModal = ({ isOpen, onClose, onSuccess }) => {
+// `descripcion` y `textoEntrar` son los textos del acceso, para quien no viene de la cesta (la reserva por
+// fechas): sin ellos, los de siempre.
+const DESCRIPCION_ACCESO = 'Accede a tu perfil para finalizar la compra de tus piezas únicas.';
+const TEXTO_ENTRAR = 'Entrar y continuar pedido';
+
+const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCESO, textoEntrar = TEXTO_ENTRAR }) => {
   const { login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
 
@@ -108,7 +113,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
           <p className="auth-sub-desc">
             {isRegister 
               ? 'Únete a nuestra comunidad de diseño slow y piezas con historia.' 
-              : 'Accede a tu perfil para finalizar la compra de tus piezas únicas.'}
+              : descripcion}
           </p>
 
           <form onSubmit={handleSubmit} className="auth-form">
@@ -158,7 +163,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
                 ? 'Conectando...' 
                 : isRegister 
                   ? 'Crear mi cuenta' 
-                  : 'Entrar y continuar pedido'}
+                  : textoEntrar}
             </button>
           </form>
 
