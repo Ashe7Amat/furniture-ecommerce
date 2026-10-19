@@ -1105,6 +1105,9 @@ legacy en revisión** (`origen = 'legacy'`).
   `reembolso_rechazado` en el historial que el siguiente reintento cuenta (Stripe guarda el resultado de una clave
   24 horas, así que repetirla no serviría). Si
   el reembolso se hizo y no se pudo guardar su id, 502 que pide no repetirlo (se encuentra al reintentar).
+  Todo 502 de una acción con el reembolso a medias lleva `codigo: 'reembolso_a_medias'` (y la reserva, si se puede
+  leer), y el panel solo lo trata como tal con ese código: un 502 sin él (la pasarela, Vercel) es un error más, que
+  pudo guardarse. Se despliega primero el servidor y luego el cliente.
 - **Alquiler ya entregado** (`ya_entregado`): no puede empezar después de hoy (400): no se podría recoger hasta
   entonces.
 - **Una provisional que ya quedó en conflicto** (`conflicto_en`) no se confirma aunque sus fechas se hayan liberado

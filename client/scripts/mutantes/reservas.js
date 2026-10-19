@@ -226,6 +226,18 @@ export const MUTANTES = [
     reemplazo: ''
   },
   {
+    nombre: 'la recarga de una lista desfasada borra el mensaje de la tarjeta si tarda en llegar (no conserva)',
+    archivo: ARCHIVO,
+    buscar: 'cargar(vistaRef.current, true).then(() => setFoco(reserva.id));',
+    reemplazo: 'cargar(vistaRef.current).then(() => setFoco(reserva.id));'
+  },
+  {
+    nombre: 'el error de un diálogo cerrado con «Volver» reaparece al abrir otra acción',
+    archivo: ARCHIVO,
+    buscar: "    setErrorDialogo('');\n    if (nuevo.tipo === 'alta') setAvisoAlta('');",
+    reemplazo: "    if (nuevo.tipo === 'alta') setAvisoAlta('');"
+  },
+  {
     nombre: 'un alta que falla sin respuesta del servidor no avisa de que pudo guardarse',
     archivo: ARCHIVO,
     buscar: 'const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;',

@@ -586,6 +586,19 @@ describe('Reservas — acciones directas', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /^Silla Tolix/ }).closest('li')).toHaveFocus());
   });
 
+  it('con una recarga lenta (red real), el mensaje de un 409 sigue bajo la tarjeta cuando llega la lista', async () => {
+    accionReservaAdmin.mockResolvedValueOnce(falla('Este alquiler ya está marcado como entregado.', 409));
+    const { user } = await montar();
+    const recarga = diferida();
+    getReservasAdmin.mockReturnValueOnce(recarga.promesa);
+    await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+
+    await act(async () => recarga.resolver(ok({ hoy: HOY, reservas: [{ ...ALQUILER, estado: 'en_curso', acciones: ['recoger'] }] })));
+    expect(await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
+    expect(tarjeta('Silla Tolix').getByRole('alert')).toHaveTextContent('Este alquiler ya está marcado como entregado.');
+  });
+
   it('otro error al entregar antes de la fecha (no un 409) tampoco pide confirmación', async () => {
     accionReservaAdmin.mockResolvedValueOnce(falla('No se ha podido completar la acción.', 500));
     const { user } = await montar();
@@ -697,6 +710,35 @@ describe('Reservas — acciones con diálogo', () => {
     // La tarjeta no está en esta vista: el aviso que se queda no se ve, pero el toast sí
     expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/^No se pudo conectar con el servidor\./), 'error');
     expect(screen.queryByText('Mesa de roble')).toBeNull();
+  });
+
+  it('si se cierra el diálogo y falla con un 409, y la recarga tarda, el aviso sigue bajo la tarjeta cuando llega la lista', async () => {
+    const respuesta = diferida();
+    accionReservaAdmin.mockReturnValue(respuesta.promesa);
+    const { user } = await montar({ reservas: [RETRASADA] });
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+    await user.keyboard('{Escape}');
+    const recarga = diferida();
+    getReservasAdmin.mockReturnValueOnce(recarga.promesa);
+    await act(async () => respuesta.resolver(falla('Este alquiler ya está marcado como recogido.', 409)));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+
+    await act(async () => recarga.resolver(ok({ hoy: HOY, reservas: [{ ...RETRASADA, estado: 'devuelta', acciones: [] }] })));
+    expect(await screen.findByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+    expect(tarjeta('Mesa de roble').getByRole('alert')).toHaveTextContent('Este alquiler ya está marcado como recogido.');
+  });
+
+  it('el error de un diálogo no reaparece al volver a abrir una acción: abrir lo limpia', async () => {
+    accionReservaAdmin.mockResolvedValueOnce(falla('La recogida choca con la reserva E5F6A7B8 (del 12/10/2026).', 400));
+    const { user } = await montar({ reservas: [RETRASADA] });
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+    expect(dialogo().getByRole('alert')).toHaveTextContent('La recogida choca con la reserva E5F6A7B8');
+    await user.click(dialogo().getByRole('button', { name: 'Volver' }));
+
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    expect(dialogo().queryByRole('alert')).toBeNull();
   });
 
   it('un 409 con un diálogo abierto recarga la lista y, al cerrarlo, el foco va a la tarjeta (no se pierde en el <body>)', async () => {
