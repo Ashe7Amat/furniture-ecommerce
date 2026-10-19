@@ -1,0 +1,668 @@
+// Test de CONTRATO del panel de reservas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d) con el
+// cliente REAL de supabase-js y un fetch falso que responde como PostgREST (mismo patrón que
+// queryContractCompraReservas.test.js). Fija lo que el doble en memoria da por supuesto:
+//   - cómo sale el filtro de cada vista de la lista (gte/lte, not.is.null, el or de las próximas...)
+//     y que las piezas se leen con una segunda consulta, no con un embed;
+//   - que cada acción solo escribe si la fila sigue como se leyó (updated_at=eq.<lo leído>, con su
+//     "+00:00" codificado) y qué cuerpo manda;
+//   - el cuerpo exacto de cada alta, después de la limpieza de caducadas (4.6);
+//   - que el 409 de PostgREST con {code: '23P01'} se convierte en el 409 que dice con qué choca, sin
+//     el detalle de Postgres.
+const { test, describe, beforeEach, afterEach, mock } = require('node:test');
+const assert = require('node:assert/strict');
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+require('./helpers/testEnv');
+
+process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
+
+const { createClient } = require('@supabase/supabase-js');
+const app = require('../index');
+const supabase = require('../data/supabase');
+const stripeUtil = require('../utils/stripe');
+const { COLUMNAS_LISTA } = require('../utils/adminReservas');
+const { hoyEnMadrid, sumarDias, fechaLegible } = require('../utils/fechasMadrid');
+
+const hoy = hoyEnMadrid();
+const dia = (n) => sumarDias(hoy, n);
+const SOFA = '00000000-0000-4000-8000-000000000001';
+const RESERVA = '00000000-0000-4000-8000-000000000101';
+const OTRA = '00000000-0000-4000-8000-000000000102';
+const PEDIDO_OTRA = 'c0ffee00-0000-4000-8000-000000000002';
+// Como lo devuelve PostgREST: microsegundos y la zona con "+".
+const LEIDO = '2026-10-13T21:30:00.123456+00:00';
+const TOKEN_ADMIN = jwt.sign(
+  { email: 'admin@test.com', nombre: 'Admin', rol: 'admin' },
+  process.env.JWT_SECRET
+);
+
+const ESTADOS_QUE_OCUPAN = 'in.(pendiente,confirmada,en_curso,devuelta)';
+const ERROR_EXCLUSION = {
+  code: '23P01',
+  details: `Key (mueble_id, rango_ocupado)=(${SOFA}, [2030-01-01,2030-01-05)) conflicts with existing key (mueble_id, rango_ocupado)=(${SOFA}, [2030-01-03,2030-01-08)).`,
+  hint: null,
+  message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
+};
+
+const json = (estado, cuerpo) =>
+  new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), {
+    status: estado,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+// Una fila tal como la devuelve PostgREST (horas con segundos, numeric como número, el rango en texto).
+const fila = (cambios = {}) => ({
+  id: RESERVA,
+  mueble_id: SOFA,
+  pedido_id: null,
+  tipo: 'alquiler',
+  estado: 'confirmada',
+  origen: 'web',
+  fecha_inicio: hoy,
+  hora_entrega: '10:00:00',
+  fecha_fin: dia(3),
+  hora_recogida: '18:00:00',
+  fin_ocupacion: dia(3),
+  dias_margen: 2,
+  expira_en: null,
+  modo_entrega: 'tienda',
+  modo_devolucion: 'tienda',
+  direccion_entrega: null,
+  datos_contacto: { nombre: 'Ana', email: 'ana@ejemplo.com', telefono: '600' },
+  conflicto_en: null,
+  importe_total: 120.5,
+  stripe_payment_intent_id: 'pi_123',
+  reembolso_solicitado_en: null,
+  reembolso_importe: null,
+  stripe_refund_id: null,
+  motivo: null,
+  motivo_cancelacion: null,
+  entregada_en: null,
+  devuelta_en: null,
+  created_at: '2026-10-01T10:00:00.123456+00:00',
+  historial: [],
+  updated_at: LEIDO,
+  ...cambios
+});
+// La reserva de otro cliente que va después, como la devuelve la búsqueda de choques.
+const otra = {
+  id: OTRA,
+  pedido_id: PEDIDO_OTRA,
+  tipo: 'alquiler',
+  estado: 'confirmada',
+  fecha_inicio: dia(6),
+  fecha_fin: dia(9),
+  fin_ocupacion: dia(9),
+  dias_margen: 2,
+  expira_en: null
+};
+
+let peticiones;
+let leida; // la última fila que devolvió una lectura por id: el UPDATE por defecto parte de ella
+let leerReservas; // (params) => filas de GET /reservas
+let responderPatch; // (params, cuerpo) => Response de PATCH /reservas
+let responderPost; // (unObjeto) => Response de POST /reservas
+const fetchFalso = async (url, init = {}) => {
+  const u = new URL(url);
+  const metodo = (init.method || 'GET').toUpperCase();
+  const cabeceras = new Headers(init.headers);
+  const peticion = {
+    metodo,
+    ruta: u.pathname,
+    url,
+    pares: [...u.searchParams],
+    params: Object.fromEntries(u.searchParams),
+    cuerpo: init.body ? JSON.parse(init.body) : null
+  };
+  peticiones.push(peticion);
+  const unObjeto = (cabeceras.get('accept') || '').includes('vnd.pgrst.object');
+  if (u.pathname === '/rest/v1/muebles') {
+    if (metodo === 'GET') {
+      return json(200, [
+        { id: SOFA, nombre: 'Sofá Lumina', referencia: 'NAV-SOF-001', estado: 'disponible' }
+      ]);
+    }
+    return json(204);
+  }
+  if (u.pathname === '/rest/v1/reservas') {
+    if (metodo === 'GET') {
+      const filas = leerReservas(peticion.params);
+      if (filas instanceof Response) return filas;
+      if (peticion.params.id && filas.length) [leida] = filas;
+      return json(200, filas);
+    }
+    if (metodo === 'PATCH') return responderPatch(peticion.params, peticion.cuerpo);
+    if (metodo === 'POST') return responderPost(unObjeto, peticion.cuerpo);
+  }
+  return json(404, { message: `Petición no prevista: ${metodo} ${u.pathname}` });
+};
+
+const de = (metodo, ruta) =>
+  peticiones.filter((p) => p.metodo === metodo && p.ruta === `/rest/v1/${ruta}`);
+// La limpieza de caducadas de escribirEnCalendario (4.6) frente al UPDATE de la propia reserva.
+const esLimpieza = (params) => params.estado === 'eq.pendiente';
+const columnas = (params) => params.select.split(',');
+
+let stripe;
+beforeEach(() => {
+  process.env.RESERVAS_ACTIVAS = 'true';
+  peticiones = [];
+  leida = null;
+  leerReservas = () => [];
+  // Por defecto: la limpieza no cambia nada y el UPDATE devuelve la fila leída con lo que se mandó.
+  responderPatch = (params, cuerpo) =>
+    esLimpieza(params)
+      ? json(204)
+      : json(200, [{ ...(leida || fila()), ...cuerpo, updated_at: LEIDO }]);
+  responderPost = (unObjeto, cuerpo) => {
+    const creada = { ...fila(), id: RESERVA, ...cuerpo };
+    return json(201, unObjeto ? creada : [creada]);
+  };
+  const real = createClient('https://contrato.supabase.co', 'clave-de-prueba', {
+    auth: { persistSession: false },
+    global: { fetch: fetchFalso }
+  });
+  mock.method(supabase, 'from', (tabla) => real.from(tabla));
+  stripe = {
+    refunds: {
+      create: mock.fn(async () => ({ id: 're_1' })),
+      list: mock.fn(async () => ({ data: [] }))
+    }
+  };
+  mock.method(stripeUtil, 'getStripe', () => stripe);
+  mock.method(console, 'error', () => {});
+});
+
+afterEach(() => {
+  mock.restoreAll();
+  delete process.env.RESERVAS_ACTIVAS;
+});
+
+const comoAdmin = (peticion) => peticion.set('Authorization', `Bearer ${TOKEN_ADMIN}`);
+const lista = (consulta) => comoAdmin(request(app).get(`/api/admin/reservas${consulta}`));
+const accion = (nombre, cuerpo = {}) =>
+  comoAdmin(request(app).post(`/api/admin/reservas/${RESERVA}/${nombre}`)).send(cuerpo);
+const alta = (tipo, cuerpo) =>
+  comoAdmin(request(app).post(`/api/admin/reservas/${tipo}`)).send(cuerpo);
+
+describe('contrato de la lista: el filtro de cada vista', () => {
+  test('próximas: dos consultas, lo que ocupa desde hoy sin ventas pasadas y los alquileres entregados', async () => {
+    const res = await lista('?vista=proximas');
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 2);
+    const enCalendario = consultas.find((c) => c.params.rango_ocupado);
+    assert.deepEqual(columnas(enCalendario.params), COLUMNAS_LISTA.split(', '));
+    assert.equal(enCalendario.params.estado, ESTADOS_QUE_OCUPAN);
+    assert.equal(enCalendario.params.rango_ocupado, `ov.[${hoy},)`);
+    assert.equal(enCalendario.params.or, `(tipo.neq.venta,fecha_inicio.gte.${hoy})`);
+    assert.equal(enCalendario.params.order, 'fecha_inicio.asc');
+    const entregadas = consultas.find((c) => c !== enCalendario);
+    assert.equal(entregadas.params.estado, 'eq.en_curso');
+    assert.deepEqual(Object.keys(entregadas.params).sort(), ['estado', 'order', 'select']);
+  });
+
+  const casos = [
+    [
+      'entregas',
+      [
+        ['tipo', 'eq.alquiler'],
+        ['estado', 'eq.confirmada'],
+        ['fecha_inicio', `lte.${dia(1)}`],
+        ['order', 'fecha_inicio.asc']
+      ]
+    ],
+    [
+      'recogidas',
+      [
+        ['tipo', 'eq.alquiler'],
+        ['estado', 'eq.en_curso'],
+        ['fecha_fin', `gte.${hoy}`],
+        ['fecha_fin', `lte.${dia(1)}`],
+        ['order', 'fecha_fin.asc']
+      ]
+    ],
+    [
+      'retrasadas',
+      [
+        ['tipo', 'eq.alquiler'],
+        ['estado', 'eq.en_curso'],
+        ['fecha_fin', `lt.${hoy}`],
+        ['order', 'fecha_fin.asc']
+      ]
+    ],
+    [
+      'conflicto',
+      [
+        ['conflicto_en', 'not.is.null'],
+        ['order', 'conflicto_en.desc']
+      ]
+    ],
+    [
+      'reembolsos',
+      [
+        ['reembolso_solicitado_en', 'not.is.null'],
+        ['stripe_refund_id', 'is.null'],
+        ['order', 'reembolso_solicitado_en.asc']
+      ]
+    ],
+    [
+      'legacy',
+      [
+        ['origen', 'eq.legacy'],
+        ['estado', 'neq.cancelada'],
+        ['order', 'fecha_inicio.asc']
+      ]
+    ],
+    [
+      'todas',
+      [
+        ['order', 'created_at.desc'],
+        ['limit', '200']
+      ]
+    ]
+  ];
+  for (const [vista, filtros] of casos) {
+    test(`${vista}: exactamente sus filtros`, async () => {
+      assert.equal((await lista(`?vista=${vista}`)).status, 200);
+      const [consulta] = de('GET', 'reservas');
+      assert.deepEqual(columnas(consulta.params), COLUMNAS_LISTA.split(', '));
+      assert.deepEqual(
+        consulta.pares.filter(([clave]) => clave !== 'select'),
+        filtros
+      );
+    });
+  }
+
+  test('con mueble_id, la pieza va como un filtro más', async () => {
+    await lista(`?vista=entregas&mueble_id=${SOFA}`);
+    const [consulta] = de('GET', 'reservas');
+    assert.equal(consulta.params.mueble_id, `eq.${SOFA}`);
+  });
+
+  test('las piezas, con una segunda consulta por id; y la fila de PostgREST se lee bien', async () => {
+    leerReservas = () => [fila({ pedido_id: 'a1b2c3d4-0000-4000-8000-000000000001' })];
+
+    const res = await lista('?vista=todas');
+
+    const [piezas] = de('GET', 'muebles');
+    assert.equal(piezas.params.select, 'id,nombre,referencia');
+    assert.equal(piezas.params.id, `in.(${SOFA})`);
+    const [reserva] = res.body.reservas;
+    assert.equal(reserva.referencia, 'A1B2C3D4');
+    assert.equal(reserva.hora_entrega, '10:00');
+    assert.equal(reserva.hora_recogida, '18:00');
+    assert.equal(reserva.importe_total, 120.5);
+    assert.equal(reserva.pieza.nombre, 'Sofá Lumina');
+    assert.deepEqual(reserva.acciones, ['entregar', 'cancelar']);
+  });
+
+  test('un error de PostgREST en la lista: 500 genérico, sin el detalle de Postgres', async () => {
+    leerReservas = () =>
+      json(500, {
+        code: '57014',
+        details: null,
+        hint: null,
+        message: 'canceling statement due to statement timeout'
+      });
+
+    const res = await lista('?vista=todas');
+
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.body, { error: 'Error interno al cargar las reservas.' });
+    assert.equal(de('GET', 'muebles').length, 0, 'sin reservas no se leen piezas');
+  });
+});
+
+describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
+  test('entregar: lee la fila, la cambia solo si sigue igual y luego la pieza, solo si estaba disponible', async () => {
+    leerReservas = () => [fila()];
+
+    const res = await accion('entregar');
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      [
+        'GET /rest/v1/reservas',
+        'PATCH /rest/v1/reservas',
+        'PATCH /rest/v1/muebles',
+        'GET /rest/v1/muebles'
+      ]
+    );
+    const [lectura] = de('GET', 'reservas');
+    assert.equal(lectura.params.id, `eq.${RESERVA}`);
+    assert.deepEqual(columnas(lectura.params).slice(-4), [
+      'id',
+      'mueble_id',
+      'historial',
+      'updated_at'
+    ]);
+    const [cambio] = de('PATCH', 'reservas');
+    assert.equal(cambio.params.id, `eq.${RESERVA}`);
+    assert.equal(cambio.params.updated_at, `eq.${LEIDO}`);
+    assert.ok(cambio.url.includes('%2B00%3A00'), 'el "+" va codificado en la URL');
+    assert.deepEqual(Object.keys(cambio.cuerpo), ['estado', 'entregada_en', 'historial']);
+    assert.equal(cambio.cuerpo.estado, 'en_curso');
+    assert.equal(cambio.cuerpo.historial.at(-1).tipo, 'entregada');
+    assert.equal(cambio.cuerpo.historial.at(-1).por, 'admin');
+    const [pieza] = de('PATCH', 'muebles');
+    assert.equal(pieza.params.id, `eq.${SOFA}`);
+    assert.equal(pieza.params.estado, 'eq.disponible');
+    assert.deepEqual(pieza.cuerpo, { estado: 'alquilado' });
+    assert.equal(res.body.reserva.estado, 'en_curso');
+  });
+
+  test('si el UPDATE no cambia ninguna fila (otra escritura entre medias), vuelve a leer y decide otra vez', async () => {
+    let lecturas = 0;
+    leerReservas = () => {
+      lecturas += 1;
+      return [lecturas === 1 ? fila() : fila({ estado: 'en_curso', updated_at: LEIDO })];
+    };
+    responderPatch = () => json(200, []);
+
+    const res = await accion('entregar');
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, { error: 'Este alquiler ya está marcado como entregado.' });
+    assert.equal(de('PATCH', 'reservas').length, 1);
+    assert.equal(de('PATCH', 'muebles').length, 0);
+  });
+
+  test('recoger: pasa por la limpieza (ocupa más calendario si es tarde) y manda la devolución', async () => {
+    leerReservas = () => [fila({ estado: 'en_curso', fecha_inicio: dia(-3), entregada_en: LEIDO })];
+
+    const res = await accion('recoger');
+
+    assert.equal(res.status, 200);
+    const [limpieza, cambio] = de('PATCH', 'reservas');
+    assert.ok(esLimpieza(limpieza.params));
+    assert.equal(limpieza.params.mueble_id, `eq.${SOFA}`);
+    assert.match(limpieza.params.expira_en, /^lt\./);
+    assert.deepEqual(limpieza.cuerpo, { estado: 'expirada' });
+    assert.deepEqual(Object.keys(cambio.cuerpo), ['estado', 'devuelta_en', 'historial']);
+    assert.equal(cambio.cuerpo.estado, 'devuelta');
+    assert.equal('fin_ocupacion' in cambio.cuerpo, false, 'lo pone el disparador de R2');
+    const [pieza] = de('PATCH', 'muebles');
+    assert.equal(pieza.params.estado, 'eq.alquilado');
+    assert.deepEqual(pieza.cuerpo, { estado: 'disponible' });
+  });
+
+  test('ampliar: el 409 de PostgREST con 23P01 se limpia, se reintenta y acaba en el 409 que nombra la siguiente', async () => {
+    leerReservas = (params) =>
+      params.id
+        ? [
+            fila({
+              estado: 'en_curso',
+              fecha_inicio: dia(-3),
+              fecha_fin: dia(-1),
+              fin_ocupacion: dia(-1),
+              entregada_en: LEIDO
+            })
+          ]
+        : [otra];
+    responderPatch = (params) => (esLimpieza(params) ? json(204) : json(409, ERROR_EXCLUSION));
+
+    const res = await accion('ampliar', { fin_ocupacion: dia(5) });
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error:
+        `La nueva fecha choca con el alquiler #C0FFEE00 (del ${fechaLegible(dia(6))} al ` +
+        `${fechaLegible(dia(9))}, más 2 días de margen): avisa a ese cliente antes de ampliar.`
+    });
+    assert.ok(!/Key|reservas_sin_solape/.test(res.body.error));
+    assert.deepEqual(
+      peticiones.filter((p) => p.ruta === '/rest/v1/reservas').map((p) => p.metodo),
+      ['GET', 'PATCH', 'PATCH', 'PATCH', 'PATCH', 'GET']
+    );
+    const choques = de('GET', 'reservas')[1];
+    assert.deepEqual(columnas(choques.params), [
+      'id',
+      'pedido_id',
+      'tipo',
+      'estado',
+      'fecha_inicio',
+      'fecha_fin',
+      'fin_ocupacion',
+      'dias_margen',
+      'expira_en'
+    ]);
+    assert.equal(choques.params.mueble_id, `eq.${SOFA}`);
+    assert.equal(choques.params.estado, ESTADOS_QUE_OCUPAN);
+    assert.equal(choques.params.rango_ocupado, `ov.[${dia(-3)},${dia(7)})`);
+  });
+
+  test('cancelar con reembolso: reclama la marca en el mismo UPDATE, llama a Stripe y guarda el id con otro UPDATE guardado', async () => {
+    leerReservas = () => [fila()];
+
+    const res = await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 5000 });
+
+    assert.equal(res.status, 200);
+    const [cancelacion, guardado] = de('PATCH', 'reservas');
+    assert.equal(cancelacion.params.updated_at, `eq.${LEIDO}`);
+    assert.deepEqual(Object.keys(cancelacion.cuerpo), [
+      'estado',
+      'cancelada_en',
+      'cancelada_por',
+      'motivo_cancelacion',
+      'reembolso_solicitado_en',
+      'reembolso_importe',
+      'historial'
+    ]);
+    assert.equal(cancelacion.cuerpo.estado, 'cancelada');
+    assert.equal(cancelacion.cuerpo.cancelada_por, 'admin');
+    assert.equal(cancelacion.cuerpo.reembolso_importe, 50);
+    assert.equal(stripe.refunds.create.mock.callCount(), 1);
+    assert.equal(guardado.params.updated_at, `eq.${LEIDO}`);
+    assert.deepEqual(Object.keys(guardado.cuerpo), ['stripe_refund_id', 'historial']);
+    assert.equal(guardado.cuerpo.stripe_refund_id, 're_1');
+    // Un alquiler: la pieza no se toca.
+    assert.equal(de('PATCH', 'muebles').length, 0);
+  });
+
+  test('cancelar una venta: la pieza vuelve a disponible solo si estaba vendida', async () => {
+    leerReservas = () => [
+      fila({
+        tipo: 'venta',
+        fecha_fin: null,
+        fin_ocupacion: null,
+        dias_margen: 0,
+        stripe_payment_intent_id: null
+      })
+    ];
+    const res = await accion('cancelar', { motivo: 'Devolución', reembolso_centimos: 0 });
+    assert.equal(res.status, 200);
+    const [pieza] = de('PATCH', 'muebles');
+    assert.equal(pieza.params.estado, 'eq.vendido');
+    assert.deepEqual(pieza.cuerpo, { estado: 'disponible' });
+  });
+
+  test('levantar un bloqueo: solo estado, fecha y quién, más la línea', async () => {
+    leerReservas = () => [
+      fila({ tipo: 'bloqueo', hora_entrega: null, hora_recogida: null, dias_margen: 0 })
+    ];
+    const res = await accion('levantar-bloqueo');
+    assert.equal(res.status, 200);
+    const [cambio] = de('PATCH', 'reservas');
+    assert.deepEqual(Object.keys(cambio.cuerpo), [
+      'estado',
+      'cancelada_en',
+      'cancelada_por',
+      'historial'
+    ]);
+  });
+});
+
+describe('contrato de las altas: el cuerpo de cada inserción', () => {
+  const sinFecha = (cuerpo) => ({
+    ...cuerpo,
+    historial: cuerpo.historial.map(({ fecha, ...linea }) => {
+      assert.ok(!Number.isNaN(Date.parse(fecha)));
+      return linea;
+    })
+  });
+
+  test('bloqueo: lee la pieza, limpia las caducadas y luego inserta, pidiendo la fila de vuelta', async () => {
+    const res = await alta('bloqueos', {
+      mueble_id: SOFA,
+      fecha_inicio: dia(3),
+      fecha_fin: dia(6),
+      motivo: 'Mantenimiento'
+    });
+
+    assert.equal(res.status, 201);
+    assert.deepEqual(
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      ['GET /rest/v1/muebles', 'PATCH /rest/v1/reservas', 'POST /rest/v1/reservas']
+    );
+    const [pieza] = de('GET', 'muebles');
+    assert.equal(pieza.params.id, `eq.${SOFA}`);
+    assert.equal(pieza.params.select, 'id,nombre,referencia,estado');
+    const [insercion] = de('POST', 'reservas');
+    assert.deepEqual(columnas(insercion.params), COLUMNAS_LISTA.split(', '));
+    assert.deepEqual(sinFecha(insercion.cuerpo), {
+      mueble_id: SOFA,
+      tipo: 'bloqueo',
+      estado: 'confirmada',
+      fecha_inicio: dia(3),
+      fecha_fin: dia(6),
+      fin_ocupacion: dia(6),
+      dias_margen: 0,
+      origen: 'manual',
+      motivo: 'Mantenimiento',
+      historial: [{ tipo: 'creada', detalle: 'Bloqueo: Mantenimiento', por: 'admin' }]
+    });
+  });
+
+  test('alquiler fuera de la web', async () => {
+    const res = await alta('alquileres', {
+      mueble_id: SOFA,
+      fecha_inicio: dia(3),
+      hora_entrega: '09:30',
+      fecha_fin: dia(6),
+      hora_recogida: '19:00',
+      modo_entrega: 'domicilio',
+      modo_devolucion: 'tienda',
+      contacto: { nombre: 'Marta', telefono: '622333444', direccion: 'Carrer de Sants 10' },
+      importe_total_centimos: 18050,
+      origen: 'manual',
+      ya_entregado: true
+    });
+
+    assert.equal(res.status, 201);
+    const [insercion] = de('POST', 'reservas');
+    const { entregada_en: entregadaEn, ...resto } = sinFecha(insercion.cuerpo);
+    assert.ok(!Number.isNaN(Date.parse(entregadaEn)));
+    assert.deepEqual(resto, {
+      mueble_id: SOFA,
+      tipo: 'alquiler',
+      estado: 'en_curso',
+      fecha_inicio: dia(3),
+      hora_entrega: '09:30',
+      fecha_fin: dia(6),
+      hora_recogida: '19:00',
+      fin_ocupacion: dia(6),
+      dias_margen: 2,
+      modo_entrega: 'domicilio',
+      modo_devolucion: 'tienda',
+      direccion_entrega: 'Carrer de Sants 10',
+      datos_contacto: {
+        nombre: 'Marta',
+        email: null,
+        telefono: '622333444',
+        direccion: 'Carrer de Sants 10',
+        notas: null
+      },
+      importe_total: 180.5,
+      origen: 'manual',
+      historial: [
+        {
+          tipo: 'creada',
+          detalle: 'Alquiler pactado fuera de la web. Ya estaba entregado.',
+          por: 'admin'
+        }
+      ]
+    });
+    const [pieza] = de('PATCH', 'muebles');
+    assert.equal(pieza.params.estado, 'eq.disponible');
+    assert.deepEqual(pieza.cuerpo, { estado: 'alquilado' });
+  });
+
+  test('venta fuera de la web de hoy: sin fin, y la pieza pasa a vendida sin mirar su estado', async () => {
+    const res = await alta('ventas', { mueble_id: SOFA, fecha_inicio: hoy, motivo: 'En tienda' });
+
+    assert.equal(res.status, 201);
+    const [insercion] = de('POST', 'reservas');
+    assert.deepEqual(sinFecha(insercion.cuerpo), {
+      mueble_id: SOFA,
+      tipo: 'venta',
+      estado: 'confirmada',
+      fecha_inicio: hoy,
+      dias_margen: 0,
+      origen: 'manual',
+      motivo: 'En tienda',
+      historial: [{ tipo: 'creada', detalle: 'Venta fuera de la web: En tienda', por: 'admin' }]
+    });
+    const [pieza] = de('PATCH', 'muebles');
+    assert.deepEqual(pieza.params, { id: `eq.${SOFA}` });
+    assert.deepEqual(pieza.cuerpo, { estado: 'vendido' });
+  });
+
+  test('el 409 de PostgREST con 23P01 al insertar: se limpia y se reintenta, y después es el 409 que dice con qué choca', async () => {
+    responderPost = () => json(409, ERROR_EXCLUSION);
+    leerReservas = () => [otra];
+
+    const res = await alta('bloqueos', {
+      mueble_id: SOFA,
+      fecha_inicio: dia(5),
+      fecha_fin: dia(8),
+      motivo: 'Mantenimiento'
+    });
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error:
+        `Esas fechas chocan con el alquiler #C0FFEE00 (del ${fechaLegible(dia(6))} al ` +
+        `${fechaLegible(dia(9))}, más 2 días de margen).`
+    });
+    assert.ok(!res.text.includes(SOFA), 'nada del detalle de Postgres');
+    assert.ok(!/Key|reservas_sin_solape|conflicting/.test(res.text));
+    assert.deepEqual(
+      peticiones.filter((p) => p.ruta === '/rest/v1/reservas').map((p) => p.metodo),
+      ['PATCH', 'POST', 'PATCH', 'POST', 'GET']
+    );
+    const [choques] = de('GET', 'reservas');
+    assert.equal(choques.params.rango_ocupado, `ov.[${dia(5)},${dia(8)})`);
+    assert.equal(choques.params.estado, ESTADOS_QUE_OCUPAN);
+  });
+
+  test('una venta que choca: el rango que se busca es abierto por arriba', async () => {
+    responderPost = () => json(409, ERROR_EXCLUSION);
+    leerReservas = () => [otra];
+    const res = await alta('ventas', { mueble_id: SOFA, fecha_inicio: hoy, motivo: 'En tienda' });
+    assert.equal(res.status, 409);
+    assert.match(
+      res.body.error,
+      new RegExp(`Puede empezar, como pronto, el ${fechaLegible(dia(11))}\\.$`)
+    );
+    const [choques] = de('GET', 'reservas');
+    assert.equal(choques.params.rango_ocupado, `ov.[${hoy},)`);
+    assert.equal(de('PATCH', 'muebles').length, 0, 'sin venta, la pieza no se toca');
+  });
+
+  test('el 23503 de PostgREST (la pieza ya no existe) es un 404', async () => {
+    responderPost = () =>
+      json(409, {
+        code: '23503',
+        details: `Key (mueble_id)=(${SOFA}) is not present in table "muebles".`,
+        hint: null,
+        message:
+          'insert or update on table "reservas" violates foreign key constraint "reservas_mueble_id_fkey"'
+      });
+    const res = await alta('ventas', { mueble_id: SOFA, fecha_inicio: hoy, motivo: 'En tienda' });
+    assert.equal(res.status, 404);
+    assert.deepEqual(res.body, { error: 'Mueble no encontrado.' });
+  });
+});

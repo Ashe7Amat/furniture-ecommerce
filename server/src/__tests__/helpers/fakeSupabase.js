@@ -72,6 +72,35 @@ const rangosSeSolapan = (a, b) =>
   (a.hasta === null || b.desde === null || b.desde < a.hasta) &&
   (b.hasta === null || a.desde === null || a.desde < b.hasta);
 
+// Una comparación de PostgREST con la lógica de tres valores de SQL: true, false o null (desconocido:
+// la columna es NULL y el operador no es IS). Los valores se comparan como texto, que basta para
+// fechas ISO y enumerados. Lo usan lte/gte, not() y or().
+const OPERADORES = ['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'is'];
+const comparar = (valor, operador, objetivo) => {
+  if (operador === 'is') return objetivo === null ? valor == null : valor === objetivo;
+  if (valor == null) return null;
+  if (operador === 'eq') return valor === objetivo;
+  if (operador === 'neq') return valor !== objetivo;
+  if (operador === 'lt') return valor < objetivo;
+  if (operador === 'lte') return valor <= objetivo;
+  if (operador === 'gt') return valor > objetivo;
+  if (operador === 'gte') return valor >= objetivo;
+  throw new Error(`Operador no previsto en el doble de Supabase: ${operador}`);
+};
+
+// Una condición de or() en el formato de PostgREST: "columna.operador.valor" o
+// "columna.not.operador.valor". Con is, "null", "true" y "false" son esos valores, no texto.
+const leerCondicionOr = (texto) => {
+  const partes = /^([a-z_][a-z0-9_]*)\.(not\.)?([a-z]+)\.(.*)$/.exec(texto);
+  if (!partes || !OPERADORES.includes(partes[3]) || /["()]/.test(partes[4])) {
+    throw new Error(`Condición de or() que el doble de Supabase no sabe leer: ${texto}`);
+  }
+  const [, columna, negada, operador, crudo] = partes;
+  const literales = { null: null, true: true, false: false };
+  const valor = operador === 'is' && crudo in literales ? literales[crudo] : crudo;
+  return { columna, negada: Boolean(negada), operador, valor };
+};
+
 // Las restricciones de la tabla `reservas` que puede incumplir una fila frente a las demás, con el
 // error que daría Postgres (o null si cumple todas). El predicado de la exclusión es el de la
 // migración: solo cuentan las filas en un estado que ocupa el calendario.
@@ -471,6 +500,34 @@ const crearFakeSupabase = ({
           (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) < valor
         );
         return usar('lt');
+      },
+      lte: (columna, valor) => {
+        consulta.filtros.push((f) => comparar(valorDeColumna(f, columna), 'lte', valor) === true);
+        return usar('lte');
+      },
+      gte: (columna, valor) => {
+        consulta.filtros.push((f) => comparar(valorDeColumna(f, columna), 'gte', valor) === true);
+        return usar('gte');
+      },
+      // NOT de un operador, como el filtro "not.<op>" de PostgREST: not('c', 'is', null) es
+      // "c IS NOT NULL". Como SQL, NOT de una comparación desconocida (columna NULL) tampoco cumple.
+      not: (columna, operador, valor) => {
+        consulta.filtros.push(
+          (f) => comparar(valorDeColumna(f, columna), operador, valor) === false
+        );
+        return usar('not');
+      },
+      // OR de condiciones simples, con la cadena de PostgREST: or('tipo.neq.venta,fecha.gte.2026-01-01').
+      // Una fila cumple si alguna condición da true (las desconocidas no cuentan).
+      or: (texto) => {
+        const condiciones = String(texto).split(',').map(leerCondicionOr);
+        consulta.filtros.push((f) =>
+          condiciones.some(({ columna, negada, operador, valor }) => {
+            const resultado = comparar(valorDeColumna(f, columna), operador, valor);
+            return negada ? resultado === false : resultado === true;
+          })
+        );
+        return usar('or');
       },
       // LIKE: los mismos comodines que ILIKE, pero distinguiendo mayúsculas, como en Postgres. Lo
       // usa utils/referencia.js para buscar la última referencia de un código (NAV-SIL-%).
