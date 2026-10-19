@@ -298,6 +298,23 @@ describe('una reserva pagada y cancelada después desde el panel (6.4)', () => {
     );
   });
 
+  test('una provisional que ya quedó en conflicto no se confirma al volver, aunque sus fechas se hayan liberado', async () => {
+    // Fechas libres (no hay otra reserva) y el pago otra vez en la mano: el aviso ya dijo que se reembolsa
+    instalar([provisional({ estado: 'expirada', conflicto_en: '2026-10-11T10:00:00.000Z' })]);
+
+    const exito = await volverDelPago();
+    assert.equal(exito.body.estado, 'conflicto');
+    assert.equal((await webhook()).body.estado, 'conflicto');
+
+    assert.equal(fila().estado, 'expirada');
+    assert.equal(fila().stripe_payment_intent_id, undefined);
+    assert.equal(fila().conflicto_en, '2026-10-11T10:00:00.000Z', 'la marca de antes se queda');
+    assert.equal(correosEnviados(), 0, 'ni otro aviso al administrador ni otro email al cliente');
+    const [item] = (await lista('todas')).body.reservas;
+    assert.equal(item.etiqueta, 'No se pudo confirmar');
+    assert.deepEqual(item.acciones, []);
+  });
+
   test('con conflicto_en de antes y el reembolso a medias, «Reintentar» funciona', async () => {
     instalar([aMedias({ conflicto_en: '2026-10-11T10:00:00.000Z' })]);
     const res = await accion('reintentar-reembolso');
@@ -469,6 +486,107 @@ describe('cancelar: el tope de Stripe y sus rechazos (8.4, 8.6)', () => {
   });
 });
 
+describe('reintentar tras un rechazo de Stripe: otra clave de idempotencia cada vez (8.6, 19 oct)', () => {
+  beforeEach(() => instalar([confirmada()]));
+  const rechazar = () => {
+    stripe.refunds.create = mock.fn(async () => {
+      throw errorStripe('StripeInvalidRequestError', 'insufficient balance');
+    });
+  };
+  const claves = () => stripe.refunds.create.mock.calls.map((c) => c.arguments[1].idempotencyKey);
+  const rechazos = () => fila().historial.filter((l) => l.tipo === 'reembolso_rechazado');
+
+  test('cada rechazo se anota, y el siguiente reintento usa la clave siguiente', async () => {
+    rechazar();
+    const base = claveDeReembolso(RESERVA);
+
+    assert.equal(
+      (await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 3750 })).status,
+      502
+    );
+    assert.equal(rechazos().length, 1);
+    assert.deepEqual(
+      { tipo: rechazos()[0].tipo, por: rechazos()[0].por },
+      { tipo: 'reembolso_rechazado', por: 'sistema' }
+    );
+    assert.equal(rechazos()[0].detalle, 'Stripe no ha aceptado el reembolso: insufficient balance');
+
+    assert.equal((await accion('reintentar-reembolso')).status, 502);
+    assert.equal((await accion('reintentar-reembolso')).status, 502);
+    assert.deepEqual(claves(), [base, `${base}_2`, `${base}_3`]);
+    assert.equal(rechazos().length, 3);
+
+    // Resuelto el motivo, el siguiente va con otra clave y sale bien
+    stripe.refunds.create = mock.fn(async (datos, opciones) => ({
+      id: 're_bueno',
+      amount: datos.amount,
+      status: 'succeeded',
+      created: Math.floor(Date.now() / 1000),
+      metadata: datos.metadata,
+      clave: opciones.idempotencyKey
+    }));
+    const bien = await accion('reintentar-reembolso');
+    assert.equal(bien.status, 200);
+    assert.equal(claves()[0], `${base}_4`);
+    assert.equal(fila().stripe_refund_id, 're_bueno');
+  });
+
+  test('un reembolso fallido o anulado que sí existe en Stripe no se anota otra vez (ya lo cuenta la lista)', async () => {
+    stripe.refunds.create = mock.fn(async (datos) => {
+      const refund = {
+        id: `re_f${reembolsos.length + 1}`,
+        amount: datos.amount,
+        status: 'failed',
+        created: Math.floor(Date.now() / 1000),
+        metadata: datos.metadata
+      };
+      reembolsos.unshift(refund);
+      return refund;
+    });
+    const base = claveDeReembolso(RESERVA);
+
+    assert.equal(
+      (await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 3750 })).status,
+      502
+    );
+    assert.equal((await accion('reintentar-reembolso')).status, 502);
+
+    assert.equal(rechazos().length, 0);
+    assert.deepEqual(claves(), [base, `${base}_2`]);
+  });
+
+  test('si la anotación no se puede guardar, el 502 es el mismo y el reintento sigue con la clave base', async () => {
+    rechazar();
+    fake.fallos['reservas.update'] = (consulta) =>
+      consulta.datos.historial?.some?.((l) => l.tipo === 'reembolso_rechazado')
+        ? { message: 'conexión perdida' }
+        : null;
+    const base = claveDeReembolso(RESERVA);
+
+    const res = await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 3750 });
+
+    assert.equal(res.status, 502);
+    assert.equal(res.body.error, MENSAJE_RECHAZADO);
+    assert.equal(rechazos().length, 0);
+    delete fake.fallos['reservas.update'];
+    assert.equal((await accion('reintentar-reembolso')).status, 502);
+    assert.deepEqual(claves(), [base, base]);
+  });
+
+  test('un fallo pasajero de Stripe (no un rechazo) no se anota ni cambia la clave', async () => {
+    stripe.refunds.create = mock.fn(async () => {
+      throw errorStripe('StripeConnectionError', 'timeout');
+    });
+    const base = claveDeReembolso(RESERVA);
+
+    await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 3750 });
+    await accion('reintentar-reembolso');
+
+    assert.equal(rechazos().length, 0);
+    assert.deepEqual(claves(), [base, base]);
+  });
+});
+
 describe('reintentar el reembolso: los que no son del panel y los fallidos (8.6)', () => {
   beforeEach(() => instalar([aMedias()]));
   const externo = (cambios = {}) => ({
@@ -523,8 +641,20 @@ describe('reintentar el reembolso: los que no son del panel y los fallidos (8.6)
 });
 
 describe('dar por reembolsado (8.6, 19 oct)', () => {
-  test('cierra el reembolso a medias sin mover dinero, con su línea en el historial', async () => {
+  // Un reembolso hecho desde el Dashboard después de cancelar (el panel no lo hizo: sin metadata).
+  const externo = (cambios = {}) => ({
+    id: 're_dashboard',
+    amount: 3750,
+    status: 'succeeded',
+    created: SOLICITADO_EN_S + 3600,
+    metadata: {},
+    ...cambios
+  });
+  const NO_CONSTA = 'reembolso_no_consta';
+
+  test('con el reembolso en Stripe: lo cierra sin mover dinero, con su línea en el historial', async () => {
     instalar([aMedias()]);
+    reembolsos.push(externo());
 
     const res = await accion('dar-por-reembolsado');
 
@@ -539,13 +669,144 @@ describe('dar por reembolsado (8.6, 19 oct)', () => {
     assert.equal(linea.por, 'admin');
     assert.equal(fila().stripe_refund_id, undefined);
     assert.equal(stripe.refunds.create.mock.callCount(), 0);
-    assert.equal(stripe.refunds.list.mock.callCount(), 0);
+    assert.equal(stripe.refunds.list.mock.callCount(), 1);
+    assert.deepEqual(stripe.refunds.list.mock.calls[0].arguments[0], {
+      payment_intent: PAGO,
+      limit: 100
+    });
     assert.deepEqual((await lista('reembolsos')).body.reservas, []);
 
     // Ya no está a medias: ni otro «Dar por reembolsado» ni «Reintentar».
     assert.deepEqual((await accion('dar-por-reembolsado')).body, { error: MENSAJE_SIN_A_MEDIAS });
     assert.equal((await accion('reintentar-reembolso')).status, 409);
     assert.equal(stripe.refunds.create.mock.callCount(), 0);
+  });
+
+  test('si Stripe no muestra ningún reembolso: 409 con su código, sin escribir', async () => {
+    instalar([aMedias()]);
+
+    const res = await accion('dar-por-reembolsado');
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error: 'En Stripe no consta ningún reembolso de este pago desde que se canceló la reserva.',
+      codigo: NO_CONSTA
+    });
+    assert.equal(fake.escrituras.length, 0);
+    assert.equal(
+      situacion(fila(), { hoy, ahora: new Date() }).etiqueta,
+      'Cancelada · reembolso a medias'
+    );
+  });
+
+  test('si Stripe muestra menos de lo que había que devolver: 409 que dice cuánto consta', async () => {
+    instalar([aMedias()]);
+    reembolsos.push(externo({ amount: 1000 }));
+
+    const res = await accion('dar-por-reembolsado');
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error: 'En Stripe constan 10,00 € devueltos, y había que devolver 37,50 €.',
+      codigo: NO_CONSTA
+    });
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('suman los reembolsos de después de cancelar (también los del panel); los de antes, los fallidos y los anulados no', async () => {
+    instalar([aMedias()]);
+    reembolsos.push(
+      externo({ id: 're_antes', created: SOLICITADO_EN_S - 60 }),
+      externo({ id: 're_fallido', status: 'failed' }),
+      externo({ id: 're_anulado', status: 'canceled' }),
+      externo({
+        id: 're_1',
+        amount: 2000,
+        metadata: { reserva_id: RESERVA, tipo: 'reembolso_cancelacion' }
+      })
+    );
+    assert.equal((await accion('dar-por-reembolsado')).status, 409);
+
+    reembolsos.push(externo({ id: 're_2', amount: 1750 }));
+    const res = await accion('dar-por-reembolsado');
+    assert.equal(res.status, 200);
+    assert.equal(fila().historial.at(-1).tipo, 'reembolso_dado_por_hecho');
+  });
+
+  test('si Stripe no responde o no está configurado: 409 que lo dice, con el mismo código', async () => {
+    instalar([aMedias()]);
+    stripe.refunds.list = mock.fn(async () => {
+      throw errorStripe('StripeConnectionError', 'timeout');
+    });
+    const sinRespuesta = await accion('dar-por-reembolsado');
+    assert.equal(sinRespuesta.status, 409);
+    assert.deepEqual(sinRespuesta.body, {
+      error: 'No se ha podido comprobar en Stripe si el reembolso está hecho.',
+      codigo: NO_CONSTA
+    });
+
+    mock.method(stripeUtil, 'getStripe', () => null);
+    const sinStripe = await accion('dar-por-reembolsado');
+    assert.equal(sinStripe.status, 409);
+    assert.equal(sinStripe.body.codigo, NO_CONSTA);
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('«aunque_no_conste» (un reembolso por otro medio): lo cierra sin mirar Stripe, y la línea lo dice', async () => {
+    instalar([aMedias()]);
+
+    const res = await accion('dar-por-reembolsado', { aunque_no_conste: true });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.reserva.reembolso_a_medias, false);
+    const linea = fila().historial.at(-1);
+    assert.equal(linea.tipo, 'reembolso_dado_por_hecho');
+    assert.equal(
+      linea.detalle,
+      'Reembolso dado por hecho desde el panel sin que conste en Stripe: se hizo por otro medio.'
+    );
+    assert.equal(stripe.refunds.list.mock.callCount(), 0);
+    assert.equal(stripe.refunds.create.mock.callCount(), 0);
+  });
+
+  test('«aunque_no_conste» sigue exigiendo un reembolso a medias: 409 en cualquier otro caso', async () => {
+    instalar([confirmada()]);
+    const res = await accion('dar-por-reembolsado', { aunque_no_conste: true });
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, { error: MENSAJE_SIN_A_MEDIAS });
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('«aunque_no_conste» tiene que ser verdadero o falso: 400 en castellano', async () => {
+    instalar([aMedias()]);
+    const res = await accion('dar-por-reembolsado', { aunque_no_conste: 'si' });
+    assert.equal(res.status, 400);
+    assert.equal(
+      res.body.error,
+      'Indica si lo das por hecho aunque no conste en Stripe (true o false).'
+    );
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('«Reintentar» a la vez que «Dar por reembolsado»: los dos terminan y queda un [ALERTA] para revisar el Dashboard', async () => {
+    instalar([aMedias()]);
+    const crear = stripe.refunds.create;
+    stripe.refunds.create = mock.fn(async (datos, opciones) => {
+      // Mientras Stripe crea el reembolso, el administrador pulsa «Dar por reembolsado» (por otro medio).
+      assert.equal((await accion('dar-por-reembolsado', { aunque_no_conste: true })).status, 200);
+      return crear(datos, opciones);
+    });
+
+    const reintento = await accion('reintentar-reembolso');
+
+    assert.equal(reintento.status, 200);
+    assert.equal(fila().stripe_refund_id, 're_1');
+    assert.ok(
+      registroErrores.mock.calls.some((c) =>
+        /\[ALERTA\].*se dio por reembolsada/.test(c.arguments.join(' '))
+      ),
+      'el log avisa de la posible doble devolución'
+    );
   });
 
   test('solo con un reembolso a medias: 409 en cualquier otro caso, sin escribir', async () => {
@@ -579,6 +840,7 @@ describe('dar por reembolsado (8.6, 19 oct)', () => {
 
   test('dos clics a la vez: uno lo cierra y el otro recibe 409; una sola línea', async () => {
     instalar([aMedias()]);
+    reembolsos.push(externo());
     const respuestas = await Promise.all([
       accion('dar-por-reembolsado'),
       accion('dar-por-reembolsado')

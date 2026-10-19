@@ -159,6 +159,7 @@ const esLimpieza = (params) => params.estado === 'eq.pendiente';
 const columnas = (params) => params.select.split(',');
 
 let stripe;
+let reembolsosEnStripe;
 beforeEach(() => {
   process.env.RESERVAS_ACTIVAS = 'true';
   peticiones = [];
@@ -178,6 +179,7 @@ beforeEach(() => {
     global: { fetch: fetchFalso }
   });
   mock.method(supabase, 'from', (tabla) => real.from(tabla));
+  reembolsosEnStripe = [];
   // Las llamadas a Stripe quedan también en `peticiones`, para ver su orden frente a la base de datos.
   const enStripe = (nombre, respuesta) =>
     mock.fn(async (...args) => {
@@ -187,7 +189,7 @@ beforeEach(() => {
   stripe = {
     refunds: {
       create: enStripe('refunds.create', () => ({ id: 're_1', status: 'succeeded' })),
-      list: enStripe('refunds.list', () => ({ data: [] }))
+      list: enStripe('refunds.list', () => ({ data: reembolsosEnStripe }))
     },
     paymentIntents: {
       retrieve: enStripe('paymentIntents.retrieve', (id) => ({ id, amount_received: 12050 }))
@@ -611,7 +613,7 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
     assert.equal(recortado.cuerpo.dias_margen, 1);
   });
 
-  test('dar por reembolsado: solo la línea del historial, con el UPDATE guardado, y nada de Stripe', async () => {
+  test('dar por reembolsado: mira en Stripe lo devuelto y guarda solo la línea del historial, con el UPDATE guardado', async () => {
     leerReservas = () => [
       fila({
         estado: 'cancelada',
@@ -619,16 +621,38 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
         reembolso_importe: 50
       })
     ];
+    reembolsosEnStripe = [
+      {
+        id: 're_fuera',
+        status: 'succeeded',
+        amount: 5000,
+        created: Date.parse('2026-10-10T11:00:00Z') / 1000
+      }
+    ];
 
     const res = await accion('dar-por-reembolsado');
 
     assert.equal(res.status, 200);
+    assert.deepEqual(
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      [
+        'GET /rest/v1/reservas',
+        'STRIPE refunds.list',
+        'GET /rest/v1/reservas',
+        'PATCH /rest/v1/reservas',
+        'GET /rest/v1/muebles'
+      ]
+    );
+    assert.deepEqual(stripe.refunds.list.mock.calls[0].arguments[0], {
+      payment_intent: 'pi_123',
+      limit: 100
+    });
     const [cambio] = de('PATCH', 'reservas');
     assert.equal(cambio.params.id, `eq.${RESERVA}`);
     assert.equal(cambio.params.updated_at, `eq.${LEIDO}`);
     assert.deepEqual(Object.keys(cambio.cuerpo), ['historial']);
     assert.equal(cambio.cuerpo.historial.at(-1).tipo, 'reembolso_dado_por_hecho');
-    assert.equal(peticiones.filter((p) => p.metodo === 'STRIPE').length, 0);
+    assert.equal(stripe.refunds.create.mock.callCount(), 0);
     assert.equal(res.body.reserva.reembolso_a_medias, false);
   });
 
@@ -692,7 +716,7 @@ describe('contrato de las altas: el cuerpo de cada inserción', () => {
   test('alquiler fuera de la web', async () => {
     const res = await alta('alquileres', {
       mueble_id: SOFA,
-      fecha_inicio: dia(3),
+      fecha_inicio: dia(0),
       hora_entrega: '09:30',
       fecha_fin: dia(6),
       hora_recogida: '19:00',
@@ -712,7 +736,7 @@ describe('contrato de las altas: el cuerpo de cada inserción', () => {
       mueble_id: SOFA,
       tipo: 'alquiler',
       estado: 'en_curso',
-      fecha_inicio: dia(3),
+      fecha_inicio: dia(0),
       hora_entrega: '09:30',
       fecha_fin: dia(6),
       hora_recogida: '19:00',

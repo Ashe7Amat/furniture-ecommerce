@@ -427,6 +427,9 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
       })
       .eq('id', reserva.id)
       .in('estado', ['pendiente', 'expirada'])
+      // Una reserva que ya quedó en conflicto no se confirma aunque sus fechas se hayan liberado
+      // (se reembolsó el pago, como decía el aviso): el cliente ya no la tiene (19 oct).
+      .is('conflicto_en', null)
       .select('id')
   );
   let conflicto;

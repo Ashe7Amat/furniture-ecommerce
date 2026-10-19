@@ -85,7 +85,14 @@ const SCHEMAS_ACCION = {
       .min(0, 'El reembolso no puede ser negativo.')
   }),
   'reintentar-reembolso': sinDatos,
-  'dar-por-reembolsado': sinDatos,
+  // `aunque_no_conste`: darlo por hecho aunque Stripe no muestre el reembolso (se hizo por otro medio).
+  'dar-por-reembolsado': z.object({
+    aunque_no_conste: z
+      .boolean({
+        error: () => 'Indica si lo das por hecho aunque no conste en Stripe (true o false).'
+      })
+      .optional()
+  }),
   'levantar-bloqueo': sinDatos
 };
 

@@ -395,9 +395,34 @@ describe('POST /api/admin/reservas/alquileres', () => {
     assert.equal(estadoPieza(), 'alquilado');
   });
 
+  test('ya entregado no puede empezar después de hoy: 400, y nada se escribe (empezar hoy sí)', async () => {
+    const res = await alta(
+      'alquileres',
+      datos({ fecha_inicio: dia(1), fecha_fin: dia(4), ya_entregado: true })
+    );
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Un alquiler ya entregado no puede empezar después de hoy.');
+    assert.equal(insertadas().length, 0);
+    assert.equal(estadoPieza(), 'disponible');
+
+    const hoyMismo = await alta(
+      'alquileres',
+      datos({ fecha_inicio: dia(0), fecha_fin: dia(4), ya_entregado: true })
+    );
+    assert.equal(hoyMismo.status, 201);
+    // Sin entregar sí puede ser futuro
+    assert.equal(
+      (await alta('alquileres', datos({ fecha_inicio: dia(20), fecha_fin: dia(23) }))).status,
+      201
+    );
+  });
+
   test('ya entregado nunca pisa un estado puesto a mano: una pieza alquilada a mano no se toca', async () => {
     instalar({ muebles: MUEBLES('alquilado') });
-    assert.equal((await alta('alquileres', datos({ ya_entregado: true }))).status, 201);
+    assert.equal(
+      (await alta('alquileres', datos({ fecha_inicio: dia(0), ya_entregado: true }))).status,
+      201
+    );
     assert.equal(estadoPieza(), 'alquilado');
   });
 

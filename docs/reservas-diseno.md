@@ -1089,17 +1089,31 @@ legacy en revisión** (`origen = 'legacy'`).
   `aviso`. Solo si la siguiente reserva ya había empezado cuando volvió la pieza, 409 que la nombra.
 - **Alquiler dado de alta ya entregado con la recogida pactada pasada**: `fin_ocupacion` = hoy, como un retraso sin
   ampliar. El doble de pruebas lanza `22000` si un rango acaba antes de empezar, como Postgres.
-- **Dar por reembolsado** (`dar-por-reembolsado`, sin cuerpo): cierra un reembolso a medias que se hizo fuera, en el
-  Dashboard de Stripe. No llama a Stripe ni mueve dinero; deja una línea en el historial. 409 si no está a medias.
+- **Dar por reembolsado** (`dar-por-reembolsado`): cierra un reembolso a medias que se hizo fuera, en el Dashboard de
+  Stripe. No mueve dinero; deja una línea en el historial. 409 si no está a medias. Antes **mira en Stripe** que conste
+  lo devuelto (la suma de los reembolsos del pago posteriores a la cancelación, también los del panel, sin contar los
+  fallidos ni anulados): si consta menos de lo que había que devolver, o Stripe no responde, es un 409 con
+  `codigo: 'reembolso_no_consta'` y no cambia nada. Con `aunque_no_conste: true` (un reembolso hecho por otro medio,
+  como una transferencia) se cierra igualmente, sin mirar Stripe y con otra línea en el historial.
 - **Reintentar reembolso** responde 409 si el pago ya tiene un reembolso posterior a la cancelación que no hizo el
   panel (ni ha fallado): se avisa de la cantidad y se ofrece «Dar por reembolsado».
 - **Cancelar** con reembolso lee antes en Stripe lo que todavía deja devolver (cobrado menos devuelto, también lo
   devuelto desde el Dashboard): pedir más es un 400 y no cambia nada. Si Stripe no responde, cancela y el tope lo
   pone Stripe al reembolsar. Un reembolso rechazado (`StripeInvalidRequestError`) o devuelto fallido o anulado es un
-  502 con el aviso del Dashboard; al reintentar, el siguiente va con otra clave de idempotencia (`_2`, `_3`...). Si
+  502 con el aviso del Dashboard; al reintentar, el siguiente va con otra clave de idempotencia (`_2`, `_3`...): un
+  fallido o anulado que existe en Stripe la cambia por sí solo, y un rechazo sin reembolso deja una línea
+  `reembolso_rechazado` en el historial que el siguiente reintento cuenta (Stripe guarda el resultado de una clave
+  24 horas, así que repetirla no serviría). Si
   el reembolso se hizo y no se pudo guardar su id, 502 que pide no repetirlo (se encuentra al reintentar).
+- **Alquiler ya entregado** (`ya_entregado`): no puede empezar después de hoy (400): no se podría recoger hasta
+  entonces.
+- **Una provisional que ya quedó en conflicto** (`conflicto_en`) no se confirma aunque sus fechas se hayan liberado
+  después: el aviso ya dijo que se reembolsa el pago. Se sigue viendo como «No se pudo confirmar».
 - **Pago ya confirmado y cancelado después desde el panel**: si el webhook o la página de éxito vuelven a procesar
   ese pago, no es un conflicto: `confirmar-sesion` responde `estado: 'cancelada'`, sin emails ni reembolso nuevo.
+- **Sin cubrir** (no se ha podido probar con Stripe de verdad): un reembolso que nace `pending` y falla después no se
+  vuelve a comprobar (no hay `charge.refund.updated`); y si un «Reintentar» y un «Dar por reembolsado» coinciden, el
+  reembolso se guarda y queda un `[ALERTA]` en el log para mirar el Dashboard.
 - Un cuerpo JSON que no es un objeto es un 400 en castellano, y los nombres que hereda cualquier objeto
   (`constructor`, `__proto__`) no son acciones (404).
 

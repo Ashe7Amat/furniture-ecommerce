@@ -60,8 +60,14 @@ const ESTADOS_SIN_EFECTO = ['failed', 'canceled'];
 const cuentaComoHecho = (refund) => !ESTADOS_SIN_EFECTO.includes(refund.status);
 // La línea del historial de «Dar por reembolsado» (8.6, 19 oct): cierra el "a medias" sin el id.
 const TIPO_DADO_POR_HECHO = 'reembolso_dado_por_hecho';
+// Cada vez que Stripe rechaza crear el reembolso (sin que quede un reembolso fallido que contar): con la
+// misma clave de idempotencia devolvería el mismo error durante 24 horas, así que el siguiente intento
+// cuenta estos para usar otra.
+const TIPO_REEMBOLSO_RECHAZADO = 'reembolso_rechazado';
 const LINEA_DADO_POR_HECHO =
   'Reembolso dado por hecho desde el panel: se hizo fuera, en el Dashboard de Stripe.';
+const LINEA_DADO_POR_HECHO_SIN_STRIPE =
+  'Reembolso dado por hecho desde el panel sin que conste en Stripe: se hizo por otro medio.';
 // Si la recogida se apunta otro día, a mediodía de ese día en Madrid (3.6).
 const HORA_RECOGIDA_OTRO_DIA = '12:00';
 
@@ -731,6 +737,30 @@ class ReembolsoRechazado extends Error {
   }
 }
 
+// La línea del historial de un reembolso que Stripe no ha aceptado (sin reembolso fallido que contar).
+// Si no se puede escribir, el siguiente reintento usará la misma clave: no es grave.
+const anotarRechazo = async (id, motivo, ahora) => {
+  try {
+    await actualizarReserva(id, {
+      columnas: COLUMNAS_PANEL,
+      ahora,
+      decidir: () => ({
+        cambios: {},
+        entrada: {
+          tipo: TIPO_REEMBOLSO_RECHAZADO,
+          detalle: `Stripe no ha aceptado el reembolso: ${motivo}`,
+          por: 'sistema'
+        }
+      })
+    });
+  } catch (error) {
+    console.error(
+      `No se pudo anotar el rechazo del reembolso de la reserva ${id}:`,
+      error.message || error
+    );
+  }
+};
+
 // El reembolso está hecho en Stripe, pero su id no se pudo guardar (19 oct).
 class ReembolsoSinGuardar extends Error {
   constructor(refundId, causa) {
@@ -747,6 +777,12 @@ const guardarReembolso = async (id, refundId, ahora) => {
       ahora,
       decidir: (fila) => {
         if (fila.stripe_refund_id) throw new ReembolsoYaGuardado(fila);
+        if (reembolsoDadoPorHecho(fila)) {
+          console.error(
+            `[ALERTA] Reserva ${id}: se dio por reembolsada y a la vez se hizo el reembolso ${refundId}. ` +
+              'Revisa en el Dashboard de Stripe que no se haya devuelto dos veces.'
+          );
+        }
         return {
           cambios: { stripe_refund_id: refundId },
           entrada: {
@@ -801,7 +837,8 @@ const hacerReembolso = async (fila, { buscarAntes, ahora }) => {
             'con él ya está todo devuelto, usa «Dar por reembolsado».'
         );
       }
-      intento = deEsta.length + 1;
+      const rechazos = (fila.historial || []).filter((l) => l.tipo === TIPO_REEMBOLSO_RECHAZADO);
+      intento = deEsta.length + rechazos.length + 1;
     }
   }
   if (!refund) {
@@ -870,6 +907,7 @@ const reembolsar = async (fila, { buscarAntes, ahora, siFalla }) => {
           `${error.refundId ? ` (${error.refundId})` : ''}:`,
         error.message
       );
+      if (!error.refundId) await anotarRechazo(fila.id, error.message, ahora);
       return { reserva: fila, avisoReembolso: MENSAJE_REEMBOLSO_RECHAZADO };
     }
     console.error(`[ALERTA] Reserva ${fila.id} con el reembolso a medias:`, error.message || error);
@@ -938,11 +976,54 @@ const reintentarReembolso = async (id, _datos, ahora) => {
   return reembolsar(fila, { buscarAntes: true, ahora, siFalla: MENSAJE_REINTENTO_FALLIDO });
 };
 
-// «Dar por reembolsado» (8.6, 19 oct): el reembolso a medias se hizo fuera, en el Dashboard de
-// Stripe. Cierra el "a medias" con una línea en el historial, sin mover dinero ni llamar a Stripe, con
-// el UPDATE guardado: si ya no está a medias (otro clic, un «Reintentar»), 409.
-const darPorReembolsado = async (id, _datos, ahora) => {
+// Lo que Stripe dice haber devuelto de este pago desde que se pidió el reembolso, en céntimos (cuenta lo
+// hecho por el panel y lo hecho desde el Dashboard); null si ahora no se puede saber.
+const devueltoDesdeLaCancelacion = async (fila) => {
+  const stripe = stripeUtil.getStripe();
+  if (!stripe) return null;
+  try {
+    const { data } = await stripe.refunds.list({
+      payment_intent: fila.stripe_payment_intent_id,
+      limit: 100
+    });
+    const desde = Math.floor(Date.parse(fila.reembolso_solicitado_en) / 1000);
+    return data
+      .filter((r) => cuentaComoHecho(r) && r.created >= desde)
+      .reduce((suma, r) => suma + (r.amount ?? 0), 0);
+  } catch (error) {
+    console.warn(
+      `No se pudo leer en Stripe lo devuelto del pago ${fila.stripe_payment_intent_id}:`,
+      error.message || error
+    );
+    return null;
+  }
+};
+
+// «Dar por reembolsado» (8.6, 19 oct): el reembolso a medias se hizo fuera. Cierra el "a medias" con una
+// línea en el historial, sin mover dinero, con el UPDATE guardado: si ya no está a medias (otro clic,
+// un «Reintentar»), 409. Antes se mira en Stripe que conste lo devuelto: si no consta (o no se puede
+// mirar) es un 409 con el código `reembolso_no_consta`, y solo con `aunque_no_conste` (un reembolso por
+// otro medio, como una transferencia) se cierra igualmente, con otra línea.
+const darPorReembolsado = async (id, { aunque_no_conste: aunqueNoConste = false }, ahora) => {
   const contexto = contextoDe(ahora);
+  if (!aunqueNoConste) {
+    const fila = await leerReserva(id);
+    comprobarAccion(fila, 'dar-por-reembolsado', contexto);
+    const devuelto = await devueltoDesdeLaCancelacion(fila);
+    const pedido = centimosDe(fila.reembolso_importe);
+    if (devuelto === null || devuelto < pedido) {
+      let mensaje = 'No se ha podido comprobar en Stripe si el reembolso está hecho.';
+      if (devuelto === 0) {
+        mensaje =
+          'En Stripe no consta ningún reembolso de este pago desde que se canceló la reserva.';
+      } else if (devuelto !== null) {
+        mensaje = `En Stripe constan ${eurosLegibles(devuelto)} devueltos, y había que devolver ${eurosLegibles(pedido)}.`;
+      }
+      const error = new ErrorConflicto(mensaje);
+      error.codigo = 'reembolso_no_consta';
+      throw error;
+    }
+  }
   const { reserva } = await actualizarReserva(id, {
     columnas: COLUMNAS_PANEL,
     ahora,
@@ -950,7 +1031,11 @@ const darPorReembolsado = async (id, _datos, ahora) => {
       comprobarAccion(fila, 'dar-por-reembolsado', contexto);
       return {
         cambios: {},
-        entrada: { tipo: TIPO_DADO_POR_HECHO, detalle: LINEA_DADO_POR_HECHO, por: 'admin' }
+        entrada: {
+          tipo: TIPO_DADO_POR_HECHO,
+          detalle: aunqueNoConste ? LINEA_DADO_POR_HECHO_SIN_STRIPE : LINEA_DADO_POR_HECHO,
+          por: 'admin'
+        }
       };
     }
   });
@@ -1069,6 +1154,10 @@ const crearAlquiler = async (datos, ahora = new Date(), reglas = REGLAS_ALQUILER
     throw new ErrorValidacion(
       'Un alquiler que todavía no se ha entregado no puede empezar antes de hoy.'
     );
+  }
+  // Ya en casa del cliente, y empezando mañana: no se podría recoger hasta entonces (19 oct).
+  if (datos.ya_entregado && datos.fecha_inicio > hoy) {
+    throw new ErrorValidacion('Un alquiler ya entregado no puede empezar después de hoy.');
   }
   const pieza = await leerPieza(datos.mueble_id);
   if (pieza.estado === 'vendido') {
