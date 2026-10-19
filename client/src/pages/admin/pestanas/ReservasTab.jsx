@@ -62,6 +62,8 @@ const ReservasTab = ({ muebles }) => {
   const [avisos, setAvisos] = useState({});
   // El mensaje de un 502 (reembolso a medias), arriba de la lista hasta que se cierra.
   const [avisoGeneral, setAvisoGeneral] = useState('');
+  // El error de un alta del calendario cuyo diálogo se cerró mientras se guardaba (no tiene tarjeta donde salir).
+  const [avisoAlta, setAvisoAlta] = useState('');
   // El diálogo abierto: { tipo: 'confirmar' | 'recoger' | 'ampliar' | 'cancelar' | 'alta', ... }, y su error.
   const [dialogo, setDialogo] = useState(null);
   const [errorDialogo, setErrorDialogo] = useState('');
@@ -105,6 +107,7 @@ const ReservasTab = ({ muebles }) => {
   // `hoy` del diálogo: el de la lista o, si la pestaña lleva abierta desde ayer, el del reloj.
   const abrir = (nuevo) => {
     setErrorDialogo('');
+    if (nuevo.tipo === 'alta') setAvisoAlta('');
     setDialogo({ ...nuevo, hoy: hoyMasReciente(lista.hoy) });
   };
 
@@ -227,18 +230,18 @@ const ReservasTab = ({ muebles }) => {
     if (resultado.obsoleta) showToast(resultado.error, 'error');
   };
 
-  // El error de lo que se mandó desde un diálogo sale en él. Si ya se cerró (Escape, la "X"), sale donde
-  // sale el de una acción directa: bajo la tarjeta de su reserva (un aviso que se queda y que el lector de
-  // pantalla lee; el toast dura 3 s y no se anuncia), o arriba si no hay reserva (las altas del calendario).
-  const errorDeDialogo = (error, reserva, obsoleta = false) => {
+  // El error de lo que se mandó desde un diálogo sale en él. Si ya se cerró (Escape, la "X"), sale en un
+  // toast (se ve aunque se haya cambiado de vista o de pestaña) y además en un aviso que se queda y que el
+  // lector de pantalla lee (el toast dura 3 s y no se anuncia): bajo la tarjeta de su reserva, o arriba, con
+  // el nombre del alta, si es un alta del calendario (no tiene tarjeta).
+  const errorDeDialogo = (error, reserva, nombreAlta) => {
     if (dialogoAbierto.current) {
       setErrorDialogo(error);
       return;
     }
+    showToast(error, 'error');
     if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));
-    else setAvisoGeneral(error);
-    // Si la reserva ya no está en esta vista, su tarjeta (y el mensaje) desaparece con la recarga.
-    if (!reserva || obsoleta) showToast(error, 'error');
+    else setAvisoAlta(`${nombreAlta}: ${error}`);
   };
 
   // Lo que se manda desde un diálogo de acción: si falla, el error sale en el diálogo. Con un 502
@@ -264,7 +267,7 @@ const ReservasTab = ({ muebles }) => {
       return;
     }
     if (resultado.error && !esReembolsoAMedias(resultado)) {
-      errorDeDialogo(resultado.error, dialogo.reserva, resultado.obsoleta);
+      errorDeDialogo(resultado.error, dialogo.reserva);
     } else {
       setDialogo(null);
     }
@@ -275,7 +278,9 @@ const ReservasTab = ({ muebles }) => {
     const resultado = await enviar('alta', () => crearEnCalendarioAdmin(tipo, datos));
     if (!resultado) return;
     if (resultado.error) {
-      errorDeDialogo(resultado.error);
+      const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;
+      const nombreAlta = ALTAS.find(([clave]) => clave === tipo)[1];
+      errorDeDialogo(pudoGuardarse ? `${resultado.error}${PUDO_GUARDARSE}` : resultado.error, null, nombreAlta);
       return;
     }
     setDialogo(null);
@@ -364,6 +369,13 @@ const ReservasTab = ({ muebles }) => {
         <div className="reservas-aviso-general" role="alert">
           <p>{avisoGeneral}</p>
           <button type="button" className="admin-btn-ghost" onClick={() => setAvisoGeneral('')}>Entendido</button>
+        </div>
+      )}
+
+      {avisoAlta && (
+        <div className="reservas-aviso-general" role="alert">
+          <p>{avisoAlta}</p>
+          <button type="button" className="admin-btn-ghost" onClick={() => setAvisoAlta('')}>Entendido</button>
         </div>
       )}
 

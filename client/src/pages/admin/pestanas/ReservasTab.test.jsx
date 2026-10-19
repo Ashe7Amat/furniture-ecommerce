@@ -678,8 +678,25 @@ describe('Reservas — acciones con diálogo', () => {
     );
     // No es una lista desfasada: no se recarga, y la tarjeta sigue con su botón
     expect(getReservasAdmin).toHaveBeenCalledTimes(1);
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledTimes(1);
     expect(tarjeta('Mesa de roble').getByRole('button', { name: 'Marcar recogida' })).toBeEnabled();
+  });
+
+  it('si se cierra el diálogo y luego se cambia de vista antes de que falle, el toast avisa aunque la tarjeta ya no esté', async () => {
+    const respuesta = diferida();
+    accionReservaAdmin.mockReturnValue(respuesta.promesa);
+    const { user } = await montar({ reservas: [RETRASADA] });
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+    await user.keyboard('{Escape}');
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [] }));
+    await user.click(screen.getByRole('button', { name: 'En conflicto' }));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+
+    await act(async () => respuesta.resolver(falla('No se pudo conectar con el servidor. Revisa tu conexión.', 0)));
+    // La tarjeta no está en esta vista: el aviso que se queda no se ve, pero el toast sí
+    expect(showToast).toHaveBeenCalledWith(expect.stringMatching(/^No se pudo conectar con el servidor\./), 'error');
+    expect(screen.queryByText('Mesa de roble')).toBeNull();
   });
 
   it('un 409 con un diálogo abierto recarga la lista y, al cerrarlo, el foco va a la tarjeta (no se pierde en el <body>)', async () => {
@@ -1135,7 +1152,7 @@ describe('Reservas — reembolsos a medias', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     // El motivo se queda bajo la tarjeta, donde el lector de pantalla lo lee (el toast dura 3 s y no se anuncia)
     expect(tarjeta('Silla Tolix').getByRole('alert')).toHaveTextContent('En Stripe no consta ningún reembolso.');
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith('En Stripe no consta ningún reembolso.', 'error');
     expect(getReservasAdmin).toHaveBeenCalledTimes(1);
     // y la tarjeta sigue ofreciendo las acciones
     expect(tarjeta('Silla Tolix').getByRole('button', { name: 'Dar por reembolsado' })).toBeEnabled();
@@ -1516,10 +1533,85 @@ describe('Reservas — altas en el calendario', () => {
     await act(async () => respuesta.resolver(falla('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).', 409)));
     expect(showToast).toHaveBeenCalledWith('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).', 'error');
     // y se queda arriba, que no hay tarjeta donde ponerlo
-    expect(screen.getByRole('alert')).toHaveTextContent('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Registrar venta fuera de la web: Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).'
+    );
     expect(screen.getByRole('alert')).toHaveClass('reservas-aviso-general');
     expect(showToast).not.toHaveBeenCalledWith('Venta registrada', 'success');
     expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+  });
+
+  it('el aviso de un alta cerrada a mitad de petición va aparte del de un reembolso a medias: ni lo pisa ni lo borra otro reintento, y abrir otra alta lo quita', async () => {
+    const MENSAJE_502 = 'La reserva se ha cancelado, pero el reembolso se ha quedado a medias.';
+    const alta = diferida();
+    crearEnCalendarioAdmin.mockReturnValue(alta.promesa);
+    accionReservaAdmin
+      .mockResolvedValueOnce(falla(MENSAJE_502, 502, 'reembolso_a_medias'))
+      .mockResolvedValueOnce(ok({ reserva: { ...A_MEDIAS, reembolso_a_medias: false, acciones: [] } }));
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [A_MEDIAS] }));
+    const { user } = await montar({ reservas: [A_MEDIAS] });
+    await user.click(screen.getByRole('button', { name: 'Reintentar reembolso' }));
+    await user.click(dialogo().getByRole('button', { name: 'Reintentar reembolso' }));
+    expect(await screen.findByText(/Está en «Reembolsos a medias»/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Registrar venta fuera de la web' }));
+    await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm1');
+    await user.type(dialogo().getByLabelText('Motivo'), 'Venta en tienda');
+    await user.click(dialogo().getByRole('button', { name: 'Registrar venta' }));
+    await user.keyboard('{Escape}');
+    await act(async () => alta.resolver(falla('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).', 409)));
+
+    // Dos avisos, cada uno con su «Entendido»: el del alta no sustituye al del reembolso
+    expect(screen.getAllByRole('alert').map((a) => a.textContent)).toEqual([
+      expect.stringContaining(`${MENSAJE_502} Está en «Reembolsos a medias».`),
+      'Registrar venta fuera de la web: Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).Entendido'
+    ]);
+
+    // Un reintento bien hecho quita el del reembolso, no el del alta
+    await user.click(await screen.findByRole('button', { name: 'Reintentar reembolso' }));
+    await user.click(dialogo().getByRole('button', { name: 'Reintentar reembolso' }));
+    await waitFor(() => expect(screen.queryByText(/Está en «Reembolsos a medias»/)).toBeNull());
+    expect(screen.getByRole('alert')).toHaveTextContent(/^Registrar venta fuera de la web: Choca con/);
+
+    // Abrir otra alta quita el aviso del anterior
+    await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+    expect(screen.queryByText(/^Registrar venta fuera de la web: Choca/)).toBeNull();
+  });
+
+  it('el aviso de un alta cerrada también se puede descartar con «Entendido»', async () => {
+    const respuesta = diferida();
+    crearEnCalendarioAdmin.mockReturnValue(respuesta.promesa);
+    const { user } = await abrirAlta('Bloquear fechas');
+    await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm1');
+    fireEvent.change(dialogo().getByLabelText('Primer día bloqueado'), { target: { value: '2026-11-02' } });
+    fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+    await user.type(dialogo().getByLabelText('Motivo'), 'Mantenimiento');
+    await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+    await user.keyboard('{Escape}');
+    await act(async () => respuesta.resolver(falla('Choca con la reserva A1B2C3D4.', 409)));
+    expect(screen.getByRole('alert')).toHaveTextContent('Bloquear fechas: Choca con la reserva A1B2C3D4.');
+
+    await user.click(screen.getByRole('button', { name: 'Entendido' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('un alta que falla sin respuesta del servidor (red, 500) avisa de que pudo guardarse, en el diálogo o en el aviso; un 400 no', async () => {
+    const PUDO = ' Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.';
+    crearEnCalendarioAdmin
+      .mockResolvedValueOnce(falla('No se pudo conectar con el servidor. Revisa tu conexión.', 0))
+      .mockResolvedValueOnce(falla('No se ha podido guardar en el calendario.', 500))
+      .mockResolvedValueOnce(falla('Revisa los datos.', 400));
+    const { user } = await abrirAlta('Registrar venta fuera de la web');
+    await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm1');
+    await user.type(dialogo().getByLabelText('Motivo'), 'Venta en tienda');
+    const enviar = () => user.click(dialogo().getByRole('button', { name: 'Registrar venta' }));
+
+    await enviar();
+    expect(dialogo().getByRole('alert')).toHaveTextContent(`No se pudo conectar con el servidor. Revisa tu conexión.${PUDO}`);
+    await enviar();
+    expect(dialogo().getByRole('alert')).toHaveTextContent(`No se ha podido guardar en el calendario.${PUDO}`);
+    await enviar();
+    expect(dialogo().getByRole('alert')).toHaveTextContent(/^Revisa los datos\.$/);
   });
 
   it('"Volver" cierra el alta sin mandar nada, y el foco vuelve al botón', async () => {

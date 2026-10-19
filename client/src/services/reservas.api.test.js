@@ -304,6 +304,24 @@ describe('del panel, con sesión de administrador', () => {
     });
   });
 
+  it('accionReservaAdmin: un 502 con el código del reembolso a medias lo trae; sin él (la pasarela) no', async () => {
+    const AVISO = 'La reserva está cancelada, pero el reembolso no se ha podido hacer.';
+    fetch.mockResolvedValueOnce(respuesta(502, { error: AVISO, codigo: 'reembolso_a_medias', reserva: { id: 'r1' } }));
+    expect(await accionReservaAdmin('r1', 'cancelar', { motivo: 'x', reembolso_centimos: 100 })).toEqual({
+      data: null,
+      error: AVISO,
+      status: 502,
+      codigo: 'reembolso_a_medias'
+    });
+
+    fetch.mockResolvedValueOnce(respuesta(502));
+    expect(await accionReservaAdmin('r1', 'cancelar', { motivo: 'x', reembolso_centimos: 100 })).toEqual({
+      data: null,
+      error: 'No se ha podido completar la acción.',
+      status: 502
+    });
+  });
+
   it('accionReservaAdmin: un error sin código no lo lleva', async () => {
     fetch.mockResolvedValue(respuesta(409, { error: 'Esta reserva ya está cancelada.' }));
     const res = await accionReservaAdmin('r1', 'cancelar', { motivo: 'x', reembolso_centimos: 0 });

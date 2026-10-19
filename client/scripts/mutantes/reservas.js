@@ -77,7 +77,8 @@ export const MUTANTES = [
   {
     nombre: 'un diálogo se cierra aunque el servidor diga que no (y su mensaje se pierde)',
     archivo: ARCHIVO,
-    buscar: '    if (resultado.error && resultado.status !== 502) errorDeDialogo(resultado.error);\n    else setDialogo(null);',
+    buscar:
+      '    if (resultado.error && !esReembolsoAMedias(resultado)) {\n      errorDeDialogo(resultado.error, dialogo.reserva);\n    } else {\n      setDialogo(null);\n    }',
     reemplazo: '    setDialogo(null);'
   },
   {
@@ -107,7 +108,7 @@ export const MUTANTES = [
   {
     nombre: 'un 409 de una lista que ya no está al día no la recarga',
     archivo: ARCHIVO,
-    buscar: '      cargar(vistaRef.current, true);\n',
+    buscar: '      cargar(vistaRef.current, true).then(() => setFoco(reserva.id));\n',
     reemplazo: ''
   },
   {
@@ -119,7 +120,7 @@ export const MUTANTES = [
   {
     nombre: 'un error sin respuesta del servidor no avisa de que la acción pudo guardarse',
     archivo: ARCHIVO,
-    buscar: 'if (resultado.error && (resultado.status === 0 || (resultado.status >= 500 && resultado.status !== 502))) {',
+    buscar: 'if (resultado.error && !aMedias && (resultado.status === 0 || resultado.status >= 500)) {',
     reemplazo: 'if (false) {'
   },
   {
@@ -203,7 +204,31 @@ export const MUTANTES = [
   {
     nombre: 'el error de un alta cuyo diálogo ya se cerró solo sale en un toast, no arriba',
     archivo: ARCHIVO,
-    buscar: 'else setAvisoGeneral(error);',
+    buscar: 'else setAvisoAlta(`${nombreAlta}: ${error}`);',
     reemplazo: 'else void 0;'
+  },
+  {
+    nombre: 'el error de un diálogo ya cerrado no sale en un toast (se pierde si la tarjeta ya no está a la vista)',
+    archivo: ARCHIVO,
+    buscar: "    showToast(error, 'error');\n    if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));",
+    reemplazo: '    if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));'
+  },
+  {
+    nombre: 'el aviso de un alta cerrada pisa el de un reembolso a medias (comparten el mismo hueco)',
+    archivo: ARCHIVO,
+    buscar: 'else setAvisoAlta(`${nombreAlta}: ${error}`);',
+    reemplazo: 'else setAvisoGeneral(`${nombreAlta}: ${error}`);'
+  },
+  {
+    nombre: 'abrir otra alta no quita el aviso de la anterior',
+    archivo: ARCHIVO,
+    buscar: "    if (nuevo.tipo === 'alta') setAvisoAlta('');\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'un alta que falla sin respuesta del servidor no avisa de que pudo guardarse',
+    archivo: ARCHIVO,
+    buscar: 'const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;',
+    reemplazo: 'const pudoGuardarse = false;'
   }
 ];
