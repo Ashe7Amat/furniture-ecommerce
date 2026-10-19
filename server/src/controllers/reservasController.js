@@ -1,7 +1,7 @@
 // Reservas por fechas (docs/reservas-diseno.md). Bloque R-a: los dos endpoints públicos de solo
 // lectura (7.1 y 7.2). Bloque R-b: la reserva provisional y su sesión de pago (6.3), detrás del
-// interruptor RESERVAS_ACTIVAS. Hasta que se aplique la migración R2 la tabla `reservas` no existe:
-// no se puede llevar a `main` antes que ella.
+// interruptor RESERVAS_ACTIVAS. La tabla `reservas` (migración R2) está aplicada en producción desde el
+// 19 oct 2026 (docs/reservas-sql/README.md).
 const supabase = require('../data/supabase');
 const stripeUtil = require('../utils/stripe');
 const email = require('../utils/email');
