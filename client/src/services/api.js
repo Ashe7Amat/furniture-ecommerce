@@ -581,10 +581,10 @@ export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
   );
 
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
-// levantar-bloqueo), con sus datos.
+// dar-por-reembolsado, levantar-bloqueo), con sus datos. Con `codigo` si el error lo trae: un 409
+// 'entrega_anticipada' pide confirmar, y cualquier otro 409 es una lista que ya no está al día.
 export const accionReservaAdmin = (id, accion, datos) =>
-  peticion(
-    apiFetch,
+  conCodigo(
     `${API_URL}/admin/reservas/${encodeURIComponent(id)}/${accion}`,
     jsonPost(datos),
     'No se ha podido completar la acción.'

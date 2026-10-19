@@ -289,14 +289,26 @@ describe('del panel, con sesión de administrador', () => {
     expect(JSON.parse(p.body)).toEqual({ antes_de_tiempo: true });
   });
 
-  it('accionReservaAdmin: sin datos, el cuerpo va vacío; un 409 con código trae solo el mensaje', async () => {
+  it('accionReservaAdmin: sin datos, el cuerpo va vacío; un 409 con código lo trae junto al mensaje', async () => {
     fetch.mockResolvedValue(
       respuesta(409, { error: 'La entrega es el 4 de noviembre. ¿Entregar antes?', codigo: 'entrega_anticipada' })
     );
     const res = await accionReservaAdmin('r1', 'entregar');
 
     expect(peticion().body).toBe('{}');
-    expect(res).toEqual({ data: null, error: 'La entrega es el 4 de noviembre. ¿Entregar antes?', status: 409 });
+    expect(res).toEqual({
+      data: null,
+      error: 'La entrega es el 4 de noviembre. ¿Entregar antes?',
+      status: 409,
+      codigo: 'entrega_anticipada'
+    });
+  });
+
+  it('accionReservaAdmin: un error sin código no lo lleva', async () => {
+    fetch.mockResolvedValue(respuesta(409, { error: 'Esta reserva ya está cancelada.' }));
+    const res = await accionReservaAdmin('r1', 'cancelar', { motivo: 'x', reembolso_centimos: 0 });
+
+    expect(res).toEqual({ data: null, error: 'Esta reserva ya está cancelada.', status: 409 });
   });
 
   it.each([

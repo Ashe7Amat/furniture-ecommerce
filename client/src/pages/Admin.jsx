@@ -13,6 +13,8 @@ import InventarioTab from './admin/pestanas/InventarioTab';
 import PedidosTab from './admin/pestanas/PedidosTab';
 import CategoriasTab from './admin/pestanas/CategoriasTab';
 import MensajesTab from './admin/pestanas/MensajesTab';
+import ReservasTab from './admin/pestanas/ReservasTab';
+import { reservasActivas } from '../utils/reservas';
 import EditarMuebleModal from './admin/modales/EditarMuebleModal';
 import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
 
@@ -26,6 +28,12 @@ const PESTANAS = [
   { id: 'mensajes', etiqueta: 'Mensajes', icono: 'mail' },
   { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' }
 ];
+
+// Reservas por fechas (docs/reservas-diseno.md, 8.1): la pestaña solo existe con el interruptor
+// VITE_RESERVAS_ACTIVAS encendido, después de "Pedidos". Apagado, la barra lateral es la de siempre.
+const PESTANA_RESERVAS = { id: 'reservas', etiqueta: 'Reservas', icono: 'bell' };
+const pestanasVisibles = () =>
+  reservasActivas() ? PESTANAS.flatMap(p => (p.id === 'pedidos' ? [p, PESTANA_RESERVAS] : [p])) : PESTANAS;
 
 const Admin = () => {
   const { user } = useContext(AuthContext);
@@ -98,7 +106,7 @@ const Admin = () => {
       <aside className="admin-sidebar">
         <h3 className="sidebar-title">Gestión</h3>
         <nav className="sidebar-menu">
-          {PESTANAS.map(pestana => (
+          {pestanasVisibles().map(pestana => (
             <button key={pestana.id} className={`sidebar-btn ${vistaActiva === pestana.id ? 'active' : ''}`} onClick={() => setVistaActiva(pestana.id)}>
               <Icon name={pestana.icono} /> {pestana.etiqueta}
               {pestana.id === 'pedidos' && pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
@@ -149,6 +157,8 @@ const Admin = () => {
             cargarPedidos={cargarPedidos}
           />
         )}
+
+        {vistaActiva === 'reservas' && <ReservasTab muebles={muebles} />}
 
         {vistaActiva === 'mensajes' && (
           <MensajesTab
