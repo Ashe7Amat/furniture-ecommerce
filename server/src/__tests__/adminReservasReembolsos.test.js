@@ -381,6 +381,8 @@ describe('cancelar: el tope de Stripe y sus rechazos (8.4, 8.6)', () => {
 
     assert.equal(res.status, 502);
     assert.equal(res.body.error, MENSAJE_RECHAZADO);
+    // El panel solo trata un 502 como «reembolso a medias» con este código (un 502 de la pasarela no lo trae).
+    assert.equal(res.body.codigo, 'reembolso_a_medias');
     assert.equal(res.body.reserva.estado, 'cancelada');
     assert.equal(res.body.reserva.reembolso_a_medias, true);
     assert.deepEqual(res.body.reserva.acciones, ['reintentar-reembolso', 'dar-por-reembolsado']);
@@ -482,7 +484,7 @@ describe('cancelar: el tope de Stripe y sus rechazos (8.4, 8.6)', () => {
     };
     const res = await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 3750 });
     assert.equal(res.status, 502);
-    assert.deepEqual(res.body, { error: MENSAJE_SIN_GUARDAR });
+    assert.deepEqual(res.body, { error: MENSAJE_SIN_GUARDAR, codigo: 'reembolso_a_medias' });
   });
 });
 

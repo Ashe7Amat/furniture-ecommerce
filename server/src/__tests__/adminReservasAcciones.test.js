@@ -1057,6 +1057,7 @@ describe('cancelar (8.4, política manual)', () => {
 
     assert.equal(res.status, 502);
     assert.equal(res.body.error, MENSAJE_REEMBOLSO_A_MEDIAS);
+    assert.equal(res.body.codigo, 'reembolso_a_medias');
     assert.equal(
       MENSAJE_REEMBOLSO_A_MEDIAS,
       'La reserva está cancelada, pero el reembolso no se ha podido hacer. Usa «Reintentar reembolso».'

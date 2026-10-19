@@ -181,5 +181,29 @@ export const MUTANTES = [
     archivo: TARJETA,
     buscar: "{acciones.includes('dar-por-reembolsado') &&",
     reemplazo: '{true &&'
+  },
+  {
+    nombre: 'un 502 sin el código del reembolso a medias (la pasarela) se toma por un reembolso a medias',
+    archivo: ARCHIVO,
+    buscar: "({ status, codigo }) => status === 502 && codigo === CODIGO_A_MEDIAS;",
+    reemplazo: '({ status }) => status === 502;'
+  },
+  {
+    nombre: 'tras recargar una lista desfasada con un diálogo abierto, el foco no pasa a la tarjeta',
+    archivo: ARCHIVO,
+    buscar: 'cargar(vistaRef.current, true).then(() => setFoco(reserva.id));',
+    reemplazo: 'cargar(vistaRef.current, true);'
+  },
+  {
+    nombre: 'el error de un diálogo ya cerrado solo sale en un toast, no bajo la tarjeta',
+    archivo: ARCHIVO,
+    buscar: 'if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));',
+    reemplazo: 'if (reserva) void 0;'
+  },
+  {
+    nombre: 'el error de un alta cuyo diálogo ya se cerró solo sale en un toast, no arriba',
+    archivo: ARCHIVO,
+    buscar: 'else setAvisoGeneral(error);',
+    reemplazo: 'else void 0;'
   }
 ];

@@ -98,6 +98,9 @@ const prepararAccion = (req, res, next) => {
   });
 };
 
+// El `codigo` del 502 de una acción hecha con el reembolso a medias: el panel solo lo trata así con él.
+const CODIGO_REEMBOLSO_A_MEDIAS = 'reembolso_a_medias';
+
 // La reserva para un 502: si ni se puede presentar (no se pudo leer, o falla leer la pieza), el 502
 // va sin ella, que el aviso es lo que importa.
 const presentarSiSePuede = async (reserva, ahora) => {
@@ -112,8 +115,9 @@ const presentarSiSePuede = async (reserva, ahora) => {
 };
 
 // POST /api/admin/reservas/:id/:accion → { reserva }, más `aviso` si lo hay (una recogida con el
-// margen recortado). Si el reembolso no se pudo hacer o guardar, 502 con el aviso y la reserva tal
-// como ha quedado (a medias, 8.6), si se puede leer.
+// margen recortado). Si el reembolso no se pudo hacer o guardar, 502 con el aviso, el `codigo`
+// 'reembolso_a_medias' (así el panel lo distingue de un 502 de la pasarela) y la reserva tal como ha
+// quedado (a medias, 8.6), si se puede leer.
 const accionSobreReserva = async (req, res) => {
   try {
     const ahora = new Date();
@@ -125,7 +129,8 @@ const accionSobreReserva = async (req, res) => {
     );
     if (avisoReembolso) {
       const item = await presentarSiSePuede(reserva, ahora);
-      return res.status(502).json({ error: avisoReembolso, ...(item && { reserva: item }) });
+      const aviso502 = { error: avisoReembolso, codigo: CODIGO_REEMBOLSO_A_MEDIAS };
+      return res.status(502).json(item ? { ...aviso502, reserva: item } : aviso502);
     }
     const [item] = await presentarFilas([reserva], ahora);
     res.status(200).json({ reserva: item, ...(aviso && { aviso }) });

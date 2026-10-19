@@ -17,7 +17,8 @@ import '../../../styles/AdminReservas.css';
 // Las acciones van de una en una: mientras se guarda una, los botones están desactivados y un
 // segundo envío (doble clic, Intro en un formulario) no sale. Si va bien, la reserva que devuelve
 // el servidor sustituye a la de la lista (con su aviso, si lo trae, en la tarjeta); si no, su mensaje
-// sale tal cual. Un 502 es una acción hecha con el reembolso a medias (8.6): su mensaje (con la
+// sale tal cual. Un 502 con el código 'reembolso_a_medias' es una acción hecha con el reembolso a
+// medias (8.6; un 502 sin él, de la pasarela, es un error más, que pudo guardarse): su mensaje (con la
 // reserva) se queda arriba hasta que se cierra, y se pasa a «Reembolsos a medias», donde está su
 // botón «Reintentar». Un 409 o un 404 que no pide confirmar es una lista que ya no está al día: se
 // recarga conservando el mensaje. Los que sí piden confirmar llevan un `codigo`: entregar antes de
@@ -34,6 +35,9 @@ const EXITO = {
 };
 // Un 409 con alguno de estos códigos no es una lista desfasada: pide confirmar y volver a mandar.
 const CODIGOS_CON_CONFIRMACION = ['entrega_anticipada', 'reembolso_no_consta'];
+// El código del 502 del servidor cuando la acción se hizo y el reembolso quedó a medias.
+const CODIGO_A_MEDIAS = 'reembolso_a_medias';
+const esReembolsoAMedias = ({ status, codigo }) => status === 502 && codigo === CODIGO_A_MEDIAS;
 const EXITO_ALTA = { bloqueo: 'Fechas bloqueadas', alquiler: 'Alquiler registrado', venta: 'Venta registrada' };
 // «Todas» muestra como mucho las 200 más recientes (MAX_TODAS del servidor).
 const MAX_TODAS = 200;
@@ -126,11 +130,12 @@ const ReservasTab = ({ muebles }) => {
   const ejecutar = async (reserva, accion, datos = {}) => {
     let resultado = await enviar(`${reserva.id}:${accion}`, () => accionReservaAdmin(reserva.id, accion, datos));
     if (!resultado) return resultado;
-    if (resultado.error && (resultado.status === 0 || (resultado.status >= 500 && resultado.status !== 502))) {
+    const aMedias = esReembolsoAMedias(resultado);
+    if (resultado.error && !aMedias && (resultado.status === 0 || resultado.status >= 500)) {
       resultado = { ...resultado, error: `${resultado.error}${PUDO_GUARDARSE}` };
     }
     const { status, codigo } = resultado;
-    if (status === 502) {
+    if (aMedias) {
       setAvisoGeneral(
         `Reserva ${reserva.referencia} (${reserva.pieza.nombre}): ${resultado.error} Está en «Reembolsos a medias».`
       );
@@ -151,7 +156,8 @@ const ReservasTab = ({ muebles }) => {
       showToast(accion === 'cancelar' && reserva.tipo === 'venta' ? 'Venta cancelada' : EXITO[accion], 'success');
     } else if ((status === 409 && !CODIGOS_CON_CONFIRMACION.includes(codigo)) || status === 404) {
       // Otra pestaña (u otra persona) cambió la reserva: se recarga, y el mensaje se queda.
-      cargar(vistaRef.current, true);
+      // La recarga desmonta las tarjetas, y con ellas el botón que se pulsó: al volver, el foco va a la tarjeta.
+      cargar(vistaRef.current, true).then(() => setFoco(reserva.id));
       resultado = { ...resultado, obsoleta: true };
     }
     return resultado;
@@ -197,8 +203,8 @@ const ReservasTab = ({ muebles }) => {
       return;
     }
     const resultado = await ejecutar(reserva, accion);
-    // Un 502 ya sale arriba (y la recarga puede haber llegado antes): no se repite en la tarjeta.
-    if (!resultado?.error || resultado.status === 502) return;
+    // Un reembolso a medias ya sale arriba (y la recarga puede haber llegado antes): no se repite en la tarjeta.
+    if (!resultado?.error || esReembolsoAMedias(resultado)) return;
     // Entregar antes de la fecha prevista: el servidor responde 409 con el código 'entrega_anticipada'.
     // Se pide confirmación y se vuelve a mandar con antes_de_tiempo.
     if (accion === 'entregar' && resultado.codigo === 'entrega_anticipada') {
@@ -221,10 +227,18 @@ const ReservasTab = ({ muebles }) => {
     if (resultado.obsoleta) showToast(resultado.error, 'error');
   };
 
-  // El error de lo que se mandó desde un diálogo sale en él, o en un aviso si ya se cerró.
-  const errorDeDialogo = (error) => {
-    if (dialogoAbierto.current) setErrorDialogo(error);
-    else showToast(error, 'error');
+  // El error de lo que se mandó desde un diálogo sale en él. Si ya se cerró (Escape, la "X"), sale donde
+  // sale el de una acción directa: bajo la tarjeta de su reserva (un aviso que se queda y que el lector de
+  // pantalla lee; el toast dura 3 s y no se anuncia), o arriba si no hay reserva (las altas del calendario).
+  const errorDeDialogo = (error, reserva, obsoleta = false) => {
+    if (dialogoAbierto.current) {
+      setErrorDialogo(error);
+      return;
+    }
+    if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));
+    else setAvisoGeneral(error);
+    // Si la reserva ya no está en esta vista, su tarjeta (y el mensaje) desaparece con la recarga.
+    if (!reserva || obsoleta) showToast(error, 'error');
   };
 
   // Lo que se manda desde un diálogo de acción: si falla, el error sale en el diálogo. Con un 502
@@ -242,13 +256,18 @@ const ReservasTab = ({ muebles }) => {
         titulo: 'No consta en Stripe',
         mensaje:
           `${resultado.error} Si el dinero se devolvió por otro medio, por ejemplo con una transferencia, ` +
-          'puedes darlo por reembolsado igualmente. Si no, vuelve y usa «Reintentar reembolso».',
+          'puedes darlo por reembolsado igualmente. Si solo devolviste una parte desde el Dashboard de Stripe, ' +
+          'devuelve el resto allí y vuelve a pulsar «Dar por reembolsado». Si no has devuelto nada, ' +
+          'vuelve y usa «Reintentar reembolso».',
         textoConfirmar: 'Dar por reembolsado igualmente'
       });
       return;
     }
-    if (resultado.error && resultado.status !== 502) errorDeDialogo(resultado.error);
-    else setDialogo(null);
+    if (resultado.error && !esReembolsoAMedias(resultado)) {
+      errorDeDialogo(resultado.error, dialogo.reserva, resultado.obsoleta);
+    } else {
+      setDialogo(null);
+    }
   };
 
   const enviarAlta = async (datos) => {

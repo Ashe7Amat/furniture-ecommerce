@@ -582,7 +582,8 @@ export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
 
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
 // dar-por-reembolsado, levantar-bloqueo), con sus datos. Con `codigo` si el error lo trae: un 409
-// 'entrega_anticipada' pide confirmar, y cualquier otro 409 es una lista que ya no está al día.
+// 'entrega_anticipada' o 'reembolso_no_consta' pide confirmar, cualquier otro 409 es una lista que ya
+// no está al día, y un 502 'reembolso_a_medias' es una acción hecha cuyo reembolso quedó a medias.
 export const accionReservaAdmin = (id, accion, datos) =>
   conCodigo(
     `${API_URL}/admin/reservas/${encodeURIComponent(id)}/${accion}`,

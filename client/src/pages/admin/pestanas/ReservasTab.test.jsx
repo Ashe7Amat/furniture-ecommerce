@@ -340,6 +340,8 @@ describe('Reservas — la tarjeta', () => {
       'El reembolso se quedó a medias: Stripe no lo ha confirmado. «Reintentar reembolso» comprueba primero en Stripe ' +
         'si ya se hizo y no lo repite.'
     );
+    // Sin la acción «dar-por-reembolsado» en la lista del servidor, el aviso no la ofrece.
+    expect(t.getByText(/El reembolso se quedó a medias/)).not.toHaveTextContent('Dar por reembolsado');
     expect(filasDe(t)).toContainEqual([
       'Reembolso',
       `${eurosDeCentimos(6000)}, solicitado el 12/10/2026, 11:00, sin confirmar en Stripe`
@@ -580,6 +582,8 @@ describe('Reservas — acciones directas', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
     expect(tarjeta('Silla Tolix').getByRole('alert')).toHaveTextContent('Este alquiler ya está marcado como entregado.');
+    // La recarga se llevó el botón que se pulsó: el foco pasa a la tarjeta
+    await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /^Silla Tolix/ }).closest('li')).toHaveFocus());
   });
 
   it('otro error al entregar antes de la fecha (no un 409) tampoco pide confirmación', async () => {
@@ -647,6 +651,9 @@ describe('Reservas — acciones con diálogo', () => {
     await act(async () => primera.resolver(falla('Este alquiler ya está marcado como recogido.', 409)));
     expect(showToast).toHaveBeenCalledWith('Este alquiler ya está marcado como recogido.', 'error');
     expect(screen.queryByRole('dialog')).toBeNull();
+    // El mensaje no se queda solo en el toast (3 s, sin anunciar): sale también bajo la tarjeta, tras la recarga
+    expect(await screen.findByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+    expect(tarjeta('Mesa de roble').getByRole('alert')).toHaveTextContent('Este alquiler ya está marcado como recogido.');
 
     await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
     expect(dialogo().queryByRole('alert')).toBeNull();
@@ -655,6 +662,38 @@ describe('Reservas — acciones con diálogo', () => {
     await act(async () => segunda.resolver(ok({ reserva: { ...RETRASADA, estado: 'devuelta', etiqueta: 'Devuelta', acciones: [] } })));
     expect(showToast).toHaveBeenLastCalledWith('Reserva marcada como recogida', 'success');
     expect(screen.getByText('Devuelta')).toBeInTheDocument();
+  });
+
+  it('si se cierra el diálogo y la red falla, el aviso se queda bajo la tarjeta (con lo de que pudo guardarse), no solo en un toast', async () => {
+    const respuesta = diferida();
+    accionReservaAdmin.mockReturnValue(respuesta.promesa);
+    const { user } = await montar({ reservas: [RETRASADA] });
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+    await user.keyboard('{Escape}');
+
+    await act(async () => respuesta.resolver(falla('No se pudo conectar con el servidor. Revisa tu conexión.', 0)));
+    expect(tarjeta('Mesa de roble').getByRole('alert')).toHaveTextContent(
+      'No se pudo conectar con el servidor. Revisa tu conexión. Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.'
+    );
+    // No es una lista desfasada: no se recarga, y la tarjeta sigue con su botón
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalled();
+    expect(tarjeta('Mesa de roble').getByRole('button', { name: 'Marcar recogida' })).toBeEnabled();
+  });
+
+  it('un 409 con un diálogo abierto recarga la lista y, al cerrarlo, el foco va a la tarjeta (no se pierde en el <body>)', async () => {
+    accionReservaAdmin.mockResolvedValue(falla('La recogida choca con la reserva E5F6A7B8 (del 12/10/2026).', 409));
+    const { user } = await montar({ reservas: [RETRASADA] });
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+    expect(dialogo().getByRole('alert')).toHaveTextContent('La recogida choca con la reserva E5F6A7B8 (del 12/10/2026).');
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('heading', { level: 3, name: /^Mesa de roble/ }).closest('li')).toHaveFocus();
   });
 
   it('"Marcar recogida" de otro día: solo entre el día de la entrega y hoy, y se manda el día elegido', async () => {
@@ -1040,7 +1079,8 @@ describe('Reservas — reembolsos a medias', () => {
     expect(screen.getByRole('dialog', { name: 'No consta en Stripe' })).toBeInTheDocument();
     expect(dialogo().getByText(/^En Stripe no consta/)).toHaveTextContent(
       `${NO_CONSTA} Si el dinero se devolvió por otro medio, por ejemplo con una transferencia, puedes darlo por ` +
-        'reembolsado igualmente. Si no, vuelve y usa «Reintentar reembolso».'
+        'reembolsado igualmente. Si solo devolviste una parte desde el Dashboard de Stripe, devuelve el resto allí y ' +
+        'vuelve a pulsar «Dar por reembolsado». Si no has devuelto nada, vuelve y usa «Reintentar reembolso».'
     );
     expect(dialogo().queryByRole('alert')).toBeNull();
     expect(showToast).not.toHaveBeenCalled();
@@ -1093,7 +1133,12 @@ describe('Reservas — reembolsos a medias', () => {
       respuesta.resolver(falla('En Stripe no consta ningún reembolso.', 409, 'reembolso_no_consta'));
     });
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(showToast).toHaveBeenCalledWith('En Stripe no consta ningún reembolso.', 'error');
+    // El motivo se queda bajo la tarjeta, donde el lector de pantalla lo lee (el toast dura 3 s y no se anuncia)
+    expect(tarjeta('Silla Tolix').getByRole('alert')).toHaveTextContent('En Stripe no consta ningún reembolso.');
+    expect(showToast).not.toHaveBeenCalled();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+    // y la tarjeta sigue ofreciendo las acciones
+    expect(tarjeta('Silla Tolix').getByRole('button', { name: 'Dar por reembolsado' })).toBeEnabled();
   });
 
   it('"Reintentar reembolso": si hay un reembolso hecho fuera del panel, el 409 sale tal cual en la tarjeta', async () => {
@@ -1132,7 +1177,7 @@ describe('Reservas — reembolsos a medias', () => {
 
   it('un 502 al cancelar (reembolso a medias): cierra el diálogo, pasa a «Reembolsos a medias» y deja el aviso con la reserva', async () => {
     const MENSAJE = 'La reserva se ha cancelado, pero el reembolso se ha quedado a medias. Reinténtalo en «Reembolsos a medias».';
-    accionReservaAdmin.mockResolvedValue({ data: null, error: MENSAJE, status: 502 });
+    accionReservaAdmin.mockResolvedValue(falla(MENSAJE, 502, 'reembolso_a_medias'));
     const { user } = await montar({ reservas: [ALQUILER, RETRASADA] });
     await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
     await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
@@ -1160,7 +1205,7 @@ describe('Reservas — reembolsos a medias', () => {
 
   it('un 502 en una acción directa: el mensaje sale arriba, no en la tarjeta, y la vista se vuelve a cargar', async () => {
     const MENSAJE = 'Stripe no ha respondido: el reembolso sigue a medias.';
-    accionReservaAdmin.mockResolvedValue({ data: null, error: MENSAJE, status: 502 });
+    accionReservaAdmin.mockResolvedValue(falla(MENSAJE, 502, 'reembolso_a_medias'));
     const { user } = await montar({ reservas: [A_MEDIAS] });
     await user.click(screen.getByRole('button', { name: 'Reintentar reembolso' }));
     await user.click(dialogo().getByRole('button', { name: 'Reintentar reembolso' }));
@@ -1176,7 +1221,7 @@ describe('Reservas — reembolsos a medias', () => {
   });
 
   it('un 502 estando ya en «Reembolsos a medias»: recarga esa misma vista, sin cambiarla', async () => {
-    accionReservaAdmin.mockResolvedValue({ data: null, error: 'Stripe no ha respondido.', status: 502 });
+    accionReservaAdmin.mockResolvedValue(falla('Stripe no ha respondido.', 502, 'reembolso_a_medias'));
     const { user } = await montar({ reservas: [ALQUILER] });
     getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [A_MEDIAS] }));
     await user.click(screen.getByRole('button', { name: 'Reembolsos a medias' }));
@@ -1189,9 +1234,37 @@ describe('Reservas — reembolsos a medias', () => {
     expect(screen.getByRole('button', { name: 'Reembolsos a medias' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('un 502 sin el código del reembolso a medias (la pasarela, Vercel) es un error más: puede haberse guardado y no cambia de vista', async () => {
+    accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 502));
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    await user.click(tarjeta('Lámpara antigua').getByRole('button', { name: 'Levantar bloqueo' }));
+
+    expect(tarjeta('Lámpara antigua').getByRole('alert')).toHaveTextContent(
+      'No se ha podido completar la acción. Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.'
+    );
+    expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText(/Está en «Reembolsos a medias»/)).toBeNull();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('un 502 sin código al cancelar con reembolso: el error sale en el diálogo, que sigue abierto, y no se pasa a «Reembolsos a medias»', async () => {
+    accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 502));
+    const { user } = await montar();
+    await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+    await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'Avería');
+    await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+    await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+    expect(screen.getByRole('dialog', { name: '¿Cancelar la reserva?' })).toBeInTheDocument();
+    expect(dialogo().getByRole('alert')).toHaveTextContent(/^No se ha podido completar la acción\. Puede que sí se haya guardado/);
+    expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+  });
+
   it('«Reintentar reembolso» bien hecho borra el aviso de arriba', async () => {
     accionReservaAdmin
-      .mockResolvedValueOnce({ data: null, error: 'Stripe no ha respondido.', status: 502 })
+      .mockResolvedValueOnce(falla('Stripe no ha respondido.', 502, 'reembolso_a_medias'))
       .mockResolvedValueOnce(ok({ reserva: { ...A_MEDIAS, reembolso_a_medias: false, acciones: [] } }));
     const { user } = await montar({ reservas: [A_MEDIAS] });
     await user.click(screen.getByRole('button', { name: 'Reintentar reembolso' }));
@@ -1442,6 +1515,9 @@ describe('Reservas — altas en el calendario', () => {
 
     await act(async () => respuesta.resolver(falla('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).', 409)));
     expect(showToast).toHaveBeenCalledWith('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).', 'error');
+    // y se queda arriba, que no hay tarjeta donde ponerlo
+    expect(screen.getByRole('alert')).toHaveTextContent('Choca con la reserva A1B2C3D4 (del 15/10/2026 al 22/10/2026).');
+    expect(screen.getByRole('alert')).toHaveClass('reservas-aviso-general');
     expect(showToast).not.toHaveBeenCalledWith('Venta registrada', 'success');
     expect(getReservasAdmin).toHaveBeenCalledTimes(1);
   });
