@@ -257,6 +257,17 @@ no las sustituye: si un comentario diverge de la plantilla, la plantilla es la f
 - **Obligatoria:** no -- si se deja en blanco, no se carga GA4.
 - **Ejemplo:** `VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX`
 
+### `VITE_RESERVAS_ACTIVAS`
+- **Qué hace:** interruptor del cliente para las reservas por fechas (`docs/reservas-diseno.md`, 9.1). Con
+  `true` se ven el calendario y el botón «Reservar» de la ficha de una pieza, la página de éxito de una reserva,
+  «Mis reservas» en Mi cuenta y la pestaña «Reservas» del panel de administración. Con cualquier otro valor, o
+  sin poner, la web y el panel se comportan exactamente como hoy aunque el código nuevo esté desplegado.
+- **Formato:** `true` exacto, en minúsculas.
+- **Obligatoria:** no. **Por defecto, sin poner, está apagado.** Va a la par con `RESERVAS_ACTIVAS` del servidor
+  (se encienden juntas, y no antes de aplicar la migración R2 y de lanzar, bloque R-f).
+- **Al cambiarla:** es una variable de compilación: en Vercel hay que **redesplegar** el cliente.
+- **Ejemplo:** `VITE_RESERVAS_ACTIVAS=false`
+
 ## Variables que pone la plataforma (no se rellenan)
 
 El servidor lee dos variables que no están en la plantilla porque las define Vercel. Se documentan

@@ -1319,6 +1319,13 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   sobre cada reserva (entregar, recoger, ampliar, cancelar con reembolso, reintentar reembolso, levantar
   bloqueo) y las altas sin pago web (bloqueo, alquiler fuera de la web o contrato antiguo, venta). Solo
   administradores y detrás del interruptor.
+- Bloque R-c, parte del cliente (19 oct): en la ficha, el calendario, el precio en vivo y «Reservar»; el paso
+  de confirmación (datos de contacto, condiciones) que lleva a Stripe; la página de éxito, y «Mis reservas» en
+  Mi cuenta con la solicitud de cancelación. Detrás de `VITE_RESERVAS_ACTIVAS` (apagado si no se pone).
+- Bloque R-d, pestaña «Reservas» del panel (19 oct): la lista por vistas, un botón por cada acción que el
+  servidor permite, y las tres altas sin pago web. Detrás de `VITE_RESERVAS_ACTIVAS`. Revisión de «Dar por
+  reembolsado»: ahora comprueba en Stripe que conste lo devuelto. R-e (la fianza, bloqueada hasta que Stripe
+  confirme por escrito el reembolso a ~194 días) y R-f (textos legales del cliente) siguen pendientes.
 - Revisión del paso 9, último revisor (19 oct): si Stripe reintenta una compra cuya venta ya se había
   cancelado (anulada en un intento anterior, o la pieza vuelta a poner a la venta), ya no se vuelve a marcar
   como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a
