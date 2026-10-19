@@ -1302,7 +1302,14 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   empezó sin las respuestas del cliente; las cuatro decisiones bloqueantes las tomó Ashe el 13 oct (están al
   principio de `docs/reservas-diseno.md`). Hechos los pasos 5 y 6 del bloque R-a
   (precio, fechas en hora de Madrid y los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de
-  las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
+  las migraciones R1 y R2 (`docs/reservas-sql/`). **Aplicadas el 19 oct 2026** con el OK escrito de Ashe, tras
+  una prueba desechable en la base real (`PRUEBA SUPERADA`, sin rastro): la base **ya tenía una tabla
+  `reservas` del 14 oct** (migraciones `20261014110000` y `20261014110001`, sin autor ni copia en el
+  repositorio, un borrador antiguo de la R2 sin las horas), vacía. La migración `20261019233700` la renombra a
+  `reservas_borrador` y crea la R2 (el MCP de Supabase se cuelga con cualquier `DROP`, así que no se borró).
+  Pendiente: borrar `reservas_borrador` y sus dos funciones desde el panel de Supabase, y comprobar
+  `GET /api/muebles/<id>/disponibilidad` contra la API real al desplegar (el Preview no tiene claves de
+  Supabase). Detalle en `docs/reservas-sql/README.md` y `server/migrations/README.md`.
 - Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
   de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
   pone). Paso 8 (13 oct): el webhook y la página de éxito confirman la reserva pagada, registran su pedido y

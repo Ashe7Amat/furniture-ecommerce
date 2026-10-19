@@ -5,8 +5,11 @@ Copia en el repositorio de cada migración aplicada a la base de datos de Supaba
 `apply_migration` registra cada una. Aquí está la misma lista, para revisarla en el diff y para saber qué se
 ha hecho sin consultar la base de datos.
 
-A 13 oct 2026 hay **25 migraciones registradas y las 25 están aquí**. Las 7 primeras (3-5 sep) se recuperaron
-de `schema_migrations` el 5 oct, solo leyendo (H38 de `docs/mejoras-tecnicas.md`).
+A 19 oct 2026 hay **28 migraciones registradas y las 28 están aquí**. Las 7 primeras (3-5 sep) se recuperaron
+de `schema_migrations` el 5 oct, solo leyendo (H38 de `docs/mejoras-tecnicas.md`). Las dos del 14 oct
+(`20261014110000` y `20261014110001`, el borrador de la tabla `reservas`) las había aplicado alguien sin dejar
+copia en el repositorio ni autor en `schema_migrations`; se recuperaron el 19 oct al encontrarlas, solo
+leyendo, y la tercera de esa serie (`20261019233700`) las sustituye por la R2 (`docs/reservas-sql/README.md`).
 
 ## Convención
 
@@ -35,6 +38,10 @@ Son copias anteriores a la regla de "byte a byte". El texto es el mismo, pero lo
 
 La segunda no se puede arreglar en el archivo: `.gitattributes` (`* text=auto eol=lf`) guarda todo el texto
 con `\n`. Las 7 desde `20261002121823` (y las 7 recuperadas) coinciden tal cual.
+
+Otras dos, las recuperadas el 19 oct (`20261014110000` y `20261014110001`), se registraron también con `\r\n`,
+pero su texto entero acaba en `\r\n`: el MD5 coincide cambiando `\n` por `\r\n`, sin quitar nada. No tienen
+`.down.sql`: no son una propuesta nuestra, y la tabla que crean ya no se usa (queda como `reservas_borrador`).
 
 ## Cómo se aplica una migración nueva
 
@@ -71,13 +78,14 @@ for (const f of fs.readdirSync('.').filter((f) => /^\d{14}_.*\.sql$/.test(f) && 
   const v = f.slice(0, 14);
   let t = fs.readFileSync(f, 'utf8');
   if (v === '20261001220000') t = t.replace(/\n/g, '\r\n').slice(0, -2); // A3: \r\n, sin el último
+  else if (v === '20261014110000' || v === '20261014110001') t = t.replace(/\n/g, '\r\n'); // recuperadas: \r\n
   else if (v >= '20260922115443' && v <= '20261001212500') t = t.slice(0, -1); // sin el \n final
   console.log(v, md5(t), f.slice(15, -4));
 }
 FIN
 ```
 
-Las dos listas tienen que ser iguales. Así estaban el 13 oct 2026:
+Las dos listas tienen que ser iguales. Así estaban el 19 oct 2026:
 
 | Versión | Nombre | MD5 registrado | Archivo |
 |---|---|---|---|
@@ -106,6 +114,9 @@ Las dos listas tienen que ser iguales. Así estaban el 13 oct 2026:
 | 20261005002322 | `create_mensajes_contacto` | `142abae3532f1684e28c8a940acb3d9b` | tal cual |
 | 20261012165218 | `verificacion_email` | `8adcca14e14c1546f839cee8ef7bb012` | tal cual |
 | 20261013112123 | `marcar_admins_verificados` | `6ea564f6280bc547b404d8d4d4313c7d` | tal cual |
+| 20261014110000 | `enable_btree_gist` | `6150d2075a2e5b4bb17c3995cab14709` | con `\r\n` (recuperada) |
+| 20261014110001 | `create_reservas` | `d0b3d4e75c808c54f4c6f2f170cfec72` | con `\r\n` (recuperada) |
+| 20261019233700 | `reemplazar_borrador_reservas_por_r2` | `cec5d329ed7802b5900d5effa3c382af` | tal cual |
 
 ## Lo que no está aquí
 

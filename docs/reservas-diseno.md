@@ -13,9 +13,10 @@
 >    se añade granularidad horaria.
 >
 > Hecho del bloque R-a: los pasos 5 y 6 (reglas, fechas en hora de Madrid, cálculo del precio y los endpoints
-> de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2 sin aplicar, con su prueba desechable
-> comprobada en local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden llegar a `main`
-> antes que la migración R2, que espera el OK explícito del propietario.
+> de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2, con su prueba desechable comprobada en
+> local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden llegar a `main` antes que la
+> migración R2. **R2 está aplicada en producción desde el 19 oct 2026** (el OK escrito del propietario; la base
+> ya tenía un borrador antiguo de la tabla, que se renombró a `reservas_borrador`: ver `docs/reservas-sql/README.md`).
 >
 > Hecho del bloque R-b: el paso 7, `POST /api/reservas/sesion-pago` (6.3), detrás de `RESERVAS_ACTIVAS`. Dos
 > cosas que el 6.3 no decía: la sesión de Stripe dura 31 minutos y no 30 (Stripe cuenta el mínimo desde que

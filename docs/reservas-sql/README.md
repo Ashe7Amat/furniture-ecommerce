@@ -1,12 +1,49 @@
-# Reservas por fechas: migraciones R1 y R2 (propuesta, sin aplicar)
+# Reservas por fechas: migraciones R1 y R2 (aplicadas el 19 oct 2026)
 
-Bloque R-a de `docs/reservas-diseno.md` (sección 11, pasos 1 a 3). **Nada de esto está aplicado.** Cuando se
-aplique, cada migración se copia a `server/migrations/` con la versión real, como dice su `README.md`.
+Bloque R-a de `docs/reservas-diseno.md` (sección 11, pasos 1 a 3). **La tabla `reservas` de la R2 está aplicada
+en producción desde el 19 oct 2026**, vacía y sin ningún código encendido que la use (los interruptores
+`RESERVAS_ACTIVAS` y `VITE_RESERVAS_ACTIVAS` siguen apagados). Su copia está en `server/migrations/`, como dice
+su `README.md`.
 
-**Antes de aplicar hace falta el OK explícito de Ashe**, por separado para la prueba desechable y para cada
-migración. Las decisiones que cambiaban la tabla ya están tomadas (13 oct 2026): no hay alquileres de menos de un
-día, así que el calendario sigue por días, y los días se cobran en bloques de 24 h desde la hora de entrega, así
-que cada alquiler guarda su hora de entrega y de recogida.
+## Cómo se aplicó (19 oct 2026), con el OK escrito de Ashe
+
+Al ir a aplicar R1 y R2 se encontró que **la base de producción ya tenía una tabla `reservas`**: dos migraciones
+del 14 oct (`20261014110000 enable_btree_gist` y `20261014110001 create_reservas`), sin autor en
+`schema_migrations` y con el texto en ninguna rama del repositorio. Era un borrador anterior de la R2: vacía, sin
+`hora_entrega` ni `hora_recogida` (que usa todo el código de los bloques R-a a R-d), con otras restricciones,
+índices y funciones, y el disparador de la devolución solo en `UPDATE`. El código nuevo habría fallado al
+encender los interruptores.
+
+- **R1:** no hizo falta aplicarla; `btree_gist` ya estaba activada en el esquema `extensions` (la migración
+  `20261014110000` es el mismo `CREATE EXTENSION IF NOT EXISTS` de `r1_activar_btree_gist.sql`).
+- **R2:** la migración `20261019233700 reemplazar_borrador_reservas_por_r2` renombra la tabla del borrador a
+  `reservas_borrador` (y sus restricciones `reservas_pkey` y `reservas_sin_solape`, para liberar los nombres de
+  los índices) y crea la tabla de `r2_crear_reservas.sql`. **No se borró la vieja porque el MCP de Supabase se
+  cuelga con cualquier `DROP`** (incluso uno que no hace nada): queda `reservas_borrador`, vacía y con RLS, junto
+  con sus dos funciones (`set_reservas_updated_at` y `sincronizar_fin_ocupacion_devuelta`). Ashe puede borrarlas
+  desde el panel de Supabase cuando quiera; nada las usa.
+- **Prueba desechable antes:** el texto de la migración más `r2_pruebas.sql` en una sola llamada a `execute_sql`
+  terminó con el error `PRUEBA SUPERADA` y, después, la tabla del borrador, las 27 migraciones y las funciones
+  seguían como estaban.
+- **Después de aplicar** (solo lectura): MD5 de lo registrado igual al del archivo
+  (`cec5d329ed7802b5900d5effa3c382af`); `btree_gist` en `extensions`; 0 filas en `reservas` y en
+  `reservas_borrador`; RLS activada en las dos; 44 columnas, con `hora_entrega` y `hora_recogida`; las 8 CHECK con
+  nombre, `reservas_sin_solape` y `reservas_sesion_mueble_key`; los índices de la R2; los dos disparadores
+  (`trg_reservas_updated_at` y `trg_reservas_fin_ocupacion_al_devolver`); y el filtro de rangos de la
+  disponibilidad (`rango_ocupado && '[hoy,)'`) da 0 filas para una pieza real.
+- **Sin comprobar todavía:** `GET /api/muebles/<id>/disponibilidad` contra la API real. El despliegue de prueba
+  de la rama no tiene `SUPABASE_SERVICE_ROLE_KEY` (cae al arrancar, también en rutas que no tocan reservas) y
+  este entorno no puede llegar a Supabase desde fuera. Se comprobará al desplegar a `main`, o en un Preview con
+  las claves: tiene que responder 200 con `ocupado: []`.
+- **Detalle sin importancia:** mientras exista `reservas_borrador`, Postgres puso a las CHECK automáticas de la
+  tabla nueva el sufijo `1` (`reservas_tipo_check1`, `reservas_estado_check1`...), porque sus nombres de siempre
+  los tiene la vieja. Ningún código depende de esos nombres. Si se quiere, tras borrar la vieja se pueden
+  renombrar con `ALTER TABLE ... RENAME CONSTRAINT`.
+
+Lo que sigue valiendo del plan original: **todo cambio en producción pide el OK escrito de Ashe**, por separado
+para la prueba desechable y para cada migración. Las decisiones que cambiaban la tabla ya estaban tomadas
+(13 oct 2026): no hay alquileres de menos de un día, así que el calendario sigue por días, y los días se cobran
+en bloques de 24 h desde la hora de entrega, así que cada alquiler guarda su hora de entrega y de recogida.
 
 | Archivo | Qué hace |
 |---|---|
@@ -15,7 +52,10 @@ que cada alquiler guarda su hora de entrega y de recogida.
 | `*.down.sql` | La reversión de cada una (R2 primero) |
 | `r2_pruebas.sql` | La prueba desechable: los casos obligatorios del 4.3 y del 3.4 |
 
-Con la tabla vacía, ninguno de los dos disparadores hace nada, y ningún código la lee ni la escribe todavía.
+Con la tabla vacía, ninguno de los dos disparadores hace nada. En `main` ningún código la lee ni la escribe
+todavía. En `feature/mejoras-tecnicas` la leen los endpoints de disponibilidad y la compra (paso 9), y solo
+escriben en ella las reservas detrás de los interruptores, además de la fila de venta de cada compra pagada.
+**Por eso `main` no debe recibir ese código antes de que esta tabla esté en producción, como ya lo está.**
 
 ## Diferencias con el borrador del diseño
 
@@ -57,9 +97,14 @@ propósito que deshace todo, también la extensión y la tabla.
 
 Necesita dos muebles y dos clientes cualesquiera (hoy hay de sobra). Solo los lee.
 
+El 19 oct 2026 se hizo así, pero con los tres `ALTER TABLE ... RENAME` de la migración
+`20261019233700` delante del texto de R2 (la tabla `reservas` ya existía): `PRUEBA SUPERADA` y, después, nada
+había cambiado. Ojo con una trampa: el MCP de Supabase se cuelga 60 s con cualquier `DROP` (también uno que no
+hace nada), así que una prueba o una migración con `DROP` no se puede lanzar desde aquí.
+
 ## Comprobaciones después de aplicar R1 y R2
 
-Solo lectura:
+El resultado del 19 oct 2026 está en la sección «Cómo se aplicó», arriba. Solo lectura:
 
 ```sql
 SELECT extname, extnamespace::regnamespace FROM pg_extension WHERE extname = 'btree_gist';
