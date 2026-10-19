@@ -31,7 +31,11 @@
 //     un endpoint público no expone una columna que no ha pedido).
 //   - en `reservas`, la columna generada rango_ocupado se calcula en cada fila (también en las
 //     iniciales, porque en la base de datos siempre existe) con el mismo texto canónico que
-//     devuelve Postgres: "[inicio,fin+margen)", "[inicio,)" sin fin, o "empty".
+//     devuelve Postgres: "[inicio,fin+margen)", "[inicio,)" sin fin, o "empty" si acaba el mismo
+//     día que empieza. Si acaba ANTES de empezar (fin_ocupacion + dias_margen < fecha_inicio), la
+//     escritura falla con 22000 "range lower bound must be less than or equal to range upper
+//     bound" y no escribe nada, como Postgres (comprobado en PostgreSQL 16, 19 oct); una fila
+//     inicial así no puede existir y hace fallar el test.
 //   - en `reservas`, cada insert y cada update pasa por las restricciones de la migración R2
 //     (docs/reservas-sql/r2_crear_reservas.sql): la exclusión reservas_sin_solape (23P01: misma
 //     pieza, rangos que se solapan, las dos en un estado que ocupa), el índice de una sola
@@ -55,10 +59,23 @@ const { sumarDias, hoyEnMadrid } = require('../../utils/fechasMadrid');
 
 // Copia de la columna generada reservas.rango_ocupado:
 //   daterange(fecha_inicio, fin_ocupacion + dias_margen, '[)')
+// null si el fin va antes del principio: Postgres no puede calcular la columna (ERROR_RANGO).
 const rangoOcupado = ({ fecha_inicio, fin_ocupacion, dias_margen = 0 }) => {
   if (fin_ocupacion == null) return `[${fecha_inicio},)`;
   const fin = sumarDias(fin_ocupacion, dias_margen);
+  if (fin < fecha_inicio) return null;
   return fin > fecha_inicio ? `[${fecha_inicio},${fin})` : 'empty';
+};
+const ERROR_RANGO = {
+  code: '22000',
+  message: 'range lower bound must be less than or equal to range upper bound'
+};
+const rangoInicial = (fila) => {
+  const rango = rangoOcupado(fila);
+  if (rango === null) {
+    throw new Error(`Fila inicial de reservas con el fin antes del principio: ${fila.id}`);
+  }
+  return rango;
 };
 
 // Un daterange en texto ("[a,b)", "[a,)" o "empty") como { desde, hasta } (null = sin límite).
@@ -170,7 +187,7 @@ const crearFakeSupabase = ({
     reservas: reservas.map((fila) => ({
       updated_at: '2025-12-31T00:00:00.000Z',
       ...fila,
-      rango_ocupado: rangoOcupado(fila)
+      rango_ocupado: rangoInicial(fila)
     }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
@@ -283,6 +300,10 @@ const crearFakeSupabase = ({
       const entrada = Array.isArray(consulta.datos) ? consulta.datos : [consulta.datos];
       const nuevasFilas = entrada.map((datos) => ({ id: `${nombre}-${++secuencia}`, ...datos }));
       nuevasFilas.forEach((fila) => aplicarTriggers(nombre, fila));
+      // La columna generada se calcula antes de mirar ninguna restricción.
+      if (nombre === 'reservas' && nuevasFilas.some((fila) => fila.rango_ocupado === null)) {
+        return { data: null, error: ERROR_RANGO };
+      }
 
       for (const [i, fila] of nuevasFilas.entries()) {
         const duplicaId = filas.some((f) => f.id === fila.id);
@@ -337,6 +358,9 @@ const crearFakeSupabase = ({
           aplicarTriggers(nombre, copia);
           return copia;
         });
+        if (propuestas.some((fila) => fila.rango_ocupado === null)) {
+          return { data: null, error: ERROR_RANGO };
+        }
         const resto = filas.filter((fila) => !afectadas.includes(fila));
         for (const [i, propuesta] of propuestas.entries()) {
           const violacion = violacionReservas(propuesta, [

@@ -448,7 +448,9 @@ const MENSAJES_RESERVA_PAGADA = {
   confirmada: 'Reserva confirmada. Te hemos enviado los detalles por email.',
   conflicto:
     'Hemos recibido tu pago, pero esas fechas ya no estaban libres. Te devolveremos el importe y te escribiremos por email.',
-  procesando: 'Pago recibido. Estamos confirmando tu reserva y te llegará un email en cuanto esté.'
+  procesando: 'Pago recibido. Estamos confirmando tu reserva y te llegará un email en cuanto esté.',
+  // Pagada, confirmada y cancelada después desde el panel (19 oct): ni conflicto ni otro email.
+  cancelada: 'Esta reserva está cancelada. Si tienes cualquier duda, escríbenos.'
 };
 
 // 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
@@ -496,12 +498,11 @@ const confirmarSesion = async (req, res) => {
 
     const total = (session.amount_total || 0) / 100;
     if (esReserva) {
-      // Reservas por fechas (6.4): la página de éxito necesita saber si las fechas son suyas o si
-      // el pago llegó cuando ya eran de otra persona (se le devolverá).
-      const estado =
-        resultado?.estado === 'confirmada' || resultado?.estado === 'conflicto'
-          ? resultado.estado
-          : 'procesando';
+      // Reservas por fechas (6.4): la página de éxito necesita saber si las fechas son suyas, si
+      // el pago llegó cuando ya eran de otra persona (se le devolverá) o si ya se canceló.
+      const estado = ['confirmada', 'conflicto', 'cancelada'].includes(resultado?.estado)
+        ? resultado.estado
+        : 'procesando';
       return res.status(200).json({
         success: true,
         tipo: 'reserva',

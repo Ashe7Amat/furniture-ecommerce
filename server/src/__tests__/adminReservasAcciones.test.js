@@ -125,6 +125,10 @@ beforeEach(() => {
     refunds: {
       create: mock.fn(async () => ({ id: 're_1', status: 'succeeded' })),
       list: mock.fn(async () => ({ data: [], has_more: false }))
+    },
+    // Lo cobrado en el pago de la reserva (el importe_total de alquiler(), 120,50 €).
+    paymentIntents: {
+      retrieve: mock.fn(async (id) => ({ id, amount_received: 12050, status: 'succeeded' }))
     }
   };
   mock.method(stripeUtil, 'getStripe', () => stripe);
@@ -167,6 +171,41 @@ describe('la ruta de las acciones', () => {
     const res = await accion(RESERVA, 'borrar');
     assert.equal(res.status, 404);
     assert.deepEqual(res.body, { error: 'Esa acción no existe.' });
+  });
+
+  test('los nombres que hereda cualquier objeto de JavaScript tampoco son acciones (404)', async () => {
+    instalar({ reservas: [alquiler()] });
+    for (const nombre of ['constructor', 'toString', '__proto__', 'hasOwnProperty', 'valueOf']) {
+      const res = await accion(RESERVA, nombre);
+      assert.equal(res.status, 404, nombre);
+      assert.deepEqual(res.body, { error: 'Esa acción no existe.' });
+    }
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('un cuerpo JSON que no es un objeto: 400 en castellano, sin el texto de Zod', async () => {
+    instalar({ reservas: [enCurso()] });
+    for (const [nombre, cuerpo] of [
+      ['recoger', '[]'],
+      ['entregar', '[true]'],
+      ['cancelar', '[{"motivo":"x","reembolso_centimos":0}]']
+    ]) {
+      const res = await request(app)
+        .post(`/api/admin/reservas/${RESERVA}/${nombre}`)
+        .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
+        .set('Content-Type', 'application/json')
+        .send(cuerpo);
+      assert.equal(res.status, 400, nombre);
+      assert.deepEqual(res.body, { error: 'Los datos tienen que ir en un objeto JSON.' });
+    }
+    const texto = await request(app)
+      .post(`/api/admin/reservas/${RESERVA}/recoger`)
+      .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
+      .set('Content-Type', 'application/json')
+      .send('"hoy"');
+    assert.equal(texto.status, 400);
+    assert.deepEqual(texto.body, { error: 'El cuerpo de la petición no es un JSON válido.' });
+    assert.equal(fake.escrituras.length, 0);
   });
 
   test('una reserva que no existe: 404', async () => {
@@ -288,15 +327,87 @@ describe('entregar', () => {
     assert.equal(estadoPieza(), 'disponible');
   });
 
-  test('antes de la fecha prevista con antes_de_tiempo: se entrega y el historial lo dice', async () => {
-    instalar({ reservas: [alquiler({ fecha_inicio: dia(2), fecha_fin: dia(5) })] });
+  test('antes de la fecha prevista con antes_de_tiempo: ocupa desde hoy y el historial guarda la fecha prevista', async () => {
+    instalar({
+      reservas: [alquiler({ fecha_inicio: dia(2), fecha_fin: dia(5), fin_ocupacion: dia(5) })]
+    });
     const res = await accion(RESERVA, 'entregar', { antes_de_tiempo: true });
     assert.equal(res.status, 200);
     assert.equal(fila().estado, 'en_curso');
+    assert.equal(fila().fecha_inicio, hoy);
+    assert.equal(fila().rango_ocupado, `[${hoy},${dia(7)})`);
+    assert.equal(res.body.reserva.fecha_inicio, hoy);
     assert.equal(
       ultimaLinea().detalle,
-      `Entregada antes de la fecha prevista (${fechaLegible(dia(2))}).`
+      `Entregada antes de la fecha prevista (${fechaLegible(dia(2))}): ocupa el calendario desde hoy.`
     );
+  });
+
+  test('entregada antes de tiempo, los días de antes de la fecha prevista ya no se pueden reservar', async () => {
+    instalar({
+      reservas: [alquiler({ fecha_inicio: dia(6), fecha_fin: dia(9), fin_ocupacion: dia(9) })]
+    });
+    assert.equal((await accion(RESERVA, 'entregar', { antes_de_tiempo: true })).status, 200);
+    const { error } = await fake
+      .from('reservas')
+      .insert(
+        bloqueo({ id: uuid(555), fecha_inicio: dia(2), fecha_fin: dia(4), fin_ocupacion: dia(4) })
+      );
+    assert.equal(error?.code, '23P01');
+  });
+
+  test('entregada antes de tiempo, se puede recoger cuando vuelva (sin rangos imposibles)', async () => {
+    instalar({
+      reservas: [alquiler({ fecha_inicio: dia(6), fecha_fin: dia(9), fin_ocupacion: dia(9) })]
+    });
+    assert.equal((await accion(RESERVA, 'entregar', { antes_de_tiempo: true })).status, 200);
+    const res = await accion(RESERVA, 'recoger');
+    assert.equal(res.status, 200);
+    assert.equal(fila().estado, 'devuelta');
+    assert.equal(fila().rango_ocupado, `[${hoy},${dia(2)})`);
+  });
+
+  test('si entregarla hoy choca con lo que va antes: 409 que lo nombra, y no cambia nada', async () => {
+    instalar({
+      reservas: [
+        alquiler({ fecha_inicio: dia(5), fecha_fin: dia(8), fin_ocupacion: dia(8) }),
+        bloqueo({ fecha_inicio: dia(-1), fecha_fin: dia(2), fin_ocupacion: dia(2) })
+      ]
+    });
+
+    const res = await accion(RESERVA, 'entregar', { antes_de_tiempo: true });
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error: `Entregarla hoy choca con el bloqueo #00000000 (del ${fechaLegible(dia(-1))} al ${fechaLegible(dia(2))}).`
+    });
+    assert.equal(fila().estado, 'confirmada');
+    assert.equal(fila().fecha_inicio, dia(5));
+    assert.equal(estadoPieza(), 'disponible');
+  });
+
+  test('el doble, como Postgres: un rango con el fin antes del principio es un 22000 y no escribe', async () => {
+    instalar({
+      reservas: [enCurso({ fecha_inicio: dia(6), fecha_fin: dia(9), fin_ocupacion: dia(9) })]
+    });
+    const { data, error } = await fake
+      .from('reservas')
+      .update({ estado: 'devuelta', devuelta_en: new Date().toISOString() })
+      .eq('id', RESERVA)
+      .select('id');
+    assert.equal(data, null);
+    assert.deepEqual(error, {
+      code: '22000',
+      message: 'range lower bound must be less than or equal to range upper bound'
+    });
+    assert.equal(fila().estado, 'en_curso');
+    // Acabar (margen incluido) el mismo día que empieza no es un error: es un rango vacío.
+    const vacio = await fake
+      .from('reservas')
+      .update({ estado: 'devuelta', devuelta_en: `${dia(4)}T10:00:00.000Z` })
+      .eq('id', RESERVA);
+    assert.equal(vacio.error, null);
+    assert.equal(fila().rango_ocupado, 'empty');
   });
 
   test('en otro estado: 409 con el motivo, y no cambia nada', async () => {
@@ -399,9 +510,9 @@ describe('recoger', () => {
     assert.equal(estadoPieza(), 'vendido');
   });
 
-  test('tarde, y el margen alcanza a la reserva siguiente: 409 que la nombra, sin sus datos, y nada cambia', async () => {
+  test('tarde, y el margen alcanza a la reserva siguiente: se recoge igual, con el margen que queda y un aviso', async () => {
     // Ocupaba hasta ayer (fin hace 3 días + 2 de margen); la siguiente empieza mañana. Devuelta hoy,
-    // con su margen ocuparía hasta pasado mañana.
+    // con su margen ocuparía hasta pasado mañana: le queda 1 día.
     instalar({
       reservas: [
         enCurso({ fecha_inicio: dia(-6), fecha_fin: dia(-3), fin_ocupacion: dia(-3) }),
@@ -412,30 +523,139 @@ describe('recoger', () => {
 
     const res = await accion(RESERVA, 'recoger');
 
+    assert.equal(res.status, 200);
+    assert.deepEqual(Object.keys(res.body).sort(), ['aviso', 'reserva']);
+    assert.equal(
+      res.body.aviso,
+      `La pieza ha vuelto tarde: hasta el alquiler #C0FFEE00 del ${fechaLegible(dia(1))} solo ` +
+        'queda 1 día de margen.'
+    );
+    sinDatosDeLuis(res.body.aviso);
+    assert.equal(res.body.reserva.estado, 'devuelta');
+    assert.equal(res.body.reserva.dias_margen, 1);
+    assert.equal(fila().estado, 'devuelta');
+    assert.equal(fila().fin_ocupacion, hoy);
+    assert.equal(fila().dias_margen, 1);
+    assert.equal(fila().rango_ocupado, `[${dia(-6)},${dia(1)})`);
+    assert.equal(
+      ultimaLinea().detalle,
+      `Recogida con 3 días de retraso. Margen recortado de 2 días a 1 día por el alquiler ` +
+        `#C0FFEE00 del ${fechaLegible(dia(1))}.`
+    );
+    assert.equal(fila(SIGUIENTE).estado, 'confirmada', 'la siguiente no se toca');
+    assert.equal(estadoPieza(), 'disponible');
+  });
+
+  test('el aviso cuenta los días que quedan, o que no queda margen', async () => {
+    const casos = [
+      // [margen, días hasta la siguiente, aviso]
+      [3, 2, 'solo quedan 2 días de margen.'],
+      [2, 0, 'no queda margen.']
+    ];
+    for (const [margen, hasta, final] of casos) {
+      instalar({
+        reservas: [
+          enCurso({
+            fecha_inicio: dia(-8),
+            fecha_fin: dia(-3 - margen),
+            fin_ocupacion: dia(-3 - margen),
+            dias_margen: margen
+          }),
+          bloqueo({
+            fecha_inicio: dia(hasta),
+            fecha_fin: dia(hasta + 2),
+            fin_ocupacion: dia(hasta + 2)
+          })
+        ]
+      });
+      const res = await accion(RESERVA, 'recoger');
+      assert.equal(res.status, 200, `margen ${margen}`);
+      assert.equal(
+        res.body.aviso,
+        `La pieza ha vuelto tarde: hasta el bloqueo #00000000 del ${fechaLegible(dia(hasta))} ${final}`
+      );
+      assert.equal(fila().dias_margen, hasta);
+      assert.match(
+        ultimaLinea().detalle,
+        new RegExp(
+          `Margen recortado de ${margen} días a ${hasta === 1 ? '1 día' : `${hasta} días`} `
+        )
+      );
+    }
+  });
+
+  test('si volvió cuando la siguiente ya había empezado: 409 que la nombra, sin sus datos ni acciones que no hay, y nada cambia', async () => {
+    instalar({
+      reservas: [
+        enCurso({ fecha_inicio: dia(-8), fecha_fin: dia(-5), fin_ocupacion: dia(-5) }),
+        siguiente({ fecha_inicio: dia(-2), fecha_fin: dia(1), fin_ocupacion: dia(1) })
+      ],
+      muebles: MUEBLES('alquilado')
+    });
+
+    const res = await accion(RESERVA, 'recoger');
+
     assert.equal(res.status, 409);
     assert.deepEqual(res.body, {
       error:
-        `La devolución de hoy, con su margen, choca con el alquiler #C0FFEE00 (del ` +
-        `${fechaLegible(dia(1))} al ${fechaLegible(dia(4))}, más 2 días de margen). No se puede ` +
-        'marcar como recogida hasta que se mueva o se cancele ese alquiler.'
+        `La pieza volvió el ${fechaLegible(hoy)}, cuando ya había empezado el alquiler #C0FFEE00 ` +
+        `(del ${fechaLegible(dia(-2))} al ${fechaLegible(dia(1))}, más 2 días de margen): no se ` +
+        'puede apuntar esa recogida.'
     });
     sinDatosDeLuis(res.body.error);
+    assert.ok(!/mueva|mover/.test(res.body.error));
     assert.equal(fila().estado, 'en_curso');
-    assert.equal(fila().fin_ocupacion, dia(-3));
+    assert.equal(fila().fin_ocupacion, dia(-5));
+    assert.equal(fila().dias_margen, 2);
     assert.equal(estadoPieza(), 'alquilado');
+
+    // Si en realidad volvió antes de que empezara la siguiente, con su fecha entra.
+    const antes = await accion(RESERVA, 'recoger', { fecha_recogida: dia(-3) });
+    assert.equal(antes.status, 200);
+    assert.equal(fila().fin_ocupacion, dia(-3));
+    assert.equal(fila().dias_margen, 1);
   });
 
-  test('si lo que alcanza es un bloqueo, lo dice', async () => {
+  test('una ventana que se cierra entre medias: se vuelve a mirar y se recorta otra vez', async () => {
     instalar({
       reservas: [
-        enCurso({ fecha_inicio: dia(-6), fecha_fin: dia(-3), fin_ocupacion: dia(-3) }),
-        bloqueo({ fecha_inicio: dia(1), fecha_fin: dia(3), fin_ocupacion: dia(3) })
+        enCurso({
+          fecha_inicio: dia(-6),
+          fecha_fin: dia(-3),
+          fin_ocupacion: dia(-3),
+          dias_margen: 3
+        }),
+        siguiente({ fecha_inicio: dia(2), fecha_fin: dia(4), fin_ocupacion: dia(4) })
       ]
     });
+    // Justo después de buscar con qué chocaba (la siguiente, pasado mañana), alguien bloquea
+    // mañana: el margen recortado a 2 días vuelve a chocar.
+    let busquedas = 0;
+    const deEsteTest = fake;
+    deEsteTest.fallos['reservas.select'] = (consulta) => {
+      if (consulta.usa.has('overlaps') && ++busquedas === 1) {
+        setImmediate(() =>
+          deEsteTest.tablas.reservas.push({
+            ...bloqueo({
+              id: uuid(777),
+              fecha_inicio: dia(1),
+              fecha_fin: dia(2),
+              fin_ocupacion: dia(2)
+            }),
+            rango_ocupado: `[${dia(1)},${dia(2)})`
+          })
+        );
+      }
+      return null;
+    };
+
     const res = await accion(RESERVA, 'recoger');
-    assert.equal(res.status, 409);
-    assert.match(res.body.error, /choca con el bloqueo #00000000 \(del /);
-    assert.match(res.body.error, /hasta que se mueva o se levante ese bloqueo\.$/);
+
+    assert.equal(busquedas, 2);
+
+    assert.equal(res.status, 200);
+    assert.equal(fila().dias_margen, 1);
+    assert.match(res.body.aviso, /hasta el bloqueo #00000000 del .* solo queda 1 día de margen\.$/);
   });
 
   test('una provisional caducada en el camino no cuenta: se limpia antes (4.6) y se recoge', async () => {
@@ -464,6 +684,84 @@ describe('recoger', () => {
     });
     assert.deepEqual((await accion(RESERVA, 'recoger')).body, {
       error: 'Este alquiler ya está marcado como recogido.'
+    });
+  });
+
+  describe('con fecha_recogida (se apunta otro día)', () => {
+    const horaEnMadrid = (instante) =>
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Europe/Madrid',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).format(new Date(instante));
+
+    test('un día pasado: devuelta ese día a las 12:00 de Madrid, y el historial lo dice', async () => {
+      instalar({
+        reservas: [enCurso({ fecha_inicio: dia(-6), fecha_fin: dia(-3), fin_ocupacion: dia(-3) })]
+      });
+
+      const res = await accion(RESERVA, 'recoger', { fecha_recogida: dia(-4) });
+
+      assert.equal(res.status, 200);
+      assert.deepEqual(Object.keys(res.body), ['reserva']);
+      assert.equal(hoyEnMadrid(new Date(fila().devuelta_en)), dia(-4));
+      assert.equal(horaEnMadrid(fila().devuelta_en), '12:00');
+      assert.equal(res.body.reserva.devuelta_en, fila().devuelta_en);
+      assert.equal(fila().fin_ocupacion, dia(-4));
+      assert.equal(ultimaLinea().detalle, `Recogida el ${fechaLegible(dia(-4))}.`);
+    });
+
+    test('tarde y otro día: el retraso se cuenta hasta ese día', async () => {
+      instalar({
+        reservas: [enCurso({ fecha_inicio: dia(-9), fecha_fin: dia(-6), fin_ocupacion: dia(-6) })]
+      });
+      assert.equal((await accion(RESERVA, 'recoger', { fecha_recogida: dia(-2) })).status, 200);
+      assert.equal(
+        ultimaLinea().detalle,
+        `Recogida el ${fechaLegible(dia(-2))}, con 4 días de retraso.`
+      );
+    });
+
+    test('hoy es lo mismo que no mandarla: devuelta ahora', async () => {
+      instalar({ reservas: [enCurso()] });
+      const antes = Date.now();
+      assert.equal((await accion(RESERVA, 'recoger', { fecha_recogida: hoy })).status, 200);
+      const devuelta = Date.parse(fila().devuelta_en);
+      assert.ok(devuelta >= antes && devuelta <= Date.now(), fila().devuelta_en);
+      assert.equal(ultimaLinea().detalle, 'Recogida.');
+    });
+
+    test('ni después de hoy ni antes de la entrega (400), y sin escribir', async () => {
+      instalar({
+        reservas: [
+          enCurso({
+            fecha_inicio: dia(-6),
+            entregada_en: new Date(Date.now() - 5 * 86_400_000).toISOString()
+          })
+        ]
+      });
+      const entrega = hoyEnMadrid(new Date(fila().entregada_en));
+      assert.deepEqual((await accion(RESERVA, 'recoger', { fecha_recogida: dia(1) })).body, {
+        error: 'La fecha de recogida no puede ser posterior a hoy.'
+      });
+      assert.deepEqual(
+        (await accion(RESERVA, 'recoger', { fecha_recogida: sumarDias(entrega, -1) })).body,
+        {
+          error: `La fecha de recogida no puede ser anterior a la entrega (${fechaLegible(entrega)}).`
+        }
+      );
+      assert.equal((await accion(RESERVA, 'recoger', { fecha_recogida: entrega })).status, 200);
+    });
+
+    test('la forma: 400 con su mensaje', async () => {
+      instalar({ reservas: [enCurso()] });
+      for (const fecha of ['2026-02-30', '19/10/2026', 20261019, null]) {
+        const res = await accion(RESERVA, 'recoger', { fecha_recogida: fecha });
+        assert.equal(res.status, 400, String(fecha));
+        assert.deepEqual(res.body, { error: 'Elige la fecha de recogida (AAAA-MM-DD).' });
+      }
+      assert.equal(escriturasDe('reservas').length, 0);
     });
   });
 });
@@ -766,7 +1064,7 @@ describe('cancelar (8.4, política manual)', () => {
     assert.equal(res.body.reserva.estado, 'cancelada');
     assert.equal(res.body.reserva.reembolso_a_medias, true);
     assert.equal(res.body.reserva.etiqueta, 'Cancelada · reembolso a medias');
-    assert.deepEqual(res.body.reserva.acciones, ['reintentar-reembolso']);
+    assert.deepEqual(res.body.reserva.acciones, ['reintentar-reembolso', 'dar-por-reembolsado']);
     assert.equal(fila().estado, 'cancelada');
     assert.ok(fila().reembolso_solicitado_en);
     assert.equal(fila().stripe_refund_id, undefined);

@@ -1077,6 +1077,32 @@ legacy en revisión** (`origen = 'legacy'`).
 | Registrar venta fuera de la web | Inserta `tipo = 'venta'` | Sustituye a "marcar vendido" a mano (3.3) |
 | Registrar alquiler fuera de la web | Inserta `tipo = 'alquiler'`, `origen = 'manual'` (o `'legacy'` si no tiene fecha de fin firmada), con fechas, cliente y datos de contacto, sin pago de Stripe | Mismo camino que el bloqueo (limpieza, inserción, traducción del `23P01`, 4.3): si choca con una reserva web, el 409 muestra con cuál (fechas y número de pedido, sin datos personales) y el administrador decide. Sirve para alquileres pactados por teléfono o en tienda y para los contratos antiguos del 9.2 |
 
+**Ajustes (19 oct), tras revisar las acciones ya implementadas:**
+
+- **Entregar antes de tiempo** (con `antes_de_tiempo: true`): `fecha_inicio` pasa a hoy en el mismo `UPDATE`
+  guardado, porque la pieza ya no está desde hoy. Pasa por `escribirEnCalendario` (4.6), así que si esos días ya
+  son de otra reserva, 409 que la nombra y no cambia nada. La fecha prevista queda en el historial.
+- **Recoger** acepta `fecha_recogida` (AAAA-MM-DD, sin ella, hoy), para apuntar una devolución que se hizo otro día:
+  ni posterior a hoy ni anterior a la entrega (400). Un día distinto de hoy se guarda a las 12:00 de Madrid. Si la
+  pieza vuelve tarde y su margen alcanza a la reserva siguiente, **se apunta igual** (la pieza ya ha vuelto):
+  `dias_margen` se recorta a los días enteros que quedan, el original queda en el historial y la respuesta lleva un
+  `aviso`. Solo si la siguiente reserva ya había empezado cuando volvió la pieza, 409 que la nombra.
+- **Alquiler dado de alta ya entregado con la recogida pactada pasada**: `fin_ocupacion` = hoy, como un retraso sin
+  ampliar. El doble de pruebas lanza `22000` si un rango acaba antes de empezar, como Postgres.
+- **Dar por reembolsado** (`dar-por-reembolsado`, sin cuerpo): cierra un reembolso a medias que se hizo fuera, en el
+  Dashboard de Stripe. No llama a Stripe ni mueve dinero; deja una línea en el historial. 409 si no está a medias.
+- **Reintentar reembolso** responde 409 si el pago ya tiene un reembolso posterior a la cancelación que no hizo el
+  panel (ni ha fallado): se avisa de la cantidad y se ofrece «Dar por reembolsado».
+- **Cancelar** con reembolso lee antes en Stripe lo que todavía deja devolver (cobrado menos devuelto, también lo
+  devuelto desde el Dashboard): pedir más es un 400 y no cambia nada. Si Stripe no responde, cancela y el tope lo
+  pone Stripe al reembolsar. Un reembolso rechazado (`StripeInvalidRequestError`) o devuelto fallido o anulado es un
+  502 con el aviso del Dashboard; al reintentar, el siguiente va con otra clave de idempotencia (`_2`, `_3`...). Si
+  el reembolso se hizo y no se pudo guardar su id, 502 que pide no repetirlo (se encuentra al reintentar).
+- **Pago ya confirmado y cancelado después desde el panel**: si el webhook o la página de éxito vuelven a procesar
+  ese pago, no es un conflicto: `confirmar-sesion` responde `estado: 'cancelada'`, sin emails ni reembolso nuevo.
+- Un cuerpo JSON que no es un objeto es un 400 en castellano, y los nombres que hereda cualquier objeto
+  (`constructor`, `__proto__`) no son acciones (404).
+
 ### 8.4 Cancelaciones y reembolsos
 
 - **La política de cancelación es configuración, no código**, porque su validez legal está pendiente (art. 103.l,

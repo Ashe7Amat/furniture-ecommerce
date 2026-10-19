@@ -15,6 +15,7 @@ const app = require('../index');
 const supabase = require('../data/supabase');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const { situacion, presentar, MAX_TODAS } = require('../utils/adminReservas');
+const { idPedidoDeSesion } = require('../utils/pagos');
 const { hoyEnMadrid, sumarDias } = require('../utils/fechasMadrid');
 
 const hoy = hoyEnMadrid();
@@ -383,6 +384,31 @@ describe('GET /api/admin/reservas: cada vista', () => {
     assert.deepEqual(ids(res), [uuid(2), uuid(1)]);
   });
 
+  test('recogidas: cuenta la recogida prevista (fin_ocupacion), no la pactada', async () => {
+    const enCurso = (n, mueble, fechaFin, finOcupacion) =>
+      alquiler({
+        id: uuid(n),
+        mueble_id: mueble,
+        estado: 'en_curso',
+        fecha_inicio: dia(-9),
+        fecha_fin: fechaFin,
+        fin_ocupacion: finOcupacion,
+        entregada_en: '2026-01-01T10:00:00.000Z'
+      });
+    instalar({
+      reservas: [
+        // Retrasada y ampliada hasta mañana: se recoge mañana.
+        enCurso(1, SOFA, dia(-2), dia(1)),
+        // Pactada para hoy, pero ampliada a dentro de una semana: no es para hoy ni mañana.
+        enCurso(2, MESA, hoy, dia(7)),
+        // Retrasada sin ampliar: va en las retrasadas.
+        enCurso(3, uuid(3), dia(-1), dia(-1))
+      ]
+    });
+    const res = await lista('?vista=recogidas');
+    assert.deepEqual(ids(res), [uuid(1)]);
+  });
+
   test('retrasadas: entregadas con la recogida pactada ya pasada, con retrasada y su etiqueta', async () => {
     instalar({
       reservas: [
@@ -460,7 +486,13 @@ describe('GET /api/admin/reservas: cada vista', () => {
           reembolso_importe: 60,
           stripe_refund_id: 're_hecho'
         }),
-        cancelada(3, {})
+        cancelada(3, {}),
+        // Dado por reembolsado desde el panel (se devolvió en el Dashboard de Stripe).
+        cancelada(4, {
+          reembolso_solicitado_en: '2026-10-11T08:00:00.000Z',
+          reembolso_importe: 60,
+          historial: [{ tipo: 'reembolso_dado_por_hecho', por: 'admin' }]
+        })
       ]
     });
     const res = await lista('?vista=reembolsos');
@@ -473,7 +505,7 @@ describe('GET /api/admin/reservas: cada vista', () => {
       stripe_refund_id: null
     });
     assert.equal(reserva.etiqueta, 'Cancelada · reembolso a medias');
-    assert.deepEqual(reserva.acciones, ['reintentar-reembolso']);
+    assert.deepEqual(reserva.acciones, ['reintentar-reembolso', 'dar-por-reembolsado']);
   });
 
   test('legacy: contratos antiguos que no están cancelados', async () => {
@@ -541,6 +573,25 @@ describe('cada reserva de la lista', () => {
       created_at: '2026-10-01T10:00:00.000Z',
       acciones: ['entregar', 'cancelar']
     });
+  });
+
+  test('una compra de la web se nombra por su pedido, como en sus emails; una venta del panel, por la suya', async () => {
+    instalar({
+      reservas: [
+        venta({ stripe_session_id: 'cs_compra_1' }),
+        venta({
+          id: 'fe0da000-0000-4000-8000-000000000009',
+          mueble_id: MESA,
+          origen: 'manual',
+          stripe_session_id: null
+        })
+      ]
+    });
+    const res = await lista('?vista=todas');
+    const porId = Object.fromEntries(res.body.reservas.map((r) => [r.id, r.referencia]));
+    assert.equal(porId[uuid(301)], idPedidoDeSesion('cs_compra_1').slice(0, 8).toUpperCase());
+    assert.equal(porId['fe0da000-0000-4000-8000-000000000009'], 'FE0DA000');
+    assert.ok(!JSON.stringify(res.body).includes('cs_compra_1'), 'la sesión de Stripe no sale');
   });
 
   test('un bloqueo: sin horas, sin contacto y sin importe; la referencia es la suya', async () => {
@@ -675,7 +726,27 @@ describe('etiqueta y acciones de cada combinación', () => {
       'alquiler cancelado con el reembolso a medias',
       alquiler({ estado: 'cancelada', reembolso_solicitado_en: '2026-10-10T10:00:00.000Z' }),
       'Cancelada · reembolso a medias',
-      ['reintentar-reembolso']
+      ['reintentar-reembolso', 'dar-por-reembolsado']
+    ],
+    [
+      'alquiler cancelado con el reembolso a medias y conflicto_en',
+      alquiler({
+        estado: 'cancelada',
+        reembolso_solicitado_en: '2026-10-10T10:00:00.000Z',
+        conflicto_en: '2026-10-11T10:00:00.000Z'
+      }),
+      'Cancelada · reembolso a medias',
+      ['reintentar-reembolso', 'dar-por-reembolsado']
+    ],
+    [
+      'alquiler cancelado con el reembolso dado por hecho desde el panel',
+      alquiler({
+        estado: 'cancelada',
+        reembolso_solicitado_en: '2026-10-10T10:00:00.000Z',
+        historial: [{ tipo: 'reembolso_dado_por_hecho', por: 'admin' }]
+      }),
+      'Cancelada',
+      []
     ],
     ['bloqueo activo', bloqueo(), 'Bloqueo', ['levantar-bloqueo']],
     ['bloqueo levantado', bloqueo({ estado: 'cancelada' }), 'Bloqueo levantado', []],

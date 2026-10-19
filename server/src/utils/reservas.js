@@ -381,7 +381,8 @@ const detallesParaAdmin = ({ reserva, pieza, contacto, total, pedidoId, sessionI
 
 // Da por bueno el pago de la sesión de una reserva. La usan el webhook y la página de éxito
 // (confirmar-sesion), que pueden llegar a la vez: es idempotente. Devuelve
-//   { estado: 'confirmada' | 'conflicto' | 'ignorada', total, reservaId, pedidoId }
+//   { estado: 'confirmada' | 'conflicto' | 'cancelada' | 'ignorada', total, reservaId, pedidoId }
+// ('cancelada': ya se había confirmado con este pago y luego se canceló desde el panel).
 // Lanza si falla la base de datos (el webhook responde 500 y Stripe reintenta).
 //
 // No sigue el orden de procesarSesionPagada (pagos.js), que corta en cuanto el pedido ya existe:
@@ -429,19 +430,28 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
       .select('id')
   );
   let conflicto;
+  let cancelada = false;
   if (error) {
     if (error.code !== CODIGO_EXCLUSION) throw error;
     conflicto = true;
   } else if (confirmadas.length > 0) {
     conflicto = false;
   } else {
-    // Ya no estaba pendiente ni expirada. O la confirmó otra llamada con esta misma sesión (y se
-    // siguen los pasos 4 a 6 por si esa llamada murió antes de acabarlos), o se canceló porque el
-    // cliente empezó otra reserva y este pago llegó a pesar de todo.
-    const actual = await leerReserva(reserva.id, 'estado, stripe_session_id');
-    conflicto = !(
-      ESTADOS_YA_CONFIRMADA.includes(actual.estado) && actual.stripe_session_id === session.id
+    // Ya no estaba pendiente ni expirada. O ya se confirmó con este mismo pago (otra llamada, que
+    // pudo morir antes de acabar los pasos 4 a 6, y se siguen; o hace tiempo, y después se entregó o
+    // se canceló desde el panel), o se canceló sin pagar porque el cliente empezó otra reserva y
+    // este pago llegó a pesar de todo: solo eso es un conflicto (19 oct). La sesión cuenta para
+    // las que se confirmaron antes de guardar también el pago.
+    const actual = await leerReserva(
+      reserva.id,
+      'estado, stripe_session_id, stripe_payment_intent_id'
     );
+    const pago = idPago(session);
+    const conEstePago =
+      (pago !== null && actual.stripe_payment_intent_id === pago) ||
+      (ESTADOS_YA_CONFIRMADA.includes(actual.estado) && actual.stripe_session_id === session.id);
+    conflicto = !conEstePago;
+    cancelada = conEstePago && actual.estado === 'cancelada';
   }
 
   // 4. El pedido, pase lo que pase: el dinero está cobrado. El id sale de la sesión, así que
@@ -518,7 +528,10 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
       total
     }
   };
-  if (!conflicto) {
+  if (cancelada) {
+    // Ya pagada, confirmada y cancelada después desde el panel: nada que avisar ni que reembolsar
+    // aquí (el reembolso, si lo hay, lo decidió el administrador al cancelar).
+  } else if (!conflicto) {
     if (
       await reclamarMarca(reserva.id, 'confirmacion_enviada_en', { estado: 'confirmada' }, ahora)
     ) {
@@ -546,7 +559,8 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
     ]);
   }
 
-  return { estado: conflicto ? 'conflicto' : 'confirmada', total, reservaId: reserva.id, pedidoId };
+  const estado = cancelada ? 'cancelada' : conflicto ? 'conflicto' : 'confirmada';
+  return { estado, total, reservaId: reserva.id, pedidoId };
 };
 
 // Webhook checkout.session.expired (6.4): libera las fechas en cuanto Stripe da la sesión por

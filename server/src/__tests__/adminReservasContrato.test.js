@@ -21,7 +21,7 @@ const app = require('../index');
 const supabase = require('../data/supabase');
 const stripeUtil = require('../utils/stripe');
 const { COLUMNAS_LISTA } = require('../utils/adminReservas');
-const { hoyEnMadrid, sumarDias, fechaLegible } = require('../utils/fechasMadrid');
+const { hoyEnMadrid, sumarDias, fechaLegible, instanteEnMadrid } = require('../utils/fechasMadrid');
 
 const hoy = hoyEnMadrid();
 const dia = (n) => sumarDias(hoy, n);
@@ -97,6 +97,21 @@ const otra = {
   expira_en: null
 };
 
+// Lo que lee la búsqueda de choques de cada reserva: nada del cliente. La sesión de Stripe, para
+// nombrar una compra web por su pedido (19 oct).
+const COLUMNAS_CHOQUE = [
+  'id',
+  'pedido_id',
+  'tipo',
+  'estado',
+  'fecha_inicio',
+  'fecha_fin',
+  'fin_ocupacion',
+  'dias_margen',
+  'expira_en',
+  'stripe_session_id'
+];
+
 let peticiones;
 let leida; // la última fila que devolvió una lectura por id: el UPDATE por defecto parte de ella
 let leerReservas; // (params) => filas de GET /reservas
@@ -163,10 +178,19 @@ beforeEach(() => {
     global: { fetch: fetchFalso }
   });
   mock.method(supabase, 'from', (tabla) => real.from(tabla));
+  // Las llamadas a Stripe quedan también en `peticiones`, para ver su orden frente a la base de datos.
+  const enStripe = (nombre, respuesta) =>
+    mock.fn(async (...args) => {
+      peticiones.push({ metodo: 'STRIPE', ruta: nombre, args });
+      return respuesta(...args);
+    });
   stripe = {
     refunds: {
-      create: mock.fn(async () => ({ id: 're_1' })),
-      list: mock.fn(async () => ({ data: [] }))
+      create: enStripe('refunds.create', () => ({ id: 're_1', status: 'succeeded' })),
+      list: enStripe('refunds.list', () => ({ data: [] }))
+    },
+    paymentIntents: {
+      retrieve: enStripe('paymentIntents.retrieve', (id) => ({ id, amount_received: 12050 }))
     }
   };
   mock.method(stripeUtil, 'getStripe', () => stripe);
@@ -218,9 +242,9 @@ describe('contrato de la lista: el filtro de cada vista', () => {
       [
         ['tipo', 'eq.alquiler'],
         ['estado', 'eq.en_curso'],
-        ['fecha_fin', `gte.${hoy}`],
-        ['fecha_fin', `lte.${dia(1)}`],
-        ['order', 'fecha_fin.asc']
+        ['fin_ocupacion', `gte.${hoy}`],
+        ['fin_ocupacion', `lte.${dia(1)}`],
+        ['order', 'fin_ocupacion.asc']
       ]
     ],
     [
@@ -418,28 +442,38 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
       ['GET', 'PATCH', 'PATCH', 'PATCH', 'PATCH', 'GET']
     );
     const choques = de('GET', 'reservas')[1];
-    assert.deepEqual(columnas(choques.params), [
-      'id',
-      'pedido_id',
-      'tipo',
-      'estado',
-      'fecha_inicio',
-      'fecha_fin',
-      'fin_ocupacion',
-      'dias_margen',
-      'expira_en'
-    ]);
+    assert.deepEqual(columnas(choques.params), COLUMNAS_CHOQUE);
     assert.equal(choques.params.mueble_id, `eq.${SOFA}`);
     assert.equal(choques.params.estado, ESTADOS_QUE_OCUPAN);
     assert.equal(choques.params.rango_ocupado, `ov.[${dia(-3)},${dia(7)})`);
   });
 
-  test('cancelar con reembolso: reclama la marca en el mismo UPDATE, llama a Stripe y guarda el id con otro UPDATE guardado', async () => {
+  test('cancelar con reembolso: lee el tope en Stripe, reclama la marca en el mismo UPDATE, reembolsa y guarda el id con otro UPDATE guardado', async () => {
     leerReservas = () => [fila()];
 
     const res = await accion('cancelar', { motivo: 'Avería', reembolso_centimos: 5000 });
 
     assert.equal(res.status, 200);
+    assert.deepEqual(
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      [
+        'GET /rest/v1/reservas',
+        'STRIPE paymentIntents.retrieve',
+        'STRIPE refunds.list',
+        'GET /rest/v1/reservas',
+        'PATCH /rest/v1/reservas',
+        'STRIPE refunds.create',
+        'GET /rest/v1/reservas',
+        'PATCH /rest/v1/reservas',
+        'GET /rest/v1/muebles'
+      ]
+    );
+    const [lecturaPrevia] = de('GET', 'reservas');
+    assert.equal(lecturaPrevia.params.id, `eq.${RESERVA}`);
+    assert.deepEqual(stripe.paymentIntents.retrieve.mock.calls[0].arguments, ['pi_123']);
+    assert.deepEqual(stripe.refunds.list.mock.calls[0].arguments, [
+      { payment_intent: 'pi_123', limit: 100 }
+    ]);
     const [cancelacion, guardado] = de('PATCH', 'reservas');
     assert.equal(cancelacion.params.updated_at, `eq.${LEIDO}`);
     assert.deepEqual(Object.keys(cancelacion.cuerpo), [
@@ -477,6 +511,125 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
     const [pieza] = de('PATCH', 'muebles');
     assert.equal(pieza.params.estado, 'eq.vendido');
     assert.deepEqual(pieza.cuerpo, { estado: 'disponible' });
+  });
+
+  test('entregar antes de tiempo: pasa por la limpieza y mueve fecha_inicio a hoy en el mismo UPDATE guardado', async () => {
+    leerReservas = () => [fila({ fecha_inicio: dia(4), fecha_fin: dia(7), fin_ocupacion: dia(7) })];
+
+    const res = await accion('entregar', { antes_de_tiempo: true });
+
+    assert.equal(res.status, 200);
+    const [limpieza, cambio] = de('PATCH', 'reservas');
+    assert.ok(esLimpieza(limpieza.params));
+    assert.equal(cambio.params.updated_at, `eq.${LEIDO}`);
+    assert.deepEqual(Object.keys(cambio.cuerpo), [
+      'estado',
+      'entregada_en',
+      'fecha_inicio',
+      'historial'
+    ]);
+    assert.equal(cambio.cuerpo.fecha_inicio, hoy);
+    assert.match(cambio.cuerpo.historial.at(-1).detalle, new RegExp(fechaLegible(dia(4))));
+  });
+
+  test('entregar antes de tiempo contra lo que va antes: el 23P01 acaba en el 409 que lo nombra', async () => {
+    leerReservas = (params) =>
+      params.id
+        ? [fila({ fecha_inicio: dia(4), fecha_fin: dia(7), fin_ocupacion: dia(7) })]
+        : [{ ...otra, fecha_inicio: dia(-3), fecha_fin: hoy, fin_ocupacion: hoy }];
+    responderPatch = (params) => (esLimpieza(params) ? json(204) : json(409, ERROR_EXCLUSION));
+
+    const res = await accion('entregar', { antes_de_tiempo: true });
+
+    assert.equal(res.status, 409);
+    assert.deepEqual(res.body, {
+      error:
+        `Entregarla hoy choca con el alquiler #C0FFEE00 (del ${fechaLegible(dia(-3))} al ` +
+        `${fechaLegible(hoy)}, más 2 días de margen).`
+    });
+    const choques = de('GET', 'reservas')[1];
+    assert.deepEqual(columnas(choques.params), COLUMNAS_CHOQUE);
+    assert.equal(choques.params.rango_ocupado, `ov.[${hoy},${dia(9)})`);
+    assert.equal(de('PATCH', 'muebles').length, 0);
+  });
+
+  test('recoger otro día: devuelta_en es ese día a las 12:00 de Madrid y fin_ocupacion lo pone R2', async () => {
+    leerReservas = () => [
+      fila({ estado: 'en_curso', fecha_inicio: dia(-5), entregada_en: `${dia(-5)}T09:00:00+00:00` })
+    ];
+
+    const res = await accion('recoger', { fecha_recogida: dia(-1) });
+
+    assert.equal(res.status, 200);
+    const [, cambio] = de('PATCH', 'reservas');
+    assert.deepEqual(Object.keys(cambio.cuerpo), ['estado', 'devuelta_en', 'historial']);
+    assert.equal(cambio.cuerpo.devuelta_en, instanteEnMadrid(dia(-1), '12:00').toISOString());
+  });
+
+  test('recoger tarde contra la siguiente: busca con qué choca y repite el UPDATE guardado con el margen recortado', async () => {
+    leerReservas = (params) =>
+      params.id
+        ? [
+            fila({
+              estado: 'en_curso',
+              fecha_inicio: dia(-6),
+              fecha_fin: dia(-3),
+              fin_ocupacion: dia(-3),
+              entregada_en: LEIDO
+            })
+          ]
+        : [{ ...otra, fecha_inicio: dia(1), fecha_fin: dia(4), fin_ocupacion: dia(4) }];
+    responderPatch = (params, cuerpo) => {
+      if (esLimpieza(params)) return json(204);
+      if (cuerpo.dias_margen === undefined) return json(409, ERROR_EXCLUSION);
+      return json(200, [{ ...leida, ...cuerpo, fin_ocupacion: hoy, updated_at: LEIDO }]);
+    };
+
+    const res = await accion('recoger');
+
+    assert.equal(res.status, 200);
+    assert.equal(
+      res.body.aviso,
+      `La pieza ha vuelto tarde: hasta el alquiler #C0FFEE00 del ${fechaLegible(dia(1))} solo ` +
+        'queda 1 día de margen.'
+    );
+    assert.deepEqual(
+      peticiones.filter((p) => p.ruta === '/rest/v1/reservas').map((p) => p.metodo),
+      ['GET', 'PATCH', 'PATCH', 'PATCH', 'PATCH', 'GET', 'GET', 'PATCH', 'PATCH']
+    );
+    const choques = de('GET', 'reservas')[1];
+    assert.deepEqual(columnas(choques.params), COLUMNAS_CHOQUE);
+    assert.equal(choques.params.rango_ocupado, `ov.[${dia(-6)},${dia(2)})`);
+    const recortado = de('PATCH', 'reservas').at(-1);
+    assert.equal(recortado.params.updated_at, `eq.${LEIDO}`);
+    assert.deepEqual(Object.keys(recortado.cuerpo), [
+      'estado',
+      'devuelta_en',
+      'dias_margen',
+      'historial'
+    ]);
+    assert.equal(recortado.cuerpo.dias_margen, 1);
+  });
+
+  test('dar por reembolsado: solo la línea del historial, con el UPDATE guardado, y nada de Stripe', async () => {
+    leerReservas = () => [
+      fila({
+        estado: 'cancelada',
+        reembolso_solicitado_en: '2026-10-10T10:00:00.123456+00:00',
+        reembolso_importe: 50
+      })
+    ];
+
+    const res = await accion('dar-por-reembolsado');
+
+    assert.equal(res.status, 200);
+    const [cambio] = de('PATCH', 'reservas');
+    assert.equal(cambio.params.id, `eq.${RESERVA}`);
+    assert.equal(cambio.params.updated_at, `eq.${LEIDO}`);
+    assert.deepEqual(Object.keys(cambio.cuerpo), ['historial']);
+    assert.equal(cambio.cuerpo.historial.at(-1).tipo, 'reembolso_dado_por_hecho');
+    assert.equal(peticiones.filter((p) => p.metodo === 'STRIPE').length, 0);
+    assert.equal(res.body.reserva.reembolso_a_medias, false);
   });
 
   test('levantar un bloqueo: solo estado, fecha y quién, más la línea', async () => {
@@ -588,6 +741,25 @@ describe('contrato de las altas: el cuerpo de cada inserción', () => {
     const [pieza] = de('PATCH', 'muebles');
     assert.equal(pieza.params.estado, 'eq.disponible');
     assert.deepEqual(pieza.cuerpo, { estado: 'alquilado' });
+  });
+
+  test('alquiler ya entregado con la recogida pactada pasada: fin_ocupacion es hoy, no la fecha pactada', async () => {
+    const res = await alta('alquileres', {
+      mueble_id: SOFA,
+      fecha_inicio: dia(-20),
+      hora_entrega: '09:30',
+      fecha_fin: dia(-4),
+      hora_recogida: '19:00',
+      modo_entrega: 'tienda',
+      modo_devolucion: 'tienda',
+      contacto: { nombre: 'Marta' },
+      origen: 'legacy',
+      ya_entregado: true
+    });
+    assert.equal(res.status, 201);
+    const [insercion] = de('POST', 'reservas');
+    assert.equal(insercion.cuerpo.fecha_fin, dia(-4));
+    assert.equal(insercion.cuerpo.fin_ocupacion, hoy);
   });
 
   test('venta fuera de la web de hoy: sin fin, y la pieza pasa a vendida sin mirar su estado', async () => {

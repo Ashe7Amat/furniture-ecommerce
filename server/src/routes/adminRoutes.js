@@ -10,6 +10,7 @@ const {
 const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
 const {
+  exigirObjeto,
   listarReservasAdmin,
   prepararAccion,
   accionSobreReserva,
@@ -72,15 +73,29 @@ const exigirReservasActivas = (req, res, next) =>
 const reservas = [verificarAdmin, exigirReservasActivas];
 
 router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
-router.post('/reservas/bloqueos', ...reservas, validar(schemaBloqueo), crearBloqueoAdmin);
+router.post(
+  '/reservas/bloqueos',
+  ...reservas,
+  exigirObjeto,
+  validar(schemaBloqueo),
+  crearBloqueoAdmin
+);
 router.post(
   '/reservas/alquileres',
   ...reservas,
+  exigirObjeto,
   validar(schemaAlquilerFueraDeLaWeb),
   crearAlquilerAdmin
 );
-router.post('/reservas/ventas', ...reservas, validar(schemaVentaFueraDeLaWeb), crearVentaAdmin);
-// entregar, recoger, ampliar, cancelar, reintentar-reembolso o levantar-bloqueo
+router.post(
+  '/reservas/ventas',
+  ...reservas,
+  exigirObjeto,
+  validar(schemaVentaFueraDeLaWeb),
+  crearVentaAdmin
+);
+// entregar, recoger, ampliar, cancelar, reintentar-reembolso, dar-por-reembolsado o
+// levantar-bloqueo
 router.post('/reservas/:id/:accion', ...reservas, prepararAccion, accionSobreReserva);
 
 module.exports = router;

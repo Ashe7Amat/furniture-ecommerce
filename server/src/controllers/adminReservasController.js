@@ -12,6 +12,7 @@ const {
 } = require('../utils/errores');
 const {
   MENSAJE_RESERVA_NO_ENCONTRADA,
+  MENSAJE_ACCION_NO_EXISTE,
   presentar,
   presentarFilas,
   listarReservas,
@@ -65,33 +66,69 @@ const listarReservasAdmin = async (req, res) => {
   }
 };
 
+// Los datos de una acción o de un alta van en un objeto JSON. express.json ya rechaza lo que no es
+// JSON (y, en modo estricto, un número o un texto sueltos); un array llegaría a Zod, que lo
+// rechazaría con su texto en inglés (19 oct). Sin cuerpo, vale: cuenta como {}.
+const MENSAJE_CUERPO_NO_OBJETO = 'Los datos tienen que ir en un objeto JSON.';
+const exigirObjeto = (req, res, next) => {
+  const cuerpo = req.body;
+  if (
+    cuerpo !== undefined &&
+    (cuerpo === null || typeof cuerpo !== 'object' || Array.isArray(cuerpo))
+  ) {
+    return res.status(400).json({ error: MENSAJE_CUERPO_NO_OBJETO });
+  }
+  return next();
+};
+
 // Antes de POST /api/admin/reservas/:id/:accion: un id que no es un uuid no puede ser una reserva, y
-// una acción que no existe es una ruta que no existe (las dos, 404 sin tocar la base de datos).
-// Después, el cuerpo de esa acción.
+// una acción que no existe es una ruta que no existe (las dos, 404 sin tocar la base de datos; los
+// nombres que hereda cualquier objeto, como 'constructor', tampoco son acciones). Después, el cuerpo
+// de esa acción.
 const prepararAccion = (req, res, next) => {
   if (!FORMATO_UUID.test(req.params.id)) {
     return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
   }
-  const schema = SCHEMAS_ACCION[req.params.accion];
-  if (!schema) return res.status(404).json({ error: 'Esa acción no existe.' });
-  req.body = req.body ?? {};
-  return validar(schema)(req, res, next);
+  if (!Object.hasOwn(SCHEMAS_ACCION, req.params.accion)) {
+    return res.status(404).json({ error: MENSAJE_ACCION_NO_EXISTE });
+  }
+  return exigirObjeto(req, res, () => {
+    req.body = req.body ?? {};
+    validar(SCHEMAS_ACCION[req.params.accion])(req, res, next);
+  });
 };
 
-// POST /api/admin/reservas/:id/:accion → { reserva }. Si la reserva se canceló pero el reembolso no
-// se pudo hacer, 502 con el aviso y la reserva tal como ha quedado (a medias, 8.6).
+// La reserva para un 502: si ni se puede presentar (no se pudo leer, o falla leer la pieza), el 502
+// va sin ella, que el aviso es lo que importa.
+const presentarSiSePuede = async (reserva, ahora) => {
+  if (!reserva) return null;
+  try {
+    const [item] = await presentarFilas([reserva], ahora);
+    return item;
+  } catch (error) {
+    console.error(`No se pudo presentar la reserva ${reserva.id}:`, error.message || error);
+    return null;
+  }
+};
+
+// POST /api/admin/reservas/:id/:accion → { reserva }, más `aviso` si lo hay (una recogida con el
+// margen recortado). Si el reembolso no se pudo hacer o guardar, 502 con el aviso y la reserva tal
+// como ha quedado (a medias, 8.6), si se puede leer.
 const accionSobreReserva = async (req, res) => {
   try {
     const ahora = new Date();
-    const { reserva, avisoReembolso } = await ejecutarAccion(
+    const { reserva, aviso, avisoReembolso } = await ejecutarAccion(
       req.params.id,
       req.params.accion,
       req.body,
       ahora
     );
+    if (avisoReembolso) {
+      const item = await presentarSiSePuede(reserva, ahora);
+      return res.status(502).json({ error: avisoReembolso, ...(item && { reserva: item }) });
+    }
     const [item] = await presentarFilas([reserva], ahora);
-    if (avisoReembolso) return res.status(502).json({ error: avisoReembolso, reserva: item });
-    res.status(200).json({ reserva: item });
+    res.status(200).json({ reserva: item, ...(aviso && { aviso }) });
   } catch (error) {
     responderError(
       res,
@@ -126,6 +163,8 @@ const crearVentaAdmin = crearEnCalendario(
 );
 
 module.exports = {
+  MENSAJE_CUERPO_NO_OBJETO,
+  exigirObjeto,
   listarReservasAdmin,
   prepararAccion,
   accionSobreReserva,

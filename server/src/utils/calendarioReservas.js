@@ -153,11 +153,13 @@ const MENSAJE_RESERVA_CAMBIADA =
 //   - `columnas`: las que se leen (y se devuelven); siempre se añaden id, mueble_id, historial y
 //     updated_at.
 //   - `decidir(fila)`: devuelve { cambios, entrada } (la línea del historial, sin la fecha) o lanza un
-//     error que se puede enseñar (p. ej. ErrorConflicto si la acción ya no tiene sentido).
+//     error que se puede enseñar (p. ej. ErrorConflicto si la acción ya no tiene sentido). Puede
+//     devolver también `ocupa`, si solo esa fila sabe si el cambio ocupa más (entregar antes de tiempo).
 //   - `ocupa`: true si el cambio puede ocupar más calendario (ampliar, confirmar...): entonces pasa por
 //     escribirEnCalendario (4.6).
 // Devuelve { reserva } con la fila ya cambiada, o { choque: fila } si la base de datos lo rechazó por
-// solaparse con otra (23P01), para que quien llama diga con qué choca. Cualquier otro error se lanza.
+// solaparse con otra (23P01, o el interbloqueo que se trata igual), para que quien llama diga con qué
+// choca. Cualquier otro error se lanza.
 const actualizarReserva = async (
   id,
   { columnas, decidir, ocupa = false, ahora = new Date(), intentos = 3 }
@@ -172,7 +174,7 @@ const actualizarReserva = async (
     if (error) throw error;
     if (!fila) throw new ErrorNoEncontrado('Reserva no encontrada.');
 
-    const { cambios, entrada } = decidir(fila);
+    const { cambios, entrada, ocupa: ocupaEste = ocupa } = decidir(fila);
     const actualizar = () =>
       supabase
         .from('reservas')
@@ -183,10 +185,10 @@ const actualizarReserva = async (
         .eq('id', id)
         .eq('updated_at', fila.updated_at)
         .select(select);
-    const { data, error: errorActualizar } = ocupa
+    const { data, error: errorActualizar } = ocupaEste
       ? await escribirEnCalendario(fila.mueble_id, actualizar)
       : await actualizar();
-    if (errorActualizar?.code === CODIGO_EXCLUSION) return { choque: fila };
+    if (chocaEnCalendario(errorActualizar)) return { choque: fila };
     if (errorActualizar) throw errorActualizar;
     if (data.length > 0) return { reserva: data[0] };
   }

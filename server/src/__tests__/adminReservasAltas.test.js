@@ -14,6 +14,7 @@ const app = require('../index');
 const supabase = require('../data/supabase');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const { DIAS_ATRAS_VENTA } = require('../utils/adminReservas');
+const { idPedidoDeSesion } = require('../utils/pagos');
 const { REGLAS_ALQUILER } = require('../utils/reglasAlquiler');
 const { hoyEnMadrid, sumarDias, fechaLegible } = require('../utils/fechasMadrid');
 
@@ -38,6 +39,9 @@ const CONTACTO_LUIS = {
   telefono: '611222333',
   direccion: 'Avinguda Diagonal 1, Barcelona'
 };
+// La referencia con la que el cliente y el administrador conocen la compra web de venta(): la de su
+// pedido, como en los emails.
+const PEDIDO_VENTA = idPedidoDeSesion('cs_otra').slice(0, 8).toUpperCase();
 // Un alquiler web de otro cliente, ya en el calendario.
 const alquilerWeb = (cambios = {}) => ({
   id: uuid(102),
@@ -199,6 +203,19 @@ describe('POST /api/admin/reservas/bloqueos', () => {
     assert.equal(fake.escrituras.length, 0);
   });
 
+  test('un cuerpo JSON que no es un objeto: 400 en castellano en las tres altas', async () => {
+    for (const tipo of ['bloqueos', 'alquileres', 'ventas']) {
+      const res = await request(app)
+        .post(`/api/admin/reservas/${tipo}`)
+        .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
+        .set('Content-Type', 'application/json')
+        .send(JSON.stringify([datos()]));
+      assert.equal(res.status, 400, tipo);
+      assert.deepEqual(res.body, { error: 'Los datos tienen que ir en un objeto JSON.' });
+    }
+    assert.equal(fake.escrituras.length, 0);
+  });
+
   test('una pieza que no existe: 404 sin escribir nada', async () => {
     const res = await alta('bloqueos', datos({ mueble_id: uuid(77) }));
     assert.equal(res.status, 404);
@@ -246,7 +263,9 @@ describe('POST /api/admin/reservas/bloqueos', () => {
     instalar({ reservas: [venta({ fecha_inicio: dia(30) })] });
     assert.deepEqual(
       (await alta('bloqueos', datos({ fecha_inicio: dia(29), fecha_fin: dia(31) }))).body,
-      { error: `Esas fechas chocan con la venta #FE0DA000 (desde el ${fechaLegible(dia(30))}).` }
+      {
+        error: `Esas fechas chocan con la venta #${PEDIDO_VENTA} (desde el ${fechaLegible(dia(30))}).`
+      }
     );
   });
 
@@ -395,6 +414,36 @@ describe('POST /api/admin/reservas/alquileres', () => {
       insertadas()[0].fila.historial[0].detalle,
       'Contrato antiguo dado de alta desde el panel. Ya estaba entregado.'
     );
+  });
+
+  test('ya entregado con la recogida pactada ya pasada: sigue ocupando el calendario desde hoy', async () => {
+    const res = await alta(
+      'alquileres',
+      datos({ origen: 'legacy', fecha_inicio: dia(-30), fecha_fin: dia(-5), ya_entregado: true })
+    );
+    assert.equal(res.status, 201);
+    assert.equal(res.body.reserva.fecha_fin, dia(-5));
+    assert.equal(res.body.reserva.fin_ocupacion, hoy);
+    assert.equal(res.body.reserva.etiqueta, 'Retrasada');
+    const [{ enviado, fila }] = insertadas();
+    assert.equal(enviado.fin_ocupacion, hoy);
+    assert.equal(fila.rango_ocupado, `[${dia(-30)},${dia(2)})`);
+
+    // La pieza sigue fuera: no se puede bloquear desde hoy, solo pasado su margen.
+    const bloqueoHoy = await alta('bloqueos', {
+      mueble_id: SOFA,
+      fecha_inicio: hoy,
+      fecha_fin: dia(3),
+      motivo: 'Exposición'
+    });
+    assert.equal(bloqueoHoy.status, 409);
+    assert.match(bloqueoHoy.body.error, /^Esas fechas chocan con el alquiler #/);
+  });
+
+  test('ya entregado con la recogida por llegar: fin_ocupacion es la recogida pactada', async () => {
+    const res = await alta('alquileres', datos({ fecha_inicio: dia(-2), ya_entregado: true }));
+    assert.equal(res.status, 201);
+    assert.equal(insertadas()[0].enviado.fin_ocupacion, dia(6));
   });
 
   test('un contrato antiguo sin entregar también puede empezar antes de hoy', async () => {
@@ -610,12 +659,19 @@ describe('POST /api/admin/reservas/ventas', () => {
     sinDatosDeLuis(res.body.error);
   });
 
+  test('una venta del panel (sin pedido) se nombra por su propia referencia', async () => {
+    instalar({ reservas: [venta({ origen: 'manual', stripe_session_id: null })] });
+    const res = await alta('ventas', datos({ fecha_inicio: dia(40) }));
+    assert.equal(res.status, 409);
+    assert.match(res.body.error, /^La venta choca con la venta #FE0DA000 /);
+  });
+
   test('contra otra venta: 409 que la nombra, sin día posible', async () => {
     instalar({ reservas: [venta()], muebles: MUEBLES('vendido') });
     const res = await alta('ventas', datos({ fecha_inicio: dia(40) }));
     assert.equal(res.status, 409);
     assert.deepEqual(res.body, {
-      error: `La venta choca con la venta #FE0DA000 (desde el ${fechaLegible(dia(-3))}).`
+      error: `La venta choca con la venta #${PEDIDO_VENTA} (desde el ${fechaLegible(dia(-3))}).`
     });
   });
 

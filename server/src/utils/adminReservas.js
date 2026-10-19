@@ -7,12 +7,23 @@
 // limpian las provisionales caducadas antes de escribir (escribirEnCalendario, 4.6), cada reserva se
 // cambia solo si sigue como se leyó (actualizarReserva) y, si algo choca, se busca con qué para
 // decírselo al administrador.
+//
+// Ajustes del 19 oct: recoger con otra fecha y con el margen recortado, entregar antes de tiempo
+// ocupa desde hoy, el tope de Stripe al cancelar, los reembolsos que Stripe rechaza o que se
+// hicieron fuera del panel y «Dar por reembolsado».
 const supabase = require('../data/supabase');
 const stripeUtil = require('./stripe');
 const { ErrorValidacion, ErrorConflicto, ErrorNoEncontrado } = require('./errores');
 const { ESTADOS_QUE_OCUPAN, ocupaElCalendario } = require('./disponibilidad');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
-const { hoyEnMadrid, sumarDias, diasEntre, fechaLegible } = require('./fechasMadrid');
+const { idPedidoDeSesion } = require('./pagos');
+const {
+  hoyEnMadrid,
+  sumarDias,
+  diasEntre,
+  fechaLegible,
+  instanteEnMadrid
+} = require('./fechasMadrid');
 const {
   CODIGO_CLAVE_AJENA,
   chocaEnCalendario,
@@ -27,7 +38,7 @@ const {
 const COLUMNAS_PANEL =
   'pedido_id, tipo, estado, origen, fecha_inicio, hora_entrega, fecha_fin, hora_recogida, ' +
   'fin_ocupacion, dias_margen, expira_en, modo_entrega, modo_devolucion, direccion_entrega, ' +
-  'datos_contacto, conflicto_en, importe_total, stripe_payment_intent_id, ' +
+  'datos_contacto, conflicto_en, importe_total, stripe_session_id, stripe_payment_intent_id, ' +
   'reembolso_solicitado_en, reembolso_importe, stripe_refund_id, motivo, motivo_cancelacion, ' +
   'entregada_en, devuelta_en, created_at';
 const COLUMNAS_LISTA = `id, mueble_id, ${COLUMNAS_PANEL}, historial`;
@@ -44,6 +55,15 @@ const DIAS_ATRAS_VENTA = 30;
 // reintentar, y en la clave de idempotencia. Sin datos personales.
 const TIPO_REEMBOLSO = 'reembolso_cancelacion';
 const claveDeReembolso = (id) => `reserva_${id}_${TIPO_REEMBOLSO}`;
+// Un reembolso que Stripe da por fallido o anulado no ha devuelto nada: no cuenta como hecho.
+const ESTADOS_SIN_EFECTO = ['failed', 'canceled'];
+const cuentaComoHecho = (refund) => !ESTADOS_SIN_EFECTO.includes(refund.status);
+// La línea del historial de «Dar por reembolsado» (8.6, 19 oct): cierra el "a medias" sin el id.
+const TIPO_DADO_POR_HECHO = 'reembolso_dado_por_hecho';
+const LINEA_DADO_POR_HECHO =
+  'Reembolso dado por hecho desde el panel: se hizo fuera, en el Dashboard de Stripe.';
+// Si la recogida se apunta otro día, a mediodía de ese día en Madrid (3.6).
+const HORA_RECOGIDA_OTRO_DIA = '12:00';
 
 const MENSAJE_RESERVA_NO_ENCONTRADA = 'Reserva no encontrada.';
 const MENSAJE_PIEZA_NO_ENCONTRADA = 'Mueble no encontrado.';
@@ -52,6 +72,14 @@ const MENSAJE_REEMBOLSO_A_MEDIAS =
   'La reserva está cancelada, pero el reembolso no se ha podido hacer. Usa «Reintentar reembolso».';
 const MENSAJE_REINTENTO_FALLIDO =
   'El reembolso todavía no se ha podido hacer. Vuelve a intentarlo en un momento.';
+const MENSAJE_REEMBOLSO_RECHAZADO =
+  'Stripe no ha aceptado el reembolso. Revísalo en el Dashboard de Stripe; si lo devuelves allí, ' +
+  'usa «Dar por reembolsado».';
+const MENSAJE_REEMBOLSO_SIN_GUARDAR =
+  'El reembolso ya está hecho en Stripe, pero no se ha podido guardar. Pulsa «Reintentar ' +
+  'reembolso» para guardarlo; no lo repitas desde el Dashboard.';
+const MENSAJE_SIN_REEMBOLSO_A_MEDIAS = 'Esta reserva no tiene ningún reembolso a medias.';
+const MENSAJE_ACCION_NO_EXISTE = 'Esa acción no existe.';
 // Un 23P01 cuya causa ya no está cuando se busca (se canceló o se movió entre medias).
 const MENSAJE_CHOQUE_DESAPARECIDO =
   'Esas fechas chocaban con otra reserva de la pieza que acaba de cambiar. Vuelve a intentarlo.';
@@ -68,8 +96,20 @@ const contextoDe = (ahora) => ({ ahora, hoy: hoyEnMadrid(ahora) });
 
 // ─── Cómo se enseña cada reserva (8.7) ───────────────────────────────────────────────────────────
 
-// "A medias" (8.6): se reclamó el reembolso (la marca está puesta) pero no consta hecho en Stripe.
-const reembolsoAMedias = (fila) => Boolean(fila.reembolso_solicitado_en) && !fila.stripe_refund_id;
+// "A medias" (8.6): se reclamó el reembolso (la marca está puesta) pero no consta hecho en Stripe, ni
+// se ha dado por hecho desde el panel (19 oct).
+const reembolsoDadoPorHecho = (fila) =>
+  (fila.historial || []).some((linea) => linea.tipo === TIPO_DADO_POR_HECHO);
+const reembolsoAMedias = (fila) =>
+  Boolean(fila.reembolso_solicitado_en) && !fila.stripe_refund_id && !reembolsoDadoPorHecho(fila);
+
+// La referencia que conoce el administrador: la del pedido si lo hay. La venta de una compra web no
+// guarda pedido_id, pero su pedido sale de la sesión de Stripe (idPedidoDeSesion): se nombra como en
+// sus emails (19 oct). La sesión no sale nunca del servidor.
+const referenciaDelPanel = (fila) =>
+  fila.tipo === 'venta' && !fila.pedido_id && fila.stripe_session_id
+    ? referenciaDeReserva({ id: idPedidoDeSesion(fila.stripe_session_id) })
+    : referenciaDeReserva(fila);
 
 // Retrasada = entregada y con la recogida prevista ya pasada (3.4). Se calcula al leer (T5).
 const estaRetrasada = (fila, hoy) =>
@@ -84,8 +124,11 @@ const cancelacionSolicitada = (fila) =>
 // que el servidor acepta (comprobarAccion), así la lista y las acciones nunca se contradicen.
 const situacion = (fila, { hoy, ahora }) => {
   // Pagada sin poder confirmarse (6.4): el reembolso se hace desde el Dashboard de Stripe, como dice
-  // el email de aviso al administrador.
-  if (fila.conflicto_en) return { etiqueta: 'No se pudo confirmar', acciones: [] };
+  // el email de aviso al administrador. Un conflicto_en puesto de más (antes del 19 oct, un webhook
+  // repetido de una reserva cancelada) no esconde un reembolso a medias.
+  if (fila.conflicto_en && !reembolsoAMedias(fila)) {
+    return { etiqueta: 'No se pudo confirmar', acciones: [] };
+  }
   switch (`${fila.tipo}:${fila.estado}`) {
     case 'alquiler:pendiente':
       return {
@@ -105,7 +148,10 @@ const situacion = (fila, { hoy, ahora }) => {
       return { etiqueta: 'Devuelta', acciones: [] };
     case 'alquiler:cancelada':
       return reembolsoAMedias(fila)
-        ? { etiqueta: 'Cancelada · reembolso a medias', acciones: ['reintentar-reembolso'] }
+        ? {
+            etiqueta: 'Cancelada · reembolso a medias',
+            acciones: ['reintentar-reembolso', 'dar-por-reembolsado']
+          }
         : { etiqueta: 'Cancelada', acciones: [] };
     case 'bloqueo:confirmada':
       return { etiqueta: 'Bloqueo', acciones: ['levantar-bloqueo'] };
@@ -128,7 +174,7 @@ const presentar = (fila, pieza, contexto) => {
   const contacto = fila.datos_contacto;
   return {
     id: fila.id,
-    referencia: referenciaDeReserva(fila),
+    referencia: referenciaDelPanel(fila),
     tipo: fila.tipo,
     estado: fila.estado,
     origen: fila.origen,
@@ -242,13 +288,15 @@ const leerVista = async (vista, { muebleId, hoy, ahora }) => {
           .order('fecha_inicio', { ascending: true })
       );
     case 'recogidas':
+      // Por la recogida prevista (fin_ocupacion), que es la pactada salvo que se haya ampliado (8.5,
+      // 19 oct): un retraso ampliado hasta mañana se recoge mañana.
       return leer(
         base()
           .eq('tipo', 'alquiler')
           .eq('estado', 'en_curso')
-          .gte('fecha_fin', hoy)
-          .lte('fecha_fin', manana)
-          .order('fecha_fin', { ascending: true })
+          .gte('fin_ocupacion', hoy)
+          .lte('fin_ocupacion', manana)
+          .order('fin_ocupacion', { ascending: true })
       );
     case 'retrasadas':
       return leer(
@@ -262,13 +310,16 @@ const leerVista = async (vista, { muebleId, hoy, ahora }) => {
       return leer(
         base().not('conflicto_en', 'is', null).order('conflicto_en', { ascending: false })
       );
-    case 'reembolsos':
-      return leer(
+    case 'reembolsos': {
+      // Sin las que se dieron por reembolsadas desde el panel (su línea del historial, 19 oct).
+      const filas = await leer(
         base()
           .not('reembolso_solicitado_en', 'is', null)
           .is('stripe_refund_id', null)
           .order('reembolso_solicitado_en', { ascending: true })
       );
+      return filas.filter(reembolsoAMedias);
+    }
     case 'legacy':
       return leer(
         base()
@@ -300,7 +351,8 @@ const buscarChoques = async ({ muebleId, desde, hasta, excluir = null, ahora }) 
     supabase
       .from('reservas')
       .select(
-        'id, pedido_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, expira_en'
+        'id, pedido_id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, ' +
+          'expira_en, stripe_session_id'
       )
       .eq('mueble_id', muebleId)
       .in('estado', ESTADOS_QUE_OCUPAN)
@@ -313,15 +365,16 @@ const buscarChoques = async ({ muebleId, desde, hasta, excluir = null, ahora }) 
 
 // Con qué choca, para el administrador: el tipo, la referencia que conoce (la del pedido si lo hay) y
 // las fechas. Nunca los datos del otro cliente ni el detalle de Postgres (4.3).
+const ARTICULO = { alquiler: 'el alquiler', bloqueo: 'el bloqueo', venta: 'la venta' };
+const nombrarReserva = (fila) => `${ARTICULO[fila.tipo]} #${referenciaDelPanel(fila)}`;
 const describirReserva = (fila) => {
-  const referencia = `#${referenciaDeReserva(fila)}`;
   if (fila.tipo === 'venta') {
-    return `la venta ${referencia} (desde el ${fechaLegible(fila.fecha_inicio)})`;
+    return `${nombrarReserva(fila)} (desde el ${fechaLegible(fila.fecha_inicio)})`;
   }
   const fechas = `del ${fechaLegible(fila.fecha_inicio)} al ${fechaLegible(fila.fin_ocupacion ?? fila.fecha_fin)}`;
-  if (fila.tipo === 'bloqueo') return `el bloqueo ${referencia} (${fechas})`;
+  if (fila.tipo === 'bloqueo') return `${nombrarReserva(fila)} (${fechas})`;
   const margen = fila.dias_margen > 0 ? `, más ${dias(fila.dias_margen)} de margen` : '';
-  return `el alquiler ${referencia} (${fechas}${margen})`;
+  return `${nombrarReserva(fila)} (${fechas}${margen})`;
 };
 
 // El 409 de una escritura que la base de datos rechazó por solaparse: `mensaje(choques)` lo redacta
@@ -354,11 +407,6 @@ const ANTES_DE_AMPLIAR = {
   bloqueo: 'levanta ese bloqueo antes de ampliar',
   venta: 'avisa a ese comprador antes de ampliar'
 };
-const HASTA_QUE = {
-  alquiler: 'se mueva o se cancele ese alquiler',
-  bloqueo: 'se mueva o se levante ese bloqueo',
-  venta: 'se mueva o se cancele esa venta'
-};
 
 // ─── muebles.estado mientras no lo derive el calendario (3.3) ────────────────────────────────────
 
@@ -386,9 +434,12 @@ const NO_SE_PUEDE = {
   recoger: 'Solo se puede marcar como recogido un alquiler entregado.',
   ampliar: 'Solo se puede ampliar un alquiler entregado que todavía no se ha recogido.',
   cancelar: 'Solo se puede cancelar un alquiler confirmado (antes de entregarlo) o una venta.',
-  'reintentar-reembolso': 'Esta reserva no tiene ningún reembolso a medias.',
+  'reintentar-reembolso': MENSAJE_SIN_REEMBOLSO_A_MEDIAS,
+  'dar-por-reembolsado': MENSAJE_SIN_REEMBOLSO_A_MEDIAS,
   'levantar-bloqueo': 'Solo se puede levantar un bloqueo activo.'
 };
+// Las acciones de una reserva ya cancelada: las del reembolso a medias.
+const ACCIONES_DE_REEMBOLSO = ['reintentar-reembolso', 'dar-por-reembolsado'];
 
 // 409 si la acción no es una de las que el panel ofrece para esta reserva (situacion), con el motivo
 // más concreto que se pueda dar.
@@ -399,7 +450,7 @@ const comprobarAccion = (fila, accion, contexto) => {
       'Esta reserva no se pudo confirmar: el reembolso se hace desde el Dashboard de Stripe.'
     );
   }
-  if (fila.estado === 'cancelada' && accion !== 'reintentar-reembolso') {
+  if (fila.estado === 'cancelada' && !ACCIONES_DE_REEMBOLSO.includes(accion)) {
     throw new ErrorConflicto(
       fila.tipo === 'bloqueo'
         ? 'Este bloqueo ya está levantado.'
@@ -415,10 +466,13 @@ const comprobarAccion = (fila, accion, contexto) => {
   throw new ErrorConflicto(NO_SE_PUEDE[accion]);
 };
 
-// Marcar entregada (8.3): solo desde la fecha prevista, o antes con confirmación explícita.
+// Marcar entregada (8.3): solo desde la fecha prevista, o antes con confirmación explícita. Antes de
+// tiempo, la pieza ya no está desde hoy: fecha_inicio pasa a hoy en el mismo UPDATE guardado, que
+// ocupa más calendario y pasa por escribirEnCalendario (4.6); la fecha prevista queda en el historial
+// (19 oct). Si esos días ya son de otra reserva, 409 que la nombra.
 const entregar = async (id, { antes_de_tiempo: antesDeTiempo = false }, ahora) => {
   const contexto = contextoDe(ahora);
-  const { reserva } = await actualizarReserva(id, {
+  const resultado = await actualizarReserva(id, {
     columnas: COLUMNAS_PANEL,
     ahora,
     decidir: (fila) => {
@@ -431,41 +485,26 @@ const entregar = async (id, { antes_de_tiempo: antesDeTiempo = false }, ahora) =
         error.codigo = 'entrega_anticipada';
         throw error;
       }
+      if (!anticipada) {
+        return {
+          cambios: { estado: 'en_curso', entregada_en: ahora.toISOString() },
+          entrada: { tipo: 'entregada', detalle: 'Entregada.', por: 'admin' }
+        };
+      }
       return {
-        cambios: { estado: 'en_curso', entregada_en: ahora.toISOString() },
+        cambios: {
+          estado: 'en_curso',
+          entregada_en: ahora.toISOString(),
+          fecha_inicio: contexto.hoy
+        },
         entrada: {
           tipo: 'entregada',
-          detalle: anticipada
-            ? `Entregada antes de la fecha prevista (${fechaLegible(fila.fecha_inicio)}).`
-            : 'Entregada.',
+          detalle:
+            `Entregada antes de la fecha prevista (${fechaLegible(fila.fecha_inicio)}): ocupa el ` +
+            'calendario desde hoy.',
           por: 'admin'
-        }
-      };
-    }
-  });
-  await moverPieza(reserva.mueble_id, 'alquilado', 'disponible');
-  return { reserva };
-};
-
-// Marcar recogida (8.3). El disparador de R2 pone fin_ocupacion = día real de la devolución (3.4), así
-// que una devolución tardía ocupa más calendario: con su margen puede alcanzar a la reserva siguiente.
-// Ese choque es real (la pieza no estaba), y hay que resolverlo antes de darla por devuelta.
-const recoger = async (id, _datos, ahora) => {
-  const contexto = contextoDe(ahora);
-  const resultado = await actualizarReserva(id, {
-    columnas: COLUMNAS_PANEL,
-    ahora,
-    ocupa: true,
-    decidir: (fila) => {
-      comprobarAccion(fila, 'recoger', contexto);
-      const retraso = diasEntre(fila.fecha_fin, contexto.hoy);
-      return {
-        cambios: { estado: 'devuelta', devuelta_en: ahora.toISOString() },
-        entrada: {
-          tipo: 'recogida',
-          detalle: retraso > 0 ? `Recogida con ${dias(retraso)} de retraso.` : 'Recogida.',
-          por: 'admin'
-        }
+        },
+        ocupa: true
       };
     }
   });
@@ -474,18 +513,118 @@ const recoger = async (id, _datos, ahora) => {
     throw await errorDeChoque(
       {
         muebleId: fila.mueble_id,
-        desde: fila.fecha_inicio,
-        hasta: sumarDias(contexto.hoy, fila.dias_margen ?? 0),
+        desde: contexto.hoy,
+        hasta: finalDe(fila),
         excluir: fila.id,
         ahora
       },
-      ([siguiente]) =>
-        `La devolución de hoy, con su margen, choca con ${describirReserva(siguiente)}. ` +
-        `No se puede marcar como recogida hasta que ${HASTA_QUE[siguiente.tipo]}.`
+      ([anterior]) => `Entregarla hoy choca con ${describirReserva(anterior)}.`
     );
   }
-  await moverPieza(resultado.reserva.mueble_id, 'disponible', 'alquilado');
+  await moverPieza(resultado.reserva.mueble_id, 'alquilado', 'disponible');
   return { reserva: resultado.reserva };
+};
+
+// El día en que volvió la pieza (19 oct): hoy si no se dice otro. Ni después de hoy ni antes de
+// entregarla (ni de su fecha de inicio, que es donde empieza lo que ocupa en el calendario).
+const comprobarFechaRecogida = (fila, fecha, hoy) => {
+  if (fecha > hoy) throw new ErrorValidacion('La fecha de recogida no puede ser posterior a hoy.');
+  const entrega = fila.entregada_en ? hoyEnMadrid(new Date(fila.entregada_en)) : fila.fecha_inicio;
+  const desde = entrega > fila.fecha_inicio ? entrega : fila.fecha_inicio;
+  if (fecha < desde) {
+    throw new ErrorValidacion(
+      `La fecha de recogida no puede ser anterior a la entrega (${fechaLegible(desde)}).`
+    );
+  }
+};
+
+const lineaDeRecogida = (fila, fecha, otroDia) => {
+  const retraso = diasEntre(fila.fecha_fin, fecha);
+  if (!otroDia) return retraso > 0 ? `Recogida con ${dias(retraso)} de retraso.` : 'Recogida.';
+  const cuando = `Recogida el ${fechaLegible(fecha)}`;
+  return retraso > 0 ? `${cuando}, con ${dias(retraso)} de retraso.` : `${cuando}.`;
+};
+
+const avisoDeRecorte = ({ margen, por }) => {
+  let queda = `solo quedan ${margen} días de margen`;
+  if (margen === 0) queda = 'no queda margen';
+  if (margen === 1) queda = 'solo queda 1 día de margen';
+  return (
+    `La pieza ha vuelto tarde: hasta ${nombrarReserva(por)} del ` +
+    `${fechaLegible(por.fecha_inicio)} ${queda}.`
+  );
+};
+
+// La devolución (con `margen` días detrás) chocó: con qué, y el margen que de verdad queda hasta la
+// primera reserva que alcanza (días enteros desde la devolución). Si esa reserva ya había empezado
+// cuando volvió la pieza, ni sin margen cabe: 409 que la nombra.
+const recortarMargen = async (fila, fecha, margen, ahora) => {
+  const [siguiente] = await buscarChoques({
+    muebleId: fila.mueble_id,
+    desde: fila.fecha_inicio,
+    hasta: sumarDias(fecha, margen),
+    excluir: fila.id,
+    ahora
+  });
+  if (!siguiente) throw new ErrorConflicto(MENSAJE_CHOQUE_DESAPARECIDO);
+  if (siguiente.fecha_inicio < fecha) {
+    throw new ErrorConflicto(
+      `La pieza volvió el ${fechaLegible(fecha)}, cuando ya había empezado ` +
+        `${describirReserva(siguiente)}: no se puede apuntar esa recogida.`
+    );
+  }
+  const queda = diasEntre(fecha, siguiente.fecha_inicio);
+  // No debería pasar (lo que choca empieza antes de acabar el margen), pero así el bucle siempre
+  // acaba: cada vuelta recorta el margen o termina.
+  if (queda >= margen) throw new ErrorConflicto(MENSAJE_CHOQUE_DESAPARECIDO);
+  return { margen: queda, por: siguiente };
+};
+
+// Marcar recogida (8.3), hoy o el día que se diga (`fecha_recogida`, 19 oct; ese día a las 12:00 de
+// Madrid). El disparador de R2 pone fin_ocupacion = día real de la devolución (3.4), así que una
+// devolución tardía ocupa más calendario y, con su margen, puede alcanzar a la reserva siguiente. La
+// pieza ya ha vuelto: se apunta igual, con el margen recortado a los días enteros que quedan (el
+// original queda en el historial), y la respuesta lleva un `aviso`. Si se cierra otra ventana entre
+// medias, se vuelve a mirar y se recorta otra vez. Solo si ni sin margen cabe, 409.
+const recoger = async (id, { fecha_recogida: fechaRecogida }, ahora) => {
+  const contexto = contextoDe(ahora);
+  const fecha = fechaRecogida ?? contexto.hoy;
+  const otroDia = fecha !== contexto.hoy;
+  const devueltaEn = otroDia
+    ? instanteEnMadrid(fecha, HORA_RECOGIDA_OTRO_DIA).toISOString()
+    : ahora.toISOString();
+  let recorte = null;
+  const margenDe = (fila) =>
+    recorte ? Math.min(recorte.margen, fila.dias_margen ?? 0) : (fila.dias_margen ?? 0);
+  for (;;) {
+    const resultado = await actualizarReserva(id, {
+      columnas: COLUMNAS_PANEL,
+      ahora,
+      ocupa: true,
+      decidir: (fila) => {
+        comprobarAccion(fila, 'recoger', contexto);
+        comprobarFechaRecogida(fila, fecha, contexto.hoy);
+        const cambios = { estado: 'devuelta', devuelta_en: devueltaEn };
+        let detalle = lineaDeRecogida(fila, fecha, otroDia);
+        const margen = margenDe(fila);
+        if (margen < (fila.dias_margen ?? 0)) {
+          cambios.dias_margen = margen;
+          detalle +=
+            ` Margen recortado de ${dias(fila.dias_margen)} a ${dias(margen)} por ` +
+            `${nombrarReserva(recorte.por)} del ${fechaLegible(recorte.por.fecha_inicio)}.`;
+        }
+        return { cambios, entrada: { tipo: 'recogida', detalle, por: 'admin' } };
+      }
+    });
+    if (resultado.reserva) {
+      await moverPieza(resultado.reserva.mueble_id, 'disponible', 'alquilado');
+      return recorte
+        ? { reserva: resultado.reserva, aviso: avisoDeRecorte(recorte) }
+        : { reserva: resultado.reserva };
+    }
+    const fila = resultado.choque;
+    recorte = await recortarMargen(fila, fecha, margenDe(fila), ahora);
+  }
 };
 
 // Ampliar un retraso (8.3, 8.5): la nueva fecha prevista de recogida, que ocupa el calendario.
@@ -553,11 +692,50 @@ const comprobarReembolso = (fila, centimos) => {
   }
 };
 
+// Lo que Stripe todavía deja devolver de un pago (8.4, 19 oct), en céntimos: lo cobrado menos lo ya
+// devuelto (también lo devuelto desde el Dashboard). null si ahora no se puede saber (Stripe sin
+// configurar o sin responder): entonces el tope lo pone Stripe al reembolsar.
+const loQueStripeDejaDevolver = async (paymentIntentId) => {
+  const stripe = stripeUtil.getStripe();
+  if (!stripe) return null;
+  try {
+    const pago = await stripe.paymentIntents.retrieve(paymentIntentId);
+    const { data } = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+    const devuelto = data
+      .filter(cuentaComoHecho)
+      .reduce((suma, refund) => suma + (refund.amount ?? 0), 0);
+    return Math.max(0, (pago.amount_received ?? 0) - devuelto);
+  } catch (error) {
+    console.warn(
+      `No se pudo leer en Stripe lo que queda por devolver del pago ${paymentIntentId}:`,
+      error.message || error
+    );
+    return null;
+  }
+};
+
 // Otra petición (un «Reintentar» a la vez) ya guardó el reembolso: no se añade otra línea.
 class ReembolsoYaGuardado extends Error {
   constructor(fila) {
     super('El reembolso ya estaba guardado.');
     this.fila = fila;
+  }
+}
+
+// Stripe no ha aceptado el reembolso, y repetirlo igual no va a cambiar nada: lo rechazó
+// (StripeInvalidRequestError) o lo devolvió fallido o anulado (19 oct).
+class ReembolsoRechazado extends Error {
+  constructor(refund, causa) {
+    super(causa?.message || `Reembolso ${refund.id} en estado ${refund.status}.`);
+    this.refundId = refund?.id ?? null;
+  }
+}
+
+// El reembolso está hecho en Stripe, pero su id no se pudo guardar (19 oct).
+class ReembolsoSinGuardar extends Error {
+  constructor(refundId, causa) {
+    super(causa?.message || String(causa));
+    this.refundId = refundId;
   }
 }
 
@@ -586,52 +764,148 @@ const guardarReembolso = async (id, refundId, ahora) => {
   }
 };
 
+// Hecho por este servidor: cada reembolso que crea lleva en la metadata su reserva y su tipo.
+const hechoPorElPanel = (refund) => Boolean(refund.metadata?.reserva_id && refund.metadata?.tipo);
+const esDeEstaCancelacion = (refund, fila) =>
+  refund.metadata?.reserva_id === fila.id && refund.metadata?.tipo === TIPO_REEMBOLSO;
+
 // 8.6, capas 2 y 3, con la marca ya reclamada: el reembolso en Stripe, con su clave de idempotencia
 // fija, y su id en la reserva. Al reintentar (`buscarAntes`), primero se busca en Stripe por si se
-// hizo y no llegó a guardarse: la clave solo dura 24 horas, y pasado ese plazo crearía otro.
+// hizo y no llegó a guardarse: la clave solo dura 24 horas, y pasado ese plazo crearía otro. Desde el
+// 19 oct, al reintentar:
+//   - uno de esta cancelación fallido o anulado no cuenta, y el siguiente va con otra clave (_2, _3...:
+//     con la misma, Stripe devolvería el fallido);
+//   - si el pago tiene un reembolso que no hizo el panel, posterior a la cancelación y que no ha
+//     fallado, no se crea nada: 409 (se hizo desde el Dashboard; si basta, «Dar por reembolsado»).
 const hacerReembolso = async (fila, { buscarAntes, ahora }) => {
   const stripe = stripeUtil.getStripe();
   if (!stripe) throw new Error('Stripe no está configurado (falta STRIPE_SECRET_KEY).');
-  let refundId = null;
+  let refund = null;
+  let intento = 1;
   if (buscarAntes) {
     const { data } = await stripe.refunds.list({
       payment_intent: fila.stripe_payment_intent_id,
       limit: 100
     });
-    const hecho = data.find(
-      (refund) =>
-        refund.metadata?.reserva_id === fila.id && refund.metadata?.tipo === TIPO_REEMBOLSO
-    );
-    refundId = hecho?.id ?? null;
+    const deEsta = data.filter((r) => esDeEstaCancelacion(r, fila));
+    refund = deEsta.find(cuentaComoHecho) ?? null;
+    if (!refund) {
+      const desde = Math.floor(Date.parse(fila.reembolso_solicitado_en) / 1000);
+      const deFuera = data.filter(
+        (r) => !hechoPorElPanel(r) && cuentaComoHecho(r) && r.created >= desde
+      );
+      if (deFuera.length > 0) {
+        const suma = deFuera.reduce((total, r) => total + (r.amount ?? 0), 0);
+        throw new ErrorConflicto(
+          `Este pago ya tiene un reembolso de ${eurosLegibles(suma)} hecho fuera del panel. Si ` +
+            'con él ya está todo devuelto, usa «Dar por reembolsado».'
+        );
+      }
+      intento = deEsta.length + 1;
+    }
   }
-  if (!refundId) {
-    const refund = await stripe.refunds.create(
-      {
-        payment_intent: fila.stripe_payment_intent_id,
-        amount: centimosDe(fila.reembolso_importe),
-        metadata: { reserva_id: fila.id, tipo: TIPO_REEMBOLSO }
-      },
-      { idempotencyKey: claveDeReembolso(fila.id) }
-    );
-    refundId = refund.id;
+  if (!refund) {
+    const clave = claveDeReembolso(fila.id);
+    try {
+      refund = await stripe.refunds.create(
+        {
+          payment_intent: fila.stripe_payment_intent_id,
+          amount: centimosDe(fila.reembolso_importe),
+          metadata: { reserva_id: fila.id, tipo: TIPO_REEMBOLSO }
+        },
+        { idempotencyKey: intento === 1 ? clave : `${clave}_${intento}` }
+      );
+    } catch (error) {
+      if (error?.type === 'StripeInvalidRequestError') throw new ReembolsoRechazado(null, error);
+      throw error;
+    }
+    if (!cuentaComoHecho(refund)) throw new ReembolsoRechazado(refund);
   }
-  return guardarReembolso(fila.id, refundId, ahora);
+  try {
+    return await guardarReembolso(fila.id, refund.id, ahora);
+  } catch (error) {
+    throw new ReembolsoSinGuardar(refund.id, error);
+  }
+};
+
+const leerReserva = async (id) => {
+  const fila = await leer(
+    supabase.from('reservas').select(COLUMNAS_LISTA).eq('id', id).maybeSingle()
+  );
+  if (!fila) throw new ErrorNoEncontrado(MENSAJE_RESERVA_NO_ENCONTRADA);
+  return fila;
+};
+
+// La reserva tal como ha quedado, para el 502; null si tampoco se puede leer.
+const releerReserva = async (id) => {
+  try {
+    return await leerReserva(id);
+  } catch (error) {
+    console.error(`No se pudo volver a leer la reserva ${id}:`, error.message || error);
+    return null;
+  }
+};
+
+// El reembolso de una reserva con la marca reclamada. Devuelve { reserva } si queda hecho y guardado;
+// si no, { reserva, avisoReembolso } (502) con la reserva tal como queda (sin ella, si no se puede
+// leer). `siFalla` es el aviso de un fallo pasajero. Nunca se mueve dinero dos veces: lo rechazado no
+// se repite solo, y lo hecho y no guardado se encuentra al reintentar (por su metadata).
+const reembolsar = async (fila, { buscarAntes, ahora, siFalla }) => {
+  try {
+    return { reserva: await hacerReembolso(fila, { buscarAntes, ahora }) };
+  } catch (error) {
+    if (error instanceof ErrorConflicto) throw error;
+    if (error instanceof ReembolsoSinGuardar) {
+      console.error(
+        `[ALERTA] Reembolso ${error.refundId} de la reserva ${fila.id} hecho en Stripe y sin guardar:`,
+        error.message
+      );
+      const actual = await releerReserva(fila.id);
+      if (actual?.stripe_refund_id) return { reserva: actual };
+      return { reserva: actual, avisoReembolso: MENSAJE_REEMBOLSO_SIN_GUARDAR };
+    }
+    if (error instanceof ReembolsoRechazado) {
+      console.error(
+        `[ALERTA] Stripe no ha aceptado el reembolso de la reserva ${fila.id}` +
+          `${error.refundId ? ` (${error.refundId})` : ''}:`,
+        error.message
+      );
+      return { reserva: fila, avisoReembolso: MENSAJE_REEMBOLSO_RECHAZADO };
+    }
+    console.error(`[ALERTA] Reserva ${fila.id} con el reembolso a medias:`, error.message || error);
+    return { reserva: fila, avisoReembolso: siFalla };
+  }
 };
 
 // Cancelar (8.4) un alquiler confirmado o una venta, con el reembolso que decide el administrador.
-// El dinero se mueve en las tres capas del 8.6. La primera es este UPDATE: cancela y reclama la marca
-// del reembolso a la vez, y solo vale si la fila sigue como se leyó (actualizarReserva), así que una
-// segunda petición simultánea vuelve a leer y se encuentra la marca puesta, o la reserva cancelada.
-// Si Stripe falla después, la reserva queda cancelada con el reembolso "a medias", y se dice.
+// Con reembolso, antes de nada se lee lo que Stripe todavía deja devolver del pago (19 oct): pedir más
+// es un 400 y no cambia nada. El dinero se mueve en las tres capas del 8.6. La primera es este UPDATE:
+// cancela y reclama la marca del reembolso a la vez, y solo vale si la fila sigue como se leyó
+// (actualizarReserva), así que una segunda petición simultánea vuelve a leer y se encuentra la marca
+// puesta, o la reserva cancelada. Si Stripe falla después, la reserva queda cancelada con el
+// reembolso "a medias", y se dice (502).
 const cancelar = async (id, { motivo, reembolso_centimos: reembolso }, ahora) => {
   const contexto = contextoDe(ahora);
+  const comprobar = (fila) => {
+    if (fila.reembolso_solicitado_en) throw new ErrorConflicto(MENSAJE_REEMBOLSO_EN_CURSO);
+    comprobarAccion(fila, 'cancelar', contexto);
+    comprobarReembolso(fila, reembolso);
+  };
+  if (reembolso > 0) {
+    const fila = await leerReserva(id);
+    comprobar(fila);
+    const tope = await loQueStripeDejaDevolver(fila.stripe_payment_intent_id);
+    if (tope !== null && reembolso > tope) {
+      throw new ErrorValidacion(
+        `Stripe solo permite devolver ${eurosLegibles(tope)} de este pago.`
+      );
+    }
+  }
   const { reserva } = await actualizarReserva(id, {
     columnas: COLUMNAS_PANEL,
     ahora,
     decidir: (fila) => {
-      if (fila.reembolso_solicitado_en) throw new ErrorConflicto(MENSAJE_REEMBOLSO_EN_CURSO);
-      comprobarAccion(fila, 'cancelar', contexto);
-      comprobarReembolso(fila, reembolso);
+      comprobar(fila);
       const cambios = {
         estado: 'cancelada',
         cancelada_en: ahora.toISOString(),
@@ -654,38 +928,33 @@ const cancelar = async (id, { motivo, reembolso_centimos: reembolso }, ahora) =>
   });
   if (reserva.tipo === 'venta') await moverPieza(reserva.mueble_id, 'disponible', 'vendido');
   if (!reembolsoAMedias(reserva)) return { reserva };
-  try {
-    return { reserva: await hacerReembolso(reserva, { buscarAntes: false, ahora }) };
-  } catch (error) {
-    console.error(
-      `[ALERTA] Reserva ${id} cancelada con el reembolso a medias:`,
-      error.message || error
-    );
-    return { reserva, avisoReembolso: MENSAJE_REEMBOLSO_A_MEDIAS };
-  }
-};
-
-const leerReserva = async (id) => {
-  const fila = await leer(
-    supabase.from('reservas').select(COLUMNAS_LISTA).eq('id', id).maybeSingle()
-  );
-  if (!fila) throw new ErrorNoEncontrado(MENSAJE_RESERVA_NO_ENCONTRADA);
-  return fila;
+  return reembolsar(reserva, { buscarAntes: false, ahora, siFalla: MENSAJE_REEMBOLSO_A_MEDIAS });
 };
 
 // «Reintentar reembolso» (8.6, capa 3): solo para las que se quedaron a medias.
 const reintentarReembolso = async (id, _datos, ahora) => {
   const fila = await leerReserva(id);
   comprobarAccion(fila, 'reintentar-reembolso', contextoDe(ahora));
-  try {
-    return { reserva: await hacerReembolso(fila, { buscarAntes: true, ahora }) };
-  } catch (error) {
-    console.error(
-      `[ALERTA] No se pudo reintentar el reembolso de la reserva ${id}:`,
-      error.message || error
-    );
-    return { reserva: fila, avisoReembolso: MENSAJE_REINTENTO_FALLIDO };
-  }
+  return reembolsar(fila, { buscarAntes: true, ahora, siFalla: MENSAJE_REINTENTO_FALLIDO });
+};
+
+// «Dar por reembolsado» (8.6, 19 oct): el reembolso a medias se hizo fuera, en el Dashboard de
+// Stripe. Cierra el "a medias" con una línea en el historial, sin mover dinero ni llamar a Stripe, con
+// el UPDATE guardado: si ya no está a medias (otro clic, un «Reintentar»), 409.
+const darPorReembolsado = async (id, _datos, ahora) => {
+  const contexto = contextoDe(ahora);
+  const { reserva } = await actualizarReserva(id, {
+    columnas: COLUMNAS_PANEL,
+    ahora,
+    decidir: (fila) => {
+      comprobarAccion(fila, 'dar-por-reembolsado', contexto);
+      return {
+        cambios: {},
+        entrada: { tipo: TIPO_DADO_POR_HECHO, detalle: LINEA_DADO_POR_HECHO, por: 'admin' }
+      };
+    }
+  });
+  return { reserva };
 };
 
 const levantarBloqueo = async (id, _datos, ahora) => {
@@ -704,21 +973,28 @@ const levantarBloqueo = async (id, _datos, ahora) => {
   return { reserva };
 };
 
-const ACCIONES = {
-  entregar,
-  recoger,
-  ampliar,
-  cancelar,
-  'reintentar-reembolso': reintentarReembolso,
-  'levantar-bloqueo': levantarBloqueo
-};
+// Un Map y no un objeto: 'constructor' o '__proto__' no son acciones (19 oct).
+const ACCIONES = new Map([
+  ['entregar', entregar],
+  ['recoger', recoger],
+  ['ampliar', ampliar],
+  ['cancelar', cancelar],
+  ['reintentar-reembolso', reintentarReembolso],
+  ['dar-por-reembolsado', darPorReembolsado],
+  ['levantar-bloqueo', levantarBloqueo]
+]);
 
 // POST /api/admin/reservas/:id/:accion, con el cuerpo ya validado (schemas/adminReservas.js).
-// Devuelve { reserva } con la fila tal como queda, y `avisoReembolso` si la reserva se canceló pero
-// el reembolso no se pudo hacer (502). Lanza ErrorConflicto (409), ErrorValidacion (400) o
-// ErrorNoEncontrado (404) con un mensaje que se puede enseñar; cualquier otro error es interno.
-const ejecutarAccion = (id, accion, datos, ahora = new Date()) =>
-  ACCIONES[accion](id, datos ?? {}, ahora);
+// Devuelve { reserva } con la fila tal como queda, más `aviso` si se hizo con algo que conviene saber
+// (una recogida con el margen recortado), o { reserva, avisoReembolso } si el reembolso no se pudo
+// hacer o guardar (502; `reserva` es null si ni se pudo volver a leer). Lanza ErrorConflicto (409),
+// ErrorValidacion (400) o ErrorNoEncontrado (404) con un mensaje que se puede enseñar; cualquier otro
+// error es interno.
+const ejecutarAccion = (id, accion, datos, ahora = new Date()) => {
+  const hacer = ACCIONES.get(accion);
+  if (!hacer) throw new ErrorNoEncontrado(MENSAJE_ACCION_NO_EXISTE);
+  return hacer(id, datos ?? {}, ahora);
+};
 
 // ─── Altas sin pago web (8.3) ────────────────────────────────────────────────────────────────────
 
@@ -814,7 +1090,9 @@ const crearAlquiler = async (datos, ahora = new Date(), reglas = REGLAS_ALQUILER
       hora_entrega: datos.hora_entrega,
       fecha_fin: datos.fecha_fin,
       hora_recogida: datos.hora_recogida,
-      fin_ocupacion: datos.fecha_fin,
+      // Ya entregado y con la recogida pactada pasada: la pieza sigue fuera, así que ocupa al menos
+      // hasta hoy, como un retraso sin ampliar (19 oct).
+      fin_ocupacion: datos.ya_entregado && datos.fecha_fin < hoy ? hoy : datos.fecha_fin,
       dias_margen: reglas.diasMargen,
       modo_entrega: datos.modo_entrega,
       modo_devolucion: datos.modo_devolucion,
@@ -875,7 +1153,12 @@ module.exports = {
   MENSAJE_REEMBOLSO_EN_CURSO,
   MENSAJE_REEMBOLSO_A_MEDIAS,
   MENSAJE_REINTENTO_FALLIDO,
+  MENSAJE_REEMBOLSO_RECHAZADO,
+  MENSAJE_REEMBOLSO_SIN_GUARDAR,
+  MENSAJE_SIN_REEMBOLSO_A_MEDIAS,
+  MENSAJE_ACCION_NO_EXISTE,
   MENSAJE_CHOQUE_DESAPARECIDO,
+  LINEA_DADO_POR_HECHO,
   claveDeReembolso,
   situacion,
   presentar,

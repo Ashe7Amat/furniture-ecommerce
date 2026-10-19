@@ -69,7 +69,11 @@ const SCHEMAS_ACCION = {
       .boolean({ error: () => 'Indica si la entregas antes de tiempo (true o false).' })
       .optional()
   }),
-  recoger: sinDatos,
+  // Sin fecha, hoy (19 oct). Que no sea posterior a hoy ni anterior a la entrega lo decide
+  // utils/adminReservas.js, que conoce la fila.
+  recoger: z.object({
+    fecha_recogida: fecha('Elige la fecha de recogida (AAAA-MM-DD).').optional()
+  }),
   ampliar: z.object({
     fin_ocupacion: fecha('Elige la nueva fecha de recogida (AAAA-MM-DD).')
   }),
@@ -81,6 +85,7 @@ const SCHEMAS_ACCION = {
       .min(0, 'El reembolso no puede ser negativo.')
   }),
   'reintentar-reembolso': sinDatos,
+  'dar-por-reembolsado': sinDatos,
   'levantar-bloqueo': sinDatos
 };
 

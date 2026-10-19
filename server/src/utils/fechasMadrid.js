@@ -55,6 +55,27 @@ const sumarMeses = (fecha, meses) => {
 // '2026-10-25' → '25/10/2026', para los mensajes que se enseñan al cliente.
 const fechaLegible = (fecha) => fecha.split('-').reverse().join('/');
 
+const formateadorHoraMadrid = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/Madrid',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23'
+});
+
+// El instante (Date) del día `fecha` a la hora `hora` ('HH:MM') de Madrid, que va a UTC+2 en verano
+// y a UTC+1 en invierno: se prueban los dos desfases y vale el que da esa hora en Madrid. null si esa
+// hora no existe ese día (la que se salta al cambiar a verano; nunca las 12:00).
+const instanteEnMadrid = (fecha, hora) => {
+  const [horas, minutos] = hora.split(':').map(Number);
+  for (const desfase of [2, 1]) {
+    const instante = new Date(aMs(fecha) + ((horas - desfase) * 60 + minutos) * 60 * 1000);
+    if (hoyEnMadrid(instante) === fecha && formateadorHoraMadrid.format(instante) === hora) {
+      return instante;
+    }
+  }
+  return null;
+};
+
 module.exports = {
   hoyEnMadrid,
   esFechaValida,
@@ -62,5 +83,6 @@ module.exports = {
   sumarDias,
   diasEntre,
   sumarMeses,
-  fechaLegible
+  fechaLegible,
+  instanteEnMadrid
 };

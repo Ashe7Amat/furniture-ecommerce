@@ -10,7 +10,8 @@ const {
   sumarDias,
   diasEntre,
   sumarMeses,
-  fechaLegible
+  fechaLegible,
+  instanteEnMadrid
 } = require('../utils/fechasMadrid');
 
 describe('hoyEnMadrid — la franja de medianoche y los cambios de hora', () => {
@@ -120,4 +121,29 @@ describe('sumarMeses', () => {
 
 test('fechaLegible pone la fecha como se lee en España', () => {
   assert.equal(fechaLegible('2026-10-05'), '05/10/2026');
+});
+
+describe('instanteEnMadrid — una hora de Madrid como instante', () => {
+  test('las 12:00 de Madrid son las 10:00 UTC en verano y las 11:00 UTC en invierno', () => {
+    assert.equal(instanteEnMadrid('2026-07-14', '12:00').toISOString(), '2026-07-14T10:00:00.000Z');
+    assert.equal(instanteEnMadrid('2026-12-01', '12:00').toISOString(), '2026-12-01T11:00:00.000Z');
+  });
+
+  test('los días del cambio de hora', () => {
+    // 25 oct 2026: a las 03:00 de Madrid vuelve a ser las 02:00 (UTC+2 → UTC+1).
+    assert.equal(instanteEnMadrid('2026-10-25', '12:00').toISOString(), '2026-10-25T11:00:00.000Z');
+    assert.equal(instanteEnMadrid('2026-10-24', '12:00').toISOString(), '2026-10-24T10:00:00.000Z');
+    // 28 mar 2027: a las 02:00 de Madrid pasan a ser las 03:00 (UTC+1 → UTC+2).
+    assert.equal(instanteEnMadrid('2027-03-28', '12:00').toISOString(), '2027-03-28T10:00:00.000Z');
+    assert.equal(instanteEnMadrid('2027-03-27', '12:00').toISOString(), '2027-03-27T11:00:00.000Z');
+  });
+
+  test('cerca de medianoche sigue siendo ese día en Madrid', () => {
+    assert.equal(instanteEnMadrid('2026-07-14', '00:30').toISOString(), '2026-07-13T22:30:00.000Z');
+    assert.equal(hoyEnMadrid(instanteEnMadrid('2026-12-31', '23:59')), '2026-12-31');
+  });
+
+  test('una hora que no existe en Madrid (la que se salta en marzo) da null', () => {
+    assert.equal(instanteEnMadrid('2027-03-28', '02:30'), null);
+  });
 });
