@@ -1,9 +1,11 @@
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
+const reservas = require('../utils/reservas');
 
 // POST /api/stripe/webhook -- Stripe avisa aquí de lo que pasa con los pagos, sin depender
-// de que el comprador vuelva a la web. Solo se atiende checkout.session.completed; el resto
-// de eventos se acusan con 200 para que Stripe no los reintente.
+// de que el comprador vuelva a la web. Se atienden checkout.session.completed (compras y reservas
+// por fechas) y checkout.session.expired (solo reservas: libera sus fechas); el resto de eventos
+// se acusan con 200 para que Stripe no los reintente.
 //
 // Códigos de respuesta (Stripe reintenta cualquier respuesta que no sea 2xx):
 //   400 firma ausente o inválida   -> no es de Stripe, no tiene sentido reintentar
@@ -41,11 +43,26 @@ const recibirWebhook = async (req, res) => {
     return res.status(400).json({ error: 'Firma no válida.' });
   }
 
+  const session = evento.data.object;
+  const esReserva = session?.metadata?.tipo === 'reserva';
+
+  if (evento.type === 'checkout.session.expired' && esReserva) {
+    try {
+      const { estado } = await reservas.liberarReservaDeSesionCaducada(session);
+      return res.status(200).json({ recibido: true, estado });
+    } catch (error) {
+      console.error(
+        `Webhook de Stripe: error al liberar la reserva de la sesión caducada ${session.id}:`,
+        error.message || error
+      );
+      return res.status(500).json({ error: 'Error al procesar el evento.' });
+    }
+  }
+
   if (evento.type !== 'checkout.session.completed') {
     return res.status(200).json({ recibido: true, ignorado: true });
   }
 
-  const session = evento.data.object;
   if (session.payment_status !== 'paid') {
     // Solo se cobra con tarjeta, que llega ya pagada; un pago diferido no se da por bueno aún.
     console.warn(
@@ -55,10 +72,12 @@ const recibirWebhook = async (req, res) => {
   }
 
   try {
-    const resultado = await pagos.procesarSesionPagada(session);
+    const resultado = esReserva
+      ? await reservas.procesarReservaPagada(session)
+      : await pagos.procesarSesionPagada(session);
     if (resultado.estado === 'ignorada') {
       console.warn(
-        `Webhook de Stripe: la sesión ${session.id} no trae piezas en su metadata, se ignora.`
+        `Webhook de Stripe: la sesión ${session.id} no trae ni piezas ni una reserva que exista, se ignora.`
       );
     }
     return res.status(200).json({ recibido: true, estado: resultado.estado });

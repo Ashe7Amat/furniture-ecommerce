@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, lazy, Suspense } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -6,7 +6,12 @@ import { getMuebles, updateProfile, getMisPedidos, reenviarVerificacion } from '
 import { formatPrice, textoPrecio } from '../utils/format';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import { Link, useSearchParams } from 'react-router-dom';
+import { reservasActivas } from '../utils/reservas';
 import './Profile.css';
+
+// Reservas por fechas (docs/reservas-diseno.md): "Mis Reservas" solo se descarga si se abre su
+// pestaña, que solo existe con el interruptor encendido.
+const MisReservas = lazy(() => import('../components/reservas/MisReservas'));
 
 export default function Profile() {
   const { user, login } = useContext(AuthContext);
@@ -29,6 +34,9 @@ export default function Profile() {
   // H18: sin el email confirmado no se ven los pedidos (el servidor responde 403). Una sesión de
   // antes de H18 no trae el campo: cuenta como sin verificar hasta que la renovación lo actualice.
   const emailVerificado = user?.email_verificado === true;
+  // Reservas por fechas (docs/reservas-diseno.md): la pestaña "Mis Reservas" solo existe con el
+  // interruptor encendido. Se abre también con ?tab=reservas (el enlace de la página de éxito).
+  const conReservas = reservasActivas();
 
   useEffect(() => {
     if (activeTab === 'favoritos') {
@@ -173,6 +181,14 @@ export default function Profile() {
           >
             Historial de Pedidos
           </button>
+          {conReservas && (
+            <button
+              className={activeTab === 'reservas' ? 'active' : ''}
+              onClick={() => setActiveTab('reservas')}
+            >
+              Mis Reservas
+            </button>
+          )}
         </aside>
 
         {/* Un div, no un segundo <main>: el contenido de la página ya va dentro del <main id="contenido"> de
@@ -314,6 +330,19 @@ export default function Profile() {
                     );
                   })}
                 </div>
+              )}
+            </div>
+          )}
+
+          {conReservas && activeTab === 'reservas' && (
+            <div className="tab-pane-animate">
+              <h2>Tus Reservas</h2>
+              {emailVerificado ? (
+                <Suspense fallback={<p className="empty-tab-text">Cargando tus reservas...</p>}>
+                  <MisReservas />
+                </Suspense>
+              ) : (
+                <p className="empty-tab-text">Confirma tu email para ver tus reservas.</p>
               )}
             </div>
           )}

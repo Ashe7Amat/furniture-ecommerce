@@ -1,0 +1,236 @@
+/* Pestaña "Reservas" del panel (pages/admin/pestanas/ReservasTab.jsx). Reutiliza las piezas del
+   panel (Admin.css: .pedido-card, .admin-form, .admin-modal-*...) y añade solo lo suyo. */
+
+/* ─── Vistas de la lista ─── */
+.reservas-vistas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.reservas-vista {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--secondary-color);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.reservas-vista:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+.reservas-vista[aria-pressed="true"] {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--bg-color);
+}
+.reservas-vista:focus-visible,
+.reserva-acciones button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* Las tres altas (bloquear, alquiler y venta fuera de la web): bajan de línea si no caben. */
+.reservas-altas { flex-wrap: wrap; }
+
+/* ─── Lista ─── */
+.reservas-lista {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.reserva-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.reserva-cabecera .pedido-id { margin-left: 0; }
+/* El texto de las etiquetas y los avisos se mezcla con el texto principal para llegar a 4,5:1 sobre su fondo
+   suave en el tema claro; en el oscuro ya pasaba y la mezcla solo lo aclara. */
+.reserva-etiqueta {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--bg-color);
+  color: var(--secondary-color);
+}
+.reserva-etiqueta.estado-confirmada {
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 75%, var(--primary-color));
+}
+.reserva-etiqueta.estado-en_curso {
+  background: var(--success-bg);
+  color: color-mix(in srgb, var(--success-color) 70%, var(--primary-color));
+}
+.reserva-etiqueta.estado-esperando_pago,
+.reserva-etiqueta.estado-pendiente {
+  background: var(--warning-bg);
+  color: color-mix(in srgb, var(--warning-color) 70%, var(--primary-color));
+}
+.reserva-etiqueta.estado-cancelada,
+.reserva-etiqueta.is-aviso { background: var(--danger-bg); color: var(--danger-color); }
+.reserva-origen {
+  font-size: 0.75rem;
+  color: var(--secondary-color);
+  border: 1px dashed var(--border-color);
+  border-radius: 20px;
+  padding: 3px 10px;
+}
+/* El cliente pidió cancelarla desde "Mis reservas": tiene que verse sin abrir nada. */
+.reserva-solicitud {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--warning-bg);
+  color: color-mix(in srgb, var(--warning-color) 70%, var(--primary-color));
+}
+/* Una columna para los datos y otra para el cliente; sin cliente (bloqueos, ventas), los datos
+   ocupan todo el ancho, y en el móvil van uno debajo del otro. */
+.reserva-card-body {
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+}
+.reserva-pieza {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.reserva-ref { font-size: 0.78rem; }
+.reserva-datos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 12px 0 0;
+  font-size: 0.88rem;
+}
+.reserva-datos dt { color: var(--secondary-color); }
+.reserva-datos dd { margin: 0; color: var(--primary-color); overflow-wrap: anywhere; }
+.reserva-contacto {
+  border-left: 1px solid var(--border-color);
+  padding-left: 24px;
+  overflow-wrap: anywhere;
+}
+/* El color de acento del panel no llega a 4,5:1 como texto pequeño sobre la tarjeta. */
+.reserva-contacto a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+.reserva-aviso,
+.reserva-error {
+  margin: 0 20px 16px;
+}
+.reserva-aviso {
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--warning-bg);
+  color: color-mix(in srgb, var(--warning-color) 70%, var(--primary-color));
+  font-size: 0.88rem;
+}
+.reserva-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-color);
+}
+.reserva-acciones button:disabled { opacity: 0.6; cursor: wait; }
+
+/* Una acción hecha con el reembolso a medias (502): se queda encima de la lista hasta cerrarla. */
+.reservas-aviso-general {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--danger-color);
+  border-radius: 6px;
+  background: var(--danger-bg);
+}
+.reservas-aviso-general p {
+  margin: 0;
+  flex: 1 1 260px;
+  color: var(--danger-color);
+  font-size: 0.9rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* ─── Errores y diálogos ─── */
+.reservas-error {
+  color: var(--danger-color);
+  font-size: 0.88rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.reservas-dialogo { max-width: 620px; }
+.reservas-dialogo-texto {
+  margin: 0 0 16px;
+  line-height: 1.55;
+  color: var(--primary-color);
+}
+.reservas-form { margin-top: 0; max-width: none; gap: 16px; }
+.reservas-form .reservas-dialogo-texto { margin: 0; }
+.reservas-form .reservas-error { margin: 0; }
+.reservas-dialogo-botones {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.reservas-dialogo-botones .admin-btn { padding: 12px 20px; }
+.reservas-btn-peligro { background: var(--danger-color); }
+.reservas-btn-peligro:hover:not(:disabled) { background: var(--danger-color); filter: brightness(0.92); }
+.reservas-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  cursor: pointer;
+}
+.admin-form .reservas-check input { width: auto; }
+
+@media (max-width: 768px) {
+  /* Zonas táctiles de al menos 44 px (WCAG 2.5.5, AAA; pauta de Apple y Google). */
+  .reservas-vista,
+  .reservas-aviso-general button,
+  .reserva-acciones button,
+  .reservas-altas button,
+  .reservas-dialogo-botones > button {
+    min-height: 44px;
+  }
+  .reservas-dialogo .admin-modal-close {
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+  }
+  .reserva-contacto a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .reserva-contacto {
+    border-left: none;
+    padding-left: 0;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+  }
+  .reservas-dialogo-botones { justify-content: stretch; }
+  .reservas-dialogo-botones > button { flex: 1; }
+}

@@ -1125,7 +1125,7 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 
 | Hallazgo | Estado |
 |---|---|
-| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas |
+| H7 · alquilar un día bloquea la pieza | Negocio; lo resuelven las reservas (en curso desde el 13 oct, bloques R-a y R-b) |
 | H11 · `categoria_id` a NULL para siempre | Decisión pendiente |
 | H13 · formularios que sobreviven al cambio de pestaña | UX |
 | H15 · categoría preseleccionada | UX |
@@ -1298,6 +1298,39 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
 
 - Pagar el alquiler de un día deja la pieza en `alquilado` hasta que el administrador la reponga a mano. Es
   comportamiento anterior a la rama; conviene decidir si hace falta una fecha de fin.
+- **En curso desde el 13 oct 2026:** lo resuelven las reservas por fechas (`docs/reservas-diseno.md`). Se
+  empezó sin las respuestas del cliente; las cuatro decisiones bloqueantes las tomó Ashe el 13 oct (están al
+  principio de `docs/reservas-diseno.md`). Hechos los pasos 5 y 6 del bloque R-a
+  (precio, fechas en hora de Madrid y los endpoints de disponibilidad y presupuesto, solo lectura) y el SQL de
+  las migraciones R1 y R2, sin aplicar (`docs/reservas-sql/`). Ninguna migración aplicada todavía.
+- Bloque R-b, paso 7 (13 oct): `POST /api/reservas/sesion-pago` crea la reserva provisional y su sesión de pago
+  de Stripe. Exige sesión y el email verificado, y va detrás del interruptor `RESERVAS_ACTIVAS` (apagado si no se
+  pone). Paso 8 (13 oct): el webhook y la página de éxito confirman la reserva pagada, registran su pedido y
+  envían los emails una sola vez; si las fechas ya eran de otra persona, avisan para reembolsar. Paso 9 (13 oct):
+  la compra respeta las reservas. No se cobra una pieza ocupada de hoy en adelante, y cada compra pagada deja su
+  fila de venta en el calendario; si el calendario no la admite, el pedido se registra sin marcar la pieza y se
+  avisa al administrador. Toca el flujo de compra sin interruptor, así que R2 tiene que estar aplicada antes de
+  llevarlo a `main`. Dos consecuencias para el panel: volver a poner una pieza vendida como disponible cancela su
+  venta del calendario, y una pieza con ventas o reservas registradas ya no se puede borrar (409 que lo explica).
+- Bloque R-c, paso 13, parte del servidor (14 oct): `GET /api/reservas/mias` y
+  `POST /api/reservas/:id/solicitar-cancelacion` (la solicitud queda en el historial de la reserva y avisa al
+  administrador por email; cancela siempre él, 8.4). Detrás del interruptor.
+- Bloque R-d, paso 14, servidor del panel (19 oct): `GET /api/admin/reservas` (vistas del 8.1), las acciones
+  sobre cada reserva (entregar, recoger, ampliar, cancelar con reembolso, reintentar reembolso, levantar
+  bloqueo) y las altas sin pago web (bloqueo, alquiler fuera de la web o contrato antiguo, venta). Solo
+  administradores y detrás del interruptor.
+- Bloque R-c, parte del cliente (19 oct): en la ficha, el calendario, el precio en vivo y «Reservar»; el paso
+  de confirmación (datos de contacto, condiciones) que lleva a Stripe; la página de éxito, y «Mis reservas» en
+  Mi cuenta con la solicitud de cancelación. Detrás de `VITE_RESERVAS_ACTIVAS` (apagado si no se pone).
+- Bloque R-d, pestaña «Reservas» del panel (19 oct): la lista por vistas, un botón por cada acción que el
+  servidor permite, y las tres altas sin pago web. Detrás de `VITE_RESERVAS_ACTIVAS`. Revisión de «Dar por
+  reembolsado»: ahora comprueba en Stripe que conste lo devuelto. R-e (la fianza, bloqueada hasta que Stripe
+  confirme por escrito el reembolso a ~194 días) y R-f (textos legales del cliente) siguen pendientes.
+- Revisión del paso 9, último revisor (19 oct): si Stripe reintenta una compra cuya venta ya se había
+  cancelado (anulada en un intento anterior, o la pieza vuelta a poner a la venta), ya no se vuelve a marcar
+  como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a
+  intentarlo" y no "esas fechas se acaban de reservar". Tests nuevos que fijan el "hoy" de Madrid pasada la
+  medianoche y el caso de una pieza borrada, y tres casos más en `r2_pruebas.sql` (6b a 6d).
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

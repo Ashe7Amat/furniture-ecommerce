@@ -9,6 +9,12 @@ import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { getMuebleById } from '../services/api';
 import { PLACEHOLDER_IMG } from '../utils/images';
+// Reservas por fechas (al final del archivo)
+import { afterEach } from 'vitest';
+import { act, waitFor } from '@testing-library/react';
+import { getDisponibilidad, getPresupuestoReserva, crearSesionPagoReserva } from '../services/api';
+import { AuthContext } from '../context/AuthContext';
+import { ToastContext } from '../context/ToastContext';
 
 vi.mock('../services/api');
 
@@ -364,5 +370,302 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
     expect(document.title).toBe('Nave 5 Barcelona | Almacén de ideas');
     expect(meta('meta[property="og:image"]')).toBe('/og-image.png');
     expect(meta('meta[name="description"]')).toMatch(/^Almacén de ideas en el corazón de Barcelona/);
+  });
+});
+
+// ─── Reservas por fechas (docs/reservas-diseno.md, 6.2 y 6.7), detrás de VITE_RESERVAS_ACTIVAS ───
+
+// Hoy es el lunes 2 de noviembre de 2026. Ocupado del 10 al 14 de noviembre.
+const DISPONIBILIDAD = {
+  mueble_id: MUEBLE.id,
+  zona_horaria: 'Europe/Madrid',
+  hoy: '2026-11-02',
+  alquilable: true,
+  comprable: true,
+  motivo_no_comprable: null,
+  comprable_desde: null,
+  precio_dia_centimos: 4000,
+  reglas: {
+    version: 1,
+    duracion_min_dias: 1,
+    duracion_max_dias: 30,
+    antelacion_min_dias: 2,
+    antelacion_max_meses: 1,
+    dias_margen: 2,
+    tramos_descuento: []
+  },
+  primer_inicio_posible: '2026-11-04',
+  ultimo_inicio_posible: '2026-12-02',
+  ocupado: [{ desde: '2026-11-10', hasta: '2026-11-15', tipo: 'reservado' }]
+};
+const disponibilidad = (extra = {}) => ({ data: { ...DISPONIBILIDAD, ...extra }, error: null, status: 200 });
+const FALLO = { data: null, error: 'No se ha podido consultar la disponibilidad.', status: 0 };
+const panel = () => screen.queryByRole('region', { name: 'Alquilar por fechas' });
+
+describe('ProductDetail — reservas por fechas, con el interruptor apagado', () => {
+  it('ni pide la disponibilidad ni enseña nada nuevo: sigue "Alquilar por días"', async () => {
+    getDisponibilidad.mockResolvedValue(disponibilidad());
+    await montar();
+    await act(async () => {});
+
+    expect(getDisponibilidad).not.toHaveBeenCalled();
+    expect(panel()).not.toBeInTheDocument();
+    expect(opcion('Alquilar por días')).toBeInTheDocument();
+  });
+});
+
+describe('ProductDetail — reservas por fechas, con el interruptor encendido', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('pide la disponibilidad de la pieza una vez cargada y enseña "Alquilar por fechas"', async () => {
+    getDisponibilidad.mockResolvedValue(disponibilidad());
+    await montar();
+
+    expect(await screen.findByRole('region', { name: 'Alquilar por fechas' })).toBeInTheDocument();
+    expect(getDisponibilidad).toHaveBeenCalledTimes(1);
+    expect(getDisponibilidad).toHaveBeenCalledWith(MUEBLE.id);
+    expect(screen.getByRole('button', { name: 'miércoles, 4 de noviembre de 2026' })).toBeEnabled();
+  });
+
+  it('la cesta es solo para comprar: sin "Modalidad" ni "Alquilar por días", y se añade como compra', async () => {
+    getDisponibilidad.mockResolvedValue(disponibilidad());
+    const { user, addToCart } = await montar();
+    await screen.findByRole('region', { name: 'Alquilar por fechas' });
+
+    expect(screen.queryByText('Alquilar por días')).not.toBeInTheDocument();
+    expect(screen.queryByText('Modalidad')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Añadir a mi cesta' }));
+    expect(addToCart).toHaveBeenCalledWith(MUEBLE, 'compra');
+  });
+
+  it.each([
+    ['no se puede alquilar', { alquilable: false }],
+    ['los precios están ocultos', { precio_dia_centimos: null }]
+  ])('si %s, sin calendario y la compra como siempre', async (_caso, extra) => {
+    getDisponibilidad.mockResolvedValue(disponibilidad(extra));
+    await montar();
+    await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(panel()).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
+  });
+
+  it('si la disponibilidad falla, la ficha sigue como siempre: sin calendario y sin bloquear la compra', async () => {
+    getDisponibilidad.mockResolvedValue(FALLO);
+    await montar();
+    await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(panel()).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
+    expect(screen.queryByText(/tiene reservas/)).not.toBeInTheDocument();
+  });
+
+  it('con reservas que llegan a hoy no se puede comprar: botón desactivado, hasta cuándo y "Preguntar"', async () => {
+    getDisponibilidad.mockResolvedValue(
+      disponibilidad({ comprable: false, motivo_no_comprable: 'reservas_activas', comprable_desde: '2026-11-20' })
+    );
+    await montar();
+
+    const aviso = await screen.findByText(/Esta pieza tiene reservas hasta el 19\/11\/2026\./);
+    expect(aviso).toHaveTextContent(
+      'Esta pieza tiene reservas hasta el 19/11/2026. Si quieres comprarla, pregúntanos. Preguntar por esta pieza'
+    );
+    expect(within(aviso).getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveAttribute(
+      'href',
+      '/contacto?pieza=Aparador+de+roble&ref=NAV-MES-004'
+    );
+    const boton = screen.getByRole('button', { name: 'Añadir a mi cesta' });
+    expect(boton).toBeDisabled();
+    expect(boton).toHaveAccessibleDescription(/Esta pieza tiene reservas hasta el 19\/11\/2026/);
+    // El alquiler sigue disponible
+    expect(panel()).toBeInTheDocument();
+  });
+
+  it('sin fecha de fin de las reservas, lo dice sin fecha', async () => {
+    getDisponibilidad.mockResolvedValue(
+      disponibilidad({ comprable: false, motivo_no_comprable: 'reservas_activas', comprable_desde: null })
+    );
+    await montar();
+    expect(await screen.findByText(/^Esta pieza tiene reservas\. Si quieres comprarla, pregúntanos\./)).toBeInTheDocument();
+  });
+
+  it('no comprable por otro motivo (vendida): sin el aviso de reservas', async () => {
+    getDisponibilidad.mockResolvedValue(
+      disponibilidad({ alquilable: false, comprable: false, motivo_no_comprable: 'vendida' })
+    );
+    await montar({ ...MUEBLE, estado: 'vendido' });
+    await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(screen.queryByText(/tiene reservas/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+  });
+
+  it('vendida en el calendario (venta con entrega diferida) aunque el catálogo la tenga disponible: "Agotado" desactivado', async () => {
+    getDisponibilidad.mockResolvedValue(
+      disponibilidad({ alquilable: false, comprable: false, motivo_no_comprable: 'vendida' })
+    );
+    await montar();
+    await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/tiene reservas/)).not.toBeInTheDocument();
+  });
+
+  describe('una pieza sin precio de venta (solo alquiler)', () => {
+    const SOLO_ALQUILER = { ...MUEBLE, precio_venta: null };
+
+    it('no va a la cesta: el calendario es la forma de alquilarla', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar(SOLO_ALQUILER);
+
+      expect(await screen.findByRole('region', { name: 'Alquilar por fechas' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Cantidad')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+    });
+
+    it('mientras llega la disponibilidad no ofrece nada; si falla o no se puede alquilar, "Preguntar"', async () => {
+      let responder;
+      getDisponibilidad.mockReturnValue(new Promise((r) => (responder = r)));
+      await montar(SOLO_ALQUILER);
+      expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
+
+      await act(async () => responder(FALLO));
+      expect(screen.getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveClass('pd-cta-btn');
+      expect(panel()).not.toBeInTheDocument();
+    });
+
+    it('vendida, sigue diciendo "Agotado"', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad({ alquilable: false }));
+      await montar({ ...SOLO_ALQUILER, estado: 'vendido' });
+      expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    });
+  });
+
+  it('al pasar a otra pieza no enseña la disponibilidad de la anterior, aunque llegue tarde', async () => {
+    const OTRA = { ...MUEBLE, id: 'b2b2b2b2-0000-4000-8000-000000000000', nombre: 'Lámpara de latón' };
+    const respuestas = {};
+    getMuebleById.mockImplementation(async (id) => [MUEBLE, OTRA].find((m) => m.id === id));
+    getDisponibilidad.mockImplementation((id) => new Promise((r) => (respuestas[id] = r)));
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={[`/mueble/${MUEBLE.id}`]}>
+        <CartContext.Provider value={{ addToCart: vi.fn(), cestaLlena: false }}>
+          <FavoritesContext.Provider value={{ favorites: [], toggleFavorite: vi.fn() }}>
+            <Link to={`/mueble/${OTRA.id}`}>Ir a la otra pieza</Link>
+            <Routes>
+              <Route path="/mueble/:id" element={<ProductDetail />} />
+            </Routes>
+          </FavoritesContext.Provider>
+        </CartContext.Provider>
+      </MemoryRouter>
+    );
+    await screen.findByRole('heading', { level: 1, name: MUEBLE.nombre });
+    await waitFor(() => expect(respuestas[MUEBLE.id]).toBeDefined());
+
+    await user.click(screen.getByRole('link', { name: 'Ir a la otra pieza' }));
+    await screen.findByRole('heading', { level: 1, name: OTRA.nombre });
+    await waitFor(() => expect(respuestas[OTRA.id]).toBeDefined());
+
+    // La de la primera pieza llega tarde: no se usa
+    await act(async () => respuestas[MUEBLE.id](disponibilidad({ comprable: false, motivo_no_comprable: 'reservas_activas' })));
+    expect(panel()).not.toBeInTheDocument();
+    expect(screen.queryByText(/tiene reservas/)).not.toBeInTheDocument();
+
+    await act(async () => respuestas[OTRA.id](disponibilidad({ mueble_id: OTRA.id })));
+    expect(await screen.findByRole('region', { name: 'Alquilar por fechas' })).toBeInTheDocument();
+  });
+
+  describe('tras un 409 al reservar', () => {
+    const ANA = { nombre: 'Ana', email: 'ana@correo.es', email_verificado: true };
+    const PRESUPUESTO = {
+      fecha_inicio: '2026-11-04',
+      hora_entrega: '10:00',
+      fecha_fin: '2026-11-07',
+      hora_recogida: '10:00',
+      dias: 3,
+      precio_dia_centimos: 4000,
+      subtotal_alquiler_centimos: 12000,
+      tramo: null,
+      descuento_centimos: 0,
+      entrega: { modo: 'domicilio', importe_centimos: 0 },
+      recogida: { modo: 'domicilio', importe_centimos: 0 },
+      importe_total_centimos: 12000,
+      lineas: []
+    };
+
+    const reservarConConflicto = async () => {
+      getMuebleById.mockResolvedValue(MUEBLE);
+      getPresupuestoReserva.mockResolvedValue({ data: PRESUPUESTO, error: null, status: 200 });
+      crearSesionPagoReserva.mockResolvedValue({ data: null, error: 'Esas fechas se acaban de reservar.', status: 409 });
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter initialEntries={[`/mueble/${MUEBLE.id}`]}>
+          <ToastContext.Provider value={{ showToast: vi.fn() }}>
+            <AuthContext.Provider value={{ user: ANA }}>
+              <CartContext.Provider value={{ addToCart: vi.fn(), cestaLlena: false }}>
+                <FavoritesContext.Provider value={{ favorites: [], toggleFavorite: vi.fn() }}>
+                  <Routes>
+                    <Route path="/mueble/:id" element={<ProductDetail />} />
+                  </Routes>
+                </FavoritesContext.Provider>
+              </CartContext.Provider>
+            </AuthContext.Provider>
+          </ToastContext.Provider>
+        </MemoryRouter>
+      );
+      await screen.findByRole('region', { name: 'Alquilar por fechas' });
+      await user.click(screen.getByRole('button', { name: 'miércoles, 4 de noviembre de 2026' }));
+      await user.click(screen.getByRole('button', { name: 'sábado, 7 de noviembre de 2026' }));
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Reservar' })).toBeEnabled());
+      await user.click(screen.getByRole('button', { name: 'Reservar' }));
+      const dialogo = screen.getByRole('dialog', { name: 'Confirma tu reserva' });
+      await user.type(within(dialogo).getByLabelText('Teléfono'), '600123123');
+      await user.type(within(dialogo).getByLabelText('Dirección de entrega y recogida'), 'Calle Mayor 1');
+      await user.click(within(dialogo).getByRole('checkbox'));
+      await user.click(within(dialogo).getByRole('button', { name: /^Pagar/ }));
+      return { user };
+    };
+
+    it('vuelve a pedir la disponibilidad y el calendario enseña lo que se acaba de ocupar', async () => {
+      getDisponibilidad
+        .mockResolvedValueOnce(disponibilidad())
+        .mockResolvedValueOnce(
+          disponibilidad({
+            ocupado: [
+              { desde: '2026-11-04', hasta: '2026-11-10', tipo: 'reservado' },
+              ...DISPONIBILIDAD.ocupado
+            ]
+          })
+        );
+      await reservarConConflicto();
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Esas fechas se acaban de reservar.');
+      await waitFor(() => expect(getDisponibilidad).toHaveBeenCalledTimes(2));
+      expect(
+        await screen.findByRole('button', { name: 'miércoles, 4 de noviembre de 2026, no disponible' })
+      ).toBeDisabled();
+    });
+
+    it('si esa recarga falla, se queda el calendario que había', async () => {
+      getDisponibilidad.mockResolvedValueOnce(disponibilidad()).mockResolvedValueOnce(FALLO);
+      await reservarConConflicto();
+
+      await waitFor(() => expect(getDisponibilidad).toHaveBeenCalledTimes(2));
+      await act(async () => {});
+      expect(panel()).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'miércoles, 4 de noviembre de 2026' })).toBeEnabled();
+    });
   });
 });

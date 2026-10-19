@@ -697,6 +697,60 @@ const enviarMensajeContacto = async ({ nombre, email, mensaje }) => {
   }
 };
 
+// ─── Reservas por fechas (docs/reservas-diseno.md, 6.4) ───────────────────────────────────────────
+// `reserva` = { pedidoId, pieza, fechaInicio, horaEntrega, fechaFin, horaRecogida, dias, modoEntrega,
+// modoRecogida, direccion, total }: fechas 'YYYY-MM-DD', horas 'HH:MM' de Madrid y total en euros.
+// Todo lo que escribe el cliente (nombre, dirección) se escapa, como en los demás correos.
+const fechaHoraReserva = (fecha, hora) => `${String(fecha).split('-').reverse().join('/')} a las ${hora}`;
+const dondeTrayecto = (modo) => (modo === 'tienda' ? 'en la tienda' : 'a domicilio');
+const eurosReserva = (importe) => `${Number(importe).toFixed(2).replace('.', ',')} €`;
+const diasReserva = (n) => (n === 1 ? '1 día' : `${n} días`);
+
+const construirConfirmacionReserva = ({ nombre, reserva }) => {
+  const titulo = 'Tu reserva está confirmada';
+  const datos = [
+    ['Reserva', referenciaPedido(reserva.pedidoId)],
+    ['Pieza', reserva.pieza],
+    ['Entrega', `${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)}, ${dondeTrayecto(reserva.modoEntrega)}`],
+    ['Recogida', `${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}, ${dondeTrayecto(reserva.modoRecogida)}`],
+    ['Duración', diasReserva(reserva.dias)],
+    ['Total pagado', `${eurosReserva(reserva.total)} (IVA incluido)`],
+    ['Dirección', reserva.direccion]
+  ].filter(([, valor]) => valor);
+  const saludo = `¡Gracias, ${nombre || ''}! Hemos recibido el pago y la pieza queda reservada para ti en estas fechas.`;
+  const despedida = 'Te escribiremos antes de la entrega para concretar los detalles. Si necesitas cambiar algo, escríbenos desde la página de contacto.';
+  const cuerpo = `${parrafo(escaparHtml(saludo))}${bloqueDatos(
+    datos.map(([etiqueta, valor]) => filaDato(etiqueta, escaparHtml(valor))).join('')
+  )}${parrafo(`<br>${escaparHtml(despedida)}`)}`;
+  return {
+    asunto: `Reserva confirmada: ${reserva.pieza}`,
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [saludo, '', ...datos.map(([etiqueta, valor]) => `${etiqueta}: ${valor}`), '', despedida])
+  };
+};
+
+const enviarConfirmacionReserva = ({ email, nombre, reserva }) =>
+  enviarCorreoCuenta({ tipo: 'confirmación de reserva', para: email, ...construirConfirmacionReserva({ nombre, reserva }) });
+
+// Pago cobrado de una reserva que no se pudo confirmar (las fechas ya eran de otra persona, T12). El
+// reembolso lo hace el administrador, al que avisa enviarAlertaAdmin.
+const construirConflictoReserva = ({ nombre, reserva }) => {
+  const titulo = 'No hemos podido confirmar tu reserva';
+  const frases = [
+    `Hola, ${nombre || ''}:`,
+    `Hemos recibido tu pago por ${reserva.pieza}, pero esas fechas ya no estaban libres cuando nos llegó. Lo sentimos mucho.`,
+    `Te devolveremos el importe completo (${eurosReserva(reserva.total)}) en la misma tarjeta, y te escribiremos para ayudarte a encontrar otras fechas.`
+  ];
+  return {
+    asunto: titulo,
+    html: maquetarEmail({ titulo, cuerpo: frases.map((frase) => parrafo(escaparHtml(frase))).join('') }),
+    texto: textoPlano(titulo, frases)
+  };
+};
+
+const enviarConflictoReserva = ({ email, nombre, reserva }) =>
+  enviarCorreoCuenta({ tipo: 'reserva sin confirmar', para: email, ...construirConflictoReserva({ nombre, reserva }) });
+
 // Aviso operativo al administrador: algo que requiere que una persona intervenga (una
 // doble venta, un pago cobrado que no se pudo registrar...). `detalles` es una lista de
 // frases; todo se escapa antes de ir al HTML. Como los avisos de venta, nunca lanza: un
@@ -745,5 +799,5 @@ const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
 module.exports = {
   enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin,
   enviarConfirmarRegistro, enviarCuentaActivada, enviarConfirmarCambioEmail, enviarAvisoCambioEmail,
-  enviarCuentaProtegida, ocultarEmail
+  enviarCuentaProtegida, ocultarEmail, enviarConfirmacionReserva, enviarConflictoReserva
 };

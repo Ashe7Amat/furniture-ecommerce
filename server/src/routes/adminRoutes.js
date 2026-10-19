@@ -9,7 +9,24 @@ const {
 } = require('../controllers/catalogoCsvController');
 const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
+const {
+  exigirObjeto,
+  listarReservasAdmin,
+  prepararAccion,
+  accionSobreReserva,
+  crearBloqueoAdmin,
+  crearAlquilerAdmin,
+  crearVentaAdmin
+} = require('../controllers/adminReservasController');
 const { verificarAdmin } = require('../middleware/auth');
+const { validar } = require('../middleware/validar');
+const { reservasActivas } = require('../utils/reservas');
+const {
+  schemaListaReservas,
+  schemaBloqueo,
+  schemaAlquilerFueraDeLaWeb,
+  schemaVentaFueraDeLaWeb
+} = require('../schemas/adminReservas');
 
 // Lecturas que solo necesita el panel de administración (H26): lo que no debe salir en las rutas
 // públicas. Todas piden sesión de administrador.
@@ -45,5 +62,40 @@ router.get('/clientes/export', verificarAdmin, exportarClientesCsv);
 // Mensajes del formulario de contacto (pendiente de la migración mensajes_contacto).
 router.get('/mensajes', verificarAdmin, obtenerMensajes);
 router.patch('/mensajes/:id/leido', verificarAdmin, marcarLeido);
+
+// Reservas por fechas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d): la lista por vistas, las
+// acciones sobre cada reserva y las altas sin pago web. Primero la sesión de administrador y después
+// el interruptor RESERVAS_ACTIVAS (9.1): apagado, responden 403 sin tocar la base de datos.
+const exigirReservasActivas = (req, res, next) =>
+  reservasActivas()
+    ? next()
+    : res.status(403).json({ error: 'Las reservas por fechas todavía no están activadas.' });
+const reservas = [verificarAdmin, exigirReservasActivas];
+
+router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
+router.post(
+  '/reservas/bloqueos',
+  ...reservas,
+  exigirObjeto,
+  validar(schemaBloqueo),
+  crearBloqueoAdmin
+);
+router.post(
+  '/reservas/alquileres',
+  ...reservas,
+  exigirObjeto,
+  validar(schemaAlquilerFueraDeLaWeb),
+  crearAlquilerAdmin
+);
+router.post(
+  '/reservas/ventas',
+  ...reservas,
+  exigirObjeto,
+  validar(schemaVentaFueraDeLaWeb),
+  crearVentaAdmin
+);
+// entregar, recoger, ampliar, cancelar, reintentar-reembolso, dar-por-reembolsado o
+// levantar-bloqueo
+router.post('/reservas/:id/:accion', ...reservas, prepararAccion, accionSobreReserva);
 
 module.exports = router;
