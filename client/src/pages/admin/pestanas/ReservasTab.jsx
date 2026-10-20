@@ -49,7 +49,7 @@ const ALTAS = [
   ['venta', 'Registrar venta fuera de la web']
 ];
 
-const ReservasTab = ({ muebles }) => {
+const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   const { showToast } = useContext(ToastContext);
   const [vista, setVista] = useState('proximas');
   // La vista de ahora mismo, para lo que responde el servidor después: una respuesta tardía no recarga
@@ -81,10 +81,15 @@ const ReservasTab = ({ muebles }) => {
   // Número de la última carga: si se cambia de vista antes de que llegue una respuesta, esa
   // respuesta ya no se pinta.
   const ultimaCarga = useRef(0);
+  // true después de una acción: la tarjeta cambiada se queda en su sitio con su estado nuevo (si
+  // desapareciera, no se vería el resultado), pero la lista ya puede no ser la de esta vista. Lo dice
+  // un aviso con el botón «Actualizar» hasta la siguiente carga.
+  const [listaMovida, setListaMovida] = useState(false);
 
   // `conservar`: la recarga de una lista que ya no estaba al día no borra el mensaje de la tarjeta.
   const cargar = useCallback(async (vistaPedida, conservar = false) => {
     const numero = ++ultimaCarga.current;
+    setListaMovida(false);
     setLista((l) => ({ ...l, cargando: true, error: '' }));
     const { data, error } = await getReservasAdmin({ vista: vistaPedida });
     if (numero !== ultimaCarga.current) return;
@@ -143,16 +148,19 @@ const ReservasTab = ({ muebles }) => {
         `Reserva ${reserva.referencia} (${reserva.pieza.nombre}): ${resultado.error} Está en «Reembolsos a medias».`
       );
       showToast(resultado.error, 'error');
+      alCambiar?.();
       if (vistaRef.current === 'reembolsos') cargar('reembolsos');
       else setVista('reembolsos');
     } else if (!resultado.error) {
       const nueva = resultado.data?.reserva;
       if (nueva) {
         setLista((l) => ({ ...l, reservas: l.reservas.map((r) => (r.id === nueva.id ? nueva : r)) }));
+        setListaMovida(true);
         setFoco(nueva.id);
       } else {
         cargar(vistaRef.current);
       }
+      alCambiar?.();
       if (resultado.data?.aviso) setAvisos((a) => ({ ...a, [reserva.id]: resultado.data.aviso }));
       // El aviso de arriba era de un reembolso a medias: ya está resuelto.
       if (accion === 'reintentar-reembolso' || accion === 'dar-por-reembolsado') setAvisoGeneral('');
@@ -286,6 +294,12 @@ const ReservasTab = ({ muebles }) => {
     setDialogo(null);
     showToast(EXITO_ALTA[tipo], 'success');
     cargar(vistaRef.current);
+    alCambiar?.();
+  };
+
+  const actualizar = () => {
+    cargar(vista);
+    alCambiar?.();
   };
 
   const cerrarDialogo = () => setDialogo(null);
@@ -299,7 +313,7 @@ const ReservasTab = ({ muebles }) => {
     contenido = (
       <div className="mensajes-error" role="alert">
         <p>{error}</p>
-        <button type="button" className="admin-btn-ghost" onClick={() => cargar(vista)}>Reintentar</button>
+        <button type="button" className="admin-btn-ghost" onClick={actualizar}>Reintentar</button>
       </div>
     );
   } else if (reservas.length === 0) {
@@ -311,6 +325,12 @@ const ReservasTab = ({ muebles }) => {
           {reservas.length === 1 ? '1 reserva' : `${reservas.length} reservas`}
           {vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}
         </p>
+        {listaMovida && (
+          <div className="reservas-lista-movida" role="status">
+            <p>Has cambiado una reserva. Actualiza la lista para quitar de esta vista las que ya no encajan.</p>
+            <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>
+          </div>
+        )}
         <ul className="reservas-lista">
           {reservas.map((r) => (
             <TarjetaReserva
@@ -344,12 +364,19 @@ const ReservasTab = ({ muebles }) => {
             onClick={() => setVista(v.id)}
           >
             {v.etiqueta}
+            {v.aviso && resumen?.[v.aviso] > 0 && (
+              <>
+                {' '}
+                <span className="reservas-vista-n">{resumen[v.aviso]}</span>
+              </>
+            )}
           </button>
         ))}
       </div>
+      <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>
 
       <div className="admin-toolbar">
-        <button type="button" className="admin-btn-ghost" onClick={() => cargar(vista)}>Actualizar</button>
+        <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar</button>
         <div className="admin-toolbar-acciones reservas-altas">
           {ALTAS.map(([tipo, texto]) => (
             <button

@@ -844,10 +844,10 @@
 /* ─── Modales de edición ─── */
 .admin-modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  /* inset + border-box: con width/height 100vw/100vh y el padding de 20px, el fondo medía 40px más
+     que la pantalla y la ventana quedaba 20px descentrada (en el móvil se salía por la derecha). */
+  inset: 0;
+  box-sizing: border-box;
   background: var(--overlay-color, rgba(20, 15, 10, 0.5));
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);

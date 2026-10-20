@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { eurosDeCentimos } from '../../utils/reservas';
 import {
   VISTAS,
+  textoAvisos,
   ETIQUETA_ACCION,
   etiquetaAccion,
   ORIGEN,
@@ -53,6 +54,30 @@ describe('Reservas del panel — textos fijos', () => {
       'Reembolsos a medias', 'Contratos antiguos', 'Todas'
     ]);
     expect(VISTAS.every((v) => v.vacia.endsWith('.'))).toBe(true);
+  });
+
+  it('cada vista dice qué contiene (una frase, distinta de las demás), y solo tres piden atención', () => {
+    expect(VISTAS.every((v) => v.descripcion.endsWith('.'))).toBe(true);
+    expect(new Set(VISTAS.map((v) => v.descripcion)).size).toBe(VISTAS.length);
+    expect(VISTAS.filter((v) => v.aviso).map((v) => [v.id, v.aviso])).toEqual([
+      ['retrasadas', 'retrasadas'],
+      ['conflicto', 'en_conflicto'],
+      ['reembolsos', 'reembolsos_a_medias']
+    ]);
+  });
+
+  it('textoAvisos: el detalle de la insignia, en singular y plural, sin lo que está a cero', () => {
+    const base = { total: 0, retrasadas: 0, en_conflicto: 0, reembolsos_a_medias: 0 };
+    expect(textoAvisos({ ...base, retrasadas: 1 })).toBe('1 retrasada');
+    expect(textoAvisos({ ...base, retrasadas: 2 })).toBe('2 retrasadas');
+    expect(textoAvisos({ ...base, en_conflicto: 1 })).toBe('1 sin confirmar');
+    expect(textoAvisos({ ...base, en_conflicto: 3 })).toBe('3 sin confirmar');
+    expect(textoAvisos({ ...base, reembolsos_a_medias: 1 })).toBe('1 reembolso a medias');
+    expect(textoAvisos({ ...base, reembolsos_a_medias: 2 })).toBe('2 reembolsos a medias');
+    expect(textoAvisos({ total: 4, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 1 })).toBe(
+      '2 retrasadas, 1 sin confirmar, 1 reembolso a medias'
+    );
+    expect(textoAvisos(base)).toBe('');
   });
 
   it('un botón por cada acción conocida, y una marca para lo que no viene de la web', () => {

@@ -242,5 +242,66 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: 'const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;',
     reemplazo: 'const pudoGuardarse = false;'
+  },
+  // ── 20 oct 2026: descripciones de las vistas, números de aviso y aviso de lista movida ──
+  {
+    nombre: 'bajo los botones se enseña siempre la descripción de «Próximas», aunque se cambie de vista',
+    archivo: ARCHIVO,
+    buscar: 'VISTAS.find((v) => v.id === vista).descripcion',
+    reemplazo: 'VISTAS[0].descripcion'
+  },
+  {
+    nombre: 'el número de una vista de aviso sale también a cero',
+    archivo: ARCHIVO,
+    buscar: 'v.aviso && resumen?.[v.aviso] > 0 && (',
+    reemplazo: 'v.aviso && resumen?.[v.aviso] >= 0 && ('
+  },
+  {
+    nombre: 'el número sale en todas las vistas, no solo en las tres que piden atención',
+    archivo: ARCHIVO,
+    buscar: 'v.aviso && resumen?.[v.aviso] > 0 && (',
+    reemplazo: 'resumen?.total > 0 && ('
+  },
+  {
+    nombre: 'tras una acción no sale el aviso de que la lista se ha movido',
+    archivo: ARCHIVO,
+    buscar: '        setListaMovida(true);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'el aviso de lista movida se queda después de actualizar la lista',
+    archivo: ARCHIVO,
+    buscar: '    setListaMovida(false);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'una acción hecha no avisa al contenedor (la insignia del menú se queda con el número de antes)',
+    archivo: ARCHIVO,
+    buscar: '      alCambiar?.();\n      if (resultado.data?.aviso)',
+    reemplazo: '      if (resultado.data?.aviso)'
+  },
+  {
+    nombre: 'una acción que deja el reembolso a medias no avisa al contenedor',
+    archivo: ARCHIVO,
+    buscar: "      alCambiar?.();\n      if (vistaRef.current === 'reembolsos')",
+    reemplazo: "      if (vistaRef.current === 'reembolsos')"
+  },
+  {
+    nombre: 'un alta en el calendario no avisa al contenedor',
+    archivo: ARCHIVO,
+    buscar: '    cargar(vistaRef.current);\n    alCambiar?.();\n  };',
+    reemplazo: '    cargar(vistaRef.current);\n  };'
+  },
+  {
+    nombre: '«Actualizar» recarga la lista pero no los números de aviso',
+    archivo: ARCHIVO,
+    buscar: '    cargar(vista);\n    alCambiar?.();\n  };',
+    reemplazo: '    cargar(vista);\n  };'
+  },
+  {
+    nombre: 'el botón del aviso de lista movida no actualiza nada',
+    archivo: ARCHIVO,
+    buscar: '<button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>',
+    reemplazo: '<button type="button" className="admin-btn-ghost" onClick={() => {}}>Actualizar la lista</button>'
   }
 ];
