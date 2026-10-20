@@ -340,6 +340,36 @@ describe('contrato de la lista: el filtro de cada vista', () => {
     assert.equal(de('GET', 'muebles').length, 0, 'sin reservas no se leen piezas');
   });
 
+  test('una búsqueda lee las 1000 más recientes de todas, sin filtro de vista ni de texto, y filtra en memoria', async () => {
+    leerReservas = () => [
+      fila(),
+      fila({
+        id: OTRA,
+        datos_contacto: { nombre: 'Luis', email: 'luis@ejemplo.com', telefono: '611' }
+      })
+    ];
+
+    const res = await lista(`?q=luis&desde=${hoy}&hasta=${dia(3)}&mueble_id=${SOFA}`);
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 1);
+    assert.deepEqual(columnas(consultas[0].params), COLUMNAS_LISTA.split(', '));
+    assert.deepEqual(
+      consultas[0].pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['order', 'created_at.desc'],
+        ['limit', '1000']
+      ]
+    );
+    assert.deepEqual(
+      res.body.reservas.map((r) => r.id),
+      [OTRA]
+    );
+    assert.equal(res.body.limitada, false);
+  });
+
   test('la agenda de hoy y mañana: las mismas dos consultas que «Entregas» y «Recogidas», y las piezas de las dos con una sola', async () => {
     leerReservas = (params) =>
       params.estado === 'eq.confirmada'

@@ -48,12 +48,16 @@ const responderError = (res, error, contexto, mensajeInterno) => {
   return res.status(500).json({ error: mensajeInterno });
 };
 
-// GET /api/admin/reservas?vista=...&mueble_id=... (la consulta ya validada) → { hoy, reservas }
+// GET /api/admin/reservas?vista=...&mueble_id=...&q=...&desde=...&hasta=... (la consulta ya validada)
+// → { hoy, reservas }, y `limitada` si es una búsqueda que no pudo mirarlo todo o enseñarlo todo
 const listarReservasAdmin = async (req, res) => {
   try {
     const resultado = await listarReservas({
       vista: req.query.vista,
       muebleId: req.query.mueble_id,
+      q: req.query.q,
+      desde: req.query.desde,
+      hasta: req.query.hasta,
       ahora: new Date()
     });
     res.set('Cache-Control', 'private, no-store');

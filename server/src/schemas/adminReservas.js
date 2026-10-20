@@ -46,20 +46,48 @@ const finPosterior = {
   path: ['fecha_fin']
 };
 
-// GET /api/admin/reservas?vista=...&mueble_id=... Sin vista, las próximas. Un mueble_id vacío cuenta
-// como sin filtro.
-const schemaListaReservas = z.object({
-  vista: z
-    .enum(VISTAS, { error: () => 'Esa vista de la lista de reservas no existe.' })
-    .default('proximas'),
-  mueble_id: z.preprocess(
-    (valor) => (valor === '' ? undefined : valor),
+// GET /api/admin/reservas?vista=...&mueble_id=...&q=...&desde=...&hasta=... Sin vista, las próximas.
+// Un mueble_id, una q o unas fechas vacías cuentan como sin filtro. Con q, desde o hasta es una
+// búsqueda en todas las reservas y la vista no cuenta (utils/adminReservas.js, listarReservas).
+const MAX_BUSQUEDA_TEXTO = 100;
+const vacioEsNada = (valor) => (valor === '' ? undefined : valor);
+const fechaDelFiltro = (mensaje) =>
+  z.preprocess(
+    vacioEsNada,
     z
-      .string({ error: () => 'La pieza del filtro no es válida.' })
-      .regex(FORMATO_UUID, 'La pieza del filtro no es válida.')
+      .string({ error: () => mensaje })
+      .refine(esFechaValida, mensaje)
       .optional()
-  )
-});
+  );
+const schemaListaReservas = z
+  .object({
+    vista: z
+      .enum(VISTAS, { error: () => 'Esa vista de la lista de reservas no existe.' })
+      .default('proximas'),
+    mueble_id: z.preprocess(
+      vacioEsNada,
+      z
+        .string({ error: () => 'La pieza del filtro no es válida.' })
+        .regex(FORMATO_UUID, 'La pieza del filtro no es válida.')
+        .optional()
+    ),
+    q: z.preprocess(
+      (valor) => (typeof valor === 'string' ? valor.trim() : valor),
+      z
+        .string({ error: () => 'La búsqueda no es válida.' })
+        .max(
+          MAX_BUSQUEDA_TEXTO,
+          `La búsqueda es demasiado larga (máximo ${MAX_BUSQUEDA_TEXTO} caracteres).`
+        )
+        .optional()
+    ),
+    desde: fechaDelFiltro('Elige una fecha de inicio válida para la búsqueda (AAAA-MM-DD).'),
+    hasta: fechaDelFiltro('Elige una fecha de fin válida para la búsqueda (AAAA-MM-DD).')
+  })
+  .refine((consulta) => !consulta.desde || !consulta.hasta || consulta.hasta >= consulta.desde, {
+    message: 'La fecha final de la búsqueda no puede ser anterior a la inicial.',
+    path: ['hasta']
+  });
 
 // POST /api/admin/reservas/:id/<acción>: el cuerpo de cada acción.
 const sinDatos = z.object({});

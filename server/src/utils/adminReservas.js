@@ -45,6 +45,9 @@ const COLUMNAS_LISTA = `id, mueble_id, ${COLUMNAS_PANEL}, historial`;
 
 // "Todas": las 200 más recientes. El resto de vistas son listas de trabajo, cortas por naturaleza.
 const MAX_TODAS = 200;
+// Una búsqueda mira las 1000 reservas más recientes (también es el tope de filas de PostgREST en
+// Supabase) y enseña como mucho MAX_TODAS de las que coinciden.
+const MAX_BUSQUEDA = 1000;
 
 // Una venta ya hecha se puede registrar con fecha de hasta 30 días atrás: basta para apuntar una
 // venta de tienda que se olvidó, y frena un año mal escrito (2006 por 2026), que dejaría una venta
@@ -335,14 +338,98 @@ const leerVista = async (vista, { muebleId, hoy, ahora }) => {
       );
     case 'todas':
       return leer(base().order('created_at', { ascending: false }).limit(MAX_TODAS));
+    case 'busqueda':
+      // No es una vista de la lista (el esquema no la deja pedir): es lo que lee listarReservas
+      // cuando hay una búsqueda, para filtrarlo en memoria.
+      return leer(base().order('created_at', { ascending: false }).limit(MAX_BUSQUEDA));
     default:
       throw new ErrorValidacion('Esa vista de la lista de reservas no existe.');
   }
 };
 
-// GET /api/admin/reservas: { hoy, reservas }.
-const listarReservas = async ({ vista = 'proximas', muebleId, ahora = new Date() }) => {
+// ─── La búsqueda (8.1: «tabla filtrable por estado y fechas») ────────────────────────────────────
+
+// Sin mayúsculas ni acentos: «perez» encuentra a «Pérez».
+const sinAcentos = (texto) =>
+  String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+// Un teléfono sin espacios, puntos, guiones ni paréntesis, y sin el «+» de delante.
+const soloDigitos = (texto) => String(texto ?? '').replace(/[\s.\-()+]/g, '');
+const palabrasDe = (q) => sinAcentos(q).split(/\s+/).filter(Boolean);
+
+// Lo que se busca de cada reserva: su referencia, la pieza (nombre y referencia), el cliente (nombre,
+// email, teléfono y dirección), la dirección de entrega y el motivo de un bloqueo o una venta. Las
+// notas del cliente no.
+const textoBuscable = (r) =>
+  sinAcentos(
+    [
+      r.referencia,
+      r.pieza.nombre,
+      r.pieza.referencia,
+      r.contacto?.nombre,
+      r.contacto?.email,
+      r.contacto?.telefono,
+      r.contacto?.direccion,
+      r.direccion_entrega,
+      r.motivo
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+// Todas las palabras tienen que estar, en cualquier orden. Un número también vale si el teléfono se
+// guardó con otros espacios: «600111222» encuentra «600 111 222».
+const coincideConTexto = (r, palabras) => {
+  const texto = textoBuscable(r);
+  const telefono = soloDigitos(r.contacto?.telefono);
+  return palabras.every((palabra) => {
+    if (texto.includes(palabra)) return true;
+    const digitos = soloDigitos(palabra);
+    return digitos.length >= 3 && telefono.includes(digitos);
+  });
+};
+
+// Entre `desde` y `hasta` (los dos incluidos, cualquiera puede faltar) la reserva tenía algo: un
+// alquiler o un bloqueo, de su entrega a su recogida (la real si ya se devolvió, y la ampliada si
+// se amplió); una venta, solo el día de la venta (no tiene fecha de fin).
+const diaMayor = (a, b) => (b && b > a ? b : a);
+const ultimoDia = (r) => {
+  if (r.estado === 'devuelta' && r.fin_ocupacion) return r.fin_ocupacion;
+  return diaMayor(r.fecha_fin ?? r.fecha_inicio, r.fin_ocupacion);
+};
+const coincideConFechas = (r, desde, hasta) =>
+  (!desde || ultimoDia(r) >= desde) && (!hasta || r.fecha_inicio <= hasta);
+
+// Una búsqueda mira las más recientes de todas las reservas (sea cual sea la vista) y enseña las que
+// coinciden, también las canceladas y las devueltas, con su etiqueta. `limitada` avisa de que no se
+// pudo mirar o enseñar todo: hay que afinar.
+const buscarReservas = async ({ muebleId, q, desde, hasta, hoy, ahora }) => {
+  const filas = await leerVista('busqueda', { muebleId, hoy, ahora });
+  const palabras = palabrasDe(q);
+  const coinciden = (await presentarFilas(filas, ahora)).filter(
+    (r) => coincideConTexto(r, palabras) && coincideConFechas(r, desde, hasta)
+  );
+  return {
+    hoy,
+    reservas: coinciden.slice(0, MAX_TODAS),
+    limitada: filas.length >= MAX_BUSQUEDA || coinciden.length > MAX_TODAS
+  };
+};
+
+// GET /api/admin/reservas: { hoy, reservas }. Con `q`, `desde` o `hasta` es una búsqueda en todas las
+// reservas, y la vista no cuenta.
+const listarReservas = async ({
+  vista = 'proximas',
+  muebleId,
+  q,
+  desde,
+  hasta,
+  ahora = new Date()
+}) => {
   const contexto = contextoDe(ahora);
+  if (q || desde || hasta) return buscarReservas({ muebleId, q, desde, hasta, ...contexto });
   const filas = await leerVista(vista, { muebleId, ...contexto });
   return { hoy: contexto.hoy, reservas: await presentarFilas(filas, ahora) };
 };
@@ -1321,6 +1408,7 @@ const crearVenta = async (datos, ahora = new Date()) => {
 module.exports = {
   COLUMNAS_LISTA,
   MAX_TODAS,
+  MAX_BUSQUEDA,
   DIAS_ATRAS_VENTA,
   MENSAJE_RESERVA_NO_ENCONTRADA,
   MENSAJE_REEMBOLSO_EN_CURSO,
