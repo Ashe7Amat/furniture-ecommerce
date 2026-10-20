@@ -558,6 +558,15 @@ export const getPresupuestoReserva = (muebleId, seleccion) =>
 export const crearSesionPagoReserva = (datos) =>
   conCodigo(`${API_URL}/reservas/sesion-pago`, jsonPost(datos), 'No se pudo iniciar el pago.');
 
+// Sigue con el pago de una reserva a medio pagar: la URL de la página de pago que ya tenía abierta (con
+// sesión y el email confirmado). Con 409 ya no se puede pagar (plazo terminado o pago recibido).
+export const retomarPagoReserva = (id) =>
+  conCodigo(
+    `${API_URL}/reservas/${encodeURIComponent(id)}/retomar-pago`,
+    jsonPost({}),
+    'No se pudo retomar el pago.'
+  );
+
 // Las reservas del cliente, para "Mis reservas" (con sesión y el email confirmado).
 export const getMisReservas = () =>
   conCodigo(`${API_URL}/reservas/mias`, { cache: 'no-store' }, 'No se han podido cargar tus reservas.');
@@ -578,6 +587,16 @@ export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
     `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId })}`,
     { cache: 'no-store' },
     'No se han podido cargar las reservas.'
+  );
+
+// Panel: cuántas reservas piden atención (retrasadas, pagadas sin confirmar y reembolsos a medias),
+// para la insignia del menú: { hoy, total, retrasadas, en_conflicto, reembolsos_a_medias }.
+export const getResumenReservasAdmin = () =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/resumen`,
+    { cache: 'no-store' },
+    'No se han podido cargar los avisos de reservas.'
   );
 
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,

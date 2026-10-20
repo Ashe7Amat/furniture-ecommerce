@@ -125,14 +125,20 @@
 .cal-reserva-dia[aria-disabled='true'] {
   cursor: default;
 }
-/* Igual que el cuadrito "No disponible" de la leyenda. */
+/* Fuera de plazo (ya pasó, falta antelación, demasiado lejos...): apagado, como el cuadrito "Fuera de
+   plazo" de la leyenda. */
 .cal-reserva-dia:disabled {
   border-color: transparent;
-  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--border-color) 3px 5px);
+  background: transparent;
   color: var(--secondary-color);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Ocupado por otra reserva (o su margen): rayado y tachado, como el cuadrito "Ocupado" de la leyenda. */
+.cal-reserva-dia--ocupado:disabled {
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--border-color) 3px 5px);
   text-decoration: line-through;
   opacity: 0.6;
-  cursor: not-allowed;
 }
 .cal-reserva-dia--rango,
 .cal-reserva-dia--rango:disabled {
@@ -189,9 +195,22 @@
   border-color: transparent;
   background: repeating-linear-gradient(135deg, transparent 0 3px, var(--border-color) 3px 5px);
 }
+.cal-reserva-leyenda li.cal-reserva-leyenda--fuera::before {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-color);
+  opacity: 0.6;
+}
 .cal-reserva-leyenda li.cal-reserva-leyenda--elegido::before {
   border-color: var(--primary-color);
   background: var(--primary-color);
+}
+
+.cal-reserva-reglas {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--secondary-color);
 }
 
 .cal-reserva-pie {
@@ -657,6 +676,15 @@
   margin: 0;
   font-size: 0.82rem;
   color: var(--secondary-color);
+}
+
+/* Una reserva a medio pagar: lo que queda de plazo y el botón para seguir, con aire entre ellos */
+.reserva-item-pago {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .reserva-item-botones {

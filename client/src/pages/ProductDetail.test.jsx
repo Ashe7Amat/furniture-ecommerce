@@ -473,9 +473,9 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
     );
     await montar();
 
-    const aviso = await screen.findByText(/Esta pieza tiene reservas hasta el 19\/11\/2026\./);
+    const aviso = await screen.findByText(/Esta pieza tiene reservas hasta el 19 de noviembre de 2026\./);
     expect(aviso).toHaveTextContent(
-      'Esta pieza tiene reservas hasta el 19/11/2026. Si quieres comprarla, pregúntanos. Preguntar por esta pieza'
+      'Esta pieza tiene reservas hasta el 19 de noviembre de 2026. Si quieres comprarla, pregúntanos. Preguntar por esta pieza'
     );
     expect(within(aviso).getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveAttribute(
       'href',
@@ -483,7 +483,7 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
     );
     const boton = screen.getByRole('button', { name: 'Añadir a mi cesta' });
     expect(boton).toBeDisabled();
-    expect(boton).toHaveAccessibleDescription(/Esta pieza tiene reservas hasta el 19\/11\/2026/);
+    expect(boton).toHaveAccessibleDescription(/Esta pieza tiene reservas hasta el 19 de noviembre de 2026/);
     // El alquiler sigue disponible
     expect(panel()).toBeInTheDocument();
   });
@@ -550,6 +550,56 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
       getDisponibilidad.mockResolvedValue(disponibilidad({ alquilable: false }));
       await montar({ ...SOLO_ALQUILER, estado: 'vendido' });
       expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    });
+
+    it('el precio por día sale una sola vez, arriba; el cuadro de alquiler no lo repite con otro formato', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar(SOLO_ALQUILER);
+
+      await screen.findByRole('region', { name: 'Alquilar por fechas' });
+      expect(document.querySelector('.pd-price')).toHaveTextContent('40 €/día');
+      expect(document.querySelector('.reserva-panel-precio')).not.toBeInTheDocument();
+      // Las reglas del alquiler siguen en el cuadro
+      expect(screen.getByText(/^Mínimo 1 día, máximo 30 días\./)).toBeInTheDocument();
+    });
+
+    it('una pieza con precio de venta sí enseña el precio por día en el cuadro (arriba va el de venta)', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar();
+
+      await screen.findByRole('region', { name: 'Alquilar por fechas' });
+      expect(document.querySelector('.reserva-panel-precio')).toHaveTextContent('al día');
+    });
+  });
+
+  describe('una pieza marcada a mano como alquilada', () => {
+    const ALQUILADA = { ...MUEBLE, estado: 'alquilado' };
+
+    it('no ofrece fechas libres: dice que está alquilada y deja preguntar', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar(ALQUILADA);
+      await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+      await act(async () => {});
+
+      expect(panel()).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Actualmente alquilado' })).toBeDisabled();
+      const aviso = screen.getByText(/^Ahora mismo está alquilada\./);
+      expect(aviso).toHaveTextContent(
+        'Ahora mismo está alquilada. Si te interesa, pregúntanos cuándo estará libre. Preguntar por esta pieza'
+      );
+      expect(within(aviso).getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveAttribute(
+        'href',
+        '/contacto?pieza=Aparador+de+roble&ref=NAV-MES-004'
+      );
+    });
+
+    it('con las reservas apagadas, la ficha es la de siempre: sin ese aviso', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'false');
+      await montar(ALQUILADA);
+      await act(async () => {});
+
+      expect(screen.queryByText(/Ahora mismo está alquilada/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Actualmente alquilado' })).toBeDisabled();
     });
   });
 
@@ -654,7 +704,7 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
       expect(screen.getByRole('alert')).toHaveTextContent('Esas fechas se acaban de reservar.');
       await waitFor(() => expect(getDisponibilidad).toHaveBeenCalledTimes(2));
       expect(
-        await screen.findByRole('button', { name: 'miércoles, 4 de noviembre de 2026, no disponible' })
+        await screen.findByRole('button', { name: 'miércoles, 4 de noviembre de 2026, no disponible: ocupado' })
       ).toBeDisabled();
     });
 

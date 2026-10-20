@@ -12,7 +12,7 @@ import CalendarioReserva from './CalendarioReserva';
 import DesgloseReserva from './DesgloseReserva';
 import ReservaModal from './ReservaModal';
 import PedirEnlaceVerificacion from './PedirEnlaceVerificacion';
-import { CONFIRMA_EMAIL_PARA_RESERVAR } from './textosReserva';
+import { CONFIRMA_EMAIL_PARA_RESERVAR, CODIGO_OTRA_RESERVA } from './textosReserva';
 import '../../styles/Reservas.css';
 
 const AuthModal = lazy(() => import('../AuthModal'));
@@ -53,7 +53,7 @@ const textoReglas = ({ duracion_min_dias: min, duracion_max_dias: max, tramos_de
   return descuentos.length ? `${duracion} Descuento: ${descuentos.join(', ')}.` : duracion;
 };
 
-const PanelReserva = ({ mueble, disponibilidad, onRecargar }) => {
+const PanelReserva = ({ mueble, disponibilidad, onRecargar, precioEnCabecera = false }) => {
   const id = useId();
   const auth = useContext(AuthContext);
   const user = auth?.user ?? null;
@@ -135,12 +135,15 @@ const PanelReserva = ({ mueble, disponibilidad, onRecargar }) => {
   };
 
   // 409 al crear la reserva: esas fechas se acaban de ocupar. Se cierra el paso de confirmación, se
-  // borra la selección y se vuelve a pedir el calendario.
-  const alConflicto = (mensaje) => {
+  // borra la selección y se vuelve a pedir el calendario. Si el 409 es por otra reserva suya a medio pagar,
+  // las fechas no se han ocupado: se cierra el paso y se avisa, pero se conservan las que había elegido.
+  const alConflicto = (mensaje, codigo) => {
     setConfirmando(false);
-    setFechas(SIN_FECHAS);
+    if (codigo !== CODIGO_OTRA_RESERVA) {
+      setFechas(SIN_FECHAS);
+      onRecargar();
+    }
     setAviso(mensaje);
-    onRecargar();
   };
 
   const idNota = `${id}-nota`;
@@ -154,9 +157,12 @@ const PanelReserva = ({ mueble, disponibilidad, onRecargar }) => {
       <h2 id={`${id}-titulo`} className="reserva-panel-titulo">
         Alquilar por fechas
       </h2>
-      <p className="reserva-panel-precio">
-        <strong>{eurosDeCentimos(disponibilidad.precio_dia_centimos)}</strong> al día
-      </p>
+      {/* Una pieza que solo se alquila ya enseña su precio por día arriba, en la ficha: no se repite con otro formato. */}
+      {!precioEnCabecera && (
+        <p className="reserva-panel-precio">
+          <strong>{eurosDeCentimos(disponibilidad.precio_dia_centimos)}</strong> al día
+        </p>
+      )}
       <p className="reserva-panel-reglas">{textoReglas(disponibilidad.reglas)}</p>
 
       <CalendarioReserva

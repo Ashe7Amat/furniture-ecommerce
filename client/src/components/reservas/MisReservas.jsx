@@ -2,23 +2,26 @@
 // su estado y su total, y la solicitud de cancelación. En la primera versión el cliente no cancela:
 // pide que se cancele (con un motivo opcional) y el administrador decide el reembolso.
 // Profile.jsx solo la pinta con el interruptor encendido y el email confirmado.
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMisReservas, solicitarCancelacionReserva } from '../../services/api';
-import { eurosDeCentimos, fechaLarga, textoDias } from '../../utils/reservas';
+import { getMisReservas, retomarPagoReserva, solicitarCancelacionReserva } from '../../services/api';
+import { eurosDeCentimos, fechaLarga, horaDeMadrid, textoDias } from '../../utils/reservas';
 import { PLACEHOLDER_IMG } from '../../utils/images';
-import { ESTADO_RESERVA, MODO_TRAYECTO } from './textosReserva';
+import { ESTADO_RESERVA, MODO_TRAYECTO, textoReembolso, TEXTO_NO_CONFIRMADA } from './textosReserva';
 import '../../styles/Reservas.css';
 
 const MAX_MOTIVO = 500;
 
-const TarjetaReserva = ({ reserva, onActualizar }) => {
+const TarjetaReserva = ({ reserva, onActualizar, onPlazoTerminado }) => {
   const id = useId();
   const [formAbierto, setFormAbierto] = useState(false);
   const [motivo, setMotivo] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  // Seguir con el pago de una reserva a medio pagar.
+  const [pagando, setPagando] = useState(false);
+  const [errorPago, setErrorPago] = useState('');
   // El foco va al motivo al abrir, vuelve al botón al cerrar sin enviar y, tras enviar, al mensaje
   // (el botón y el formulario desaparecen).
   const [foco, setFoco] = useState(null);
@@ -40,6 +43,25 @@ const TarjetaReserva = ({ reserva, onActualizar }) => {
     setFormAbierto(false);
     setFoco('boton');
   };
+  // Lleva a la página de pago que la clienta cerró. Con 409 (o 404) ya no se puede pagar: se avisa arriba, donde
+  // sigue después de recargar la lista, y esta tarjeta desaparece o cambia de estado.
+  const seguirPago = async () => {
+    setPagando(true);
+    setErrorPago('');
+    const { data, error: fallo, status } = await retomarPagoReserva(reserva.id);
+    // A la página de pago. El botón sigue desactivado: no se pide otra mientras tanto.
+    if (data?.url) {
+      window.location.assign(data.url);
+      return;
+    }
+    setPagando(false);
+    if (status === 409 || status === 404) {
+      onPlazoTerminado(fallo);
+      return;
+    }
+    setErrorPago(fallo);
+  };
+
   const enviar = async (event) => {
     event.preventDefault();
     setEnviando(true);
@@ -100,6 +122,28 @@ const TarjetaReserva = ({ reserva, onActualizar }) => {
         </div>
       </dl>
 
+      {reserva.estado === 'esperando_pago' && (
+        <div className="reserva-item-pago">
+          <p className="reserva-item-ayuda">
+            {reserva.pago_hasta
+              ? `Tienes hasta las ${horaDeMadrid(reserva.pago_hasta)} para pagar; después se liberan las fechas.`
+              : 'Aún no has pagado esta reserva. Cuando pase el plazo se liberan las fechas.'}
+          </p>
+          {errorPago && (
+            <p className="reserva-cliente-error" role="alert">
+              {errorPago}
+            </p>
+          )}
+          <button type="button" className="reserva-boton" onClick={seguirPago} disabled={pagando}>
+            {pagando ? 'Conectando con el pago...' : 'Seguir con el pago'}
+          </button>
+        </div>
+      )}
+      {reserva.estado === 'no_confirmada' && <p className="reserva-item-ayuda">{TEXTO_NO_CONFIRMADA}</p>}
+      {reserva.estado === 'cancelada' && reserva.reembolso && (
+        <p className="reserva-item-ayuda">{textoReembolso(reserva.reembolso)}</p>
+      )}
+
       {mensaje && (
         <p className="reserva-item-mensaje" role="status" tabIndex={-1} ref={refs.mensaje}>
           {mensaje}
@@ -147,20 +191,30 @@ const TarjetaReserva = ({ reserva, onActualizar }) => {
 
 const MisReservas = () => {
   const [carga, setCarga] = useState({ estado: 'cargando' });
+  // Lo que explica por qué cambió la lista (el plazo para pagar una reserva terminó mientras estaba abierta).
+  const [aviso, setAviso] = useState('');
+  // La última carga que sigue valiendo: una respuesta vieja (se recargó mientras tanto, o se cerró la
+  // pestaña) no se pinta.
+  const ultimaCarga = useRef(0);
 
-  useEffect(() => {
-    let vigente = true;
+  const cargar = useCallback(() => {
+    const numero = ++ultimaCarga.current;
+    setCarga({ estado: 'cargando' });
     getMisReservas().then(({ data, error, codigo }) => {
-      if (!vigente) return;
+      if (numero !== ultimaCarga.current) return;
       // El 403 del email sin confirmar trae su código; el del alquiler cerrado, no (su mensaje se enseña).
       if (codigo === 'email_no_verificado') setCarga({ estado: 'sin-verificar' });
       else if (error) setCarga({ estado: 'error', error });
       else setCarga({ estado: 'lista', reservas: Array.isArray(data) ? data : [] });
     });
-    return () => {
-      vigente = false;
-    };
   }, []);
+
+  useEffect(() => {
+    cargar();
+    return () => {
+      ultimaCarga.current += 1;
+    };
+  }, [cargar]);
 
   const actualizar = (nueva) =>
     setCarga((actual) => ({
@@ -168,18 +222,43 @@ const MisReservas = () => {
       reservas: actual.reservas.map((r) => (r.id === nueva.id ? nueva : r))
     }));
 
-  if (carga.estado === 'cargando') return <p className="empty-tab-text">Cargando tus reservas...</p>;
+  const plazoTerminado = (mensaje) => {
+    setAviso(mensaje);
+    cargar();
+  };
+
+  if (carga.estado === 'cargando') {
+    return (
+      <>
+        {aviso && (
+          <p className="reserva-cliente-error" role="alert">
+            {aviso}
+          </p>
+        )}
+        <p className="empty-tab-text">Cargando tus reservas...</p>
+      </>
+    );
+  }
   if (carga.estado === 'sin-verificar') return <p className="empty-tab-text">Confirma tu email para ver tus reservas.</p>;
   if (carga.estado === 'error') {
     return (
-      <p className="empty-tab-text" role="alert">
-        {carga.error}
-      </p>
+      <div className="empty-tab-text" role="alert">
+        <p>{carga.error}</p>
+        <button type="button" className="reserva-enlace" onClick={cargar}>
+          Volver a intentarlo
+        </button>
+      </div>
     );
   }
+  const avisoLista = aviso && (
+    <p className="reserva-cliente-error" role="alert">
+      {aviso}
+    </p>
+  );
   if (carga.reservas.length === 0) {
     return (
       <div className="empty-tab empty-tab--reservas">
+        {avisoLista}
         <p className="empty-tab-text">Todavía no tienes reservas.</p>
         <Link to="/catalogo" className="empty-tab-btn">
           Explorar catálogo
@@ -188,13 +267,16 @@ const MisReservas = () => {
     );
   }
   return (
-    <ul className="mis-reservas-lista">
-      {carga.reservas.map((reserva) => (
-        <li key={reserva.id}>
-          <TarjetaReserva reserva={reserva} onActualizar={actualizar} />
-        </li>
-      ))}
-    </ul>
+    <>
+      {avisoLista}
+      <ul className="mis-reservas-lista">
+        {carga.reservas.map((reserva) => (
+          <li key={reserva.id}>
+            <TarjetaReserva reserva={reserva} onActualizar={actualizar} onPlazoTerminado={plazoTerminado} />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 };
 

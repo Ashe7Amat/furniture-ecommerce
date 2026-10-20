@@ -482,6 +482,81 @@ describe('Profile — mis reservas', () => {
     expect(getMisReservas).not.toHaveBeenCalled();
   });
 
+  it('el aviso de confirmar el email nombra también las reservas, y solo con el interruptor encendido', () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    abrir({ user: { ...ANA, email_verificado: false } });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Confirma tu email, ana@correo.es, para ver tus pedidos y tus reservas. Si no tienes el correo con el enlace, te mandamos uno nuevo.'
+    );
+  });
+
+  // En el móvil las pestañas van en una fila con desplazamiento: la activa tiene que quedar a la vista.
+  // jsdom no calcula medidas, así que se fijan a mano las de la fila y las de la pestaña.
+  describe('la pestaña activa queda a la vista en la fila del móvil', () => {
+    const medir = (menu) => {
+      Object.defineProperty(menu, 'scrollWidth', { configurable: true, value: 700 });
+      Object.defineProperty(menu, 'clientWidth', { configurable: true, value: 300 });
+      menu.getBoundingClientRect = () => ({ left: 10 });
+      menu.scrollLeft = 0;
+      for (const boton of menu.querySelectorAll('button')) {
+        Object.defineProperty(boton, 'offsetWidth', { configurable: true, value: 120 });
+        boton.getBoundingClientRect = () => ({ left: boton.textContent === 'Mis Reservas' ? 560 : 10 });
+      }
+    };
+
+    it('al elegir una pestaña, la fila se desplaza hasta centrarla', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      abrir();
+      const menu = document.querySelector('.profile-tabs-menu');
+      medir(menu);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mis Reservas' }));
+
+      // posición de la pestaña dentro de la fila (560 - 10 + 0) menos el hueco a cada lado ((300 - 120) / 2)
+      expect(menu.scrollLeft).toBe(460);
+      await act(async () => {});
+    });
+
+    it('si todas las pestañas caben (escritorio), no se mueve nada', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      abrir();
+      const menu = document.querySelector('.profile-tabs-menu');
+      medir(menu);
+      Object.defineProperty(menu, 'scrollWidth', { configurable: true, value: 300 });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mis Reservas' }));
+
+      expect(menu.scrollLeft).toBe(0);
+      await act(async () => {});
+    });
+
+    it('al entrar con ?tab=reservas la pestaña ya sale centrada, sin tocar nada', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      const proto = HTMLElement.prototype;
+      Object.defineProperty(proto, 'scrollWidth', { configurable: true, get: () => 700 });
+      Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => 300 });
+      Object.defineProperty(proto, 'offsetWidth', { configurable: true, get: () => 120 });
+      const rect = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function () {
+        return { left: this.textContent === 'Mis Reservas' && this.tagName === 'BUTTON' ? 560 : 10 };
+      };
+      try {
+        abrir({ ruta: '/cuenta?tab=reservas' });
+        await act(async () => {});
+        expect(document.querySelector('.profile-tabs-menu').scrollLeft).toBe(460);
+      } finally {
+        Element.prototype.getBoundingClientRect = rect;
+        delete proto.scrollWidth;
+        delete proto.clientWidth;
+        delete proto.offsetWidth;
+      }
+    });
+  });
+
   it('las demás pestañas siguen igual con el interruptor encendido', async () => {
     vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
     getMisPedidos.mockResolvedValue([]);

@@ -43,6 +43,40 @@ export const seleccionTrasElegir = ({ inicio, fin }, fecha) => {
 export const diaElegible = ({ inicio, fin }, fecha, disp) =>
   inicio && !fin && fecha > inicio ? esFinPosible(inicio, fecha, disp) : esInicioPosible(fecha, disp);
 
+// Por qué un día no se puede pulsar, para decírselo a la clienta (el color en el calendario y el nombre
+// que oyen los lectores de pantalla). null si se puede pulsar. Con la entrega elegida y sin recogida, un
+// día posterior se valora como recogida; en cualquier otro caso, como entrega.
+//   ocupado, sin_hueco ......... lo ocupa otra reserva (o su margen), o no cabe un alquiler antes de la siguiente
+//   pasado, antelacion, lejos ... fuera del plazo para reservar
+//   duracion_min, duracion_max . la recogida deja el alquiler más corto o más largo de lo permitido
+export const motivoNoElegible = (seleccion, fecha, disp) => {
+  if (diaElegible(seleccion, fecha, disp)) return null;
+  const { inicio, fin } = seleccion;
+  if (inicio && !fin && fecha > inicio) {
+    const ultimo = ultimoFinPosible(inicio, disp.ocupado, disp.reglas.dias_margen);
+    if (ultimo !== null && fecha > ultimo) return 'ocupado';
+    const dias = diasEntre(inicio, fecha);
+    if (dias > disp.reglas.duracion_max_dias) return 'duracion_max';
+    if (dias < duracionMinima(disp.reglas)) return 'duracion_min';
+    return 'lejos';
+  }
+  if (fecha < disp.hoy) return 'pasado';
+  if (fecha < disp.primer_inicio_posible) return 'antelacion';
+  if (fecha > disp.ultimo_inicio_posible) return 'lejos';
+  return estaOcupado(fecha, disp.ocupado) ? 'ocupado' : 'sin_hueco';
+};
+
+// Cómo se pinta cada motivo: "ocupado" (rayado, lo tiene otra reserva) o "fuera" (apagado, fuera de plazo).
+export const GRUPO_DE_MOTIVO = {
+  ocupado: 'ocupado',
+  sin_hueco: 'ocupado',
+  pasado: 'fuera',
+  antelacion: 'fuera',
+  lejos: 'fuera',
+  duracion_min: 'fuera',
+  duracion_max: 'fuera'
+};
+
 // Los meses que se pueden ver: desde el de hoy hasta el de la última recogida posible.
 export const mesesVisibles = (disp) => ({
   primero: mesDe(disp.hoy),

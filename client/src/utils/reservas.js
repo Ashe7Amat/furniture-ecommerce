@@ -61,14 +61,30 @@ export const nombreDelMes = (mes) => {
 };
 // "02/11/2026", como en los emails y los mensajes del servidor.
 export const fechaCorta = (fecha) => fecha.split('-').reverse().join('/');
+// "2 de noviembre de 2026", como escribe las fechas el resto de la web (sin el día de la semana).
+export const fechaSinDia = (fecha) => {
+  const [a, m, d] = fecha.split('-').map(Number);
+  return `${d} de ${MESES[m - 1]} de ${a}`;
+};
 // "lunes, 2 de noviembre de 2026", para los lectores de pantalla y los resúmenes.
 export const fechaLarga = (fecha) => {
   const [a, m, d] = fecha.split('-').map(Number);
   return `${DIAS[diaDeLaSemana(fecha)]}, ${d} de ${MESES[m - 1]} de ${a}`;
 };
 
+// "14:35": la hora de un instante en Madrid, que es la del negocio y la de las reservas.
+export const horaDeMadrid = (instante) =>
+  new Date(instante).toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Madrid'
+  });
+
 // "1 día" / "3 días"
 export const textoDias = (n) => (n === 1 ? '1 día' : `${n} días`);
+// "1 mes" / "6 meses"
+export const textoMeses = (n) => (n === 1 ? '1 mes' : `${n} meses`);
 
 // Importes en céntimos (como los devuelve el servidor) a "1.234,50 €".
 const formatoEuros = new Intl.NumberFormat('es-ES', {
