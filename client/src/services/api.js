@@ -611,6 +611,17 @@ export const getAgendaReservasAdmin = () =>
     'No se ha podido cargar la agenda de hoy y mañana.'
   );
 
+// Panel: lo que ocupa las piezas entre dos días (AAAA-MM-DD, los dos incluidos, hasta 100 días), con el
+// margen, y las retrasadas, para el calendario de una pieza y la vista general:
+// { hoy, desde, hasta, reservas, limitada }.
+export const getCalendarioReservasAdmin = ({ desde, hasta, muebleId } = {}) =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/calendario${consulta({ desde, hasta, mueble_id: muebleId })}`,
+    { cache: 'no-store' },
+    'No se ha podido cargar el calendario de reservas.'
+  );
+
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
 // dar-por-reembolsado, levantar-bloqueo), con sus datos. Con `codigo` si el error lo trae: un 409
 // 'entrega_anticipada' o 'reembolso_no_consta' pide confirmar, cualquier otro 409 es una lista que ya

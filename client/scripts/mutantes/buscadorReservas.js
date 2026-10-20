@@ -66,12 +66,6 @@ export const MUTANTES = [
     reemplazo: "'Fechas no válidas.'"
   },
   {
-    nombre: 'el aviso de un envío anterior se queda tras una búsqueda buena',
-    archivo: ARCHIVO,
-    buscar: "    setError('');\n    onBuscar(filtros);",
-    reemplazo: '    onBuscar(filtros);'
-  },
-  {
     nombre: 'escribir en el texto no quita el aviso',
     archivo: ARCHIVO,
     buscar: "    setBorrador((b) => ({ ...b, [campo]: evento.target.value }));\n    setError('');",

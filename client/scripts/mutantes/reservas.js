@@ -11,8 +11,8 @@ export const MUTANTES = [
   {
     nombre: 'cada vista pide siempre "Próximas"',
     archivo: ARCHIVO,
-    buscar: 'getReservasAdmin({ vista: vistaPedida })',
-    reemplazo: "getReservasAdmin({ vista: 'proximas' })"
+    buscar: 'getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current })',
+    reemplazo: "getReservasAdmin({ vista: 'proximas', ...busquedaRef.current })"
   },
   {
     nombre: 'la respuesta de una vista anterior que llega tarde pisa la lista',
@@ -283,8 +283,8 @@ export const MUTANTES = [
   {
     nombre: 'una acción que deja el reembolso a medias no avisa al contenedor',
     archivo: ARCHIVO,
-    buscar: "      avisarCambio();\n      if (vistaRef.current === 'reembolsos')",
-    reemplazo: "      if (vistaRef.current === 'reembolsos')"
+    buscar: "      avisarCambio();\n      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n",
+    reemplazo: "      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n"
   },
   {
     nombre: 'un alta en el calendario no avisa al contenedor',
@@ -343,8 +343,8 @@ export const MUTANTES = [
         reemplazo: ''
       },
       {
-        buscar: '      <p className="reservas-vista-ayuda">',
-        reemplazo: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n      <p className="reservas-vista-ayuda">'
+        buscar: '      {!busqueda && <p className="reservas-vista-ayuda">',
+        reemplazo: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n      {!busqueda && <p className="reservas-vista-ayuda">'
       }
     ]
   },
@@ -375,8 +375,8 @@ export const MUTANTES = [
   {
     nombre: 'elegir otra vista no cancela la tarjeta pendiente: el foco salta a ella más tarde',
     archivo: ARCHIVO,
-    buscar: '    tarjetaPendiente.current = null;\n    setVista(id);',
-    reemplazo: '    setVista(id);'
+    buscar: '  const elegirVista = (id) => {\n    tarjetaPendiente.current = null;\n',
+    reemplazo: '  const elegirVista = (id) => {\n'
   },
   {
     nombre: 'al llegar la lista no se pide enfocar la tarjeta pendiente',

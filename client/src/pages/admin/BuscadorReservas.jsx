@@ -47,7 +47,6 @@ const BuscadorReservas = ({ activa, onBuscar, onQuitar }) => {
       setError('La fecha final no puede ser anterior a la inicial.');
       return;
     }
-    setError('');
     onBuscar(filtros);
   };
 

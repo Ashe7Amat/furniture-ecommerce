@@ -11,6 +11,7 @@ import {
   getMisReservas,
   solicitarCancelacionReserva,
   getReservasAdmin,
+  getCalendarioReservasAdmin,
   getResumenReservasAdmin,
   accionReservaAdmin,
   crearEnCalendarioAdmin
@@ -56,6 +57,7 @@ const FUNCIONES = [
   ['getMisReservas', () => getMisReservas(), 'No se han podido cargar tus reservas.'],
   ['solicitarCancelacionReserva', () => solicitarCancelacionReserva('r1'), 'No se ha podido enviar la solicitud.'],
   ['getReservasAdmin', () => getReservasAdmin(), 'No se han podido cargar las reservas.'],
+  ['getCalendarioReservasAdmin', () => getCalendarioReservasAdmin({}), 'No se ha podido cargar el calendario de reservas.'],
   [
     'getResumenReservasAdmin',
     () => getResumenReservasAdmin(),
@@ -321,6 +323,22 @@ describe('del panel, con sesión de administrador', () => {
     fetch.mockResolvedValue(respuesta(200, {}));
     await getReservasAdmin({ q: '', desde: '', hasta: undefined });
     expect(peticion().url).toBe(`${API}/admin/reservas?vista=proximas`);
+  });
+
+  it('getCalendarioReservasAdmin: los dos días, y la pieza si hay', async () => {
+    fetch.mockResolvedValue(respuesta(200, { reservas: [] }));
+    await getCalendarioReservasAdmin({ desde: '2026-11-01', hasta: '2026-11-30', muebleId: 'm 1' });
+
+    const p = peticion();
+    expect(p.url).toBe(`${API}/admin/reservas/calendario?desde=2026-11-01&hasta=2026-11-30&mueble_id=m+1`);
+    expect(p.cache).toBe('no-store');
+    expect(p.headers).toEqual({ Authorization: 'Bearer tk-1' });
+  });
+
+  it('getCalendarioReservasAdmin: sin pieza no manda mueble_id', async () => {
+    fetch.mockResolvedValue(respuesta(200, { reservas: [] }));
+    await getCalendarioReservasAdmin({ desde: '2026-11-01', hasta: '2026-12-12' });
+    expect(peticion().url).toBe(`${API}/admin/reservas/calendario?desde=2026-11-01&hasta=2026-12-12`);
   });
 
   it('getResumenReservasAdmin: GET con sesión y sin caché', async () => {

@@ -212,6 +212,14 @@ describe('BuscadorReservas — con una búsqueda hecha', () => {
     expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeInTheDocument();
   });
 
+  it('aunque se vacíen los campos, «Limpiar búsqueda» sigue ahí mientras la búsqueda no se quita', async () => {
+    const { user } = montar({ activa: ACTIVA });
+    await user.clear(texto());
+    elegir(desde(), '');
+
+    expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeInTheDocument();
+  });
+
   it('«Buscar» con los campos vacíos equivale a quitarla', async () => {
     const { user, onBuscar, onQuitar } = montar({ activa: ACTIVA });
     await user.clear(texto());
