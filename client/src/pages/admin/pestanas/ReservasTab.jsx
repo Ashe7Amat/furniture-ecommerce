@@ -6,6 +6,8 @@ import { VISTAS, centimosDeEuros, hoyMasReciente, textoResultados } from '../res
 import TarjetaReserva from '../TarjetaReserva';
 import AgendaReservas from '../AgendaReservas';
 import BuscadorReservas from '../BuscadorReservas';
+import CalendarioPieza from '../CalendarioPieza';
+import VistaGeneral from '../VistaGeneral';
 import useAgendaReservas from '../hooks/useAgendaReservas';
 import ConfirmarReservaModal from '../modales/ConfirmarReservaModal';
 import AmpliarReservaModal from '../modales/AmpliarReservaModal';
@@ -14,8 +16,9 @@ import AltaCalendarioModal from '../modales/AltaCalendarioModal';
 import RecogerReservaModal from '../modales/RecogerReservaModal';
 import '../../../styles/AdminReservas.css';
 
-// Pestaña "Reservas" (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d, commit 15): la lista por
-// vistas y las acciones, lo mínimo para lanzar (los calendarios llegan después). Solo existe con el
+// Pestaña "Reservas" (docs/reservas-diseno.md, 8.1, 8.2 y 8.3; bloque R-d): arriba la agenda de hoy y
+// mañana, y debajo tres formas de ver las reservas: la lista por vistas con su buscador y las acciones,
+// el calendario de una pieza y la vista general de todas las piezas por días. Solo existe con el
 // interruptor VITE_RESERVAS_ACTIVAS encendido: Admin.jsx no la pinta si está apagado.
 // Las acciones van de una en una: mientras se guarda una, los botones están desactivados y un
 // segundo envío (doble clic, Intro en un formulario) no sale. Si va bien, la reserva que devuelve
@@ -48,6 +51,13 @@ const MAX_TODAS = 200;
 const MAX_BUSQUEDA = 1000;
 // Lo que se añade a un error sin respuesta del servidor (red, un 504, un 500): la acción pudo hacerse.
 const PUDO_GUARDARSE = ' Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.';
+// Las tres formas de ver las reservas. Los calendarios se montan al abrirlos por primera vez y se quedan
+// (escondidos) cuando se vuelve a la lista, para encontrar la misma pieza y el mismo mes al volver.
+const MODOS_DE_VER = [
+  ['lista', 'Lista'],
+  ['pieza', 'Calendario por pieza'],
+  ['general', 'Vista general']
+];
 const ALTAS = [
   ['bloqueo', 'Bloquear fechas'],
   ['alquiler', 'Registrar alquiler fuera de la web'],
@@ -99,6 +109,12 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   const { datos: datosAgenda, error: errorAgenda, recargar: recargarAgenda } = useAgendaReservas();
   const tarjetaPendiente = useRef(null);
   const [enfocar, setEnfocar] = useState(null);
+  // La forma de ver las reservas, cuáles se han abierto ya, y un número que sube con cada cambio para que
+  // los calendarios abiertos se vuelvan a leer. `hoyInicial` es el día con que se abren (el de Madrid).
+  const [modo, setModo] = useState('lista');
+  const [abiertos, setAbiertos] = useState(['lista']);
+  const [version, setVersion] = useState(0);
+  const [hoyInicial] = useState(() => hoyMasReciente(null));
 
   // `conservar`: la recarga de una lista que ya no estaba al día no borra el mensaje de la tarjeta.
   const cargar = useCallback(async (vistaPedida, conservar = false) => {
@@ -156,6 +172,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   const avisarCambio = () => {
     alCambiar?.();
     recargarAgenda();
+    setVersion((v) => v + 1);
   };
 
   // Manda una petición si no hay otra en curso. Devuelve su resultado, o null si no se mandó.
@@ -366,13 +383,30 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
     setVista(id);
   };
 
+  const elegirModo = (id) => {
+    setAbiertos((a) => (a.includes(id) ? a : [...a, id]));
+    setModo(id);
+  };
+
   // «Ver reserva» de la agenda: la vista donde está esa entrega o recogida, recargada, y el foco en su tarjeta.
   const verTrayecto = ({ tipo, reserva }) => {
     const destino = tipo === 'entrega' ? 'entregas' : 'recogidas';
     tarjetaPendiente.current = reserva.id;
     dejarBusqueda();
+    setModo('lista');
     if (vistaRef.current === destino) cargar(destino);
     else setVista(destino);
+  };
+
+  // «Ver reserva» de un calendario: la lista, buscando su referencia, y el foco en su tarjeta, que es
+  // donde están las acciones.
+  const verEnLista = (reserva) => {
+    const filtros = { q: reserva.referencia, desde: '', hasta: '' };
+    busquedaRef.current = filtros;
+    setBusqueda(filtros);
+    tarjetaPendiente.current = reserva.id;
+    setModo('lista');
+    cargar(vistaRef.current);
   };
 
   const cerrarDialogo = () => setDialogo(null);
@@ -452,28 +486,46 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
 
       <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />
 
-      <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
-        {VISTAS.map((v) => (
+      <div className="reservas-modos" role="group" aria-label="Cómo ver las reservas">
+        {MODOS_DE_VER.map(([id, etiqueta]) => (
           <button
-            key={v.id}
+            key={id}
             type="button"
-            className="reservas-vista"
-            aria-pressed={!busqueda && v.id === vista}
-            onClick={() => elegirVista(v.id)}
+            className="reservas-modo"
+            aria-pressed={id === modo}
+            onClick={() => elegirModo(id)}
           >
-            {v.etiqueta}
-            {v.aviso && resumen?.[v.aviso] > 0 && (
-              <>
-                {' '}
-                <span className="reservas-vista-n">{resumen[v.aviso]}</span>
-              </>
-            )}
+            {etiqueta}
           </button>
         ))}
       </div>
-      {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
 
-      <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
+      {modo === 'lista' && (
+        <>
+          <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
+            {VISTAS.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="reservas-vista"
+                aria-pressed={!busqueda && v.id === vista}
+                onClick={() => elegirVista(v.id)}
+              >
+                {v.etiqueta}
+                {v.aviso && resumen?.[v.aviso] > 0 && (
+                  <>
+                    {' '}
+                    <span className="reservas-vista-n">{resumen[v.aviso]}</span>
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+          {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
+
+          <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
+        </>
+      )}
 
       <div className="admin-toolbar">
         <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar</button>
@@ -506,7 +558,18 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
         </div>
       )}
 
-      {contenido}
+      {modo === 'lista' && contenido}
+
+      {abiertos.includes('pieza') && (
+        <div hidden={modo !== 'pieza'}>
+          <CalendarioPieza muebles={muebles} hoy={hoyInicial} version={version} activo={modo === 'pieza'} onVer={verEnLista} />
+        </div>
+      )}
+      {abiertos.includes('general') && (
+        <div hidden={modo !== 'general'}>
+          <VistaGeneral hoy={hoyInicial} version={version} activo={modo === 'general'} onVer={verEnLista} />
+        </div>
+      )}
 
       {dialogo?.tipo === 'confirmar' && (
         <ConfirmarReservaModal

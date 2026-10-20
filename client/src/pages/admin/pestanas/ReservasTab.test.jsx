@@ -9,6 +9,7 @@ import { ToastContext } from '../../../context/ToastContext';
 import {
   getReservasAdmin,
   getAgendaReservasAdmin,
+  getCalendarioReservasAdmin,
   accionReservaAdmin,
   crearEnCalendarioAdmin
 } from '../../../services/api';
@@ -2451,5 +2452,249 @@ describe('Reservas — buscar', () => {
       await screen.findByText(/200 reservas encontradas/);
       expect(screen.queryByText(/las más recientes/)).toBeNull();
     });
+  });
+});
+
+describe('Reservas — calendarios', () => {
+  // Lo que el servidor manda al calendario de una reserva de la lista.
+  const paraCalendario = (r) => ({
+    id: r.id,
+    referencia: r.referencia,
+    tipo: r.tipo,
+    estado: r.estado,
+    etiqueta: r.etiqueta,
+    retrasada: r.retrasada,
+    en_conflicto: r.en_conflicto,
+    pieza: r.pieza,
+    cliente: r.contacto?.nombre ?? null,
+    motivo: r.motivo,
+    fecha_inicio: r.fecha_inicio,
+    hora_entrega: r.hora_entrega,
+    fecha_fin: r.fecha_fin,
+    hora_recogida: r.hora_recogida,
+    fin_ocupacion: r.fin_ocupacion,
+    dias_margen: r.dias_margen,
+    ocupada_hasta: r.fin_ocupacion == null ? null : '2026-10-22'
+  });
+  const calendario = (reservas) => ({ hoy: HOY, desde: '2026-10-01', hasta: '2026-10-31', reservas, limitada: false });
+  const modos = () => within(screen.getByRole('group', { name: 'Cómo ver las reservas' }));
+
+  beforeEach(() => {
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([paraCalendario(ALQUILER)])));
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it('hay tres formas de ver las reservas, y al entrar está la lista, sin leer ningún calendario', async () => {
+    await montar();
+
+    expect(modos().getAllByRole('button').map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
+      ['Lista', 'true'],
+      ['Calendario por pieza', 'false'],
+      ['Vista general', 'false']
+    ]);
+    expect(screen.getByRole('group', { name: 'Qué reservas ver' })).toBeInTheDocument();
+    expect(screen.getByRole('search', { name: 'Buscar reservas' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Pieza')).toBeNull();
+    expect(getCalendarioReservasAdmin).not.toHaveBeenCalled();
+  });
+
+  it('el calendario de una pieza deja la lista, las vistas y el buscador, y conserva la barra de acciones', async () => {
+    const { user } = await montar();
+
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    expect(modos().getByRole('button', { name: 'Calendario por pieza' })).toHaveAttribute('aria-pressed', 'true');
+    expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('group', { name: 'Qué reservas ver' })).toBeNull();
+    expect(screen.queryByRole('search', { name: 'Buscar reservas' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actualizar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bloquear fechas' })).toBeInTheDocument();
+    const piezas = within(screen.getByLabelText('Pieza')).getAllByRole('option');
+    expect(piezas.map((o) => o.textContent)).toEqual(['Elige una pieza', 'Lámpara antigua', 'Silla Tolix (NAV-SIL-001)']);
+    expect(getCalendarioReservasAdmin).not.toHaveBeenCalled();
+  });
+
+  it('al elegir pieza lee el mes de hoy (el del reloj) de esa pieza', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledWith({ desde: '2026-10-01', hasta: '2026-10-31', muebleId: 'm1' });
+    expect(await screen.findByRole('table', { name: 'Calendario de Silla Tolix, octubre de 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^jueves, 15 de octubre de 2026/ })).toBeInTheDocument();
+  });
+
+  it('la vista general lee 30 días desde hoy, de todas las piezas', async () => {
+    const { user } = await montar();
+
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledWith({ desde: '2026-10-13', hasta: '2026-11-11', muebleId: undefined });
+    expect(await screen.findByRole('group', { name: 'Reservas de Silla Tolix' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Qué reservas ver' })).toBeNull();
+  });
+
+  it('volver a la lista la deja como estaba, sin volver a leerla, y esconde el calendario', async () => {
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    const lecturas = getReservasAdmin.mock.calls.length;
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+
+    expect(getReservasAdmin).toHaveBeenCalledTimes(lecturas);
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Cuántos días ver' })).toBeNull();
+  });
+
+  it('el calendario recuerda la pieza y el mes al volver de la lista', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+    await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(screen.queryByRole('combobox', { name: 'Pieza' })).toBeNull();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    expect(screen.getByLabelText('Pieza')).toHaveValue('m1');
+    expect(screen.getByRole('heading', { level: 3, name: 'noviembre de 2026' })).toBeInTheDocument();
+  });
+
+  it('«Actualizar» vuelve a leer el calendario que se ve (y no el otro)', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+    await waitFor(() => expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2));
+    expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-10-13', hasta: '2026-11-11', muebleId: undefined });
+  });
+
+  it('un calendario escondido no lee nada aunque cambie algo: se lee al volver a él', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
+  });
+
+  describe('«Ver reserva» desde un calendario', () => {
+    it('lleva a la lista, buscando su referencia, y el foco va a su tarjeta', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() =>
+        expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'A1B2C3D4', desde: '', hasta: '' })
+      );
+      expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('search', { name: 'Buscar reservas' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('A1B2C3D4');
+      expect(await screen.findByText(/1 reserva encontrada/)).toBeInTheDocument();
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      // Con una búsqueda hecha no hay ninguna vista marcada.
+      expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('desde el calendario de una pieza, igual', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+      await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+      await user.click(await screen.findByRole('button', { name: /^jueves, 15 de octubre de 2026/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'A1B2C3D4', desde: '', hasta: '' });
+    });
+
+    it('conserva la vista que estaba elegida para la búsqueda', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() =>
+        expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas', q: 'A1B2C3D4', desde: '', hasta: '' })
+      );
+    });
+
+    it('«Limpiar búsqueda» después deja la lista de la vista, como siempre', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+      await screen.findByText(/1 reserva encontrada/);
+
+      await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas' }));
+      expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'true');
+    });
+  });
+
+  it('«Ver reserva» de la agenda, estando en un calendario, lleva a la lista', async () => {
+    const trayecto = {
+      clave: 'r1:entrega',
+      tipo: 'entrega',
+      dia: HOY,
+      hora: '10:00',
+      modo: 'domicilio',
+      atrasada: false,
+      prevista: null,
+      reserva: {
+        id: 'r1',
+        referencia: 'A1B2C3D4',
+        pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
+        cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+        direccion: 'Calle Mayor 1, Barcelona'
+      }
+    };
+    getAgendaReservasAdmin.mockResolvedValue(ok({ hoy: HOY, manana: '2026-10-14', trayectos: [trayecto] }));
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+
+    await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+
+    expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+    await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+  });
+
+  it('un cambio hecho desde la lista (una acción) vuelve a leer el calendario cuando se vuelve a él', async () => {
+    accionReservaAdmin.mockResolvedValue(ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger'] } }));
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(tarjeta('Silla Tolix').getByRole('button', { name: /Marcar entregada/ }));
+    await waitFor(() => expect(accionReservaAdmin).toHaveBeenCalledTimes(1));
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
   });
 });

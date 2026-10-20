@@ -8,6 +8,9 @@ import {
   diaDeLaPieza,
   describirReserva,
   textoDelDia,
+  textoDeBarra,
+  textoDeRetraso,
+  filasDeDetalle,
   tramosDeLaReserva,
   filasDeOcupacion,
   avisosDeOcupacion
@@ -205,6 +208,69 @@ describe('textos', () => {
   });
 });
 
+describe('textos de las barras', () => {
+  it('textoDeBarra: las fechas y el margen; una venta, sin fin', () => {
+    expect(textoDeBarra(reserva())).toBe(
+      'alquiler A1B2C3D4 de Ana Pérez, confirmada, del 12/11/2026 al 15/11/2026, con 2 días de margen'
+    );
+    expect(textoDeBarra(reserva({ dias_margen: 1 }))).toContain('con 1 día de margen');
+    expect(textoDeBarra(reserva({ dias_margen: 0, ocupada_hasta: '2026-11-15' }))).toBe(
+      'alquiler A1B2C3D4 de Ana Pérez, confirmada, del 12/11/2026 al 15/11/2026'
+    );
+    expect(textoDeBarra(BLOQUEO)).toBe('bloqueo C3D4E5F6 (Exposición en la tienda), del 18/11/2026 al 19/11/2026');
+    expect(textoDeBarra(VENTA)).toBe('venta E5F6A7B8, desde el 20/11/2026, sin fin');
+  });
+
+  it('textoDeRetraso: cuándo se tenía que recoger y que la pieza sigue fuera', () => {
+    expect(textoDeRetraso(RETRASADA)).toBe(
+      'alquiler B2C3D4E5 de Ana Pérez, retrasada: la recogida estaba prevista el 06/11/2026 y la pieza sigue fuera'
+    );
+  });
+});
+
+describe('filasDeDetalle', () => {
+  const etiquetas = (r) => filasDeDetalle(r).map(([etiqueta]) => etiqueta);
+  const valor = (r, etiqueta) => filasDeDetalle(r).find(([e]) => e === etiqueta)?.[1];
+
+  it('un alquiler: cliente, entrega, recogida, margen y cuándo queda libre', () => {
+    expect(filasDeDetalle(reserva())).toEqual([
+      ['Cliente', 'Ana Pérez'],
+      ['Entrega', '12/11/2026 a las 10:00'],
+      ['Recogida', '15/11/2026 a las 18:30'],
+      ['Margen', '2 días después de la recogida'],
+      ['Libre de nuevo el', '17/11/2026']
+    ]);
+  });
+
+  it('en singular con un día de margen, y sin la fila si no hay', () => {
+    expect(valor(reserva({ dias_margen: 1, ocupada_hasta: '2026-11-16' }), 'Margen')).toBe('1 día después de la recogida');
+    expect(etiquetas(reserva({ dias_margen: 0, ocupada_hasta: '2026-11-15' }))).not.toContain('Margen');
+  });
+
+  it('sin hora, solo la fecha; sin cliente, sin esa fila', () => {
+    const r = reserva({ hora_entrega: null, hora_recogida: null, cliente: null });
+    expect(valor(r, 'Entrega')).toBe('12/11/2026');
+    expect(valor(r, 'Recogida')).toBe('15/11/2026');
+    expect(etiquetas(r)).not.toContain('Cliente');
+  });
+
+  it('una ocupación ampliada lo dice; una devuelta no (ocupa hasta la devolución real)', () => {
+    const ampliada = reserva({ fin_ocupacion: '2026-11-18', ocupada_hasta: '2026-11-20' });
+    expect(valor(ampliada, 'Ocupación ampliada hasta')).toBe('18/11/2026');
+    expect(valor({ ...ampliada, estado: 'devuelta' }, 'Ocupación ampliada hasta')).toBeUndefined();
+    expect(etiquetas(reserva())).not.toContain('Ocupación ampliada hasta');
+  });
+
+  it('un bloqueo: desde, cuándo queda libre y el motivo; una venta, solo desde', () => {
+    expect(filasDeDetalle(BLOQUEO)).toEqual([
+      ['Desde', '18/11/2026'],
+      ['Libre de nuevo el', '19/11/2026'],
+      ['Motivo', 'Exposición en la tienda']
+    ]);
+    expect(filasDeDetalle(VENTA)).toEqual([['Desde', '20/11/2026']]);
+  });
+});
+
 describe('tramosDeLaReserva (ventana de 10 días desde el 10)', () => {
   const tramos = (r, inicio = '2026-11-10', n = 10) => tramosDeLaReserva(r, inicio, n, HOY);
 
@@ -339,3 +405,101 @@ describe('avisosDeOcupacion', () => {
     expect(avisos.map((a) => a.clave)).toEqual(['r12:r13', 'r2:r8']);
   });
 });
+
+describe('avisosDeOcupacion: alquileres seguidos', () => {
+  // r1 (sofá) deja la pieza libre el 17: la siguiente empieza ese día, sin un día de sobra.
+  const seguida = (cambios) =>
+    reserva({ id: 'r20', referencia: '3D4E5F6A', fecha_inicio: '2026-11-17', fin_ocupacion: '2026-11-19', ocupada_hasta: '2026-11-21', ...cambios });
+
+  it('avisa de dos alquileres que van seguidos', () => {
+    const [aviso] = avisosDeOcupacion([reserva(), seguida()], HOY);
+    expect(aviso).toEqual({
+      clave: 'r1:r20:justo',
+      tipo: 'justo',
+      dia: '2026-11-17',
+      texto:
+        'Sofá Lumina: las reservas A1B2C3D4 y 3D4E5F6A van seguidas, sin ningún día de sobra: la pieza queda libre el 17/11/2026 y 3D4E5F6A empieza ese día.'
+    });
+  });
+
+  it('con un día de sobra, no', () => {
+    expect(avisosDeOcupacion([reserva(), seguida({ fecha_inicio: '2026-11-18' })], HOY)).toEqual([]);
+  });
+
+  it('da igual el orden en que lleguen', () => {
+    expect(avisosDeOcupacion([seguida(), reserva()], HOY)).toHaveLength(1);
+  });
+
+  it('solo entre alquileres: un bloqueo o una venta detrás no cuenta', () => {
+    expect(avisosDeOcupacion([reserva(), seguida({ tipo: 'bloqueo' })], HOY)).toEqual([]);
+    expect(avisosDeOcupacion([reserva({ tipo: 'bloqueo' }), seguida()], HOY)).toEqual([]);
+  });
+
+  it('no en piezas distintas', () => {
+    expect(avisosDeOcupacion([reserva(), seguida({ pieza: MESA })], HOY)).toEqual([]);
+  });
+
+  it('no si la primera ya volvió, está retrasada (tiene su aviso) o la segunda ya empezó', () => {
+    expect(avisosDeOcupacion([reserva({ estado: 'devuelta', etiqueta: 'Devuelta' }), seguida()], HOY)).toEqual([]);
+    expect(
+      avisosDeOcupacion([reserva({ retrasada: true, etiqueta: 'Retrasada' }), seguida()], HOY).map((a) => a.tipo)
+    ).toEqual(['retraso']);
+    expect(avisosDeOcupacion([reserva(), seguida()], '2026-11-18')).toEqual([]);
+  });
+
+  it('el día que empieza la segunda sigue valiendo (hoy)', () => {
+    expect(avisosDeOcupacion([reserva(), seguida()], '2026-11-17')).toHaveLength(1);
+  });
+
+  it('dos que no se tocan, aunque sean de la misma pieza, no', () => {
+    expect(avisosDeOcupacion([reserva(), seguida({ fecha_inicio: '2026-11-25', fin_ocupacion: '2026-11-27', ocupada_hasta: '2026-11-29' })], HOY)).toEqual([]);
+  });
+});
+
+describe('avisosDeOcupacion: sin hora', () => {
+  const textos = (reservas, hoy = HOY) => avisosDeOcupacion(reservas, hoy).map((a) => a.texto);
+
+  it('un alquiler confirmado sin hora de entrega', () => {
+    expect(textos([reserva({ hora_entrega: null })])).toEqual([
+      'Sofá Lumina: la reserva A1B2C3D4 no tiene hora de entrega (el 12/11/2026).'
+    ]);
+  });
+
+  it('y sin hora de recogida', () => {
+    expect(textos([reserva({ hora_recogida: null })])).toEqual([
+      'Sofá Lumina: la reserva A1B2C3D4 no tiene hora de recogida (el 15/11/2026).'
+    ]);
+  });
+
+  it('sin las dos, un aviso por cada una, el más cercano primero', () => {
+    const avisos = avisosDeOcupacion([reserva({ hora_entrega: null, hora_recogida: null })], HOY);
+    expect(avisos.map((a) => a.clave)).toEqual(['r1:sin-hora-entrega', 'r1:sin-hora-recogida']);
+    expect(avisos.map((a) => a.tipo)).toEqual(['sin_hora', 'sin_hora']);
+    expect(avisos.map((a) => a.dia)).toEqual(['2026-11-12', '2026-11-15']);
+  });
+
+  it('una entrega que ya pasó no se avisa; la recogida de una entregada sí, mientras no pase', () => {
+    expect(textos([reserva({ hora_entrega: null })], '2026-11-13')).toEqual([]);
+    const entregada = reserva({ estado: 'en_curso', etiqueta: 'Entregada', hora_entrega: null, hora_recogida: null });
+    expect(textos([entregada], '2026-11-13')).toEqual([
+      'Sofá Lumina: la reserva A1B2C3D4 no tiene hora de recogida (el 15/11/2026).'
+    ]);
+    expect(textos([entregada], '2026-11-16')).toEqual([]);
+  });
+
+  it('el mismo día de la entrega todavía se avisa', () => {
+    expect(textos([reserva({ hora_entrega: null })], '2026-11-12')).toHaveLength(1);
+  });
+
+  it('esperando pago y devueltas no (el cliente ya eligió la hora o ya acabó); bloqueos y ventas tampoco', () => {
+    const sinHoras = { hora_entrega: null, hora_recogida: null };
+    expect(textos([reserva({ ...sinHoras, estado: 'pendiente', etiqueta: 'Esperando pago' })])).toEqual([]);
+    expect(textos([reserva({ ...sinHoras, estado: 'devuelta', etiqueta: 'Devuelta' })])).toEqual([]);
+    expect(textos([BLOQUEO, VENTA])).toEqual([]);
+  });
+
+  it('una retrasada sin hora tiene el aviso de retraso, no este', () => {
+    expect(textos([{ ...RETRASADA, hora_recogida: null }])).toEqual([]);
+  });
+});
+
