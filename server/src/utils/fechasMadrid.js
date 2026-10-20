@@ -10,6 +10,10 @@
 
 const MS_DIA = 24 * 60 * 60 * 1000;
 const FORMATO_FECHA = /^(\d{4})-(\d{2})-(\d{2})$/;
+// Los años que se aceptan: fuera de ahí no hay reservas posibles, y en los extremos las cuentas se
+// rompen ('0050' lo toma Date.UTC por 1950 y un día más sobre '9999-12-31' da '+010000-01-01').
+const ANIO_MINIMO = 2000;
+const ANIO_MAXIMO = 2100;
 
 const formateadorMadrid = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Europe/Madrid',
@@ -28,9 +32,14 @@ const aMs = (fecha) => {
 };
 const desdeMs = (ms) => new Date(ms).toISOString().slice(0, 10);
 
-// 'YYYY-MM-DD' y un día que existe de verdad (no '2026-02-30').
+// 'YYYY-MM-DD', un día que existe de verdad (no '2026-02-30') y de un año entre ANIO_MINIMO y
+// ANIO_MAXIMO.
 const esFechaValida = (texto) =>
-  typeof texto === 'string' && FORMATO_FECHA.test(texto) && desdeMs(aMs(texto)) === texto;
+  typeof texto === 'string' &&
+  FORMATO_FECHA.test(texto) &&
+  texto.slice(0, 4) >= ANIO_MINIMO &&
+  texto.slice(0, 4) <= ANIO_MAXIMO &&
+  desdeMs(aMs(texto)) === texto;
 
 // 'HH:MM' de 00:00 a 23:59: la hora de entrega o de recogida, en hora de Madrid.
 const esHoraValida = (texto) =>

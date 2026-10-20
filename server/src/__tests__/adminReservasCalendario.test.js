@@ -447,6 +447,12 @@ describe('calendario: la consulta se valida', () => {
     assert.equal((await calendario(`desde=${dia(0)}&hasta=mañana`)).status, 400);
   });
 
+  test('un año de fuera de lo razonable es un 400, no un error del servidor', async () => {
+    // Un día más sobre 9999-12-31 daría '+010000-01-01': antes de topar los años, un 500.
+    assert.equal((await calendario('desde=9999-12-01&hasta=9999-12-31')).status, 400);
+    assert.equal((await calendario('desde=0050-01-01&hasta=0050-01-10')).status, 400);
+  });
+
   test('vacíos cuentan como que faltan', async () => {
     assert.equal((await calendario('desde=&hasta=')).status, 400);
   });
