@@ -104,6 +104,16 @@ export const textoAvisos = (avisos) =>
     .filter(Boolean)
     .join(', ');
 
+// El resumen de la agenda de hoy y mañana, para encabezarla: «2 entregas y 1 recogida».
+export const textoTrayectos = (trayectos) => {
+  const cuenta = (tipo, singular, plural) => {
+    const n = trayectos.filter((t) => t.tipo === tipo).length;
+    return n > 0 && (n === 1 ? `1 ${singular}` : `${n} ${plural}`);
+  };
+  const partes = [cuenta('entrega', 'entrega', 'entregas'), cuenta('recogida', 'recogida', 'recogidas')];
+  return partes.filter(Boolean).join(' y ') || 'Nada que entregar ni recoger hoy ni mañana';
+};
+
 // El texto del botón de cada acción que puede traer una reserva en `acciones`. Una acción que no
 // esté aquí (una nueva del servidor) no se pinta.
 export const ETIQUETA_ACCION = {

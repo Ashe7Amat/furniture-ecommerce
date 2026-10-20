@@ -64,6 +64,123 @@
 /* Las tres altas (bloquear, alquiler y venta fuera de la web): bajan de línea si no caben. */
 .reservas-altas { flex-wrap: wrap; }
 
+/* ─── Agenda de hoy y mañana ─── */
+.reservas-agenda {
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.reservas-agenda h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.reservas-agenda-resumen {
+  margin: 0 0 14px;
+  color: var(--secondary-color);
+  font-size: 0.88rem;
+}
+.reservas-agenda-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+.reservas-agenda-error p {
+  margin: 0;
+  flex: 1 1 240px;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+}
+.agenda-dia + .agenda-dia { margin-top: 18px; }
+.agenda-dia h4 {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+}
+.agenda-dia h4 span {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--secondary-color);
+}
+.agenda-vacio {
+  margin: 0;
+  color: var(--secondary-color);
+  font-size: 0.88rem;
+}
+.agenda-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.agenda-trayecto {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+.agenda-hora {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+}
+.agenda-datos > * { margin: 0; }
+.agenda-datos > * + * { margin-top: 3px; }
+.agenda-que {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.82rem;
+}
+.agenda-tipo {
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.agenda-tipo--entrega {
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 75%, var(--primary-color));
+}
+.agenda-tipo--recogida {
+  background: var(--success-bg);
+  color: color-mix(in srgb, var(--success-color) 70%, var(--primary-color));
+}
+.agenda-modo { color: var(--secondary-color); }
+.agenda-atrasada {
+  font-weight: 600;
+  color: var(--danger-color);
+}
+.agenda-pieza strong { color: var(--primary-color); }
+.agenda-pieza .reserva-ref { margin: 0; }
+.agenda-cliente,
+.agenda-direccion {
+  font-size: 0.88rem;
+  color: var(--primary-color);
+  overflow-wrap: anywhere;
+}
+.agenda-cliente a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
+
 /* ─── Lista ─── */
 .reservas-lista {
   list-style: none;
@@ -260,6 +377,8 @@
 @media (max-width: 768px) {
   /* Zonas táctiles de al menos 44 px (WCAG 2.5.5, AAA; pauta de Apple y Google). */
   .reservas-vista,
+  .reservas-agenda-error button,
+  .agenda-trayecto button,
   .reservas-aviso-general button,
   .reservas-lista-movida button,
   .reserva-acciones button,
@@ -284,6 +403,15 @@
     border-top: 1px solid var(--border-color);
     padding-top: 16px;
   }
+  .reservas-agenda { padding: 16px 14px; }
+  /* La hora arriba, y los datos y el botón debajo, a todo el ancho. */
+  .agenda-trayecto { grid-template-columns: 1fr; }
+  .agenda-cliente a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .agenda-trayecto button { justify-self: start; }
   .reservas-dialogo-botones { justify-content: stretch; }
   .reservas-dialogo-botones > button { flex: 1; }
 }

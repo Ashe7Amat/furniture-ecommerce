@@ -4,6 +4,7 @@ import { eurosDeCentimos } from '../../utils/reservas';
 import {
   VISTAS,
   textoAvisos,
+  textoTrayectos,
   ETIQUETA_ACCION,
   etiquetaAccion,
   ORIGEN,
@@ -64,6 +65,18 @@ describe('Reservas del panel — textos fijos', () => {
       ['conflicto', 'en_conflicto'],
       ['reembolsos', 'reembolsos_a_medias']
     ]);
+  });
+
+  it('textoTrayectos: el resumen de la agenda, en singular y plural, sin lo que está a cero', () => {
+    const entrega = { tipo: 'entrega' };
+    const recogida = { tipo: 'recogida' };
+    expect(textoTrayectos([entrega])).toBe('1 entrega');
+    expect(textoTrayectos([entrega, entrega])).toBe('2 entregas');
+    expect(textoTrayectos([recogida])).toBe('1 recogida');
+    expect(textoTrayectos([recogida, recogida, recogida])).toBe('3 recogidas');
+    expect(textoTrayectos([entrega, recogida])).toBe('1 entrega y 1 recogida');
+    expect(textoTrayectos([entrega, entrega, recogida, recogida, recogida])).toBe('2 entregas y 3 recogidas');
+    expect(textoTrayectos([])).toBe('Nada que entregar ni recoger hoy ni mañana');
   });
 
   it('textoAvisos: el detalle de la insignia, en singular y plural, sin lo que está a cero', () => {

@@ -6,7 +6,12 @@ import { render, screen, within, act, fireEvent, waitFor } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import ReservasTab from './ReservasTab';
 import { ToastContext } from '../../../context/ToastContext';
-import { getReservasAdmin, accionReservaAdmin, crearEnCalendarioAdmin } from '../../../services/api';
+import {
+  getReservasAdmin,
+  getAgendaReservasAdmin,
+  accionReservaAdmin,
+  crearEnCalendarioAdmin
+} from '../../../services/api';
 import { eurosDeCentimos } from '../../../utils/reservas';
 
 vi.mock('../../../services/api');
@@ -1783,5 +1788,235 @@ describe('Reservas — descripciones, números de aviso y lista movida', () => {
     await waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+  });
+});
+
+describe('Reservas — agenda de hoy y mañana', () => {
+  const MANANA = '2026-10-14';
+  const trayecto = (reserva, tipo, dia, hora) => ({
+    clave: `${reserva.id}:${tipo}`,
+    tipo,
+    dia,
+    hora,
+    modo: 'domicilio',
+    atrasada: false,
+    prevista: null,
+    reserva: {
+      id: reserva.id,
+      referencia: reserva.referencia,
+      pieza: { nombre: reserva.pieza.nombre, referencia: reserva.pieza.referencia },
+      cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+      direccion: 'Calle Mayor 1, Barcelona'
+    }
+  });
+  const ENTREGA = trayecto(ALQUILER, 'entrega', HOY, '10:00');
+  const RECOGIDA = trayecto(RETRASADA, 'recogida', MANANA, '18:30');
+  const AGENDA = { hoy: HOY, manana: MANANA, trayectos: [ENTREGA, RECOGIDA] };
+  const region = () => within(screen.getByRole('region', { name: 'Hoy y mañana' }));
+  const verReserva = (referencia, pieza) =>
+    screen.getByRole('button', { name: `Ver reserva ${referencia} (${pieza})` });
+
+  it('al entrar pide la agenda y la enseña encima de las vistas', async () => {
+    getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    await montar({ reservas: [] });
+
+    expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(region().getByText('1 entrega y 1 recogida')).toBeInTheDocument();
+    expect(region().getByText('Silla Tolix')).toBeInTheDocument();
+    const agenda = screen.getByRole('region', { name: 'Hoy y mañana' });
+    const vistas = screen.getByRole('group', { name: 'Qué reservas ver' });
+    expect(agenda.compareDocumentPosition(vistas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('sin agenda (la lectura no trae nada) no sale la región, y la lista sale igual', async () => {
+    await montar();
+
+    expect(screen.queryByRole('region', { name: 'Hoy y mañana' })).toBeNull();
+    expect(tarjeta('Silla Tolix')).toBeTruthy();
+  });
+
+  it('si la agenda falla, lo dice con su botón, y la lista no se entera', async () => {
+    getAgendaReservasAdmin.mockResolvedValue(falla('No se ha podido cargar la agenda de hoy y mañana.', 500));
+    const { user } = await montar();
+
+    expect(region().getByRole('status')).toHaveTextContent('No se ha podido cargar la agenda de hoy y mañana.');
+    expect(tarjeta('Silla Tolix')).toBeTruthy();
+    getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    await user.click(region().getByRole('button', { name: 'Volver a cargar la agenda' }));
+    expect(await screen.findByText('1 entrega y 1 recogida')).toBeInTheDocument();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+  });
+
+  describe('«Ver reserva»', () => {
+    beforeEach(() => {
+      getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+    afterEach(() => {
+      delete Element.prototype.scrollIntoView;
+    });
+
+    it('una entrega lleva a «Entregas hoy y mañana»: recarga esa vista, y el foco y el desplazamiento van a su tarjeta', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+      expect(screen.getByRole('button', { name: 'Entregas hoy y mañana' })).toHaveAttribute('aria-pressed', 'true');
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(Element.prototype.scrollIntoView.mock.instances[0]).toBe(document.getElementById('reserva-tarjeta-r1'));
+    });
+
+    it('el foco se pide una sola vez: «Actualizar» después no se lo quita al botón', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+
+      expect(screen.getByRole('button', { name: 'Actualizar' })).toHaveFocus();
+    });
+
+    it('se puede pedir otra vez la misma tarjeta: vuelve a recibir el foco', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      screen.getByRole('button', { name: 'Actualizar' }).focus();
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+    });
+
+    it('una recogida lleva a «Recogidas hoy y mañana»', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [RETRASADA] }));
+
+      await user.click(verReserva('B2C3D4E5', 'Mesa de roble'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'recogidas' }));
+      expect(screen.getByRole('button', { name: 'Recogidas hoy y mañana' })).toHaveAttribute('aria-pressed', 'true');
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r2')).toHaveFocus());
+    });
+
+    it('si ya se está en esa vista, la recarga (la lista pudo cambiar) y enfoca la tarjeta', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+      await user.click(screen.getByRole('button', { name: 'Entregas hoy y mañana' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+      screen.getByRole('button', { name: 'Actualizar' }).focus();
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+    });
+
+    it('elegir otra vista antes de que llegue la lista cancela el foco: no salta a una tarjeta que ya no se pidió', async () => {
+      const entregas = diferida();
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockImplementation(({ vista }) =>
+        vista === 'entregas' ? entregas.promesa : Promise.resolve(ok({ hoy: HOY, reservas: [ALQUILER] }))
+      );
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      await waitFor(() => expect(tarjeta('Silla Tolix')).toBeTruthy());
+      await act(async () => entregas.resolver(ok({ hoy: HOY, reservas: [ALQUILER] })));
+
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it('si la tarjeta ya no está en la vista (otra persona la cambió), no pasa nada', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [] }));
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      expect(await screen.findByText('No hay entregas hoy ni mañana.')).toBeInTheDocument();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cuando algo cambia, la agenda se vuelve a leer', () => {
+    beforeEach(() => {
+      getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    });
+
+    it('una acción hecha: la entrega marcada ya no está pendiente', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger', 'ampliar'] } })
+      );
+      const { user } = await montar({ reservas: [ALQUILER] });
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+      getAgendaReservasAdmin.mockResolvedValue(ok({ ...AGENDA, trayectos: [RECOGIDA] }));
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(region().getByText('1 recogida')).toBeInTheDocument());
+    });
+
+    it('una acción que falla no la toca', async () => {
+      accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 400));
+      const { user } = await montar({ reservas: [BLOQUEO] });
+
+      await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+      expect(await screen.findByText('No se ha podido completar la acción.')).toBeInTheDocument();
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    });
+
+    it('una acción hecha con el reembolso a medias también', async () => {
+      accionReservaAdmin.mockResolvedValue({
+        data: null,
+        error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+        status: 502,
+        codigo: 'reembolso_a_medias'
+      });
+      const { user } = await montar({ reservas: [ALQUILER] });
+      await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+      await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+      await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+      await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('«Actualizar»', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('un alta en el calendario', async () => {
+      crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+      const { user } = await montar({ reservas: [] });
+      await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+      await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+      fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+      await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+      await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('cambiar de vista no la lee otra vez: no ha cambiado nada', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    });
   });
 });

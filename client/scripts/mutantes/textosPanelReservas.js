@@ -34,5 +34,35 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: "aviso: 'en_conflicto'",
     reemplazo: "aviso: 'retrasadas'"
+  },
+  {
+    nombre: 'una sola entrega se escribe «1 entregas»',
+    archivo: ARCHIVO,
+    buscar: "return n > 0 && (n === 1 ? `1 ${singular}` : `${n} ${plural}`);",
+    reemplazo: 'return n > 0 && `${n} ${plural}`;'
+  },
+  {
+    nombre: 'el resumen de la agenda nombra lo que está a cero («0 recogidas»)',
+    archivo: ARCHIVO,
+    buscar: 'return n > 0 && (n === 1',
+    reemplazo: 'return n >= 0 && (n === 1'
+  },
+  {
+    nombre: 'el resumen de la agenda cuenta las entregas y las recogidas juntas',
+    archivo: ARCHIVO,
+    buscar: 'trayectos.filter((t) => t.tipo === tipo).length',
+    reemplazo: 'trayectos.length'
+  },
+  {
+    nombre: 'entregas y recogidas se separan con una coma en vez de «y»',
+    archivo: ARCHIVO,
+    buscar: "partes.filter(Boolean).join(' y ')",
+    reemplazo: "partes.filter(Boolean).join(', ')"
+  },
+  {
+    nombre: 'una agenda vacía no lo dice',
+    archivo: ARCHIVO,
+    buscar: " || 'Nada que entregar ni recoger hoy ni mañana'",
+    reemplazo: " || ''"
   }
 ];

@@ -277,25 +277,25 @@ export const MUTANTES = [
   {
     nombre: 'una acción hecha no avisa al contenedor (la insignia del menú se queda con el número de antes)',
     archivo: ARCHIVO,
-    buscar: '      alCambiar?.();\n      if (resultado.data?.aviso)',
+    buscar: '      avisarCambio();\n      if (resultado.data?.aviso)',
     reemplazo: '      if (resultado.data?.aviso)'
   },
   {
     nombre: 'una acción que deja el reembolso a medias no avisa al contenedor',
     archivo: ARCHIVO,
-    buscar: "      alCambiar?.();\n      if (vistaRef.current === 'reembolsos')",
+    buscar: "      avisarCambio();\n      if (vistaRef.current === 'reembolsos')",
     reemplazo: "      if (vistaRef.current === 'reembolsos')"
   },
   {
     nombre: 'un alta en el calendario no avisa al contenedor',
     archivo: ARCHIVO,
-    buscar: '    cargar(vistaRef.current);\n    alCambiar?.();\n  };',
+    buscar: '    cargar(vistaRef.current);\n    avisarCambio();\n  };',
     reemplazo: '    cargar(vistaRef.current);\n  };'
   },
   {
     nombre: '«Actualizar» recarga la lista pero no los números de aviso',
     archivo: ARCHIVO,
-    buscar: '    cargar(vista);\n    alCambiar?.();\n  };',
+    buscar: '    cargar(vista);\n    avisarCambio();\n  };',
     reemplazo: '    cargar(vista);\n  };'
   },
   {
@@ -303,5 +303,109 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: '<button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>',
     reemplazo: '<button type="button" className="admin-btn-ghost" onClick={() => {}}>Actualizar la lista</button>'
+  },
+  {
+    nombre: 'al avisar de un cambio, el contenedor no se entera (la insignia del menú)',
+    archivo: ARCHIVO,
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n  };',
+    reemplazo: '    recargarAgenda();\n  };'
+  },
+  {
+    nombre: 'al avisar de un cambio, la agenda de hoy y mañana no se vuelve a leer',
+    archivo: ARCHIVO,
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n  };',
+    reemplazo: '    alCambiar?.();\n  };'
+  },
+  {
+    nombre: 'la agenda no se enseña (llega siempre vacía)',
+    archivo: ARCHIVO,
+    buscar: '<AgendaReservas datos={datosAgenda}',
+    reemplazo: '<AgendaReservas datos={null}'
+  },
+  {
+    nombre: 'si falla la lectura de la agenda, no se dice',
+    archivo: ARCHIVO,
+    buscar: 'error={errorAgenda}',
+    reemplazo: "error=''"
+  },
+  {
+    nombre: '«Volver a cargar la agenda» no la vuelve a leer',
+    archivo: ARCHIVO,
+    buscar: 'onRecargar={recargarAgenda}',
+    reemplazo: 'onRecargar={() => {}}'
+  },
+  {
+    nombre: 'la agenda sale debajo de las vistas, no encima',
+    archivo: ARCHIVO,
+    cambios: [
+      {
+        buscar: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n\n',
+        reemplazo: ''
+      },
+      {
+        buscar: '      <p className="reservas-vista-ayuda">',
+        reemplazo: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n      <p className="reservas-vista-ayuda">'
+      }
+    ]
+  },
+  {
+    nombre: '«Ver reserva» de una entrega lleva a las recogidas',
+    archivo: ARCHIVO,
+    buscar: "tipo === 'entrega' ? 'entregas' : 'recogidas'",
+    reemplazo: "'recogidas'"
+  },
+  {
+    nombre: '«Ver reserva» de una recogida lleva a las entregas',
+    archivo: ARCHIVO,
+    buscar: "tipo === 'entrega' ? 'entregas' : 'recogidas'",
+    reemplazo: "'entregas'"
+  },
+  {
+    nombre: '«Ver reserva» estando ya en esa vista no recarga la lista',
+    archivo: ARCHIVO,
+    buscar: '    if (vistaRef.current === destino) cargar(destino);\n    else setVista(destino);',
+    reemplazo: '    if (vistaRef.current !== destino) setVista(destino);'
+  },
+  {
+    nombre: '«Ver reserva» no pide enfocar la tarjeta',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = reserva.id;\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'elegir otra vista no cancela la tarjeta pendiente: el foco salta a ella más tarde',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = null;\n    setVista(id);',
+    reemplazo: '    setVista(id);'
+  },
+  {
+    nombre: 'al llegar la lista no se pide enfocar la tarjeta pendiente',
+    archivo: ARCHIVO,
+    buscar: '    if (tarjetaPendiente.current) {\n      setEnfocar(tarjetaPendiente.current);\n      tarjetaPendiente.current = null;\n    }\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'la tarjeta pendiente se queda pedida: cada carga le vuelve a quitar el foco al botón pulsado',
+    archivo: ARCHIVO,
+    buscar: '      setEnfocar(tarjetaPendiente.current);\n      tarjetaPendiente.current = null;',
+    reemplazo: '      setEnfocar(tarjetaPendiente.current);'
+  },
+  {
+    nombre: 'la tarjeta pedida desde la agenda no recibe el foco',
+    archivo: ARCHIVO,
+    buscar: '    tarjeta?.focus();\n    tarjeta?.scrollIntoView',
+    reemplazo: '    tarjeta?.scrollIntoView'
+  },
+  {
+    nombre: 'la tarjeta pedida desde la agenda no se desplaza a la vista',
+    archivo: ARCHIVO,
+    buscar: "    tarjeta?.scrollIntoView?.({ block: 'start' });\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'la misma tarjeta pedida dos veces no vuelve a recibir el foco',
+    archivo: ARCHIVO,
+    buscar: '    setEnfocar(null);\n  }, [enfocar]);',
+    reemplazo: '  }, [enfocar]);'
   }
 ];

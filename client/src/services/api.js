@@ -599,6 +599,16 @@ export const getResumenReservasAdmin = () =>
     'No se han podido cargar los avisos de reservas.'
   );
 
+// Panel: las entregas y recogidas de hoy y mañana en una sola lista por día y hora, para organizar la
+// ruta y llamar sin abrir cada reserva: { hoy, manana, trayectos }.
+export const getAgendaReservasAdmin = () =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/agenda`,
+    { cache: 'no-store' },
+    'No se ha podido cargar la agenda de hoy y mañana.'
+  );
+
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
 // dar-por-reembolsado, levantar-bloqueo), con sus datos. Con `codigo` si el error lo trae: un 409
 // 'entrega_anticipada' o 'reembolso_no_consta' pide confirmar, cualquier otro 409 es una lista que ya

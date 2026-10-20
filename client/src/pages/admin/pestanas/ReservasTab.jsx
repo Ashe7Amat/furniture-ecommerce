@@ -4,6 +4,8 @@ import { getReservasAdmin, accionReservaAdmin, crearEnCalendarioAdmin } from '..
 import { eurosDeCentimos, fechaCorta, fechaLarga } from '../../../utils/reservas';
 import { VISTAS, centimosDeEuros, hoyMasReciente } from '../reservasAdmin';
 import TarjetaReserva from '../TarjetaReserva';
+import AgendaReservas from '../AgendaReservas';
+import useAgendaReservas from '../hooks/useAgendaReservas';
 import ConfirmarReservaModal from '../modales/ConfirmarReservaModal';
 import AmpliarReservaModal from '../modales/AmpliarReservaModal';
 import CancelarReservaModal from '../modales/CancelarReservaModal';
@@ -85,6 +87,11 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   // desapareciera, no se vería el resultado), pero la lista ya puede no ser la de esta vista. Lo dice
   // un aviso con el botón «Actualizar» hasta la siguiente carga.
   const [listaMovida, setListaMovida] = useState(false);
+  // La agenda de hoy y mañana, encima de las vistas. «Ver reserva» lleva a la tarjeta de su reserva: la
+  // vista de destino se carga primero (`tarjetaPendiente`) y entonces se enfoca (`enfocar`).
+  const { datos: datosAgenda, error: errorAgenda, recargar: recargarAgenda } = useAgendaReservas();
+  const tarjetaPendiente = useRef(null);
+  const [enfocar, setEnfocar] = useState(null);
 
   // `conservar`: la recarga de una lista que ya no estaba al día no borra el mensaje de la tarjeta.
   const cargar = useCallback(async (vistaPedida, conservar = false) => {
@@ -103,6 +110,10 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
       hoy: data?.hoy ?? null,
       reservas: Array.isArray(data?.reservas) ? data.reservas : []
     });
+    if (tarjetaPendiente.current) {
+      setEnfocar(tarjetaPendiente.current);
+      tarjetaPendiente.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -123,6 +134,21 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
     }
     setFoco(null);
   }, [foco, dialogo]);
+
+  // Llevar el foco (y la vista) a una tarjeta que se pidió desde la agenda, cuando ya está pintada.
+  useEffect(() => {
+    if (!enfocar) return;
+    const tarjeta = document.getElementById(`reserva-tarjeta-${enfocar}`);
+    tarjeta?.focus();
+    tarjeta?.scrollIntoView?.({ block: 'start' });
+    setEnfocar(null);
+  }, [enfocar]);
+
+  // Algo cambió (una acción, un alta, «Actualizar»): lo que cuenta el contenedor y la agenda ya no es lo mismo.
+  const avisarCambio = () => {
+    alCambiar?.();
+    recargarAgenda();
+  };
 
   // Manda una petición si no hay otra en curso. Devuelve su resultado, o null si no se mandó.
   const enviar = async (clave, peticion) => {
@@ -148,7 +174,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
         `Reserva ${reserva.referencia} (${reserva.pieza.nombre}): ${resultado.error} Está en «Reembolsos a medias».`
       );
       showToast(resultado.error, 'error');
-      alCambiar?.();
+      avisarCambio();
       if (vistaRef.current === 'reembolsos') cargar('reembolsos');
       else setVista('reembolsos');
     } else if (!resultado.error) {
@@ -160,7 +186,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
       } else {
         cargar(vistaRef.current);
       }
-      alCambiar?.();
+      avisarCambio();
       if (resultado.data?.aviso) setAvisos((a) => ({ ...a, [reserva.id]: resultado.data.aviso }));
       // El aviso de arriba era de un reembolso a medias: ya está resuelto.
       if (accion === 'reintentar-reembolso' || accion === 'dar-por-reembolsado') setAvisoGeneral('');
@@ -294,12 +320,25 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
     setDialogo(null);
     showToast(EXITO_ALTA[tipo], 'success');
     cargar(vistaRef.current);
-    alCambiar?.();
+    avisarCambio();
   };
 
   const actualizar = () => {
     cargar(vista);
-    alCambiar?.();
+    avisarCambio();
+  };
+
+  const elegirVista = (id) => {
+    tarjetaPendiente.current = null;
+    setVista(id);
+  };
+
+  // «Ver reserva» de la agenda: la vista donde está esa entrega o recogida, recargada, y el foco en su tarjeta.
+  const verTrayecto = ({ tipo, reserva }) => {
+    const destino = tipo === 'entrega' ? 'entregas' : 'recogidas';
+    tarjetaPendiente.current = reserva.id;
+    if (vistaRef.current === destino) cargar(destino);
+    else setVista(destino);
   };
 
   const cerrarDialogo = () => setDialogo(null);
@@ -354,6 +393,8 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
         <p>{hoy ? `Hoy es ${fechaLarga(hoy)}` : 'Alquileres, bloqueos y ventas del calendario'}</p>
       </div>
 
+      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />
+
       <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
         {VISTAS.map((v) => (
           <button
@@ -361,7 +402,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
             type="button"
             className="reservas-vista"
             aria-pressed={v.id === vista}
-            onClick={() => setVista(v.id)}
+            onClick={() => elegirVista(v.id)}
           >
             {v.etiqueta}
             {v.aviso && resumen?.[v.aviso] > 0 && (
