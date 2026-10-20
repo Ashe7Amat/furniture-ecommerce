@@ -41,6 +41,24 @@
 > el 6.7). El resto de las preguntas de 10.1 (de la 5 en adelante) siguen pendientes del cliente o de su
 > asesor, con los valores por defecto de este documento.
 >
+> Ajustes del 20 oct 2026, tras revisar las capturas simuladas (nada de esto cambia el diseño):
+> - **Servidor, web:** `POST /api/reservas/:id/retomar-pago` devuelve la URL de la sesión de Stripe que la
+>   reserva provisional ya tiene abierta (con sesión y el email verificado; 409 si el plazo terminó o ya se
+>   pagó). Así una clienta que cerró la pestaña de pago puede seguir, en vez de ver sus propias fechas como
+>   ocupadas hasta que caduquen. `GET /api/reservas/mias` añade `pago_hasta` (hasta cuándo vale el pago de una
+>   reserva «esperando pago») y `reembolso` (el importe y el estado, en una cancelada). Un 409 de
+>   `sesion-pago` puede llevar `codigo: 'otra_reserva_en_curso'` (carrera con otra reserva a medio pagar de
+>   la misma clienta): la web conserva entonces las fechas elegidas.
+> - **Servidor, panel:** `GET /api/admin/reservas/resumen` devuelve `{ hoy, total, retrasadas, en_conflicto,
+>   reembolsos_a_medias }`: lo que pide atención, contado con las mismas consultas que las vistas
+>   «Retrasadas», «En conflicto» y «Reembolsos a medias». Alimenta la insignia de «Reservas» en el menú y los
+>   números de esas vistas. Las entregas y recogidas de hoy y mañana no cuentan: son trabajo de cada día.
+> - **Web:** el calendario distingue los días ocupados de los que no se pueden elegir por plazo (pasados,
+>   antelación mínima, más allá de 6 meses), con leyenda, la regla escrita y el motivo en cada día; una pieza
+>   marcada a mano como «Alquilado» ya no ofrece fechas; las fechas de los avisos se escriben como en el resto
+>   de la web. **Decisión pendiente de Ashe:** «alquilado» se comprueba solo en la web; el servidor sigue
+>   aceptando reservas de una pieza marcada así si no tiene reservas que choquen.
+>
 > Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 
 Diseño de la nueva funcionalidad de **alquiler de muebles por rango de fechas** ("como un hotel"). Es un
