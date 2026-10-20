@@ -134,8 +134,8 @@ export const MUTANTES = [
   {
     nombre: '«Este mes» no hace nada',
     archivo: ARCHIVO,
-    buscar: 'onClick={() => irAlMes(mesDe(hoyReal))}',
-    reemplazo: 'onClick={() => irAlMes(mes)}'
+    buscar: 'onClick={() => mes !== mesDe(hoyReal) && irAlMes(mesDe(hoyReal))}',
+    reemplazo: 'onClick={() => mes !== mesDe(hoyReal) && irAlMes(mes)}'
   },
   {
     nombre: '«Este mes» no se ve apagado estando en este mes',

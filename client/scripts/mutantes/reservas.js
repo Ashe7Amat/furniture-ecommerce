@@ -599,5 +599,23 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: "{vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}",
     reemplazo: "{reservas.length >= MAX_TODAS && ', las más recientes'}"
+  },
+  {
+    nombre: '«las más recientes» no sale nunca, ni en «Todas» con 200 reservas',
+    archivo: ARCHIVO,
+    buscar: "{vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}",
+    reemplazo: "{vista === 'todas' && reservas.length >= MAX_TODAS && ''}"
+  },
+  {
+    nombre: '«las más recientes» sale solo con más de 200 reservas',
+    archivo: ARCHIVO,
+    buscar: "vista === 'todas' && reservas.length >= MAX_TODAS &&",
+    reemplazo: "vista === 'todas' && reservas.length > MAX_TODAS &&"
+  },
+  {
+    nombre: '«las más recientes» sale ya con 199 reservas',
+    archivo: ARCHIVO,
+    buscar: "vista === 'todas' && reservas.length >= MAX_TODAS &&",
+    reemplazo: "vista === 'todas' && reservas.length >= MAX_TODAS - 1 &&"
   }
 ];

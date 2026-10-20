@@ -285,6 +285,35 @@ describe('Reservas — carga y vistas', () => {
     await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
     expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' });
   });
+
+  describe('«las más recientes»', () => {
+    const reservas = (n) => Array.from({ length: n }, (_, i) => ({ ...ALQUILER, id: `x${i}` }));
+    const enTodas = async (n) => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: reservas(n) }));
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+    };
+
+    it('«Todas» con 200 reservas dice que son las más recientes', async () => {
+      await enTodas(200);
+
+      expect(await screen.findByText('200 reservas, las más recientes')).toBeInTheDocument();
+    });
+
+    it('«Todas» con menos de 200 no lo dice', async () => {
+      await enTodas(199);
+
+      expect(await screen.findByText('199 reservas')).toBeInTheDocument();
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
+
+    it('otra vista con 200 reservas tampoco lo dice', async () => {
+      await montar({ reservas: reservas(200) });
+
+      expect(screen.getByText('200 reservas')).toBeInTheDocument();
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
+  });
 });
 
 describe('Reservas — la tarjeta', () => {
@@ -2024,6 +2053,29 @@ describe('Reservas — agenda de hoy y mañana', () => {
 
 describe('Reservas — buscar', () => {
   const ENCONTRADAS = [ALQUILER, RETRASADA];
+  // La agenda con una entrega de hoy: su «Ver reserva» lleva a la vista de entregas.
+  const AGENDA_UNA_ENTREGA = ok({
+    hoy: HOY,
+    manana: '2026-10-14',
+    trayectos: [
+      {
+        clave: 'r1:entrega',
+        tipo: 'entrega',
+        dia: HOY,
+        hora: '10:00',
+        modo: 'domicilio',
+        atrasada: false,
+        prevista: null,
+        reserva: {
+          id: 'r1',
+          referencia: 'A1B2C3D4',
+          pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
+          cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+          direccion: null
+        }
+      }
+    ]
+  });
   const formulario = () => within(screen.getByRole('search', { name: 'Buscar reservas' }));
   const buscar = async (user, { q = '', desde = '', hasta = '' }) => {
     if (q) {
@@ -2144,6 +2196,16 @@ describe('Reservas — buscar', () => {
     it('si no, no sale', async () => {
       const { user } = await montar();
       getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, false));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/2 reservas encontradas/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('si la respuesta no dice nada de `limitada`, no avisa', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
 
       await buscar(user, { q: 'ana' });
 
@@ -2307,31 +2369,18 @@ describe('Reservas — buscar', () => {
       expect(getReservasAdmin).toHaveBeenCalledTimes(1);
     });
 
+    it('elegir la vista que ya está elegida, sin haber buscado, no vuelve a leer la lista', async () => {
+      const { user } = await montar();
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole('button', { name: 'Próximas' }));
+
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+      expect(pulsadas()).toEqual(['Próximas']);
+    });
+
     it('«Ver reserva» de la agenda deja la búsqueda y lleva a la vista de esa entrega', async () => {
-      getAgendaReservasAdmin.mockResolvedValue(
-        ok({
-          hoy: HOY,
-          manana: '2026-10-14',
-          trayectos: [
-            {
-              clave: 'r1:entrega',
-              tipo: 'entrega',
-              dia: HOY,
-              hora: '10:00',
-              modo: 'domicilio',
-              atrasada: false,
-              prevista: null,
-              reserva: {
-                id: 'r1',
-                referencia: 'A1B2C3D4',
-                pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
-                cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
-                direccion: null
-              }
-            }
-          ]
-        })
-      );
+      getAgendaReservasAdmin.mockResolvedValue(AGENDA_UNA_ENTREGA);
       const { user } = await montar({ reservas: [BLOQUEO] });
       getReservasAdmin.mockResolvedValue(respuesta([RETRASADA]));
       await buscar(user, { q: 'mesa' });
@@ -2365,6 +2414,31 @@ describe('Reservas — buscar', () => {
       await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'reembolsos' }));
       expect(pulsadas()).toEqual(['Reembolsos a medias']);
       expect(resumen()).toBeNull();
+    });
+  });
+
+  describe('buscar mientras se espera la tarjeta pedida desde la agenda', () => {
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+    afterEach(() => {
+      delete Element.prototype.scrollIntoView;
+    });
+
+    it('cancela el foco: no salta a una tarjeta que ya no se pidió', async () => {
+      getAgendaReservasAdmin.mockResolvedValue(AGENDA_UNA_ENTREGA);
+      const entregas = diferida();
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockImplementation(({ q }) => (q ? Promise.resolve(respuesta([ALQUILER])) : entregas.promesa));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/1 reserva encontrada/);
+      await act(async () => entregas.resolver(respuesta([ALQUILER])));
+
+      expect(screen.getByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
     });
   });
 
