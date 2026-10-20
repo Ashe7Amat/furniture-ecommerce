@@ -16,6 +16,7 @@ const {
   presentar,
   presentarFilas,
   listarReservas,
+  resumenDeAvisos,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
@@ -62,6 +63,22 @@ const listarReservasAdmin = async (req, res) => {
       error,
       'Error al listar las reservas del panel',
       'Error interno al cargar las reservas.'
+    );
+  }
+};
+
+// GET /api/admin/reservas/resumen → { hoy, total, retrasadas, en_conflicto, reembolsos_a_medias }
+const resumenReservasAdmin = async (req, res) => {
+  try {
+    const resumen = await resumenDeAvisos({ ahora: new Date() });
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(resumen);
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      'Error al contar los avisos de reservas del panel',
+      'Error interno al cargar los avisos de reservas.'
     );
   }
 };
@@ -171,6 +188,7 @@ module.exports = {
   MENSAJE_CUERPO_NO_OBJETO,
   exigirObjeto,
   listarReservasAdmin,
+  resumenReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,

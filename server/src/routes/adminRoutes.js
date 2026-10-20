@@ -12,6 +12,7 @@ const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesControl
 const {
   exigirObjeto,
   listarReservasAdmin,
+  resumenReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
@@ -73,6 +74,8 @@ const exigirReservasActivas = (req, res, next) =>
 const reservas = [verificarAdmin, exigirReservasActivas];
 
 router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
+// La insignia del menú: cuántas reservas piden atención (retrasadas, sin confirmar, reembolsos a medias).
+router.get('/reservas/resumen', ...reservas, resumenReservasAdmin);
 router.post(
   '/reservas/bloqueos',
   ...reservas,

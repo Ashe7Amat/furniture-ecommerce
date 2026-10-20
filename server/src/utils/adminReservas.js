@@ -347,6 +347,28 @@ const listarReservas = async ({ vista = 'proximas', muebleId, ahora = new Date()
   return { hoy: contexto.hoy, reservas: await presentarFilas(filas, ahora) };
 };
 
+// GET /api/admin/reservas/resumen: lo que no puede esperar a que alguien abra la pestaña, para la
+// insignia del menú del panel. Son las tres vistas de aviso, contadas con la misma consulta que las
+// lista (así el número y la lista nunca se contradicen): las retrasadas, las pagadas que no se
+// pudieron confirmar y los reembolsos a medias. `total` cuenta cada reserva una vez: una pagada sin
+// confirmar y con el reembolso a medias está en dos vistas. Las entregas y recogidas de hoy y mañana
+// son trabajo de cada día, no un aviso: no suman.
+const VISTAS_DE_AVISO = ['retrasadas', 'conflicto', 'reembolsos'];
+const resumenDeAvisos = async ({ ahora = new Date() } = {}) => {
+  const contexto = contextoDe(ahora);
+  const [retrasadas, conflicto, reembolsos] = await Promise.all(
+    VISTAS_DE_AVISO.map((vista) => leerVista(vista, contexto))
+  );
+  const reservas = new Set([...retrasadas, ...conflicto, ...reembolsos].map((fila) => fila.id));
+  return {
+    hoy: contexto.hoy,
+    total: reservas.size,
+    retrasadas: retrasadas.length,
+    en_conflicto: conflicto.length,
+    reembolsos_a_medias: reembolsos.length
+  };
+};
+
 // ─── Choques en el calendario (4.3) ──────────────────────────────────────────────────────────────
 
 // Lo que ocupa el calendario de la pieza en el rango propuesto [desde, hasta) (hasta null = sin fin),
@@ -1253,6 +1275,7 @@ module.exports = {
   presentar,
   presentarFilas,
   listarReservas,
+  resumenDeAvisos,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
