@@ -339,6 +339,42 @@ describe('contrato de la lista: el filtro de cada vista', () => {
     assert.deepEqual(res.body, { error: 'Error interno al cargar las reservas.' });
     assert.equal(de('GET', 'muebles').length, 0, 'sin reservas no se leen piezas');
   });
+
+  test('la agenda de hoy y mañana: las mismas dos consultas que «Entregas» y «Recogidas», y las piezas de las dos con una sola', async () => {
+    leerReservas = (params) =>
+      params.estado === 'eq.confirmada'
+        ? [fila()]
+        : [
+            fila({
+              id: OTRA,
+              estado: 'en_curso',
+              fecha_inicio: dia(-3),
+              fecha_fin: dia(1),
+              fin_ocupacion: dia(1)
+            })
+          ];
+
+    const res = await comoAdmin(request(app).get('/api/admin/reservas/agenda'));
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 2);
+    for (const consulta of consultas) {
+      assert.deepEqual(columnas(consulta.params), COLUMNAS_LISTA.split(', '));
+    }
+    const entregas = consultas.find((c) => c.params.estado === 'eq.confirmada');
+    const recogidas = consultas.find((c) => c.params.estado === 'eq.en_curso');
+    assert.equal(entregas.params.fecha_inicio, `lte.${dia(1)}`);
+    assert.equal(recogidas.params.fin_ocupacion, `lte.${dia(1)}`);
+    assert.equal(de('GET', 'muebles').length, 1, 'las piezas de la agenda se leen de una vez');
+    assert.deepEqual(
+      res.body.trayectos.map((t) => [t.tipo, t.dia, t.hora]),
+      [
+        ['entrega', hoy, '10:00'],
+        ['recogida', dia(1), '18:00']
+      ]
+    );
+  });
 });
 
 describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {

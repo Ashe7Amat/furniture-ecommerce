@@ -369,6 +369,68 @@ const resumenDeAvisos = async ({ ahora = new Date() } = {}) => {
   };
 };
 
+// ─── La agenda de hoy y mañana (8.2, «lista de trayectos del día») ───────────────────────────────
+
+// Un trayecto es una entrega o una recogida: lo mínimo para organizar la ruta y llamar sin abrir la
+// reserva (hora, pieza, cliente, teléfono y dónde). En una tienda no hay dirección que llevar.
+const trayecto = (reserva, tipo, hoy) => {
+  const entrega = tipo === 'entrega';
+  const modo = (entrega ? reserva.modo_entrega : reserva.modo_devolucion) ?? null;
+  // Una entrega que tenía que haberse hecho antes de hoy y sigue sin hacerse va en hoy, marcada.
+  const atrasada = entrega && reserva.fecha_inicio < hoy;
+  const contacto = reserva.contacto;
+  return {
+    clave: `${reserva.id}:${tipo}`,
+    tipo,
+    dia: atrasada ? hoy : entrega ? reserva.fecha_inicio : reserva.fin_ocupacion,
+    hora: (entrega ? reserva.hora_entrega : reserva.hora_recogida) ?? null,
+    modo,
+    atrasada,
+    prevista: atrasada ? reserva.fecha_inicio : null,
+    reserva: {
+      id: reserva.id,
+      referencia: reserva.referencia,
+      pieza: { nombre: reserva.pieza.nombre, referencia: reserva.pieza.referencia },
+      cliente: contacto ? { nombre: contacto.nombre, telefono: contacto.telefono } : null,
+      direccion:
+        modo === 'tienda' ? null : (reserva.direccion_entrega ?? contacto?.direccion ?? null)
+    }
+  };
+};
+
+// Por día; en un día, primero lo atrasado, luego por hora (sin hora al final), y a igual hora, la
+// entrega antes que la recogida; y para que el orden no cambie entre cargas, por referencia y por clave.
+const porMomento = (a, b) => {
+  if (a.dia !== b.dia) return a.dia < b.dia ? -1 : 1;
+  if (a.atrasada !== b.atrasada) return a.atrasada ? -1 : 1;
+  const horaA = a.hora ?? '99:99';
+  const horaB = b.hora ?? '99:99';
+  if (horaA !== horaB) return horaA < horaB ? -1 : 1;
+  if (a.tipo !== b.tipo) return a.tipo === 'entrega' ? -1 : 1;
+  if (a.reserva.referencia !== b.reserva.referencia) {
+    return a.reserva.referencia < b.reserva.referencia ? -1 : 1;
+  }
+  return a.clave < b.clave ? -1 : 1;
+};
+
+// GET /api/admin/reservas/agenda: las entregas y las recogidas de hoy y de mañana, en una sola lista.
+// Salen de las mismas consultas que las vistas «Entregas hoy y mañana» y «Recogidas hoy y mañana»,
+// así la agenda y esas listas nunca se contradicen. Las recogidas retrasadas no están: son un aviso
+// con su propia vista.
+const agendaDeHoy = async ({ ahora = new Date() } = {}) => {
+  const contexto = contextoDe(ahora);
+  const [entregas, recogidas] = await Promise.all([
+    leerVista('entregas', contexto),
+    leerVista('recogidas', contexto)
+  ]);
+  const presentadas = await presentarFilas([...entregas, ...recogidas], ahora);
+  const trayectos = [
+    ...presentadas.slice(0, entregas.length).map((r) => trayecto(r, 'entrega', contexto.hoy)),
+    ...presentadas.slice(entregas.length).map((r) => trayecto(r, 'recogida', contexto.hoy))
+  ].sort(porMomento);
+  return { hoy: contexto.hoy, manana: sumarDias(contexto.hoy, 1), trayectos };
+};
+
 // ─── Choques en el calendario (4.3) ──────────────────────────────────────────────────────────────
 
 // Lo que ocupa el calendario de la pieza en el rango propuesto [desde, hasta) (hasta null = sin fin),
@@ -1276,6 +1338,7 @@ module.exports = {
   presentarFilas,
   listarReservas,
   resumenDeAvisos,
+  agendaDeHoy,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,

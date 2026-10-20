@@ -13,6 +13,7 @@ const {
   exigirObjeto,
   listarReservasAdmin,
   resumenReservasAdmin,
+  agendaReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
@@ -76,6 +77,8 @@ const reservas = [verificarAdmin, exigirReservasActivas];
 router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
 // La insignia del menú: cuántas reservas piden atención (retrasadas, sin confirmar, reembolsos a medias).
 router.get('/reservas/resumen', ...reservas, resumenReservasAdmin);
+// Las entregas y recogidas de hoy y mañana, en una sola lista por hora, para organizar la ruta.
+router.get('/reservas/agenda', ...reservas, agendaReservasAdmin);
 router.post(
   '/reservas/bloqueos',
   ...reservas,

@@ -17,6 +17,7 @@ const {
   presentarFilas,
   listarReservas,
   resumenDeAvisos,
+  agendaDeHoy,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
@@ -79,6 +80,22 @@ const resumenReservasAdmin = async (req, res) => {
       error,
       'Error al contar los avisos de reservas del panel',
       'Error interno al cargar los avisos de reservas.'
+    );
+  }
+};
+
+// GET /api/admin/reservas/agenda → { hoy, manana, trayectos }: las entregas y recogidas de hoy y mañana
+const agendaReservasAdmin = async (req, res) => {
+  try {
+    const agenda = await agendaDeHoy({ ahora: new Date() });
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(agenda);
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      'Error al armar la agenda de reservas del panel',
+      'Error interno al cargar las entregas y recogidas.'
     );
   }
 };
@@ -189,6 +206,7 @@ module.exports = {
   exigirObjeto,
   listarReservasAdmin,
   resumenReservasAdmin,
+  agendaReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
