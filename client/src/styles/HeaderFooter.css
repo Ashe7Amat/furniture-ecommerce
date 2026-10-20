@@ -801,3 +801,30 @@
   background: var(--primary-color);
   color: var(--bg-color);
 }
+
+/* Pin «Cómo llegar» (Contacto y pie). Está aquí porque el pie sale en todas las páginas. */
+.enlace-como-llegar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text, var(--accent-color));
+  text-decoration: none;
+  border-bottom: 1px dashed currentColor;
+  padding-bottom: 2px;
+  transition: color 0.2s ease;
+}
+.enlace-como-llegar:hover {
+  color: var(--primary-color);
+}
+.enlace-como-llegar-pin {
+  flex-shrink: 0;
+}
+.footer-como-llegar {
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+.contact-como-llegar {
+  margin-top: 14px;
+  font-size: 1.05rem;
+  font-weight: 400;
+}

@@ -1,6 +1,7 @@
 import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import EnlaceComoLlegar from './EnlaceComoLlegar';
 import '../styles/HeaderFooter.css';
 
 const Footer = () => {
@@ -24,6 +25,7 @@ const Footer = () => {
               Carrer del Plom, 32-34, interior<br />
               08038 Barcelona
             </address>
+            <EnlaceComoLlegar className="footer-como-llegar" />
           </div>
         </div>
 
