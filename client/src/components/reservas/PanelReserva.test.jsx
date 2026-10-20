@@ -75,7 +75,7 @@ const ConSesion = ({ inicial, children }) => {
   return <AuthContext.Provider value={{ user, login: (u) => setUser(u) }}>{children}</AuthContext.Provider>;
 };
 
-const montar = ({ user = ANA, disponibilidad = DISP } = {}) => {
+const montar = ({ user = ANA, disponibilidad = DISP, precioEnCabecera } = {}) => {
   const onRecargar = vi.fn();
   const showToast = vi.fn();
   const usuario = userEvent.setup();
@@ -83,7 +83,12 @@ const montar = ({ user = ANA, disponibilidad = DISP } = {}) => {
     <MemoryRouter>
       <ToastContext.Provider value={{ showToast }}>
         <ConSesion inicial={user}>
-          <PanelReserva mueble={MUEBLE} disponibilidad={disponibilidad} onRecargar={onRecargar} />
+          <PanelReserva
+            mueble={MUEBLE}
+            disponibilidad={disponibilidad}
+            onRecargar={onRecargar}
+            precioEnCabecera={precioEnCabecera}
+          />
         </ConSesion>
       </ToastContext.Provider>
     </MemoryRouter>
@@ -112,6 +117,13 @@ describe('PanelReserva — qué se enseña', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Alquilar por fechas' })).toBeInTheDocument();
     expect(document.querySelector('.reserva-panel-precio')).toHaveTextContent(`${euros(2500)} al día`);
     expect(screen.getByText('Mínimo 1 día, máximo 30 días. Descuento: 10 % desde 7 días.')).toBeInTheDocument();
+  });
+
+  it('si la ficha ya enseña el precio por día arriba (pieza solo de alquiler), el cuadro no lo repite', () => {
+    montar({ precioEnCabecera: true });
+
+    expect(document.querySelector('.reserva-panel-precio')).not.toBeInTheDocument();
+    expect(screen.getByText(/^Mínimo 1 día, máximo 30 días\./)).toBeInTheDocument();
   });
 
   it('sin descuentos, solo la duración', () => {
@@ -353,6 +365,28 @@ describe('PanelReserva — errores al crear la reserva', () => {
     // Al elegir otra fecha, el aviso se va
     await user.click(dia('domingo, 15 de noviembre de 2026'));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('409 por otra reserva suya a medio pagar: cierra la confirmación y avisa, pero conserva las fechas y no recarga', async () => {
+    getPresupuestoReserva.mockResolvedValue(ok(presupuesto()));
+    crearSesionPagoReserva.mockResolvedValue({
+      data: null,
+      error: 'Tienes otra reserva a medio pagar. Vuelve a intentarlo en un momento.',
+      status: 409,
+      codigo: 'otra_reserva_en_curso'
+    });
+    const { user, onRecargar } = montar();
+
+    await abrirConfirmacion(user);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Tienes otra reserva a medio pagar.');
+    // Las fechas siguen elegidas, con su precio, y "Reservar" se puede volver a pulsar
+    expect(dia('miércoles, 4 de noviembre de 2026, entrega')).toBeInTheDocument();
+    expect(dia('sábado, 7 de noviembre de 2026, recogida')).toBeInTheDocument();
+    expect(total()).not.toBeNull();
+    expect(reservar()).toBeEnabled();
+    expect(onRecargar).not.toHaveBeenCalled();
   });
 
   it('401: "Iniciar sesión" cierra la confirmación y abre el acceso; al entrar, vuelve a la confirmación', async () => {

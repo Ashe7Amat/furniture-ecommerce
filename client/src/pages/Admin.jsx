@@ -7,6 +7,8 @@ import { primeraEspecifica } from './admin/categorias';
 import useAdminDatos from './admin/hooks/useAdminDatos';
 import useInventarioVista from './admin/hooks/useInventarioVista';
 import useConfirmacion from './admin/hooks/useConfirmacion';
+import useAvisosReservas from './admin/hooks/useAvisosReservas';
+import { textoAvisos } from './admin/reservasAdmin';
 import ResumenTab from './admin/pestanas/ResumenTab';
 import CrearMuebleTab from './admin/pestanas/CrearMuebleTab';
 import InventarioTab from './admin/pestanas/InventarioTab';
@@ -47,6 +49,9 @@ const Admin = () => {
     infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
   } = useAdminDatos(user, filtroEstadoPedido);
+  // Reservas que piden atención: la insignia de «Reservas» y los números de sus vistas (solo con el
+  // interruptor de reservas encendido; apagado no pide nada).
+  const { avisos: avisosReservas, recargar: recargarAvisosReservas } = useAvisosReservas(user, vistaActiva);
 
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
@@ -111,6 +116,9 @@ const Admin = () => {
               <Icon name={pestana.icono} /> {pestana.etiqueta}
               {pestana.id === 'pedidos' && pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
               {pestana.id === 'mensajes' && mensajesNoLeidos > 0 && <span className="sidebar-badge">{mensajesNoLeidos}</span>}
+              {pestana.id === 'reservas' && avisosReservas?.total > 0 && (
+                <span className="sidebar-badge" title={textoAvisos(avisosReservas)}>{avisosReservas.total}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -158,7 +166,9 @@ const Admin = () => {
           />
         )}
 
-        {vistaActiva === 'reservas' && <ReservasTab muebles={muebles} />}
+        {vistaActiva === 'reservas' && (
+          <ReservasTab muebles={muebles} resumen={avisosReservas} alCambiar={recargarAvisosReservas} />
+        )}
 
         {vistaActiva === 'mensajes' && (
           <MensajesTab

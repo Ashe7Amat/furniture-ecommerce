@@ -45,7 +45,7 @@ const CheckoutExito = () => {
   useEffect(() => {
     if (!sessionId) {
       setEstado('error');
-      setMensajeError('Falta el identificador del pago.');
+      setMensajeError('No encontramos los datos de tu pago en esta dirección.');
       return;
     }
     if (yaConfirmado.current) return; // evita doble llamada en StrictMode
@@ -117,7 +117,14 @@ const CheckoutExito = () => {
             <div className="error-icon">!</div>
             <h1>No hemos podido confirmar el pago</h1>
             <p className="success-msg">{mensajeError}</p>
-            <Link to="/catalogo" className="checkout-btn-solid">Volver a la tienda</Link>
+            <p className="success-msg">Si ya has pagado, no lo repitas: escríbenos y lo revisamos.</p>
+            <div className="checkout-resultado-acciones">
+              {reservasActivas() && (
+                <Link to="/cuenta?tab=reservas" className="checkout-btn-solid">Ver mis reservas</Link>
+              )}
+              <Link to="/contacto" className="checkout-btn-solid">Escríbenos</Link>
+              <Link to="/catalogo" className="checkout-btn-solid">Volver a la tienda</Link>
+            </div>
           </>
         )}
       </div>

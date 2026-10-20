@@ -1,16 +1,17 @@
 // "Mis reservas" en Mi cuenta (MisReservas.jsx): la lista con fechas, estado y total, los estados de
 // carga, vacío, error y email sin confirmar, y la solicitud de cancelación con motivo opcional.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MisReservas from './MisReservas';
-import { getMisReservas, solicitarCancelacionReserva } from '../../services/api';
+import { getMisReservas, retomarPagoReserva, solicitarCancelacionReserva } from '../../services/api';
 import { eurosDeCentimos } from '../../utils/reservas';
 import { PLACEHOLDER_IMG } from '../../utils/images';
 
 vi.mock('../../services/api', () => ({
   getMisReservas: vi.fn(),
+  retomarPagoReserva: vi.fn(),
   solicitarCancelacionReserva: vi.fn()
 }));
 
@@ -49,8 +50,16 @@ const montar = () => {
 const tarjeta = async (nombre = 'Aparador de roble') =>
   within((await screen.findByRole('link', { name: nombre })).closest('article'));
 
+let locationOriginal;
 beforeEach(() => {
   vi.resetAllMocks();
+  // jsdom no navega: window.location se sustituye por un objeto con assign.
+  locationOriginal = window.location;
+  delete window.location;
+  window.location = { assign: vi.fn() };
+});
+afterEach(() => {
+  window.location = locationOriginal;
 });
 
 describe('MisReservas — la lista', () => {
@@ -161,10 +170,25 @@ describe('MisReservas — la lista', () => {
     expect(screen.queryByText('Confirma tu email para ver tus reservas.')).not.toBeInTheDocument();
   });
 
-  it('si falla, el motivo del servidor', async () => {
-    getMisReservas.mockResolvedValue({ data: null, error: 'No se han podido cargar tus reservas.', status: 500 });
-    montar();
+  it('si falla, el motivo del servidor y un botón para volver a intentarlo', async () => {
+    getMisReservas
+      .mockResolvedValueOnce({ data: null, error: 'No se han podido cargar tus reservas.', status: 500 })
+      .mockResolvedValueOnce(ok([reserva()]));
+    const { user } = montar();
     expect(await screen.findByRole('alert')).toHaveTextContent('No se han podido cargar tus reservas.');
+
+    await user.click(screen.getByRole('button', { name: 'Volver a intentarlo' }));
+    expect(await tarjeta()).toBeTruthy();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(getMisReservas).toHaveBeenCalledTimes(2);
+  });
+
+  it('si el reintento también falla, sigue el error y el botón', async () => {
+    getMisReservas.mockResolvedValue({ data: null, error: 'No se han podido cargar tus reservas.', status: 500 });
+    const { user } = montar();
+    await user.click(await screen.findByRole('button', { name: 'Volver a intentarlo' }));
+    expect(await screen.findByRole('button', { name: 'Volver a intentarlo' })).toBeInTheDocument();
+    expect(getMisReservas).toHaveBeenCalledTimes(2);
   });
 
   it('si se sale antes de que lleguen, no hace nada con la respuesta', async () => {
@@ -263,3 +287,142 @@ describe('MisReservas — solicitar la cancelación', () => {
     expect(solicitarCancelacionReserva).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('MisReservas — lo que explica cada estado', () => {
+  it('esperando pago: hasta qué hora se puede pagar (hora de Madrid) y un botón para seguir', async () => {
+    // 12:35 UTC en noviembre son las 13:35 en Madrid.
+    getMisReservas.mockResolvedValue(
+      ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false, pago_hasta: '2026-11-03T12:35:00Z' })])
+    );
+    montar();
+    const t = await tarjeta();
+
+    expect(t.getByText('Tienes hasta las 13:35 para pagar; después se liberan las fechas.')).toBeInTheDocument();
+    expect(t.getByRole('button', { name: 'Seguir con el pago' })).toBeEnabled();
+  });
+
+  it('esperando pago sin la hora (un servidor antiguo): lo dice sin inventar una hora', async () => {
+    getMisReservas.mockResolvedValue(ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false })]));
+    montar();
+    expect(
+      (await tarjeta()).getByText('Aún no has pagado esta reserva. Cuando pase el plazo se liberan las fechas.')
+    ).toBeInTheDocument();
+  });
+
+  it('"Seguir con el pago" pide la página de pago, la abre y deja el botón desactivado', async () => {
+    getMisReservas.mockResolvedValue(
+      ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false, pago_hasta: '2026-11-03T12:35:00Z' })])
+    );
+    retomarPagoReserva.mockResolvedValue(ok({ url: 'https://checkout.stripe.com/c/pay/cs_1' }));
+    const { user } = montar();
+    const t = await tarjeta();
+
+    await user.click(t.getByRole('button', { name: 'Seguir con el pago' }));
+
+    expect(retomarPagoReserva).toHaveBeenCalledWith('r1');
+    expect(window.location.assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_1');
+    expect(t.getByRole('button', { name: 'Conectando con el pago...' })).toBeDisabled();
+  });
+
+  it('si ya no se puede pagar (409), avisa arriba, recarga la lista y la reserva ya no está', async () => {
+    getMisReservas
+      .mockResolvedValueOnce(ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false })]))
+      .mockResolvedValueOnce(ok([]));
+    retomarPagoReserva.mockResolvedValue({
+      data: null,
+      error: 'El plazo para pagar esta reserva ha terminado. Elige las fechas otra vez.',
+      status: 409
+    });
+    const { user } = montar();
+    await user.click((await tarjeta()).getByRole('button', { name: 'Seguir con el pago' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El plazo para pagar esta reserva ha terminado.');
+    expect(await screen.findByText('Todavía no tienes reservas.')).toBeInTheDocument();
+    expect(getMisReservas).toHaveBeenCalledTimes(2);
+    expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
+  it('el aviso se queda aunque la reserva siga en la lista tras recargar', async () => {
+    getMisReservas
+      .mockResolvedValueOnce(ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false })]))
+      .mockResolvedValueOnce(ok([reserva({ estado: 'confirmada' })]));
+    retomarPagoReserva.mockResolvedValue({
+      data: null,
+      error: 'Ya hemos recibido tu pago. Estamos confirmando tu reserva.',
+      status: 409
+    });
+    const { user } = montar();
+    await user.click((await tarjeta()).getByRole('button', { name: 'Seguir con el pago' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya hemos recibido tu pago.');
+    expect((await tarjeta()).getByText('Confirmada')).toBeInTheDocument();
+  });
+
+  it('un error cualquiera (un 503) sale en la tarjeta y deja volver a pulsar', async () => {
+    getMisReservas.mockResolvedValue(ok([reserva({ estado: 'esperando_pago', puede_solicitar_cancelacion: false })]));
+    retomarPagoReserva
+      .mockResolvedValueOnce({ data: null, error: 'No hemos podido preparar el pago.', status: 503 })
+      .mockResolvedValueOnce(ok({ url: 'https://checkout.stripe.com/c/pay/cs_1' }));
+    const { user } = montar();
+    const t = await tarjeta();
+
+    await user.click(t.getByRole('button', { name: 'Seguir con el pago' }));
+    expect(t.getByRole('alert')).toHaveTextContent('No hemos podido preparar el pago.');
+    expect(t.getByRole('button', { name: 'Seguir con el pago' })).toBeEnabled();
+    expect(getMisReservas).toHaveBeenCalledTimes(1);
+
+    await user.click(t.getByRole('button', { name: 'Seguir con el pago' }));
+    expect(t.queryByRole('alert')).not.toBeInTheDocument();
+    expect(window.location.assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_1');
+  });
+
+  it('no se puede seguir el pago de una reserva que no espera el pago', async () => {
+    getMisReservas.mockResolvedValue(ok([reserva()]));
+    montar();
+    expect((await tarjeta()).queryByRole('button', { name: 'Seguir con el pago' })).not.toBeInTheDocument();
+  });
+
+  it('no se pudo confirmar: dice que se le devolverá el importe', async () => {
+    getMisReservas.mockResolvedValue(ok([reserva({ estado: 'no_confirmada', puede_solicitar_cancelacion: false })]));
+    montar();
+    expect(
+      (await tarjeta()).getByText(
+        'Hemos recibido tu pago, pero esas fechas ya no estaban libres. Te devolveremos el importe y te escribiremos por email.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('cancelada con reembolso: cuánto se le ha devuelto, o se le devolverá; sin reembolso, nada', async () => {
+    getMisReservas.mockResolvedValue(
+      ok([
+        reserva({
+          id: 'r1',
+          estado: 'cancelada',
+          puede_solicitar_cancelacion: false,
+          reembolso: { importe_centimos: 8750, hecho: true }
+        }),
+        reserva({
+          id: 'r2',
+          estado: 'cancelada',
+          puede_solicitar_cancelacion: false,
+          pieza: { id: 'm2', nombre: 'Lámpara', imagen: null },
+          reembolso: { importe_centimos: 100, hecho: false }
+        }),
+        reserva({
+          id: 'r3',
+          estado: 'cancelada',
+          puede_solicitar_cancelacion: false,
+          pieza: { id: 'm3', nombre: 'Silla', imagen: null },
+          reembolso: null
+        })
+      ])
+    );
+    montar();
+
+    expect((await tarjeta()).getByText(`Hemos devuelto ${euros(8750)} a tu tarjeta.`)).toBeInTheDocument();
+    expect((await tarjeta('Lámpara')).getByText(`Te devolveremos ${euros(100)} a tu tarjeta.`)).toBeInTheDocument();
+    const sinReembolso = (await tarjeta('Silla')).queryByText(/tarjeta/);
+    expect(sinReembolso).not.toBeInTheDocument();
+  });
+});
+

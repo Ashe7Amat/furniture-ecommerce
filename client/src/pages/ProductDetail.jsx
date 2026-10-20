@@ -10,7 +10,7 @@ import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPie
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
-import { reservasActivas, sumarDias, fechaCorta } from '../utils/reservas';
+import { reservasActivas, sumarDias, fechaSinDia } from '../utils/reservas';
 
 // Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
 // descargan si el interruptor está encendido y la pieza se puede alquilar.
@@ -20,7 +20,7 @@ const PanelReserva = lazy(() => import('../components/reservas/PanelReserva'));
 // libre (`comprable_desde`, 7.1).
 const textoReservasHasta = (comprableDesde) =>
   comprableDesde
-    ? `Esta pieza tiene reservas hasta el ${fechaCorta(sumarDias(comprableDesde, -1))}.`
+    ? `Esta pieza tiene reservas hasta el ${fechaSinDia(sumarDias(comprableDesde, -1))}.`
     : 'Esta pieza tiene reservas.';
 
 const ProductDetail = () => {
@@ -128,7 +128,12 @@ const ProductDetail = () => {
   // Reservas por fechas, solo con el interruptor encendido.
   const disp = conReservas && disponibilidad.para === mueble.id ? disponibilidad : null;
   const datosDisp = disp?.estado === 'lista' ? disp.datos : null;
-  const conCalendario = Boolean(datosDisp?.alquilable && datosDisp.precio_dia_centimos != null);
+  // Una pieza marcada a mano como alquilada (el alquiler sin fechas de antes) no ofrece fechas libres: no se
+  // sabe cuándo vuelve, y el botón de arriba ya dice "Actualmente alquilado". Se pregunta por ella.
+  const alquiladaAMano = conReservas && mueble.estado === 'alquilado';
+  const conCalendario = Boolean(
+    datosDisp?.alquilable && datosDisp.precio_dia_centimos != null && mueble.estado !== 'alquilado'
+  );
   // Con reservas que llegan a hoy o más allá no se puede comprar (6.7): se explica y se ofrece preguntar.
   const bloqueadaPorReservas =
     datosDisp?.comprable === false && datosDisp.motivo_no_comprable === 'reservas_activas';
@@ -264,6 +269,12 @@ const ProductDetail = () => {
                 <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
               </p>
             )}
+            {alquiladaAMano && (
+              <p className="pd-aviso-reservas">
+                Ahora mismo está alquilada. Si te interesa, pregúntanos cuándo estará libre.{' '}
+                <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
+              </p>
+            )}
             </>
             )}
           </div>
@@ -275,6 +286,7 @@ const ProductDetail = () => {
                 mueble={mueble}
                 disponibilidad={datosDisp}
                 onRecargar={() => setRecargas((n) => n + 1)}
+                precioEnCabecera={!mueble.precio_venta}
               />
             </Suspense>
           )}

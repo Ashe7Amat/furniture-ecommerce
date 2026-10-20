@@ -139,13 +139,13 @@ const MUEBLES = [
 
 let showToast;
 
-const montar = async ({ reservas = [ALQUILER], hoy = HOY, muebles = MUEBLES } = {}) => {
+const montar = async ({ reservas = [ALQUILER], hoy = HOY, muebles = MUEBLES, props = {} } = {}) => {
   getReservasAdmin.mockResolvedValue(ok({ hoy, reservas }));
   const user = userEvent.setup();
   await act(async () => {
     render(
       <ToastContext.Provider value={{ showToast }}>
-        <ReservasTab muebles={muebles} />
+        <ReservasTab muebles={muebles} {...props} />
       </ToastContext.Provider>
     );
   });
@@ -1662,5 +1662,126 @@ describe('Reservas — altas en el calendario', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: 'Bloquear fechas' })).toHaveFocus();
     expect(crearEnCalendarioAdmin).not.toHaveBeenCalled();
+  });
+});
+
+// Lo que se añadió el 20 oct 2026 tras revisar las capturas: qué hay en cada vista, los números de las
+// vistas que piden atención (vienen del contenedor, que también los pone en la barra lateral) y el
+// aviso de que la lista se ha movido después de una acción.
+describe('Reservas — descripciones, números de aviso y lista movida', () => {
+  const RESUMEN = { hoy: HOY, total: 3, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 0 };
+
+  it('bajo los botones, lo que hay en la vista elegida; cambia con ella', async () => {
+    const { user } = await montar({ reservas: [] });
+    const ayuda = () => document.querySelector('.reservas-vista-ayuda').textContent;
+
+    expect(ayuda()).toMatch(/^Todo lo que ocupa el calendario de hoy en adelante/);
+    await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+    expect(ayuda()).toMatch(/^Alquileres entregados cuya recogida prevista ya pasó\./);
+    await user.click(screen.getByRole('button', { name: 'En conflicto' }));
+    expect(ayuda()).toMatch(/^Reservas pagadas que no se pudieron confirmar/);
+    await user.click(screen.getByRole('button', { name: 'Reembolsos a medias' }));
+    expect(ayuda()).toMatch(/^Reservas canceladas cuyo reembolso no consta hecho en Stripe/);
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
+    expect(ayuda()).toBe('Las más recientes de cualquier tipo y estado, hasta 200.');
+  });
+
+  it('con el resumen, el número va en las vistas de aviso que tienen algo, y solo en ellas', async () => {
+    await montar({ reservas: [], props: { resumen: RESUMEN } });
+    const grupo = within(screen.getByRole('group', { name: 'Qué reservas ver' }));
+
+    expect(grupo.getByRole('button', { name: 'Retrasadas 2' })).toBeInTheDocument();
+    expect(grupo.getByRole('button', { name: 'En conflicto 1' })).toBeInTheDocument();
+    // A cero no sale (un «0» en cada botón sería ruido), ni en las vistas de trabajo del día.
+    expect(grupo.getByRole('button', { name: 'Reembolsos a medias' })).toBeInTheDocument();
+    expect(grupo.getByRole('button', { name: 'Próximas' })).toBeInTheDocument();
+    expect(document.querySelectorAll('.reservas-vista-n')).toHaveLength(2);
+  });
+
+  it('sin resumen (apagado, sin cargar o con error) no hay números', async () => {
+    await montar({ reservas: [] });
+    expect(document.querySelector('.reservas-vista-n')).toBeNull();
+  });
+
+  it('tras una acción, la tarjeta se queda con su estado y sale el aviso; "Actualizar la lista" lo quita', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(
+      ok({ reserva: { ...RETRASADA, estado: 'devuelta', etiqueta: 'Devuelta', retrasada: false, acciones: [] } })
+    );
+    const { user } = await montar({ reservas: [RETRASADA], props: { alCambiar } });
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+
+    expect(tarjeta('Mesa de roble').getByText('Devuelta')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Has cambiado una reserva. Actualiza la lista para quitar de esta vista las que ya no encajan.'
+    );
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [] }));
+    await user.click(screen.getByRole('button', { name: 'Actualizar la lista' }));
+    expect(await screen.findByText('No hay reservas próximas.')).toBeInTheDocument();
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(2);
+    expect(alCambiar).toHaveBeenCalledTimes(2);
+  });
+
+  it('el botón «Actualizar» de arriba también quita el aviso y avisa al contenedor', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(ok({ reserva: { ...BLOQUEO, estado: 'cancelada', etiqueta: 'Cancelada', acciones: [] } }));
+    const { user } = await montar({ reservas: [BLOQUEO], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+    expect(screen.getByText(/Has cambiado una reserva/)).toBeInTheDocument();
+    alCambiar.mockClear();
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    await waitFor(() => expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull());
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+  });
+
+  it('si la acción falla no cambia nada: ni aviso de lista movida ni aviso al contenedor', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 400));
+    const { user } = await montar({ reservas: [BLOQUEO], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+    expect(await screen.findByText('No se ha podido completar la acción.')).toBeInTheDocument();
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+    expect(alCambiar).not.toHaveBeenCalled();
+  });
+
+  it('una acción hecha con el reembolso a medias también avisa al contenedor, que cuenta un aviso más', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue({
+      data: null,
+      error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+      status: 502,
+      codigo: 'reembolso_a_medias'
+    });
+    const { user } = await montar({ reservas: [ALQUILER], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+    await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+    await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+    await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+    await waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(1));
+  });
+
+  it('un alta en el calendario recarga la lista y avisa al contenedor, sin el aviso de lista movida', async () => {
+    const alCambiar = vi.fn();
+    crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+    const { user } = await montar({ reservas: [], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+    await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+    fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+    await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+    await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+    await waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
   });
 });

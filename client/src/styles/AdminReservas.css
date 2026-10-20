@@ -29,6 +29,32 @@
   border-color: var(--primary-color);
   color: var(--bg-color);
 }
+/* El número de las vistas que piden atención (retrasadas, sin confirmar, reembolsos a medias) */
+.reservas-vista-n {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+.reservas-vista[aria-pressed="true"] .reservas-vista-n {
+  background: var(--bg-color);
+  color: var(--primary-color);
+}
+/* Qué hay en la vista elegida, bajo los botones */
+.reservas-vista-ayuda {
+  margin: -6px 0 18px;
+  max-width: 70ch;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
 .reservas-vista:focus-visible,
 .reserva-acciones button:focus-visible {
   outline: 2px solid var(--accent-color);
@@ -170,6 +196,26 @@
   overflow-wrap: anywhere;
 }
 
+/* Después de una acción, la tarjeta se queda en su sitio y este aviso dice que la lista ya puede haber cambiado */
+.reservas-lista-movida {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+.reservas-lista-movida p {
+  margin: 0;
+  flex: 1 1 260px;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+}
+
 /* ─── Errores y diálogos ─── */
 .reservas-error {
   color: var(--danger-color);
@@ -192,7 +238,13 @@
   flex-wrap: wrap;
   gap: 10px;
 }
-.reservas-dialogo-botones .admin-btn { padding: 12px 20px; }
+.reservas-dialogo-botones .admin-btn {
+  padding: 12px 20px;
+  /* En frase, como el botón de la tarjeta que se pulsó para llegar aquí («Marcar entregada»): en
+     MAYÚSCULAS parecía otro botón. El resto del panel conserva las mayúsculas de .admin-btn. */
+  text-transform: none;
+  letter-spacing: 0;
+}
 .reservas-btn-peligro { background: var(--danger-color); }
 .reservas-btn-peligro:hover:not(:disabled) { background: var(--danger-color); filter: brightness(0.92); }
 .reservas-check {
@@ -209,6 +261,7 @@
   /* Zonas táctiles de al menos 44 px (WCAG 2.5.5, AAA; pauta de Apple y Google). */
   .reservas-vista,
   .reservas-aviso-general button,
+  .reservas-lista-movida button,
   .reserva-acciones button,
   .reservas-altas button,
   .reservas-dialogo-botones > button {

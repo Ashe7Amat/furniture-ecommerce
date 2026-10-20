@@ -133,7 +133,10 @@ describe('contrato de GET /api/reservas/mias', () => {
       'stripe_payment_intent_id',
       'expira_en',
       'conflicto_en',
-      'historial'
+      'historial',
+      'reembolso_solicitado_en',
+      'reembolso_importe',
+      'stripe_refund_id'
     ]);
     const [piezas] = de('GET', '/rest/v1/muebles');
     assert.equal(piezas.params.id, `in.(${SILLA})`);

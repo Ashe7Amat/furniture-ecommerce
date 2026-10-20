@@ -1,4 +1,4 @@
-import { useState, useContext, useEffect, lazy, Suspense } from 'react';
+import { useState, useContext, useEffect, useRef, lazy, Suspense } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -37,6 +37,17 @@ export default function Profile() {
   // Reservas por fechas (docs/reservas-diseno.md): la pestaña "Mis Reservas" solo existe con el
   // interruptor encendido. Se abre también con ?tab=reservas (el enlace de la página de éxito).
   const conReservas = reservasActivas();
+
+  // En el móvil las pestañas van en una fila que se desplaza: con "Mis Reservas" al final, entrar por
+  // ?tab=reservas la dejaba fuera de la pantalla. La pestaña activa se lleva al centro de la fila.
+  const menuRef = useRef(null);
+  useEffect(() => {
+    const menu = menuRef.current;
+    const activa = menu?.querySelector('button.active');
+    if (!activa || menu.scrollWidth <= menu.clientWidth) return;
+    const izquierda = activa.getBoundingClientRect().left - menu.getBoundingClientRect().left + menu.scrollLeft;
+    menu.scrollLeft = izquierda - (menu.clientWidth - activa.offsetWidth) / 2;
+  }, [activeTab, conReservas]);
 
   useEffect(() => {
     if (activeTab === 'favoritos') {
@@ -80,8 +91,8 @@ export default function Profile() {
   const avisoSinVerificar = (
     <div className="aviso-verificacion" role="status">
       <p>
-        Confirma tu email, <strong>{user.email}</strong>, para ver tus pedidos. Si no tienes el correo con
-        el enlace, te mandamos uno nuevo.
+        Confirma tu email, <strong>{user.email}</strong>, para ver tus pedidos{conReservas && ' y tus reservas'}.
+        Si no tienes el correo con el enlace, te mandamos uno nuevo.
       </p>
       <button type="button" className="aviso-verificacion-btn" onClick={() => pedirCorreo('Te hemos enviado el correo.')} disabled={reenviando}>
         {reenviando ? 'Enviando...' : 'Enviar enlace'}
@@ -162,7 +173,7 @@ export default function Profile() {
       )}
 
       <div className="profile-layout">
-        <aside className="profile-tabs-menu">
+        <aside className="profile-tabs-menu" ref={menuRef}>
           <button 
             className={activeTab === 'datos' ? 'active' : ''} 
             onClick={() => setActiveTab('datos')}

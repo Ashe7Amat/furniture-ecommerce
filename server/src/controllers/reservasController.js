@@ -13,7 +13,12 @@ const {
 } = require('../utils/errores');
 const { preciosVisibles } = require('../utils/precios');
 const { buscarCuentaVerificada } = require('../utils/cuentaVerificada');
-const { iniciarPagoDeReserva } = require('../utils/reservas');
+const {
+  iniciarPagoDeReserva,
+  retomarPagoDeReserva,
+  pagoHastaDe,
+  MENSAJE_RESERVA_NO_ENCONTRADA
+} = require('../utils/reservas');
 const { hoyEnMadrid, fechaLegible } = require('../utils/fechasMadrid');
 const {
   referenciaDeReserva,
@@ -153,8 +158,13 @@ const crearSesionPagoReserva = async (req, res) => {
     const { url } = await iniciarPagoDeReserva({ stripe, cuenta, mueble, datos: req.body });
     res.status(200).json({ url });
   } catch (error) {
-    // ErrorConflicto es un ErrorValidacion: va primero.
-    if (error instanceof ErrorConflicto) return res.status(409).json({ error: error.message });
+    // ErrorConflicto es un ErrorValidacion: va primero. Su código, si lo tiene, deja a la web decidir sin
+    // leer el texto (las fechas siguen libres: no hay que borrarlas).
+    if (error instanceof ErrorConflicto) {
+      return res
+        .status(409)
+        .json({ error: error.message, ...(error.codigo && { codigo: error.codigo }) });
+    }
     if (error instanceof ErrorValidacion) return res.status(400).json({ error: error.message });
     if (error instanceof ErrorReintentable) return res.status(503).json({ error: error.message });
     console.error('Error al crear la sesión de pago de una reserva:', error.message || error);
@@ -171,7 +181,8 @@ const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const COLUMNAS_MIS_RESERVAS =
   'id, pedido_id, mueble_id, estado, fecha_inicio, hora_entrega, fecha_fin, hora_recogida, ' +
   'modo_entrega, modo_devolucion, direccion_entrega, importe_total, precio_desglose, ' +
-  'stripe_payment_intent_id, expira_en, conflicto_en, historial';
+  'stripe_payment_intent_id, expira_en, conflicto_en, historial, ' +
+  'reembolso_solicitado_en, reembolso_importe, stripe_refund_id';
 
 const cancelacionSolicitada = (fila) =>
   (fila.historial || []).some((linea) => linea.tipo === 'cancelacion_solicitada');
@@ -227,6 +238,14 @@ const obtenerMisReservas = async (req, res) => {
       visibles.map(({ fila, estado }) => {
         const pieza = piezas.find((p) => p.id === fila.mueble_id);
         const solicitada = cancelacionSolicitada(fila);
+        // Lo único que sale del reembolso: cuánto y si ya se hizo en Stripe (no su id).
+        const reembolso =
+          estado === 'cancelada' && fila.reembolso_solicitado_en
+            ? {
+                importe_centimos: Math.round(Number(fila.reembolso_importe) * 100),
+                hecho: Boolean(fila.stripe_refund_id)
+              }
+            : null;
         return {
           id: fila.id,
           referencia: referenciaDeReserva(fila),
@@ -247,7 +266,10 @@ const obtenerMisReservas = async (req, res) => {
           importe_total_centimos:
             fila.importe_total === null ? null : Math.round(Number(fila.importe_total) * 100),
           cancelacion_solicitada: solicitada,
-          puede_solicitar_cancelacion: estado === 'confirmada' && !solicitada
+          puede_solicitar_cancelacion: estado === 'confirmada' && !solicitada,
+          // Hasta cuándo se puede pagar una reserva que espera el pago (la web lo enseña y ofrece seguir).
+          pago_hasta: estado === 'esperando_pago' ? pagoHastaDe(fila) : null,
+          reembolso
         };
       })
     );
@@ -256,8 +278,6 @@ const obtenerMisReservas = async (req, res) => {
     res.status(500).json({ error: 'Error interno al obtener tus reservas.' });
   }
 };
-
-const MENSAJE_RESERVA_NO_ENCONTRADA = 'No encontramos esa reserva.';
 
 // POST /api/reservas/:id/solicitar-cancelacion -- en la primera versión cancela siempre el
 // administrador (8.4, T13): el cliente solo lo pide. La solicitud queda en el historial de la reserva
@@ -347,10 +367,43 @@ const solicitarCancelacionReserva = async (req, res) => {
   }
 };
 
+// POST /api/reservas/:id/retomar-pago -- la página de pago de una reserva provisional que sigue abierta
+// (la clienta cerró Stripe sin pagar). Mismas condiciones que crear la reserva: sesión, email verificado.
+const retomarPagoReserva = async (req, res) => {
+  try {
+    if (!preciosVisibles()) return res.status(403).json({ error: MENSAJE_ALQUILER_CERRADO });
+    if (!FORMATO_UUID.test(req.params.id)) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+    const stripe = stripeUtil.getStripe();
+    if (!stripe) {
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+    }
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      columnas: 'id, email',
+      mensajeSinVerificar: 'Confirma tu email para gestionar tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const { url } = await retomarPagoDeReserva({ stripe, cuenta, id: req.params.id });
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json({ url });
+  } catch (error) {
+    if (error instanceof ErrorNoEncontrado) return res.status(404).json({ error: error.message });
+    if (error instanceof ErrorConflicto) return res.status(409).json({ error: error.message });
+    if (error instanceof ErrorReintentable) return res.status(503).json({ error: error.message });
+    console.error('Error al retomar el pago de una reserva:', error.message || error);
+    res.status(500).json({ error: 'No se pudo retomar el pago. Inténtalo de nuevo.' });
+  }
+};
+
 module.exports = {
   obtenerDisponibilidad,
   obtenerPresupuesto,
   crearSesionPagoReserva,
+  retomarPagoReserva,
   obtenerMisReservas,
   solicitarCancelacionReserva,
   MENSAJE_ALQUILER_CERRADO

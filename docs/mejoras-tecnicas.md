@@ -1338,6 +1338,36 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a
   intentarlo" y no "esas fechas se acaban de reservar". Tests nuevos que fijan el "hoy" de Madrid pasada la
   medianoche y el caso de una pieza borrada, y tres casos más en `r2_pruebas.sql` (6b a 6d).
+- Revisión de las capturas simuladas (20 oct 2026, a petición de Ashe: «arregla todo lo que has visto»). Las
+  capturas se hicieron con el código de `main`, una API simulada y datos inventados (galería privada; las
+  imágenes están en `reservas-capturas/` del proyecto). Lo que se arregló, siempre detrás de los interruptores
+  de reservas (apagados en producción):
+  - **Calendario:** los días pasados, sin antelación o fuera del máximo ya no se ven como ocupados: tienen su
+    propio estilo, una leyenda (Libre, Ocupado, Fuera de plazo, Tus fechas), la regla escrita y el motivo en
+    cada día para el lector de pantalla.
+  - **Reservar:** los avisos rojos de un campo desaparecen al corregirlo; una carrera con otra reserva a medio
+    pagar de la misma clienta ya no borra las fechas elegidas.
+  - **Mis reservas:** «Esperando pago» dice hasta qué hora vale y deja «Seguir con el pago» (endpoint nuevo
+    `retomar-pago`); «No se pudo confirmar» explica qué pasa con el dinero; una cancelada dice cuánto se
+    devuelve; si la lista falla se puede reintentar.
+  - **Página de éxito:** si faltan los datos del pago, dice qué hacer en vez de un error seco.
+  - **Ficha:** una pieza marcada a mano como «Alquilado» no ofrece calendario (invita a preguntar); el precio
+    por día no se repite; las fechas del aviso de una pieza ocupada se escriben igual que en el resto de la web.
+  - **Mi cuenta:** en el móvil la pestaña activa se ve (la fila se desplaza hasta ella), y con las reservas
+    encendidas el aviso de confirmar el email nombra también las reservas.
+  - **Panel:** el fondo de las ventanas ya mide lo que la pantalla (medía 40 px más y la ventana quedaba 20 px
+    descentrada; era un fallo de todas las ventanas del panel), «Reservas» tiene su insignia de avisos y las
+    vistas de aviso su número (`GET /api/admin/reservas/resumen`), cada vista dice qué contiene, tras una
+    acción la lista avisa de que puede haber cambiado, y los botones de confirmar de estas ventanas van en
+    frase como el botón de la tarjeta que los abre.
+  - **No cambiado:** el botón de la música, con el aviso de cookies abierto, tapa un trozo del pie de página
+    (con las cookies ya contestadas no hay solapamiento, medido a 1440 y 1100 px); es la primera visita y la
+    música no suena sola. Las vistas del panel que se solapan por diseño («Próximas» incluye lo retrasado) se
+    explican ahora con su descripción.
+  - **Tests:** cliente 1342 → 1415, servidor 1182 → 1207. Mutantes del panel: 172 → 199 (27 nuevos, para la
+    insignia, el hook de avisos, los números de las vistas y los textos), todos detectados salvo el 1
+    esperado de siempre (el caso B de la categoría, que cubre `Admin.navegacion.test.jsx`). Sin tocar
+    ningún `Admin.*.test.jsx` congelado.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 

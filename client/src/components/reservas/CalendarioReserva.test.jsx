@@ -13,7 +13,13 @@ const DISP = {
   hoy: '2026-11-02',
   primer_inicio_posible: '2026-11-04',
   ultimo_inicio_posible: '2026-12-02',
-  reglas: { duracion_min_dias: 1, duracion_max_dias: 30, dias_margen: 2 },
+  reglas: {
+    duracion_min_dias: 1,
+    duracion_max_dias: 30,
+    dias_margen: 2,
+    antelacion_min_dias: 2,
+    antelacion_max_meses: 1
+  },
   ocupado: [{ desde: '2026-11-10', hasta: '2026-11-15', tipo: 'reservado' }]
 };
 
@@ -57,19 +63,67 @@ describe('CalendarioReserva — la rejilla', () => {
     expect(within(celdas[6]).getByRole('button')).toHaveTextContent('1');
   });
 
-  it('cada día es un botón con su fecha completa; los que no se pueden elegir, desactivados y "no disponible"', () => {
+  it('cada día es un botón con su fecha completa; los que no se pueden elegir, desactivados y con el motivo', () => {
     montar();
 
-    expect(dia('lunes, 2 de noviembre de 2026, no disponible')).toBeDisabled();
+    expect(dia('lunes, 2 de noviembre de 2026, no disponible: se reserva con 2 días de antelación')).toBeDisabled();
     expect(dia('miércoles, 4 de noviembre de 2026')).toBeEnabled();
     expect(dia('miércoles, 4 de noviembre de 2026')).toHaveAttribute('aria-pressed', 'false');
     // Ocupado
-    expect(dia('jueves, 12 de noviembre de 2026, no disponible')).toBeDisabled();
+    expect(dia('jueves, 12 de noviembre de 2026, no disponible: ocupado')).toBeDisabled();
     // Libre, pero sin sitio para un día antes de lo ocupado (más el margen)
-    expect(dia('domingo, 8 de noviembre de 2026, no disponible')).toBeDisabled();
+    expect(
+      dia('domingo, 8 de noviembre de 2026, no disponible: no cabe un alquiler antes de la siguiente reserva')
+    ).toBeDisabled();
     expect(dia('domingo, 15 de noviembre de 2026')).toBeEnabled();
-    expect(screen.getByText('Libre')).toBeInTheDocument();
-    expect(screen.getByText('No disponible')).toBeInTheDocument();
+  });
+
+  it('los días pasados, los que no tienen antelación y los ocupados se distinguen, y la leyenda lo explica', () => {
+    montar();
+
+    // Ya pasó
+    expect(dia('domingo, 1 de noviembre de 2026, no disponible: ya ha pasado')).toHaveClass('cal-reserva-dia--fuera');
+    // Falta antelación (hoy es el lunes 2 y hay que reservar con 2 días)
+    expect(
+      dia('martes, 3 de noviembre de 2026, no disponible: se reserva con 2 días de antelación')
+    ).toHaveClass('cal-reserva-dia--fuera');
+    // Lo tiene otra reserva
+    expect(dia('jueves, 12 de noviembre de 2026, no disponible: ocupado')).toHaveClass('cal-reserva-dia--ocupado');
+    expect(dia('miércoles, 4 de noviembre de 2026')).not.toHaveClass('cal-reserva-dia--fuera');
+    expect(dia('miércoles, 4 de noviembre de 2026')).not.toHaveClass('cal-reserva-dia--ocupado');
+
+    const leyenda = document.querySelector('.cal-reserva-leyenda');
+    expect(within(leyenda).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'Libre',
+      'Ocupado',
+      'Fuera de plazo',
+      'Tus fechas'
+    ]);
+  });
+
+  it('escribe los plazos debajo del calendario, con el singular donde toca', () => {
+    const { unmount } = montar();
+    expect(document.querySelector('.cal-reserva-reglas')).toHaveTextContent(
+      'Se reserva con 2 días de antelación como mínimo y hasta 1 mes vista. ' +
+        'Después de cada recogida dejamos 2 días libres antes de la siguiente reserva.'
+    );
+    unmount();
+
+    montar({
+      disponibilidad: {
+        ...DISP,
+        reglas: { ...DISP.reglas, antelacion_min_dias: 1, antelacion_max_meses: 6, dias_margen: 1 }
+      }
+    });
+    expect(document.querySelector('.cal-reserva-reglas')).toHaveTextContent(
+      'Se reserva con 1 día de antelación como mínimo y hasta 6 meses vista. ' +
+        'Después de cada recogida dejamos 1 día libre antes de la siguiente reserva.'
+    );
+  });
+
+  it('si el servidor no manda los plazos, no escribe ninguno', () => {
+    montar({ disponibilidad: { ...DISP, reglas: { duracion_min_dias: 1, duracion_max_dias: 30, dias_margen: 0 } } });
+    expect(document.querySelector('.cal-reserva-reglas')).not.toBeInTheDocument();
   });
 });
 
@@ -87,8 +141,8 @@ describe('CalendarioReserva — elegir las fechas', () => {
     );
     // Como recogida, solo hasta el 8 (el 10 empieza lo ocupado y hay 2 días de margen).
     expect(dia('domingo, 8 de noviembre de 2026')).toBeEnabled();
-    expect(dia('lunes, 9 de noviembre de 2026, no disponible')).toBeDisabled();
-    expect(dia('domingo, 15 de noviembre de 2026, no disponible')).toBeDisabled();
+    expect(dia('lunes, 9 de noviembre de 2026, no disponible: ocupado')).toBeDisabled();
+    expect(dia('domingo, 15 de noviembre de 2026, no disponible: ocupado')).toBeDisabled();
 
     await user.click(dia('sábado, 7 de noviembre de 2026'));
     expect(alCambiar).toHaveBeenLastCalledWith({ inicio: '2026-11-04', fin: '2026-11-07' });
@@ -98,6 +152,18 @@ describe('CalendarioReserva — elegir las fechas', () => {
     expect(instrucciones()).toHaveTextContent(
       'Entrega el miércoles, 4 de noviembre de 2026 y recogida el sábado, 7 de noviembre de 2026.'
     );
+  });
+
+  it('eligiendo la recogida, dice cuándo el alquiler sería demasiado largo', async () => {
+    const { user } = montar({
+      disponibilidad: { ...DISP, reglas: { ...DISP.reglas, duracion_max_dias: 3 } }
+    });
+    await user.click(dia('miércoles, 4 de noviembre de 2026'));
+
+    expect(dia('sábado, 7 de noviembre de 2026')).toBeEnabled();
+    const demasiado = dia('domingo, 8 de noviembre de 2026, no disponible: el alquiler máximo es de 3 días');
+    expect(demasiado).toBeDisabled();
+    expect(demasiado).toHaveClass('cal-reserva-dia--fuera');
   });
 
   it('con las dos fechas, otro clic empieza una selección nueva', async () => {
@@ -184,7 +250,7 @@ describe('CalendarioReserva — los meses', () => {
     expect(siguiente).toHaveFocus();
     await user.click(siguiente);
     expect(screen.getByRole('heading', { name: 'Enero de 2027' })).toBeInTheDocument();
-    expect(dia('viernes, 1 de enero de 2027, no disponible')).toBeDisabled();
+    expect(dia('viernes, 1 de enero de 2027, no disponible: se reserva hasta 1 mes vista')).toBeDisabled();
 
     await user.click(anterior);
     expect(screen.getByRole('heading', { name: 'Diciembre de 2026' })).toBeInTheDocument();

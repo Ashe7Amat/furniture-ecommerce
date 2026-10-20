@@ -20,7 +20,9 @@ export const CANCIONES = [
 
 export const VOLUMEN = 0.35;
 
-// Solo en ordenador: en el móvil no hay música (decisión de Ashe, 12 oct 2026). Se mira cómo se
-// maneja el aparato (ratón que puede pasar por encima), no el ancho, para que estrechar la ventana
-// del ordenador no corte la música.
-export const CONSULTA_ESCRITORIO = '(hover: hover) and (pointer: fine)';
+// Solo en ordenador: en el móvil no hay música (decisión de Ashe, 12 oct 2026). Se mira si hay
+// algún ratón o touchpad (any-pointer), no el ancho, para que estrechar la ventana del ordenador no
+// corte la música. Tampoco vale mirar el puntero principal ("(hover: hover) and (pointer: fine)"):
+// los portátiles con pantalla táctil dicen que el principal es el dedo y el reproductor no salía
+// en el ordenador de Ashe (13 oct 2026). Móviles y tabletas sin ratón no tienen puntero fino.
+export const CONSULTA_ESCRITORIO = '(any-pointer: fine)';
