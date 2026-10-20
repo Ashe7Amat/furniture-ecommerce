@@ -18,6 +18,7 @@ const {
   listarReservas,
   resumenDeAvisos,
   agendaDeHoy,
+  calendarioDeReservas,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
@@ -100,6 +101,28 @@ const agendaReservasAdmin = async (req, res) => {
       error,
       'Error al armar la agenda de reservas del panel',
       'Error interno al cargar las entregas y recogidas.'
+    );
+  }
+};
+
+// GET /api/admin/reservas/calendario?desde=...&hasta=...&mueble_id=... (la consulta ya validada)
+// → { hoy, desde, hasta, reservas, limitada }: lo que ocupa las piezas en esos días
+const calendarioReservasAdmin = async (req, res) => {
+  try {
+    const calendario = await calendarioDeReservas({
+      desde: req.query.desde,
+      hasta: req.query.hasta,
+      muebleId: req.query.mueble_id,
+      ahora: new Date()
+    });
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(calendario);
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      'Error al armar el calendario de reservas del panel',
+      'Error interno al cargar el calendario de reservas.'
     );
   }
 };
@@ -211,6 +234,7 @@ module.exports = {
   listarReservasAdmin,
   resumenReservasAdmin,
   agendaReservasAdmin,
+  calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,

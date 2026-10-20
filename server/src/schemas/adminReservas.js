@@ -1,6 +1,6 @@
 const { z } = require('zod');
 const { requerido, EMAIL_REGEX } = require('./comunes');
-const { esFechaValida, esHoraValida } = require('../utils/fechasMadrid');
+const { esFechaValida, esHoraValida, diasEntre } = require('../utils/fechasMadrid');
 
 // Panel de reservas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d). Solo la FORMA de la consulta
 // y de los cuerpos: lo que depende de hoy o de la propia reserva (que un bloqueo no empiece en el
@@ -59,18 +59,19 @@ const fechaDelFiltro = (mensaje) =>
       .refine(esFechaValida, mensaje)
       .optional()
   );
+const piezaDelFiltro = z.preprocess(
+  vacioEsNada,
+  z
+    .string({ error: () => 'La pieza del filtro no es válida.' })
+    .regex(FORMATO_UUID, 'La pieza del filtro no es válida.')
+    .optional()
+);
 const schemaListaReservas = z
   .object({
     vista: z
       .enum(VISTAS, { error: () => 'Esa vista de la lista de reservas no existe.' })
       .default('proximas'),
-    mueble_id: z.preprocess(
-      vacioEsNada,
-      z
-        .string({ error: () => 'La pieza del filtro no es válida.' })
-        .regex(FORMATO_UUID, 'La pieza del filtro no es válida.')
-        .optional()
-    ),
+    mueble_id: piezaDelFiltro,
     q: z.preprocess(
       (valor) => (typeof valor === 'string' ? valor.trim() : valor),
       z
@@ -88,6 +89,32 @@ const schemaListaReservas = z
     message: 'La fecha final de la búsqueda no puede ser anterior a la inicial.',
     path: ['hasta']
   });
+
+// GET /api/admin/reservas/calendario?desde=...&hasta=...&mueble_id=...: la ocupación de un rango de días
+// (los dos incluidos), para el calendario de una pieza y la vista general. Los dos días son obligatorios
+// y no pueden ser más de MAX_DIAS_CALENDARIO seguidos.
+const MAX_DIAS_CALENDARIO = 100;
+// El tope de días solo se calcula con los dos días bien escritos (si no, ya habla el aviso del propio
+// campo y la cuenta reventaría).
+const sonDiasValidos = (consulta) => esFechaValida(consulta.desde) && esFechaValida(consulta.hasta);
+const schemaCalendarioReservas = z
+  .object({
+    desde: fecha('Elige el primer día del calendario (AAAA-MM-DD).'),
+    hasta: fecha('Elige el último día del calendario (AAAA-MM-DD).'),
+    mueble_id: piezaDelFiltro
+  })
+  .refine((consulta) => consulta.hasta >= consulta.desde, {
+    message: 'El último día del calendario no puede ser anterior al primero.',
+    path: ['hasta']
+  })
+  .refine(
+    (consulta) =>
+      !sonDiasValidos(consulta) || diasEntre(consulta.desde, consulta.hasta) < MAX_DIAS_CALENDARIO,
+    {
+      message: `El calendario enseña como mucho ${MAX_DIAS_CALENDARIO} días seguidos.`,
+      path: ['hasta']
+    }
+  );
 
 // POST /api/admin/reservas/:id/<acción>: el cuerpo de cada acción.
 const sinDatos = z.object({});
@@ -197,6 +224,8 @@ module.exports = {
   VISTAS,
   SCHEMAS_ACCION,
   schemaListaReservas,
+  schemaCalendarioReservas,
+  MAX_DIAS_CALENDARIO,
   schemaBloqueo,
   schemaAlquilerFueraDeLaWeb,
   schemaVentaFueraDeLaWeb

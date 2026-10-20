@@ -370,6 +370,73 @@ describe('contrato de la lista: el filtro de cada vista', () => {
     assert.equal(res.body.limitada, false);
   });
 
+  test('el calendario: lo que ocupa la ventana (con su último día incluido) y, si llega a hoy, las retrasadas', async () => {
+    leerReservas = (params) =>
+      params.estado === 'eq.en_curso'
+        ? [
+            fila({
+              id: OTRA,
+              estado: 'en_curso',
+              fecha_inicio: dia(-10),
+              fecha_fin: dia(-3),
+              fin_ocupacion: dia(-3)
+            })
+          ]
+        : [fila({ fecha_inicio: dia(5), fecha_fin: dia(8), fin_ocupacion: dia(8) })];
+
+    const res = await comoAdmin(
+      request(app).get(
+        `/api/admin/reservas/calendario?desde=${dia(0)}&hasta=${dia(30)}&mueble_id=${SOFA}`
+      )
+    );
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 2);
+    for (const consulta of consultas) {
+      assert.deepEqual(columnas(consulta.params), COLUMNAS_LISTA.split(', '));
+    }
+    const enLaVentana = consultas.find((c) => c.params.rango_ocupado);
+    assert.deepEqual(
+      enLaVentana.pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['estado', ESTADOS_QUE_OCUPAN],
+        ['rango_ocupado', `ov.[${dia(0)},${dia(31)})`],
+        ['order', 'fecha_inicio.asc'],
+        ['limit', '1000']
+      ]
+    );
+    const retrasadas = consultas.find((c) => c !== enLaVentana);
+    assert.deepEqual(
+      retrasadas.pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['tipo', 'eq.alquiler'],
+        ['estado', 'eq.en_curso'],
+        ['fecha_fin', `lt.${hoy}`],
+        ['order', 'fecha_inicio.asc']
+      ]
+    );
+    assert.equal(de('GET', 'muebles').length, 1, 'las piezas de todas se leen de una vez');
+    assert.deepEqual(
+      res.body.reservas.map((r) => [r.id, r.retrasada]),
+      [
+        [OTRA, true],
+        [RESERVA, false]
+      ]
+    );
+  });
+
+  test('el calendario de unos días pasados no busca retrasadas', async () => {
+    const res = await comoAdmin(
+      request(app).get(`/api/admin/reservas/calendario?desde=${dia(-20)}&hasta=${dia(-10)}`)
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(de('GET', 'reservas').length, 1);
+  });
+
   test('la agenda de hoy y mañana: las mismas dos consultas que «Entregas» y «Recogidas», y las piezas de las dos con una sola', async () => {
     leerReservas = (params) =>
       params.estado === 'eq.confirmada'

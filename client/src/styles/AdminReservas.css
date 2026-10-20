@@ -61,6 +61,58 @@
   outline-offset: 2px;
 }
 
+/* ─── Buscador ─── */
+.reservas-buscador {
+  max-width: none;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.reservas-buscador-fechas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.reservas-buscador-botones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* En frase, como el resto de botones de «Reservas». */
+.reservas-buscador-botones .admin-btn {
+  padding: 11px 22px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.reservas-buscador .reservas-error { margin: 0; }
+/* Cuántas reservas salieron de la búsqueda, y el aviso de que hay más de las que caben */
+.reservas-busqueda-resumen {
+  margin: 0 0 12px;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.reservas-busqueda-limite {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--primary-color);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.reservas-buscador input:focus-visible,
+.reservas-buscador button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 /* Las tres altas (bloquear, alquiler y venta fuera de la web): bajan de línea si no caben. */
 .reservas-altas { flex-wrap: wrap; }
 
@@ -381,6 +433,7 @@
   .agenda-trayecto button,
   .reservas-aviso-general button,
   .reservas-lista-movida button,
+  .reservas-buscador-botones button,
   .reserva-acciones button,
   .reservas-altas button,
   .reservas-dialogo-botones > button {

@@ -14,6 +14,7 @@ const {
   listarReservasAdmin,
   resumenReservasAdmin,
   agendaReservasAdmin,
+  calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
@@ -25,6 +26,7 @@ const { validar } = require('../middleware/validar');
 const { reservasActivas } = require('../utils/reservas');
 const {
   schemaListaReservas,
+  schemaCalendarioReservas,
   schemaBloqueo,
   schemaAlquilerFueraDeLaWeb,
   schemaVentaFueraDeLaWeb
@@ -79,6 +81,13 @@ router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), list
 router.get('/reservas/resumen', ...reservas, resumenReservasAdmin);
 // Las entregas y recogidas de hoy y mañana, en una sola lista por hora, para organizar la ruta.
 router.get('/reservas/agenda', ...reservas, agendaReservasAdmin);
+// La ocupación de unos días: el calendario de una pieza y la vista general.
+router.get(
+  '/reservas/calendario',
+  ...reservas,
+  validar(schemaCalendarioReservas, 'query'),
+  calendarioReservasAdmin
+);
 router.post(
   '/reservas/bloqueos',
   ...reservas,

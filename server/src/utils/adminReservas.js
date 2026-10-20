@@ -259,12 +259,15 @@ const leer = async (consulta) => {
   return data;
 };
 
+// Todas las reservas con las columnas de la lista, o las de una pieza.
+const consultaBase = (muebleId) => {
+  const consulta = supabase.from('reservas').select(COLUMNAS_LISTA);
+  return muebleId ? consulta.eq('mueble_id', muebleId) : consulta;
+};
+
 // Las filas de cada vista. `hoy` es el de Madrid (3.6).
 const leerVista = async (vista, { muebleId, hoy, ahora }) => {
-  const base = () => {
-    const consulta = supabase.from('reservas').select(COLUMNAS_LISTA);
-    return muebleId ? consulta.eq('mueble_id', muebleId) : consulta;
-  };
+  const base = () => consultaBase(muebleId);
   const manana = sumarDias(hoy, 1);
   switch (vista) {
     case 'proximas': {
@@ -453,6 +456,68 @@ const resumenDeAvisos = async ({ ahora = new Date() } = {}) => {
     retrasadas: retrasadas.length,
     en_conflicto: conflicto.length,
     reembolsos_a_medias: reembolsos.length
+  };
+};
+
+// ─── El calendario (8.2: por pieza y vista general) ──────────────────────────────────────────────
+
+// Las reservas que ocupan alguna pieza entre `desde` y `hasta` (los dos incluidos), con el margen. Las
+// dos vistas del calendario se dibujan en el panel a partir de esto. Las provisionales caducadas no
+// ocupan nada (como en la ficha). Con `hasta` a partir de hoy se suman las retrasadas, que tienen la
+// pieza fuera aunque su ocupación ya haya acabado: son el riesgo para la reserva siguiente (8.2).
+const MAX_CALENDARIO = 1000;
+
+// Lo mínimo que el calendario necesita de cada reserva: sin teléfono, email, dirección ni notas del
+// cliente. `ocupada_hasta` es el primer día libre después del margen (null = sin fin, una venta).
+const paraCalendario = (r) => ({
+  id: r.id,
+  referencia: r.referencia,
+  tipo: r.tipo,
+  estado: r.estado,
+  etiqueta: r.etiqueta,
+  retrasada: r.retrasada,
+  en_conflicto: r.en_conflicto,
+  pieza: r.pieza,
+  cliente: r.contacto?.nombre ?? null,
+  motivo: r.motivo,
+  fecha_inicio: r.fecha_inicio,
+  hora_entrega: r.hora_entrega,
+  fecha_fin: r.fecha_fin,
+  hora_recogida: r.hora_recogida,
+  fin_ocupacion: r.fin_ocupacion,
+  dias_margen: r.dias_margen,
+  ocupada_hasta: r.fin_ocupacion == null ? null : sumarDias(r.fin_ocupacion, r.dias_margen)
+});
+
+const calendarioDeReservas = async ({ desde, hasta, muebleId, ahora = new Date() }) => {
+  const contexto = contextoDe(ahora);
+  const [enElRango, retrasadas] = await Promise.all([
+    leer(
+      consultaBase(muebleId)
+        .in('estado', ESTADOS_QUE_OCUPAN)
+        .overlaps('rango_ocupado', `[${desde},${sumarDias(hasta, 1)})`)
+        .order('fecha_inicio', { ascending: true })
+        .limit(MAX_CALENDARIO)
+    ),
+    hasta < contexto.hoy
+      ? []
+      : leer(
+          consultaBase(muebleId)
+            .eq('tipo', 'alquiler')
+            .eq('estado', 'en_curso')
+            .lt('fecha_fin', contexto.hoy)
+            .order('fecha_inicio', { ascending: true })
+        )
+  ]);
+  const filas = enElRango.filter((fila) => ocupaElCalendario(fila, ahora));
+  const vistas = new Set(filas.map((fila) => fila.id));
+  const todas = [...filas, ...retrasadas.filter((fila) => !vistas.has(fila.id))].sort(porInicio);
+  return {
+    hoy: contexto.hoy,
+    desde,
+    hasta,
+    reservas: (await presentarFilas(todas, ahora)).map(paraCalendario),
+    limitada: enElRango.length >= MAX_CALENDARIO
   };
 };
 
@@ -1409,6 +1474,7 @@ module.exports = {
   COLUMNAS_LISTA,
   MAX_TODAS,
   MAX_BUSQUEDA,
+  MAX_CALENDARIO,
   DIAS_ATRAS_VENTA,
   MENSAJE_RESERVA_NO_ENCONTRADA,
   MENSAJE_REEMBOLSO_EN_CURSO,
@@ -1425,6 +1491,7 @@ module.exports = {
   presentar,
   presentarFilas,
   listarReservas,
+  calendarioDeReservas,
   resumenDeAvisos,
   agendaDeHoy,
   ejecutarAccion,
