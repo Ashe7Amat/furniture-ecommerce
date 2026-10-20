@@ -1,5 +1,5 @@
 // El calendario de una pieza (CalendarioPieza.jsx). Su lista de mutantes está en
-// scripts/mutantes/calendarios.js.
+// scripts/mutantes/calendarioPieza.js.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -173,10 +173,12 @@ describe('CalendarioPieza: elegir pieza', () => {
     await user.click(screen.getByRole('button', { name: dia(13) }));
     expect(screen.getByRole('region', { name: /^Detalle del/ })).toBeInTheDocument();
 
-    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([])));
+    // La otra pieza también tiene algo ese día: el detalle no se queda abierto en él.
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([{ ...ALQUILER, id: 'r9', pieza: MESA }])));
     await elegir(user, 'Mesa de roble (NAV-MES-007)');
 
     expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-11-01', hasta: '2026-11-30', muebleId: 'm2' });
+    expect(await screen.findByRole('button', { name: dia(13) })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('region', { name: /^Detalle del/ })).toBeNull();
   });
 
@@ -330,6 +332,22 @@ describe('CalendarioPieza: el mes', () => {
     expect(screen.getByText('1 reserva en noviembre de 2026.')).toBeInTheDocument();
   });
 
+  it('el resumen cuenta las del mes que se ve, no todas las que llegan', async () => {
+    const deOctubre = { ...ALQUILER, id: 'r8', referencia: '8A9B0C1D', fecha_inicio: '2026-10-01', fin_ocupacion: '2026-10-03', ocupada_hasta: '2026-10-05' };
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([ALQUILER, deOctubre])));
+    const { user } = await montar();
+    await elegir(user);
+    expect(screen.getByText('1 reserva en noviembre de 2026.')).toBeInTheDocument();
+  });
+
+  it('una retrasada cuya reserva ya acabó en otro mes cuenta en el mes en que sigue teniendo la pieza fuera', async () => {
+    const deOctubre = { ...RETRASADA, fecha_inicio: '2026-10-20', fecha_fin: '2026-10-25', fin_ocupacion: '2026-10-25', ocupada_hasta: '2026-10-27' };
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([deOctubre])));
+    const { user } = await montar();
+    await elegir(user);
+    expect(screen.getByText('1 reserva en noviembre de 2026.')).toBeInTheDocument();
+  });
+
   it('una reserva de otra pieza no se pinta aunque el servidor la mande', async () => {
     getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([{ ...ALQUILER, pieza: MESA }])));
     const { user } = await montar();
@@ -420,6 +438,14 @@ describe('CalendarioPieza: ir de mes en mes', () => {
     await act(async () => lectura.resolver(ok(calendario([], { desde: '2026-12-01', hasta: '2026-12-31' }))));
     expect(screen.queryByText('Cargando el calendario…')).toBeNull();
     expect(screen.getByRole('table', { name: 'Calendario de Sofá Lumina, diciembre de 2026' })).toBeInTheDocument();
+  });
+
+  it('el día de hoy marcado es el del servidor, no el de la pestaña', async () => {
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([], { hoy: '2026-11-11' })));
+    const { user } = await montar();
+    await elegir(user);
+    expect(screen.getByText('miércoles, 11 de noviembre de 2026: libre (hoy)')).toBeInTheDocument();
+    expect(screen.getByText('martes, 10 de noviembre de 2026: libre')).toBeInTheDocument();
   });
 
   it('el mes de hoy sale del servidor si la pestaña llevaba abierta desde ayer', async () => {

@@ -1,5 +1,5 @@
 // El detalle que se abre al pulsar un día o una barra de los calendarios (DetalleOcupacion.jsx). Su
-// lista de mutantes está en scripts/mutantes/calendarios.js.
+// lista de mutantes está en scripts/mutantes/detalleOcupacion.js.
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

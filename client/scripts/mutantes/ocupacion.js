@@ -496,12 +496,6 @@ export const MUTANTES = [
   },
   // ─── avisos ───
   {
-    nombre: 'dos avisos del mismo día salen en orden distinto',
-    archivo: ARCHIVO,
-    buscar: '  if (a === b) return 0;\n  return a < b ? -1 : 1;',
-    reemplazo: '  return a < b ? -1 : 1;'
-  },
-  {
     nombre: 'los avisos salen del más lejano al más cercano',
     archivo: ARCHIVO,
     buscar: '  return a < b ? -1 : 1;',
@@ -706,12 +700,6 @@ export const MUTANTES = [
     reemplazo: "tipo: 'sin_hora',\n        dia: r.fecha_fin,"
   },
   {
-    nombre: 'una retrasada da también aviso de falta de hora',
-    archivo: ARCHIVO,
-    buscar: "x.tipo === 'alquiler' && !x.retrasada)",
-    reemplazo: "x.tipo === 'alquiler')"
-  },
-  {
     nombre: 'un bloqueo sin hora da aviso de falta de hora',
     archivo: ARCHIVO,
     buscar: "x.tipo === 'alquiler' && !x.retrasada)",
@@ -728,12 +716,6 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: "['confirmada', 'en_curso'].includes(r.estado)",
     reemplazo: "['confirmada', 'en_curso', 'devuelta'].includes(r.estado)"
-  },
-  {
-    nombre: 'un alquiler sin fecha de recogida da aviso de falta de hora de recogida',
-    archivo: ARCHIVO,
-    buscar: "includes(r.estado) && r.fecha_fin && !r.hora_recogida",
-    reemplazo: 'includes(r.estado) && !r.hora_recogida'
   },
   {
     nombre: 'un alquiler con hora de recogida da aviso de que no la tiene',

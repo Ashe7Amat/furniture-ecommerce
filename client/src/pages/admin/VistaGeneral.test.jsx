@@ -1,5 +1,5 @@
 // La vista general de ocupación (VistaGeneral.jsx). Su lista de mutantes está en
-// scripts/mutantes/calendarios.js.
+// scripts/mutantes/vistaGeneral.js.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -201,6 +201,16 @@ describe('VistaGeneral: la ventana', () => {
     expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
   });
 
+  it('«Hoy» también cierra el detalle', async () => {
+    const { user } = await montar();
+    await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
+    await user.click(await screen.findByRole('button', { name: /^bloqueo C3D4E5F6/ }));
+    expect(screen.getByRole('region', { name: 'Detalle de la reserva' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Hoy' }));
+    expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
+  });
+
   it('cambiar de ventana cierra el detalle', async () => {
     const { user } = await montar();
     await user.click(barra('Sofá Lumina', /^alquiler A1B2C3D4/));
@@ -234,6 +244,13 @@ describe('VistaGeneral: la rejilla', () => {
     const uno = await montar();
     expect(screen.getByText('1 pieza tiene reservas en los 30 días que se ven.')).toBeInTheDocument();
     uno.unmount();
+
+    // Dos reservas de la misma pieza siguen siendo una pieza.
+    const otra = { ...ALQUILER, id: 'r9', referencia: '9A0B1C2D', fecha_inicio: '2026-11-20', fin_ocupacion: '2026-11-22', ocupada_hasta: '2026-11-24' };
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([ALQUILER, otra])));
+    const dos = await montar();
+    expect(screen.getByText('1 pieza tiene reservas en los 30 días que se ven.')).toBeInTheDocument();
+    dos.unmount();
 
     getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([])));
     await montar();
@@ -322,6 +339,15 @@ describe('VistaGeneral: la rejilla', () => {
     expect(fila('Mesa de roble').getAllByRole('button')).toHaveLength(1);
   });
 
+  it('la franja «Fuera» llega hasta el día de hoy del servidor, no hasta el de la pestaña', async () => {
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([RETRASADA], { hoy: '2026-11-12' })));
+    await montar();
+
+    const franja = fila('Mesa de roble').getByRole('button', { name: /la pieza sigue fuera$/ });
+    // Del 8 al 12, hoy incluido; la ventana empieza el 10: las columnas 1, 2 y 3.
+    expect(franja.style.gridColumn).toBe('1 / 4');
+  });
+
   it('una retrasada cuya ocupación aún se ve tiene la barra y la franja', async () => {
     getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([RETRASADA])));
     const { user } = await montar();
@@ -342,6 +368,17 @@ describe('VistaGeneral: la rejilla', () => {
 
     await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
     expect(marcas()).toHaveLength(0);
+  });
+
+  it('la marca de hoy sale el último día de la ventana y no sale cuando hoy queda detrás', async () => {
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([ALQUILER], { hoy: '2026-12-09' })));
+    const ultimo = await montar();
+    expect(ultimo.container.querySelector('.ocupacion-hoy').style.gridColumn).toBe('30 / 31');
+    ultimo.unmount();
+
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([ALQUILER], { hoy: '2026-12-10' })));
+    const detras = await montar();
+    expect(detras.container.querySelectorAll('.ocupacion-hoy')).toHaveLength(0);
   });
 
   it('con hoy en medio de la ventana, su columna es la que toca', async () => {

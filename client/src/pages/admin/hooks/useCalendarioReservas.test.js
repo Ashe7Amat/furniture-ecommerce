@@ -96,6 +96,40 @@ describe('useCalendarioReservas', () => {
     expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ ...NOVIEMBRE, muebleId: 'm2' });
   });
 
+  it('con otra pieza no enseña los datos de la anterior mientras llega la nueva', async () => {
+    const { result, rerender } = await montar(NOVIEMBRE);
+    expect(result.current.datos).not.toBeNull();
+
+    const lectura = diferida();
+    getCalendarioReservasAdmin.mockReturnValue(lectura.promesa);
+    await act(async () => rerender({ ...NOVIEMBRE, muebleId: 'm2' }));
+    expect(result.current.datos).toBeNull();
+    expect(result.current.cargando).toBe(true);
+
+    await act(async () => lectura.resolver(ok(calendario(NOVIEMBRE.desde, NOVIEMBRE.hasta, ['r9']))));
+    expect(result.current.datos.reservas).toEqual([{ id: 'r9' }]);
+  });
+
+  it('en el mismo instante en que cambia el rango ya dice que está cargando (no hay un momento vacío)', async () => {
+    const dibujados = [];
+    let hook;
+    await act(async () => {
+      hook = renderHook(
+        (p) => {
+          const lectura = useCalendarioReservas(p);
+          dibujados.push(lectura.cargando);
+          return lectura;
+        },
+        { initialProps: NOVIEMBRE }
+      );
+    });
+    expect(hook.result.current.cargando).toBe(false);
+
+    dibujados.length = 0;
+    await act(async () => hook.rerender(DICIEMBRE));
+    expect(dibujados[0]).toBe(true);
+  });
+
   it('si no cambia nada, no se vuelve a leer', async () => {
     const { rerender } = await montar(NOVIEMBRE);
     await act(async () => rerender({ ...NOVIEMBRE }));
@@ -130,6 +164,14 @@ describe('useCalendarioReservas', () => {
     getCalendarioReservasAdmin.mockResolvedValue({ data: null, error: null, status: 0 });
     const { result } = await montar(NOVIEMBRE);
     expect(result.current.error).toBe('No se ha podido cargar el calendario de reservas.');
+  });
+
+  it('una lectura que no devuelve nada es un fallo, no un error del programa', async () => {
+    getCalendarioReservasAdmin.mockResolvedValue(undefined);
+    const { result } = await montar(NOVIEMBRE);
+    expect(result.current.datos).toBeNull();
+    expect(result.current.error).toBe('No se ha podido cargar el calendario de reservas.');
+    expect(result.current.cargando).toBe(false);
   });
 
   it('una respuesta sin lista de reservas es un fallo', async () => {

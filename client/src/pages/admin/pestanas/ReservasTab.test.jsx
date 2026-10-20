@@ -2579,6 +2579,32 @@ describe('Reservas — calendarios', () => {
     expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-10-13', hasta: '2026-11-11', muebleId: undefined });
   });
 
+  it('el calendario por pieza escondido tampoco lee, y al actualizar con él abierto sí', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    await waitFor(() => expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
+  });
+
+  it('la vista general recuerda los días elegidos al volver de la lista', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(await screen.findByRole('button', { name: '60 días' }));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(screen.queryByRole('group', { name: 'Cuántos días ver' })).toBeNull();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(screen.getByRole('button', { name: '60 días' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('un calendario escondido no lee nada aunque cambie algo: se lee al volver a él', async () => {
     const { user } = await montar();
     await user.click(modos().getByRole('button', { name: 'Vista general' }));
