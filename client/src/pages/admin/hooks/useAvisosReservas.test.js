@@ -5,6 +5,9 @@ import useAvisosReservas from './useAvisosReservas';
 
 vi.mock('../../../services/api');
 
+// El mismo objeto en cada render, como el `user` del contexto: si cambiara de identidad, el hook se
+// volvería a ejecutar por eso y no por el cambio de pestaña que se quiere probar.
+const USUARIO = { email: 'a@a.com' };
 const RESUMEN = { hoy: '2026-10-20', total: 3, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 0 };
 const ok = (data) => ({ data, error: null, status: 200 });
 
@@ -17,7 +20,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-const montar = async (user = { email: 'a@a.com' }, vista = 'resumen') => {
+const montar = async (user = USUARIO, vista = 'resumen') => {
   let hook;
   await act(async () => {
     hook = renderHook(({ usuario, pestana }) => useAvisosReservas(usuario, pestana), {
@@ -54,7 +57,7 @@ describe('useAvisosReservas', () => {
     const { result, rerender } = await montar();
     getResumenReservasAdmin.mockResolvedValue(ok({ ...RESUMEN, total: 2, retrasadas: 1 }));
 
-    await act(async () => rerender({ usuario: { email: 'a@a.com' }, pestana: 'reservas' }));
+    await act(async () => rerender({ usuario: USUARIO, pestana: 'reservas' }));
     expect(getResumenReservasAdmin).toHaveBeenCalledTimes(2);
     expect(result.current.avisos.total).toBe(2);
 
