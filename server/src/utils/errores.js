@@ -13,4 +13,34 @@ class ErrorValidacion extends Error {
   }
 }
 
-module.exports = { ErrorValidacion };
+// Una petición bien formada que choca con lo que ya hay: unas fechas que alguien acaba de reservar,
+// o una segunda reserva a medio pagar del mismo cliente (docs/reservas-diseno.md, 4.3). Su mensaje
+// también se puede enseñar tal cual, pero se responde 409 y no 400: así la web sabe que no es un dato
+// mal escrito y puede volver a cargar la disponibilidad.
+class ErrorConflicto extends ErrorValidacion {
+  constructor(mensaje) {
+    super(mensaje);
+    this.name = 'ErrorConflicto';
+  }
+}
+
+// Un servicio externo (Stripe) ha fallado de una forma que no deja saber cómo ha quedado la
+// operación. Nada se ha dado por hecho: quien llama puede repetir la petición dentro de un momento
+// (503). Su mensaje se puede enseñar tal cual.
+class ErrorReintentable extends Error {
+  constructor(mensaje) {
+    super(mensaje);
+    this.name = 'ErrorReintentable';
+  }
+}
+
+// Lo que se pide no existe (o no es de quien lo pide: una reserva de otro cliente se trata igual, para
+// no revelar que existe). Se responde 404 con su mensaje.
+class ErrorNoEncontrado extends Error {
+  constructor(mensaje) {
+    super(mensaje);
+    this.name = 'ErrorNoEncontrado';
+  }
+}
+
+module.exports = { ErrorValidacion, ErrorConflicto, ErrorReintentable, ErrorNoEncontrado };

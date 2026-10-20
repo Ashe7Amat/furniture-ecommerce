@@ -89,3 +89,16 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* Reservas por fechas: tras el pago de una reserva, "Ver mis reservas" y "Volver a la tienda". */
+.checkout-resultado-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* El título del resultado de una reserva recibe el foco al llegar (para el lector de pantalla), sin marco. */
+.checkout-resultado-titulo-reserva:focus {
+  outline: none;
+}

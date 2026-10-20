@@ -2,8 +2,15 @@ const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
+const reservas = require('../utils/reservas');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
+const {
+  leerOcupacionParaCompra,
+  cancelarVentasDeLaPieza,
+  CODIGO_CLAVE_AJENA
+} = require('../utils/calendarioReservas');
+const { fechaLegible, sumarDias } = require('../utils/fechasMadrid');
 const { escaparIlike } = require('../utils/ilike');
 const { insertarMuebleConReferencia } = require('../utils/altaMueble');
 const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
@@ -232,6 +239,18 @@ const editarMueble = async (req, res) => {
       updateData.imagenes = imagenesFinales;
     }
 
+    // De `vendido` a `disponible`: la venta del calendario se cancela antes (cancelarVentasDeLaPieza).
+    // Antes y no después: si falla el cambio de estado, el reintento la vuelve a ver `vendido`.
+    if (estado === 'disponible') {
+      const { data: antes, error: errorAntes } = await supabase
+        .from('muebles')
+        .select('estado')
+        .eq('id', id)
+        .maybeSingle();
+      if (errorAntes) throw errorAntes;
+      if (antes?.estado === 'vendido') await cancelarVentasDeLaPieza(id);
+    }
+
     const { data, error } = await supabase.from('muebles').update(updateData).eq('id', id).select();
 
     if (error) throw error;
@@ -247,6 +266,14 @@ const eliminarMueble = async (req, res) => {
   try {
     const { id } = req.params;
     const { error } = await supabase.from('muebles').delete().eq('id', id);
+    // Las filas del calendario (reservas, ventas, bloqueos; también las canceladas) se guardan como
+    // historial y no dejan borrar su pieza (ON DELETE RESTRICT, docs/reservas-diseno.md).
+    if (error?.code === CODIGO_CLAVE_AJENA) {
+      return res.status(409).json({
+        error:
+          'No se puede borrar: esta pieza tiene ventas o reservas registradas en el calendario, y se guardan como historial.'
+      });
+    }
     if (error) throw error;
     res
       .status(200)
@@ -326,7 +353,31 @@ const construirLineasDesdeCarrito = async (items) => {
       precio: precioReal
     });
   }
+  await comprobarCalendarioDeCompras(lineas);
   return lineas;
+};
+
+// Reservas por fechas (docs/reservas-diseno.md, 6.7): no se cobra la compra de una pieza que tiene
+// algo en el calendario de hoy en adelante (un alquiler, un bloqueo o una venta). La ficha ya quita
+// el botón de compra, pero la API es pública. Si alguien la reserva entre este momento y el pago, lo
+// detecta la confirmación (utils/pagos.js) y avisa al administrador.
+const comprobarCalendarioDeCompras = async (lineas) => {
+  const compras = lineas.filter((l) => l.modalidad === 'compra');
+  if (compras.length === 0) return;
+  const ocupacion = await leerOcupacionParaCompra(compras.map((l) => l.productId));
+  for (const linea of compras) {
+    const ocupada = ocupacion.get(linea.productId);
+    if (!ocupada) continue;
+    if (ocupada.vendida || ocupada.hasta === null) {
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${linea.nombre}" ya ha sido vendida.`
+      );
+    }
+    // `hasta` es el primer día libre: el último ocupado es el anterior.
+    throw new ErrorValidacion(
+      `"${linea.nombre}" tiene reservas o está bloqueada hasta el ${fechaLegible(sumarDias(ocupada.hasta, -1))}; no se puede comprar ahora.`
+    );
+  }
 };
 
 // 7. Crear una sesión de pago real con Stripe (modo test o real según la clave configurada)
@@ -393,6 +444,17 @@ const crearSesionPago = async (req, res) => {
   }
 };
 
+const MENSAJES_RESERVA_PAGADA = {
+  // La página de éxito pone el título (Reserva confirmada, Esas fechas ya no estaban libres, Pago
+  // recibido): el mensaje no lo repite (19 oct).
+  confirmada: 'Te hemos enviado los detalles por email.',
+  conflicto:
+    'Hemos recibido tu pago, pero se ocuparon mientras pagabas. Te devolveremos el importe y te escribiremos por email.',
+  procesando: 'Estamos confirmando tu reserva y te llegará un email en cuanto esté.',
+  // Pagada, confirmada y cancelada después desde el panel (19 oct): ni conflicto ni otro email.
+  cancelada: 'Esta reserva está cancelada. Si tienes cualquier duda, escríbenos.'
+};
+
 // 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
 // (POST /api/stripe/webhook), que es quien normalmente registra la venta: si el webhook ya
 // la registró, o llega mientras tanto, procesarSesionPagada lo detecta y no repite nada.
@@ -420,8 +482,12 @@ const confirmarSesion = async (req, res) => {
     // base de datos falla un momento), al comprador no se le dice que su pago ha fallado.
     // Si hay webhook configurado, Stripe volverá a intentarlo solo; si no lo hay, nadie lo
     // reintentará, así que se avisa por email al administrador para que lo registre a mano.
+    const esReserva = session.metadata?.tipo === 'reserva';
+    let resultado = null;
     try {
-      await pagos.procesarSesionPagada(session);
+      resultado = esReserva
+        ? await reservas.procesarReservaPagada(session)
+        : await pagos.procesarSesionPagada(session);
     } catch (error) {
       console.error(
         `No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`,
@@ -432,10 +498,26 @@ const confirmarSesion = async (req, res) => {
       }
     }
 
+    const total = (session.amount_total || 0) / 100;
+    if (esReserva) {
+      // Reservas por fechas (6.4): la página de éxito necesita saber si las fechas son suyas, si
+      // el pago llegó cuando ya eran de otra persona (se le devolverá) o si ya se canceló.
+      const estado = ['confirmada', 'conflicto', 'cancelada'].includes(resultado?.estado)
+        ? resultado.estado
+        : 'procesando';
+      return res.status(200).json({
+        success: true,
+        tipo: 'reserva',
+        estado,
+        message: MENSAJES_RESERVA_PAGADA[estado],
+        total
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Pago confirmado. El catálogo ha sido actualizado.',
-      total: (session.amount_total || 0) / 100
+      total
     });
   } catch (error) {
     console.error('Error al confirmar la sesión de pago:', error.message);

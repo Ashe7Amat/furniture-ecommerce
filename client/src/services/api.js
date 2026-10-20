@@ -493,3 +493,110 @@ export const marcarMensajeLeido = async (id) => {
     return null;
   }
 };
+
+// ─── Reservas por fechas (docs/reservas-diseno.md) ──────────────────────────────────────────────
+// Todas devuelven { data, error, status } (services/peticion.js) y nunca lanzan: quien llama enseña
+// el motivo que da el servidor (una regla del alquiler, unas fechas que se acaban de ocupar...) y
+// distingue por `status` un 409 (volver a cargar el calendario). Las del cliente con sesión añaden
+// `codigo` cuando el error lo trae: un 403 'email_no_verificado' no es el 403 del alquiler cerrado.
+// Las públicas van con fetch, sin sesión; el servidor responde no-store, así que nada se cachea.
+const publica = (url, opciones) => fetch(url, opciones);
+// Con sesión, como peticion() con apiFetch, más el `codigo` del error si viene. Se lee del mismo
+// cuerpo que luego lee peticion(): la respuesta se le pasa con ese cuerpo ya leído.
+const conCodigo = async (url, opciones, mensajeError) => {
+  let codigo = null;
+  const transporte = async (u, o) => {
+    const response = await apiFetch(u, o);
+    if (response.ok) return response;
+    const cuerpo = await response.json().catch(() => null);
+    if (typeof cuerpo?.codigo === 'string' && cuerpo.codigo) codigo = cuerpo.codigo;
+    return { ok: false, status: response.status, json: async () => cuerpo };
+  };
+  const resultado = await peticion(transporte, url, opciones, mensajeError);
+  return codigo ? { ...resultado, codigo } : resultado;
+};
+const jsonPost = (datos) => ({
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(datos ?? {})
+});
+const consulta = (parametros) => {
+  const params = new URLSearchParams();
+  for (const [clave, valor] of Object.entries(parametros)) {
+    if (valor !== undefined && valor !== null && valor !== '') params.set(clave, valor);
+  }
+  const texto = params.toString();
+  return texto ? `?${texto}` : '';
+};
+
+// Calendario de una pieza: lo ocupado, las reglas y si se puede comprar (GET /api/muebles/:id/disponibilidad).
+export const getDisponibilidad = (muebleId, { desde, hasta } = {}) =>
+  peticion(
+    publica,
+    `${API_URL}/muebles/${encodeURIComponent(muebleId)}/disponibilidad${consulta({ desde, hasta })}`,
+    { cache: 'no-store' },
+    'No se ha podido consultar la disponibilidad.'
+  );
+
+// Precio de unas fechas, calculado por el servidor (GET /api/muebles/:id/presupuesto).
+export const getPresupuestoReserva = (muebleId, seleccion) =>
+  peticion(
+    publica,
+    `${API_URL}/muebles/${encodeURIComponent(muebleId)}/presupuesto${consulta({
+      fecha_inicio: seleccion.fecha_inicio,
+      hora_entrega: seleccion.hora_entrega,
+      fecha_fin: seleccion.fecha_fin,
+      hora_recogida: seleccion.hora_recogida,
+      entrega: seleccion.entrega,
+      recogida: seleccion.recogida
+    })}`,
+    { cache: 'no-store' },
+    'No se ha podido calcular el precio.'
+  );
+
+// Crea la reserva provisional y devuelve { url } de la página de pago de Stripe (con sesión).
+export const crearSesionPagoReserva = (datos) =>
+  conCodigo(`${API_URL}/reservas/sesion-pago`, jsonPost(datos), 'No se pudo iniciar el pago.');
+
+// Las reservas del cliente, para "Mis reservas" (con sesión y el email confirmado).
+export const getMisReservas = () =>
+  conCodigo(`${API_URL}/reservas/mias`, { cache: 'no-store' }, 'No se han podido cargar tus reservas.');
+
+// Pide al administrador que cancele una reserva (no la cancela: en la primera versión cancela él).
+export const solicitarCancelacionReserva = (id, motivo) =>
+  conCodigo(
+    `${API_URL}/reservas/${encodeURIComponent(id)}/solicitar-cancelacion`,
+    jsonPost({ motivo }),
+    'No se ha podido enviar la solicitud.'
+  );
+
+// Panel: la lista de reservas de una vista (proximas, entregas, recogidas, retrasadas, conflicto,
+// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger.
+export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId })}`,
+    { cache: 'no-store' },
+    'No se han podido cargar las reservas.'
+  );
+
+// Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
+// dar-por-reembolsado, levantar-bloqueo), con sus datos. Con `codigo` si el error lo trae: un 409
+// 'entrega_anticipada' o 'reembolso_no_consta' pide confirmar, cualquier otro 409 es una lista que ya
+// no está al día, y un 502 'reembolso_a_medias' es una acción hecha cuyo reembolso quedó a medias.
+export const accionReservaAdmin = (id, accion, datos) =>
+  conCodigo(
+    `${API_URL}/admin/reservas/${encodeURIComponent(id)}/${accion}`,
+    jsonPost(datos),
+    'No se ha podido completar la acción.'
+  );
+
+// Panel: altas en el calendario sin pago web: un bloqueo, un alquiler pactado fuera de la web o una
+// venta fuera de la web (o con entrega diferida).
+export const crearEnCalendarioAdmin = (tipo, datos) =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/${{ bloqueo: 'bloqueos', alquiler: 'alquileres', venta: 'ventas' }[tipo]}`,
+    jsonPost(datos),
+    'No se ha podido guardar en el calendario.'
+  );

@@ -11,6 +11,7 @@ const {
   crearSesionPago,
   confirmarSesion
 } = require('../controllers/mueblesController');
+const { obtenerDisponibilidad, obtenerPresupuesto } = require('../controllers/reservasController');
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -81,6 +82,9 @@ router.post(
 router.get('/confirmar-sesion', limitadorConfirmacion, confirmarSesion);
 
 router.get('/:id', obtenerMueblePorId);
+// Reservas por fechas (docs/reservas-diseno.md, 7.1 y 7.2): públicas y de solo lectura.
+router.get('/:id/disponibilidad', obtenerDisponibilidad);
+router.get('/:id/presupuesto', obtenerPresupuesto);
 
 // Gestión del catálogo: solo administradores autenticados
 // validar() va DESPUÉS de upload.array(): multer es quien rellena req.body a partir del

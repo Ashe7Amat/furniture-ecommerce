@@ -50,6 +50,9 @@ const fetchFalso = async (url, init = {}) => {
     return json(200, [{ id: 'cliente-1' }]);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'POST') return json(201);
   if (peticion.ruta === '/rest/v1/pedidos' && peticion.metodo === 'GET') return json(200, []);
+  // Reservas por fechas (6.7): limpiar las provisionales caducadas y la fila de venta.
+  if (peticion.ruta === '/rest/v1/reservas' && peticion.metodo === 'PATCH') return json(204);
+  if (peticion.ruta === '/rest/v1/reservas' && peticion.metodo === 'POST') return json(201);
   return json(404, {
     message: `Petición no prevista en el test: ${peticion.metodo} ${peticion.ruta}`
   });
@@ -78,9 +81,13 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
   test('hace exactamente las peticiones esperadas y en este orden', () => {
     assert.deepEqual(
       peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      // CAMBIADO A PROPÓSITO (13 oct 2026): la fila de venta en el calendario, antes de marcar la
+      // pieza (reservas por fechas, docs/reservas-diseno.md 6.7).
       [
         'GET /rest/v1/pedidos', // ¿la sesión ya tiene pedido?
         'GET /rest/v1/muebles', // cargar las piezas
+        'PATCH /rest/v1/reservas', // limpiar las provisionales caducadas de la pieza (4.6)
+        'POST /rest/v1/reservas', // la fila de venta (6.7)
         'PATCH /rest/v1/muebles', // marcar como vendida (condicional)
         'GET /rest/v1/clientes', // ¿el email del comprador es de una cuenta? (migración B)
         'POST /rest/v1/pedidos', // registrar el pedido
@@ -110,6 +117,29 @@ describe('contrato de las consultas de pagos.js con supabase-js real', () => {
       'referencia'
     ]);
     assert.match(params.id, /^in\.\(.*mueble-1.*\)$/);
+  });
+
+  test('la fila de venta: limpia las caducadas de la pieza y la inserta con un INSERT normal', () => {
+    const [limpieza] = de('PATCH', '/rest/v1/reservas');
+    assert.deepEqual(limpieza.cuerpo, { estado: 'expirada' });
+    assert.equal(limpieza.params.mueble_id, 'eq.mueble-1');
+    assert.equal(limpieza.params.estado, 'eq.pendiente');
+    assert.match(limpieza.params.expira_en, /^lt\./);
+
+    const [insercion] = de('POST', '/rest/v1/reservas');
+    assert.equal(insercion.params.on_conflict, undefined, 'nunca upsert (3.2)');
+    assert.doesNotMatch(insercion.prefer ?? '', /resolution=/, 'nunca ignoreDuplicates (3.2)');
+    const { historial, fecha_inicio, ...resto } = insercion.cuerpo;
+    assert.deepEqual(resto, {
+      mueble_id: 'mueble-1',
+      tipo: 'venta',
+      estado: 'confirmada',
+      stripe_session_id: 'cs_test_123',
+      origen: 'web'
+    });
+    assert.match(fecha_inicio, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(historial.length, 1);
+    assert.equal(historial[0].tipo, 'creada');
   });
 
   test('marcar la pieza: PATCH condicional (solo si sigue disponible) que devuelve las filas afectadas', () => {
