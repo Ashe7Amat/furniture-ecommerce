@@ -2020,3 +2020,436 @@ describe('Reservas — agenda de hoy y mañana', () => {
     });
   });
 });
+
+describe('Reservas — buscar', () => {
+  const ENCONTRADAS = [ALQUILER, RETRASADA];
+  const formulario = () => within(screen.getByRole('search', { name: 'Buscar reservas' }));
+  const buscar = async (user, { q = '', desde = '', hasta = '' }) => {
+    if (q) {
+      await user.clear(formulario().getByRole('searchbox'));
+      await user.type(formulario().getByRole('searchbox'), q);
+    }
+    if (desde) fireEvent.change(formulario().getByLabelText('Desde el día'), { target: { value: desde } });
+    if (hasta) fireEvent.change(formulario().getByLabelText('Hasta el día'), { target: { value: hasta } });
+    await user.click(formulario().getByRole('button', { name: 'Buscar' }));
+  };
+  const respuesta = (reservas, limitada) => ok({ hoy: HOY, reservas, ...(limitada !== undefined && { limitada }) });
+  const resumen = () => document.querySelector('.reservas-busqueda-resumen');
+  const pulsadas = () =>
+    within(screen.getByRole('group', { name: 'Qué reservas ver' }))
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+      .map((b) => b.textContent);
+
+  it('el buscador está bajo las vistas y encima de la lista', async () => {
+    await montar();
+    const vistas = screen.getByRole('group', { name: 'Qué reservas ver' });
+    const buscador = screen.getByRole('search', { name: 'Buscar reservas' });
+    const lista = screen.getByRole('list');
+
+    expect(vistas.compareDocumentPosition(buscador) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(buscador.compareDocumentPosition(lista) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('buscar por texto pide la búsqueda al servidor, enseña lo encontrado y cuántas son', async () => {
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, false));
+
+    await buscar(user, { q: 'ana' });
+
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    expect(await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeNull();
+    expect(resumen()).toHaveTextContent('2 reservas encontradas. Búsqueda: «ana».');
+    expect(resumen()).toHaveAttribute('role', 'status');
+    expect(screen.queryByText('2 reservas')).toBeNull();
+  });
+
+  it('una sola encontrada, en singular', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], false));
+
+    await buscar(user, { q: 'ana' });
+
+    await waitFor(() => expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: «ana».'));
+  });
+
+  it('por fechas, con el texto o sin él', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+
+    await buscar(user, { desde: '2026-11-02' });
+    await waitFor(() => expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: desde el 02/11/2026.'));
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: '', desde: '2026-11-02', hasta: '' });
+
+    await buscar(user, { q: 'sofá', hasta: '2026-11-09' });
+    await waitFor(() =>
+      expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: «sofá», del 02/11/2026 al 09/11/2026.')
+    );
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'sofá', desde: '2026-11-02', hasta: '2026-11-09' });
+  });
+
+  it('mientras hay una búsqueda, ninguna vista está elegida y no se describe ninguna', async () => {
+    const { user } = await montar();
+    expect(pulsadas()).toEqual(['Próximas']);
+    expect(document.querySelector('.reservas-vista-ayuda')).not.toBeNull();
+    getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
+
+    await buscar(user, { q: 'ana' });
+    await screen.findByText(/2 reservas encontradas/);
+
+    expect(pulsadas()).toEqual([]);
+    expect(document.querySelector('.reservas-vista-ayuda')).toBeNull();
+  });
+
+  it('sin resultados lo dice con la búsqueda, no con el texto de la vista', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([], false));
+
+    await buscar(user, { q: 'zzz', desde: '2026-11-02', hasta: '2026-11-09' });
+
+    expect(
+      await screen.findByText('Ninguna reserva coincide con la búsqueda: «zzz», del 02/11/2026 al 09/11/2026.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('No hay reservas próximas.')).toBeNull();
+    expect(resumen()).toBeNull();
+  });
+
+  describe('el límite de la búsqueda', () => {
+    const AVISO =
+      'Hay más reservas de las que caben en una búsqueda: se miran las 1000 más recientes y se enseñan 200 como mucho. Afina el texto o las fechas.';
+
+    it('si el servidor dice que no pudo mirar o enseñar todo, avisa de que hay que afinar', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, true));
+
+      await buscar(user, { q: 'ana' });
+
+      expect(await screen.findByText(AVISO)).toBeInTheDocument();
+      expect(screen.getByText(AVISO)).toHaveAttribute('role', 'status');
+    });
+
+    it('también cuando no encontró nada', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta([], true));
+
+      await buscar(user, { q: 'ana' });
+
+      expect(await screen.findByText(AVISO)).toBeInTheDocument();
+      expect(screen.getByText(/Ninguna reserva coincide/)).toBeInTheDocument();
+    });
+
+    it('si no, no sale', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, false));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/2 reservas encontradas/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('fuera de una búsqueda no sale, aunque la respuesta traiga `limitada`', async () => {
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], true));
+      await act(async () => {
+        render(
+          <ToastContext.Provider value={{ showToast }}>
+            <ReservasTab muebles={MUEBLES} />
+          </ToastContext.Provider>
+        );
+      });
+
+      expect(screen.getByText('1 reserva')).toBeInTheDocument();
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('el aviso de una búsqueda no se queda en la siguiente', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, true));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(AVISO);
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], false));
+
+      await buscar(user, { q: 'ana pérez' });
+
+      await screen.findByText(/1 reserva encontrada/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+  });
+
+  it('mientras se busca sale «Cargando reservas…»', async () => {
+    const { user } = await montar();
+    const carga = diferida();
+    getReservasAdmin.mockReturnValue(carga.promesa);
+
+    await buscar(user, { q: 'ana' });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando reservas…');
+    await act(async () => carga.resolver(respuesta(ENCONTRADAS)));
+    expect(screen.queryByText('Cargando reservas…')).toBeNull();
+  });
+
+  it('una segunda búsqueda sustituye a la primera', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+    await buscar(user, { q: 'ana' });
+    await screen.findByText(/1 reserva encontrada/);
+    getReservasAdmin.mockResolvedValue(respuesta([RETRASADA, BLOQUEO]));
+
+    await buscar(user, { q: 'mesa' });
+
+    await screen.findByText('2 reservas encontradas. Búsqueda: «mesa».');
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+  });
+
+  it('si la respuesta de la lista de antes llega tarde, no pisa la búsqueda', async () => {
+    const vieja = diferida();
+    getReservasAdmin.mockReturnValueOnce(vieja.promesa).mockResolvedValue(respuesta([RETRASADA]));
+    const user = userEvent.setup();
+    render(
+      <ToastContext.Provider value={{ showToast }}>
+        <ReservasTab muebles={MUEBLES} />
+      </ToastContext.Provider>
+    );
+
+    await buscar(user, { q: 'mesa' });
+    await screen.findByRole('heading', { level: 3, name: /^Mesa de roble/ });
+    await act(async () => vieja.resolver(respuesta([ALQUILER])));
+
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+    expect(screen.getByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+  });
+
+  it('si la búsqueda falla, enseña el error y «Reintentar» repite la búsqueda', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(falla('No se han podido cargar las reservas.', 500));
+
+    await buscar(user, { q: 'ana' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se han podido cargar las reservas.');
+
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    await screen.findByText(/1 reserva encontrada/);
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+  });
+
+  describe('salir de la búsqueda', () => {
+    const conBusqueda = async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/2 reservas encontradas/);
+      return { user };
+    };
+
+    it('elegir una vista la deja: pide esa vista sin búsqueda, la marca y vacía los campos', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'todas' }));
+      expect(pulsadas()).toEqual(['Todas']);
+      expect(await screen.findByText('1 reserva')).toBeInTheDocument();
+      expect(resumen()).toBeNull();
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+      expect(document.querySelector('.reservas-vista-ayuda')).not.toBeNull();
+    });
+
+    it('elegir la vista que ya estaba elegida también la deja, y vuelve a leerla', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+      expect(await screen.findByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+      expect(resumen()).toBeNull();
+    });
+
+    it('«Limpiar búsqueda» vuelve a la vista que se veía antes, recargada, con el foco en el texto', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(formulario().getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+      expect(await screen.findByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+      expect(formulario().getByRole('searchbox')).toHaveFocus();
+    });
+
+    it('«Buscar» con los campos vacíos hace lo mismo', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+      await user.clear(formulario().getByRole('searchbox'));
+
+      await user.click(formulario().getByRole('button', { name: 'Buscar' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+    });
+
+    it('limpiar lo escrito sin haber buscado no vuelve a leer la lista', async () => {
+      const { user } = await montar();
+      await user.type(formulario().getByRole('searchbox'), 'ana');
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+      await user.click(formulario().getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+    });
+
+    it('«Ver reserva» de la agenda deja la búsqueda y lleva a la vista de esa entrega', async () => {
+      getAgendaReservasAdmin.mockResolvedValue(
+        ok({
+          hoy: HOY,
+          manana: '2026-10-14',
+          trayectos: [
+            {
+              clave: 'r1:entrega',
+              tipo: 'entrega',
+              dia: HOY,
+              hora: '10:00',
+              modo: 'domicilio',
+              atrasada: false,
+              prevista: null,
+              reserva: {
+                id: 'r1',
+                referencia: 'A1B2C3D4',
+                pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
+                cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+                direccion: null
+              }
+            }
+          ]
+        })
+      );
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta([RETRASADA]));
+      await buscar(user, { q: 'mesa' });
+      await screen.findByText(/1 reserva encontrada/);
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+      expect(pulsadas()).toEqual(['Entregas hoy y mañana']);
+      expect(resumen()).toBeNull();
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+    });
+
+    it('una acción hecha a medias (reembolso) lleva a «Reembolsos a medias» y deja la búsqueda', async () => {
+      accionReservaAdmin.mockResolvedValue({
+        data: null,
+        error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+        status: 502,
+        codigo: 'reembolso_a_medias'
+      });
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/1 reserva encontrada/);
+      await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+      await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+      await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+      await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'reembolsos' }));
+      expect(pulsadas()).toEqual(['Reembolsos a medias']);
+      expect(resumen()).toBeNull();
+    });
+  });
+
+  describe('trabajar sobre los resultados', () => {
+    const conResultados = async (reservas = [ALQUILER]) => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta(reservas));
+      await buscar(user, { q: 'ana' });
+      await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ });
+      return { user };
+    };
+
+    it('«Actualizar» repite la búsqueda', async () => {
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('una acción cambia la tarjeta en su sitio y el aviso habla de la búsqueda; «Actualizar la lista» la repite', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger', 'ampliar'] } })
+      );
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      expect(await within(screen.getByRole('list')).findByText('Entregada')).toBeInTheDocument();
+      expect(screen.getByText(/Has cambiado una reserva/)).toHaveTextContent(
+        'Has cambiado una reserva. Actualiza la lista para quitar de esta búsqueda las que ya no encajan.'
+      );
+      expect(getReservasAdmin).toHaveBeenCalledTimes(2);
+      expect(resumen()).toHaveTextContent('1 reserva encontrada');
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar la lista' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('fuera de una búsqueda el aviso sigue hablando de la vista', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...BLOQUEO, estado: 'cancelada', etiqueta: 'Cancelada', acciones: [] } })
+      );
+      const { user } = await montar({ reservas: [BLOQUEO] });
+
+      await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+      expect(await screen.findByText(/Has cambiado una reserva/)).toHaveTextContent(
+        'Actualiza la lista para quitar de esta vista las que ya no encajan.'
+      );
+    });
+
+    it('si otra persona cambió la reserva (409), se recarga la búsqueda, no la vista', async () => {
+      accionReservaAdmin.mockResolvedValue(falla('La reserva ya no está así.', 409));
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('un alta en el calendario recarga la búsqueda', async () => {
+      crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+      const { user } = await conResultados();
+      await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+      await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+      fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+      await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+      await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('la lista de una búsqueda sale con el recuento de la búsqueda y sin el de la vista «Todas»', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      getReservasAdmin.mockResolvedValue(respuesta(Array.from({ length: 200 }, (_, i) => ({ ...ALQUILER, id: `x${i}` }))));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/200 reservas encontradas/);
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
+  });
+});

@@ -2,9 +2,10 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { getReservasAdmin, accionReservaAdmin, crearEnCalendarioAdmin } from '../../../services/api';
 import { eurosDeCentimos, fechaCorta, fechaLarga } from '../../../utils/reservas';
-import { VISTAS, centimosDeEuros, hoyMasReciente } from '../reservasAdmin';
+import { VISTAS, centimosDeEuros, hoyMasReciente, textoResultados } from '../reservasAdmin';
 import TarjetaReserva from '../TarjetaReserva';
 import AgendaReservas from '../AgendaReservas';
+import BuscadorReservas from '../BuscadorReservas';
 import useAgendaReservas from '../hooks/useAgendaReservas';
 import ConfirmarReservaModal from '../modales/ConfirmarReservaModal';
 import AmpliarReservaModal from '../modales/AmpliarReservaModal';
@@ -41,8 +42,10 @@ const CODIGOS_CON_CONFIRMACION = ['entrega_anticipada', 'reembolso_no_consta'];
 const CODIGO_A_MEDIAS = 'reembolso_a_medias';
 const esReembolsoAMedias = ({ status, codigo }) => status === 502 && codigo === CODIGO_A_MEDIAS;
 const EXITO_ALTA = { bloqueo: 'Fechas bloqueadas', alquiler: 'Alquiler registrado', venta: 'Venta registrada' };
-// «Todas» muestra como mucho las 200 más recientes (MAX_TODAS del servidor).
+// «Todas» muestra como mucho las 200 más recientes (MAX_TODAS del servidor). Una búsqueda mira las 1000
+// más recientes (MAX_BUSQUEDA) y enseña como mucho esas mismas 200.
 const MAX_TODAS = 200;
+const MAX_BUSQUEDA = 1000;
 // Lo que se añade a un error sin respuesta del servidor (red, un 504, un 500): la acción pudo hacerse.
 const PUDO_GUARDARSE = ' Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.';
 const ALTAS = [
@@ -58,7 +61,11 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   // la vista que ya se dejó.
   const vistaRef = useRef(vista);
   vistaRef.current = vista;
-  const [lista, setLista] = useState({ cargando: true, error: '', hoy: null, reservas: [] });
+  const [lista, setLista] = useState({ cargando: true, error: '', hoy: null, reservas: [], limitada: false });
+  // La búsqueda hecha ({ q, desde, hasta }) o null: mientras la hay, la lista son sus resultados en todas las
+  // reservas y ninguna vista está elegida. Su ref es la de ahora mismo, para lo que se carga después.
+  const [busqueda, setBusqueda] = useState(null);
+  const busquedaRef = useRef(null);
   // Error y aviso de la última acción de cada reserva (por id), debajo de su tarjeta.
   const [errores, setErrores] = useState({});
   const [avisos, setAvisos] = useState({});
@@ -98,7 +105,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
     const numero = ++ultimaCarga.current;
     setListaMovida(false);
     setLista((l) => ({ ...l, cargando: true, error: '' }));
-    const { data, error } = await getReservasAdmin({ vista: vistaPedida });
+    const { data, error } = await getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current });
     if (numero !== ultimaCarga.current) return;
     if (!conservar) {
       setErrores({});
@@ -108,7 +115,8 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
       cargando: false,
       error: error ?? '',
       hoy: data?.hoy ?? null,
-      reservas: Array.isArray(data?.reservas) ? data.reservas : []
+      reservas: Array.isArray(data?.reservas) ? data.reservas : [],
+      limitada: data?.limitada === true
     });
     if (tarjetaPendiente.current) {
       setEnfocar(tarjetaPendiente.current);
@@ -175,6 +183,8 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
       );
       showToast(resultado.error, 'error');
       avisarCambio();
+      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.
+      dejarBusqueda();
       if (vistaRef.current === 'reembolsos') cargar('reembolsos');
       else setVista('reembolsos');
     } else if (!resultado.error) {
@@ -328,8 +338,31 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
     avisarCambio();
   };
 
+  const dejarBusqueda = () => {
+    busquedaRef.current = null;
+    setBusqueda(null);
+  };
+
+  const buscar = (filtros) => {
+    tarjetaPendiente.current = null;
+    busquedaRef.current = filtros;
+    setBusqueda(filtros);
+    cargar(vistaRef.current);
+  };
+
+  const quitarBusqueda = () => {
+    if (!busquedaRef.current) return;
+    dejarBusqueda();
+    cargar(vistaRef.current);
+  };
+
+  // Elegir una vista deja la búsqueda. Si era la que ya estaba elegida no cambia el estado: se recarga a mano.
   const elegirVista = (id) => {
     tarjetaPendiente.current = null;
+    if (busquedaRef.current) {
+      dejarBusqueda();
+      if (id === vistaRef.current) cargar(id);
+    }
     setVista(id);
   };
 
@@ -337,13 +370,20 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
   const verTrayecto = ({ tipo, reserva }) => {
     const destino = tipo === 'entrega' ? 'entregas' : 'recogidas';
     tarjetaPendiente.current = reserva.id;
+    dejarBusqueda();
     if (vistaRef.current === destino) cargar(destino);
     else setVista(destino);
   };
 
   const cerrarDialogo = () => setDialogo(null);
   const propsDialogo = { enviando: enviando !== null, error: errorDialogo, onCerrar: cerrarDialogo };
-  const { cargando, error, hoy, reservas } = lista;
+  const { cargando, error, hoy, reservas, limitada } = lista;
+  const avisoLimite = busqueda && limitada && (
+    <p className="reservas-busqueda-limite" role="status">
+      Hay más reservas de las que caben en una búsqueda: se miran las {MAX_BUSQUEDA} más recientes y se enseñan{' '}
+      {MAX_TODAS} como mucho. Afina el texto o las fechas.
+    </p>
+  );
 
   let contenido;
   if (cargando) {
@@ -356,17 +396,34 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
       </div>
     );
   } else if (reservas.length === 0) {
-    contenido = <p className="admin-empty-note">{VISTAS.find((v) => v.id === vista).vacia}</p>;
+    contenido = (
+      <>
+        <p className="admin-empty-note">
+          {busqueda ? textoResultados(busqueda, 0) : VISTAS.find((v) => v.id === vista).vacia}
+        </p>
+        {avisoLimite}
+      </>
+    );
   } else {
     contenido = (
       <>
-        <p className="admin-result-count">
-          {reservas.length === 1 ? '1 reserva' : `${reservas.length} reservas`}
-          {vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}
-        </p>
+        {busqueda ? (
+          <p className="reservas-busqueda-resumen" role="status">
+            {textoResultados(busqueda, reservas.length)}
+          </p>
+        ) : (
+          <p className="admin-result-count">
+            {reservas.length === 1 ? '1 reserva' : `${reservas.length} reservas`}
+            {vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}
+          </p>
+        )}
+        {avisoLimite}
         {listaMovida && (
           <div className="reservas-lista-movida" role="status">
-            <p>Has cambiado una reserva. Actualiza la lista para quitar de esta vista las que ya no encajan.</p>
+            <p>
+              Has cambiado una reserva. Actualiza la lista para quitar de {busqueda ? 'esta búsqueda' : 'esta vista'} las
+              que ya no encajan.
+            </p>
             <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>
           </div>
         )}
@@ -401,7 +458,7 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
             key={v.id}
             type="button"
             className="reservas-vista"
-            aria-pressed={v.id === vista}
+            aria-pressed={!busqueda && v.id === vista}
             onClick={() => elegirVista(v.id)}
           >
             {v.etiqueta}
@@ -414,7 +471,9 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
           </button>
         ))}
       </div>
-      <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>
+      {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
+
+      <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
 
       <div className="admin-toolbar">
         <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar</button>

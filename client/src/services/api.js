@@ -580,11 +580,13 @@ export const solicitarCancelacionReserva = (id, motivo) =>
   );
 
 // Panel: la lista de reservas de una vista (proximas, entregas, recogidas, retrasadas, conflicto,
-// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger.
-export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
+// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger. Con `q` (cliente,
+// pieza o referencia) o con `desde` y `hasta` (AAAA-MM-DD) es una búsqueda en todas las reservas, y la
+// vista no cuenta.
+export const getReservasAdmin = ({ vista = 'proximas', muebleId, q, desde, hasta } = {}) =>
   peticion(
     apiFetch,
-    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId })}`,
+    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId, q, desde, hasta })}`,
     { cache: 'no-store' },
     'No se han podido cargar las reservas.'
   );

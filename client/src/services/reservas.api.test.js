@@ -309,6 +309,20 @@ describe('del panel, con sesión de administrador', () => {
     expect(peticion().url).toBe(`${API}/admin/reservas?vista=retrasadas&mueble_id=m+1`);
   });
 
+  it('getReservasAdmin: una búsqueda manda el texto y las fechas, bien codificados', async () => {
+    fetch.mockResolvedValue(respuesta(200, {}));
+    await getReservasAdmin({ q: 'ana pérez & co', desde: '2026-11-02', hasta: '2026-11-09' });
+    expect(peticion().url).toBe(
+      `${API}/admin/reservas?vista=proximas&q=ana+p%C3%A9rez+%26+co&desde=2026-11-02&hasta=2026-11-09`
+    );
+  });
+
+  it('getReservasAdmin: lo que está vacío no se manda', async () => {
+    fetch.mockResolvedValue(respuesta(200, {}));
+    await getReservasAdmin({ q: '', desde: '', hasta: undefined });
+    expect(peticion().url).toBe(`${API}/admin/reservas?vista=proximas`);
+  });
+
   it('getResumenReservasAdmin: GET con sesión y sin caché', async () => {
     const resumen = { hoy: '2026-11-02', total: 3, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 0 };
     fetch.mockResolvedValue(respuesta(200, resumen));

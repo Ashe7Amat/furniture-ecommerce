@@ -5,6 +5,8 @@ import {
   VISTAS,
   textoAvisos,
   textoTrayectos,
+  textoBusqueda,
+  textoResultados,
   ETIQUETA_ACCION,
   etiquetaAccion,
   ORIGEN,
@@ -77,6 +79,31 @@ describe('Reservas del panel — textos fijos', () => {
     expect(textoTrayectos([entrega, recogida])).toBe('1 entrega y 1 recogida');
     expect(textoTrayectos([entrega, entrega, recogida, recogida, recogida])).toBe('2 entregas y 3 recogidas');
     expect(textoTrayectos([])).toBe('Nada que entregar ni recoger hoy ni mañana');
+  });
+
+  it('textoBusqueda: lo que se buscó, con el texto entre comillas y las fechas en palabras', () => {
+    expect(textoBusqueda({ q: 'ana pérez' })).toBe('«ana pérez»');
+    expect(textoBusqueda({ desde: '2026-11-02', hasta: '2026-11-09' })).toBe('del 02/11/2026 al 09/11/2026');
+    expect(textoBusqueda({ desde: '2026-11-02', hasta: '2026-11-02' })).toBe('el 02/11/2026');
+    expect(textoBusqueda({ desde: '2026-11-02' })).toBe('desde el 02/11/2026');
+    expect(textoBusqueda({ hasta: '2026-11-09' })).toBe('hasta el 09/11/2026');
+    expect(textoBusqueda({ q: 'sofá', desde: '2026-11-02', hasta: '2026-11-09' })).toBe(
+      '«sofá», del 02/11/2026 al 09/11/2026'
+    );
+    expect(textoBusqueda({ q: 'sofá', hasta: '2026-11-09' })).toBe('«sofá», hasta el 09/11/2026');
+    expect(textoBusqueda({ q: '', desde: '', hasta: '' })).toBe('');
+  });
+
+  it('textoResultados: cuántas se encontraron (singular y plural) y qué se buscó', () => {
+    expect(textoResultados({ q: 'ana' }, 1)).toBe('1 reserva encontrada. Búsqueda: «ana».');
+    expect(textoResultados({ q: 'ana' }, 2)).toBe('2 reservas encontradas. Búsqueda: «ana».');
+    expect(textoResultados({ q: 'ana' }, 200)).toBe('200 reservas encontradas. Búsqueda: «ana».');
+    expect(textoResultados({ desde: '2026-11-02' }, 3)).toBe(
+      '3 reservas encontradas. Búsqueda: desde el 02/11/2026.'
+    );
+    expect(textoResultados({ q: 'ana', hasta: '2026-11-09' }, 0)).toBe(
+      'Ninguna reserva coincide con la búsqueda: «ana», hasta el 09/11/2026.'
+    );
   });
 
   it('textoAvisos: el detalle de la insignia, en singular y plural, sin lo que está a cero', () => {

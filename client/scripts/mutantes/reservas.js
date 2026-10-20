@@ -407,5 +407,197 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: '    setEnfocar(null);\n  }, [enfocar]);',
     reemplazo: '  }, [enfocar]);'
+  },
+  {
+    nombre: 'la búsqueda no se manda al servidor',
+    archivo: ARCHIVO,
+    buscar: 'getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current })',
+    reemplazo: 'getReservasAdmin({ vista: vistaPedida })'
+  },
+  {
+    nombre: 'la lista de siempre se recarga con una búsqueda vieja (la ref no se vacía al dejarla)',
+    archivo: ARCHIVO,
+    buscar: '  const dejarBusqueda = () => {\n    busquedaRef.current = null;',
+    reemplazo: '  const dejarBusqueda = () => {'
+  },
+  {
+    nombre: 'dejar la búsqueda no cambia lo que se ve',
+    archivo: ARCHIVO,
+    buscar: '    busquedaRef.current = null;\n    setBusqueda(null);\n  };',
+    reemplazo: '    busquedaRef.current = null;\n  };'
+  },
+  {
+    nombre: 'buscar no recarga la lista',
+    archivo: ARCHIVO,
+    buscar: '    setBusqueda(filtros);\n    cargar(vistaRef.current);',
+    reemplazo: '    setBusqueda(filtros);'
+  },
+  {
+    nombre: 'buscar no guarda la búsqueda para las recargas de después',
+    archivo: ARCHIVO,
+    buscar: '    busquedaRef.current = filtros;\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'quitar la búsqueda recarga aunque no hubiera ninguna',
+    archivo: ARCHIVO,
+    buscar: '    if (!busquedaRef.current) return;\n    dejarBusqueda();\n    cargar(vistaRef.current);',
+    reemplazo: '    dejarBusqueda();\n    cargar(vistaRef.current);'
+  },
+  {
+    nombre: 'quitar la búsqueda no recarga la vista de antes',
+    archivo: ARCHIVO,
+    buscar: '    dejarBusqueda();\n    cargar(vistaRef.current);\n  };',
+    reemplazo: '    dejarBusqueda();\n  };'
+  },
+  {
+    nombre: 'elegir una vista no deja la búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    if (busquedaRef.current) {\n      dejarBusqueda();\n      if (id === vistaRef.current) cargar(id);\n    }',
+    reemplazo: '    if (busquedaRef.current) {\n      if (id === vistaRef.current) cargar(id);\n    }'
+  },
+  {
+    nombre: 'elegir la vista que ya estaba elegida durante una búsqueda no recarga',
+    archivo: ARCHIVO,
+    buscar: '      if (id === vistaRef.current) cargar(id);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'elegir una vista recarga siempre aunque no hubiera búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    if (busquedaRef.current) {\n      dejarBusqueda();\n      if (id === vistaRef.current) cargar(id);\n    }\n    setVista(id);',
+    reemplazo: '    dejarBusqueda();\n    if (id === vistaRef.current) cargar(id);\n    setVista(id);'
+  },
+  {
+    nombre: '«Ver reserva» de la agenda no deja la búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = reserva.id;\n    dejarBusqueda();\n',
+    reemplazo: '    tarjetaPendiente.current = reserva.id;\n'
+  },
+  {
+    nombre: 'un reembolso a medias no deja la búsqueda al llevar a «Reembolsos a medias»',
+    archivo: ARCHIVO,
+    buscar: "      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n      dejarBusqueda();\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'buscar no cancela el foco pendiente de una tarjeta de la agenda',
+    archivo: ARCHIVO,
+    buscar: '  const buscar = (filtros) => {\n    tarjetaPendiente.current = null;\n',
+    reemplazo: '  const buscar = (filtros) => {\n'
+  },
+  {
+    nombre: 'durante una búsqueda sigue marcada una vista',
+    archivo: ARCHIVO,
+    buscar: 'aria-pressed={!busqueda && v.id === vista}',
+    reemplazo: 'aria-pressed={v.id === vista}'
+  },
+  {
+    nombre: 'una búsqueda deja marcadas todas las vistas',
+    archivo: ARCHIVO,
+    buscar: 'aria-pressed={!busqueda && v.id === vista}',
+    reemplazo: 'aria-pressed={!busqueda}'
+  },
+  {
+    nombre: 'durante una búsqueda sigue la descripción de la vista',
+    archivo: ARCHIVO,
+    buscar: '{!busqueda && <p className="reservas-vista-ayuda">',
+    reemplazo: '{true && <p className="reservas-vista-ayuda">'
+  },
+  {
+    nombre: 'el buscador no recibe la búsqueda hecha',
+    archivo: ARCHIVO,
+    buscar: '<BuscadorReservas activa={busqueda}',
+    reemplazo: '<BuscadorReservas activa={null}'
+  },
+  {
+    nombre: 'una búsqueda sin resultados usa el texto de la vista',
+    archivo: ARCHIVO,
+    buscar: '{busqueda ? textoResultados(busqueda, 0) : VISTAS.find((v) => v.id === vista).vacia}',
+    reemplazo: '{VISTAS.find((v) => v.id === vista).vacia}'
+  },
+  {
+    nombre: 'una búsqueda con resultados usa el recuento de la vista',
+    archivo: ARCHIVO,
+    buscar: '        {busqueda ? (\n          <p className="reservas-busqueda-resumen" role="status">',
+    reemplazo: '        {false ? (\n          <p className="reservas-busqueda-resumen" role="status">'
+  },
+  {
+    nombre: 'el resumen de la búsqueda no cuenta las reservas que hay',
+    archivo: ARCHIVO,
+    buscar: '{textoResultados(busqueda, reservas.length)}',
+    reemplazo: '{textoResultados(busqueda, 2)}'
+  },
+  {
+    nombre: 'el resumen de la búsqueda no se anuncia al lector de pantalla',
+    archivo: ARCHIVO,
+    buscar: '<p className="reservas-busqueda-resumen" role="status">',
+    reemplazo: '<p className="reservas-busqueda-resumen">'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados sale siempre en una búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = busqueda && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados sale sin búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = limitada && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale en una búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = false && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale cuando no hay ninguno',
+    archivo: ARCHIVO,
+    buscar: '        </p>\n        {avisoLimite}\n      </>\n    );\n  } else {',
+    reemplazo: '        </p>\n      </>\n    );\n  } else {'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale cuando los hay',
+    archivo: ARCHIVO,
+    buscar: '        {avisoLimite}\n        {listaMovida && (',
+    reemplazo: '        {listaMovida && ('
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no se anuncia',
+    archivo: ARCHIVO,
+    buscar: '<p className="reservas-busqueda-limite" role="status">',
+    reemplazo: '<p className="reservas-busqueda-limite">'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados da otros números',
+    archivo: ARCHIVO,
+    buscar: 'const MAX_BUSQUEDA = 1000;',
+    reemplazo: 'const MAX_BUSQUEDA = 500;'
+  },
+  {
+    nombre: '`limitada` se toma por cierta con cualquier valor',
+    archivo: ARCHIVO,
+    buscar: 'limitada: data?.limitada === true',
+    reemplazo: 'limitada: Boolean(data?.limitada ?? true)'
+  },
+  {
+    nombre: 'el aviso de lista movida habla siempre de la vista',
+    archivo: ARCHIVO,
+    buscar: "{busqueda ? 'esta búsqueda' : 'esta vista'}",
+    reemplazo: "{'esta vista'}"
+  },
+  {
+    nombre: 'el aviso de lista movida habla siempre de la búsqueda',
+    archivo: ARCHIVO,
+    buscar: "{busqueda ? 'esta búsqueda' : 'esta vista'}",
+    reemplazo: "{'esta búsqueda'}"
+  },
+  {
+    nombre: '«las más recientes» sale en cualquier vista con 200 reservas, no solo en «Todas»',
+    archivo: ARCHIVO,
+    buscar: "{vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}",
+    reemplazo: "{reservas.length >= MAX_TODAS && ', las más recientes'}"
   }
 ];

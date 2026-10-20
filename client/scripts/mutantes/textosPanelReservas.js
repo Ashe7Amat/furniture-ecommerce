@@ -64,5 +64,47 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: " || 'Nada que entregar ni recoger hoy ni mañana'",
     reemplazo: " || ''"
+  },
+  {
+    nombre: 'una sola reserva encontrada se escribe «1 reservas encontradas»',
+    archivo: ARCHIVO,
+    buscar: "n === 1 ? '1 reserva encontrada' : `${n} reservas encontradas`",
+    reemplazo: '`${n} reservas encontradas`'
+  },
+  {
+    nombre: 'una búsqueda sin resultados dice «0 reservas encontradas» en vez de que no coincide ninguna',
+    archivo: ARCHIVO,
+    buscar: 'if (n === 0) return',
+    reemplazo: 'if (n < 0) return'
+  },
+  {
+    nombre: 'los resultados no dicen qué se buscó',
+    archivo: ARCHIVO,
+    buscar: '. Búsqueda: ${que}.`',
+    reemplazo: '.`'
+  },
+  {
+    nombre: 'un solo día se escribe «del 02/11/2026 al 02/11/2026»',
+    archivo: ARCHIVO,
+    buscar: 'desde === hasta ? `el ${fechaCorta(desde)}` : ',
+    reemplazo: ''
+  },
+  {
+    nombre: 'solo «desde» se escribe como «hasta»',
+    archivo: ARCHIVO,
+    buscar: 'fechas = `desde el ${fechaCorta(desde)}`',
+    reemplazo: 'fechas = `hasta el ${fechaCorta(desde)}`'
+  },
+  {
+    nombre: 'solo «hasta» se escribe como «desde»',
+    archivo: ARCHIVO,
+    buscar: 'fechas = `hasta el ${fechaCorta(hasta)}`',
+    reemplazo: 'fechas = `desde el ${fechaCorta(hasta)}`'
+  },
+  {
+    nombre: 'el texto buscado sale sin comillas',
+    archivo: ARCHIVO,
+    buscar: '[q && `«${q}»`, fechas]',
+    reemplazo: '[q && q, fechas]'
   }
 ];
