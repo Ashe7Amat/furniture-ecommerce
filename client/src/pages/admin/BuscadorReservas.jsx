@@ -8,7 +8,8 @@ const MAX_TEXTO = 100;
 // Buscar entre todas las reservas, sea cual sea la vista: por cliente, pieza o referencia, y por las
 // fechas en que la reserva tenía algo (docs/reservas-diseno.md, 8.1: «tabla filtrable por estado y
 // fechas»). Los campos se quedan como están hasta pulsar «Buscar»; `activa` es la búsqueda que ya se
-// hizo, y si deja de haberla (se eligió una vista, por ejemplo) los campos se vacían.
+// hizo: si cambia desde fuera (se eligió una vista, o «Ver reserva» busca por referencia) los campos pasan a
+// ser los de esa búsqueda, o se vacían si ya no la hay.
 const BuscadorReservas = ({ activa, onBuscar, onQuitar }) => {
   const [borrador, setBorrador] = useState(activa ?? VACIO);
   const [error, setError] = useState('');
@@ -17,10 +18,8 @@ const BuscadorReservas = ({ activa, onBuscar, onQuitar }) => {
 
   if (anterior !== activa) {
     setAnterior(activa);
-    if (!activa) {
-      setBorrador(VACIO);
-      setError('');
-    }
+    setBorrador(activa ?? VACIO);
+    setError('');
   }
 
   const cambiar = (campo) => (evento) => {

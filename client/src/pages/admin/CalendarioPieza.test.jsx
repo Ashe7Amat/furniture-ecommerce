@@ -288,7 +288,8 @@ describe('CalendarioPieza: el mes', () => {
     const { user } = await montar();
     await elegir(user);
 
-    // Reservado del 1 al 5, margen 6 y 7; la pieza sigue fuera desde el 8 hasta hoy, el 10.
+    // Reservado del 1 al 5; su margen (6 y 7) ya ha pasado con la pieza fuera, así que no es de descanso;
+    // y desde el 8 hasta hoy, el 10, la pieza sigue fuera sin que nada la reserve.
     expect(screen.getByRole('button', { name: dia(9) })).toHaveAccessibleName(
       'lunes, 9 de noviembre de 2026: libre en el calendario, pero la pieza sigue fuera, ' +
         'alquiler B2C3D4E5 de Ana Pérez, retrasada'
@@ -296,7 +297,10 @@ describe('CalendarioPieza: el mes', () => {
     expect(screen.getByRole('button', { name: dia(9) }).closest('td')).toHaveClass('ocupacion-dia--retrasada');
     expect(screen.getByRole('button', { name: /^martes, 10 de noviembre.*\(hoy\)$/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: dia(11) })).toBeNull();
-    expect(screen.getByRole('button', { name: dia(7) }).closest('td')).toHaveClass('ocupacion-dia--margen');
+    expect(screen.getByRole('button', { name: dia(7) })).toHaveAccessibleName(
+      'sábado, 7 de noviembre de 2026: alquiler B2C3D4E5 de Ana Pérez, retrasada'
+    );
+    expect(screen.getByRole('button', { name: dia(7) }).closest('td')).toHaveClass('ocupacion-dia--retrasada');
   });
 
   it('si otra reserva ya ocupa un día en que la retrasada sigue fuera, salen las dos y una marca', async () => {
@@ -404,15 +408,32 @@ describe('CalendarioPieza: ir de mes en mes', () => {
   it('«Este mes» está apagado en el mes de hoy y vuelve a él desde otro', async () => {
     const { user } = await montar();
     await elegir(user);
-    expect(screen.getByRole('button', { name: 'Este mes' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Este mes' })).toHaveAttribute('aria-disabled', 'true');
 
     await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
     await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
-    expect(screen.getByRole('button', { name: 'Este mes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Este mes' })).not.toHaveAttribute('aria-disabled');
 
     await user.click(screen.getByRole('button', { name: 'Este mes' }));
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('noviembre de 2026');
-    expect(screen.getByRole('button', { name: 'Este mes' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Este mes' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('«Este mes», apagado, sigue en su sitio con el foco y no hace nada', async () => {
+    const { user } = await montar();
+    await elegir(user);
+    const lecturas = getCalendarioReservasAdmin.mock.calls.length;
+    const boton = screen.getByRole('button', { name: 'Este mes' });
+    await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+    await user.click(boton);
+    expect(boton).toHaveFocus();
+    await user.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).toBeEnabled();
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('noviembre de 2026');
+    // Una lectura por cada mes que se ha visto y ninguna más por pulsarlo estando en él.
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(lecturas + 2);
   });
 
   it('cambiar de mes cierra el detalle', async () => {
@@ -453,9 +474,9 @@ describe('CalendarioPieza: ir de mes en mes', () => {
     const { user } = await montar();
     await elegir(user);
     await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
-    expect(screen.getByRole('button', { name: 'Este mes' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Este mes' })).toHaveAttribute('aria-disabled', 'true');
     await user.click(screen.getByRole('button', { name: 'Mes anterior' }));
-    expect(screen.getByRole('button', { name: 'Este mes' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Este mes' })).not.toHaveAttribute('aria-disabled');
   });
 });
 
@@ -564,6 +585,32 @@ describe('CalendarioPieza: carga, errores y límites', () => {
     await act(async () => lectura.resolver(ok(calendario([ALQUILER]))));
     expect(screen.queryByText('Cargando el calendario…')).toBeNull();
     expect(screen.getByRole('table')).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('el aviso de estado es siempre el mismo: cambia de texto al cambiar de mes y el título no es una zona viva', async () => {
+    const { user } = await montar();
+    await elegir(user);
+    const estado = screen.getByRole('status');
+    expect(estado).toHaveTextContent('1 reserva en noviembre de 2026.');
+    expect(screen.getByRole('heading', { level: 3 })).not.toHaveAttribute('aria-live');
+
+    const lectura = diferida();
+    getCalendarioReservasAdmin.mockReturnValue(lectura.promesa);
+    await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+    expect(screen.getByRole('status')).toBe(estado);
+    expect(estado).toHaveTextContent('Cargando el calendario…');
+
+    await act(async () => lectura.resolver(ok(calendario([]))));
+    expect(screen.getByRole('status')).toBe(estado);
+    expect(estado).toHaveTextContent('Ninguna reserva en diciembre de 2026.');
+  });
+
+  it('si la lectura falla, el aviso de estado queda vacío (habla el error)', async () => {
+    getCalendarioReservasAdmin.mockResolvedValueOnce(falla('Error interno al cargar el calendario de reservas.'));
+    const { user } = await montar();
+    await elegir(user);
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
   it('al releer el mismo mes deja la tabla y la marca como ocupada', async () => {

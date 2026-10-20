@@ -38,7 +38,7 @@
   border-radius: 10px;
   background: var(--primary-color);
   color: var(--bg-color);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.4;
   text-align: center;
@@ -539,6 +539,12 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+.ocupacion-resumen:empty { margin: 0; }
+/* «Hoy» y «Este mes», cuando ya se está en ello: se quedan con el foco, apagados. */
+.ocupacion-navegacion .admin-btn-ghost[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: default;
+}
 .ocupacion-solo-lector {
   position: absolute;
   width: 1px;
@@ -571,7 +577,7 @@
   border-radius: 3px;
   background-color: var(--relleno, var(--card-bg));
 }
-.ocupacion-muestra--pendiente { border-style: dashed; }
+.ocupacion-muestra--pendiente { border-style: dashed; border-width: 2px; }
 .ocupacion-muestra--margen { border-style: dashed; }
 
 /* El mes de una pieza */
@@ -629,7 +635,7 @@
 }
 .ocupacion-dia--alquiler:not(.ocupacion-dia--margen),
 .ocupacion-dia--pendiente:not(.ocupacion-dia--margen) { background: var(--relleno); }
-.ocupacion-dia--pendiente { border-style: dashed; }
+.ocupacion-dia--pendiente { border-style: dashed; border-width: 2px; }
 .ocupacion-dia--venta { border-color: var(--c); background: var(--relleno); }
 .ocupacion-dia--venta .ocupacion-dia-boton { color: var(--bg-color); }
 /* Sobre un dibujo, el número lleva un fondo para poder leerse. */
@@ -653,10 +659,15 @@
 .ocupacion-marca {
   position: absolute;
   top: 1px;
-  right: 5px;
+  right: 3px;
+  min-width: 1.1em;
+  border-radius: 50%;
+  background: var(--card-bg);
   color: var(--danger-color);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1.1em;
+  text-align: center;
 }
 .ocupacion-dia-boton:focus-visible,
 .ocupacion-barra:focus-visible,
@@ -670,6 +681,8 @@
 .ocupacion-rejilla {
   margin-bottom: 16px;
   overflow-x: auto;
+  /* El foco no se esconde bajo la columna fija de la pieza. */
+  scroll-padding-left: var(--pieza-ancho);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background: var(--card-bg);
@@ -772,7 +785,7 @@
   text-align: left;
   cursor: pointer;
 }
-.ocupacion-barra--pendiente { border-style: dashed; }
+.ocupacion-barra--pendiente { border-style: dashed; border-width: 2px; }
 .ocupacion-barra-reserva {
   display: flex;
   align-items: center;
@@ -786,6 +799,18 @@
   text-overflow: ellipsis;
 }
 .ocupacion-barra--venta .ocupacion-barra-reserva { color: var(--bg-color); }
+/* Sobre rayas o puntos, la referencia lleva un fondo para poder leerse. */
+.ocupacion-barra-ref {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocupacion-barra--retrasada .ocupacion-barra-ref,
+.ocupacion-barra--bloqueo .ocupacion-barra-ref {
+  padding: 0 0.4em;
+  border-radius: 3px;
+  background: var(--card-bg);
+}
 .ocupacion-barra.es-cortada-izq .ocupacion-barra-reserva { padding-left: 16px; }
 .ocupacion-barra.es-cortada-izq { border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .ocupacion-barra.es-cortada-der { border-right-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }

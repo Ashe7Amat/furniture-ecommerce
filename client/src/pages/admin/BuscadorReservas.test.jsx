@@ -253,6 +253,20 @@ describe('BuscadorReservas — con una búsqueda hecha', () => {
     expect(screen.queryByRole('button', { name: 'Limpiar búsqueda' })).toBeNull();
   });
 
+  it('si llega otra búsqueda desde fuera («Ver reserva»), los campos pasan a ser los de esa búsqueda', async () => {
+    const { user, rerender, onBuscar, onQuitar } = montar();
+    await user.type(texto(), 'algo sin buscar');
+    elegir(desde(), '2026-11-02');
+
+    rerender(
+      <BuscadorReservas activa={{ q: 'A1B2C3D4', desde: '', hasta: '' }} onBuscar={onBuscar} onQuitar={onQuitar} />
+    );
+
+    expect(texto()).toHaveValue('A1B2C3D4');
+    expect(desde()).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Limpiar búsqueda' })).toBeInTheDocument();
+  });
+
   it('si se quita desde fuera, se va también el aviso que hubiera', async () => {
     const { user, rerender, onBuscar, onQuitar } = montar({ activa: ACTIVA });
     elegir(desde(), '2026-11-09');

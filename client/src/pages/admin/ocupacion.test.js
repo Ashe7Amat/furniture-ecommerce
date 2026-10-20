@@ -132,6 +132,41 @@ describe('parteDelDia', () => {
   });
 });
 
+describe('parteDelDia de una retrasada: la pieza sigue fuera, no descansa', () => {
+  // Tenía que volver el 6 y con 3 días de margen su ocupación llega al 9; hoy es el 8, el 2.º día de retraso.
+  const tardia = { ...RETRASADA, dias_margen: 3, ocupada_hasta: '2026-11-09' };
+  const HOY_TARDIO = '2026-11-08';
+
+  it('los días de margen que ya han llegado, hoy incluido, son de reserva', () => {
+    expect(parteDelDia(tardia, '2026-11-05', HOY_TARDIO)).toBe('reserva');
+    expect(parteDelDia(tardia, '2026-11-06', HOY_TARDIO)).toBe('reserva');
+    expect(parteDelDia(tardia, '2026-11-07', HOY_TARDIO)).toBe('reserva');
+    expect(parteDelDia(tardia, HOY_TARDIO, HOY_TARDIO)).toBe('reserva');
+  });
+
+  it('el margen que queda por delante sigue siendo margen, y luego, libre', () => {
+    expect(parteDelDia(tardia, '2026-11-09', HOY_TARDIO)).toBeNull();
+    expect(parteDelDia(tardia, '2026-11-08', '2026-11-07')).toBe('margen');
+    expect(parteDelDia(tardia, '2026-11-07', '2026-11-07')).toBe('reserva');
+  });
+
+  it('sin hoy no se sabe que la pieza sigue fuera, y una no retrasada no cambia', () => {
+    expect(parteDelDia(tardia, '2026-11-06')).toBe('margen');
+    expect(parteDelDia({ ...tardia, retrasada: false }, '2026-11-06', HOY_TARDIO)).toBe('margen');
+  });
+
+  it('si su ocupación ya llega más allá de hoy (una ampliación), nada cambia', () => {
+    const ampliada = { ...tardia, fin_ocupacion: '2026-11-12', ocupada_hasta: '2026-11-15' };
+    expect(parteDelDia(ampliada, '2026-11-11', HOY_TARDIO)).toBe('reserva');
+    expect(parteDelDia(ampliada, '2026-11-12', HOY_TARDIO)).toBe('margen');
+  });
+
+  it('en el calendario de una pieza, el margen de una retrasada que ya ha llegado es de reserva', () => {
+    const dia = diaDeLaPieza([tardia], '2026-11-07', HOY_TARDIO);
+    expect(dia).toEqual({ reserva: tardia, parte: 'reserva', retraso: null });
+  });
+});
+
 describe('tramoDeRetraso', () => {
   it('desde que acaba su ocupación hasta hoy, hoy incluido', () => {
     expect(tramoDeRetraso(RETRASADA, HOY)).toEqual({ desde: '2026-11-08', hasta: '2026-11-11' });
@@ -351,10 +386,22 @@ describe('tramosDeLaReserva (ventana de 10 días desde el 10)', () => {
   });
 
   it('una retrasada enseña los días que lleva la pieza fuera hasta hoy', () => {
+    // Su margen (del 6 al 8) ya ha pasado con la pieza fuera: es tiempo reservado, no de descanso.
     expect(tramosDeLaReserva(RETRASADA, '2026-11-05', 10, HOY)).toEqual({
-      reservado: [0, 1],
-      margen: [1, 3],
+      reservado: [0, 3],
+      margen: null,
       retraso: [3, 6],
+      cortaIzq: true,
+      cortaDer: false
+    });
+  });
+
+  it('una retrasada con margen por delante de hoy lo enseña como margen', () => {
+    const tardia = { ...RETRASADA, dias_margen: 3, ocupada_hasta: '2026-11-09' };
+    expect(tramosDeLaReserva(tardia, '2026-11-05', 10, '2026-11-07')).toEqual({
+      reservado: [0, 3],
+      margen: [3, 4],
+      retraso: null,
       cortaIzq: true,
       cortaDer: false
     });
@@ -381,6 +428,15 @@ describe('filasDeOcupacion', () => {
     const filas = filasDeOcupacion([r], '2026-11-10', 7, HOY);
     expect(filas).toHaveLength(1);
     expect(filas[0].barras[0]).toMatchObject({ reservado: null, margen: [0, 2], retraso: null });
+  });
+
+  it('una venta de antes de la ventana no hace fila (no pasa nada en esos días); una de dentro, sí', () => {
+    const vendida = (cambios) => ({ ...VENTA, pieza: MESA, ...cambios });
+    expect(filasDeOcupacion([vendida({ fecha_inicio: '2026-11-09' })], '2026-11-10', 14, HOY)).toEqual([]);
+    expect(filasDeOcupacion([vendida({ fecha_inicio: '2026-11-10' })], '2026-11-10', 14, HOY)).toHaveLength(1);
+    expect(filasDeOcupacion([vendida({ fecha_inicio: '2026-11-15' })], '2026-11-10', 14, HOY)).toHaveLength(1);
+    // Un alquiler que empezó antes de la ventana y sigue en ella sí sale: la pieza está ocupada.
+    expect(filasDeOcupacion([reserva({ fecha_inicio: '2026-11-01', fin_ocupacion: '2026-11-12', ocupada_hasta: '2026-11-14' })], '2026-11-10', 14, HOY)).toHaveLength(1);
   });
 
   it('sin reservas, sin filas', () => {

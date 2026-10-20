@@ -169,20 +169,34 @@ describe('VistaGeneral: la ventana', () => {
 
   it('«Hoy» está apagado al empezar y vuelve a hoy desde otra semana', async () => {
     const { user } = await montar();
-    expect(screen.getByRole('button', { name: 'Hoy' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-disabled', 'true');
 
     await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
-    expect(screen.getByRole('button', { name: 'Hoy' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Hoy' })).not.toHaveAttribute('aria-disabled');
 
     await user.click(screen.getByRole('button', { name: 'Hoy' }));
     expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-11-10', hasta: '2026-12-09', muebleId: undefined });
-    expect(screen.getByRole('button', { name: 'Hoy' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('«Hoy», apagado, sigue en su sitio con el foco y no hace nada', async () => {
+    const { user } = await montar();
+    const boton = screen.getByRole('button', { name: 'Hoy' });
+    await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
+    await user.click(boton);
+    expect(boton).toHaveFocus();
+    const lecturas = getCalendarioReservasAdmin.mock.calls.length;
+    await user.click(boton);
+
+    expect(boton).toHaveFocus();
+    expect(boton).toBeEnabled();
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(lecturas);
   });
 
   it('«Hoy» es el del servidor si la pestaña llevaba abierta desde ayer', async () => {
     getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([], { hoy: '2026-11-11' })));
     const { user } = await montar();
-    expect(screen.getByRole('button', { name: 'Hoy' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Hoy' })).not.toHaveAttribute('aria-disabled');
 
     await user.click(screen.getByRole('button', { name: 'Hoy' }));
     expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-11-11', hasta: '2026-12-10', muebleId: undefined });
@@ -219,6 +233,25 @@ describe('VistaGeneral: la ventana', () => {
     await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
     expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
   });
+
+  it('cambiar los días que se ven cierra el detalle, y no vuelve a salir cuando llegan los datos', async () => {
+    const { user } = await montar();
+    await user.click(barra('Sofá Lumina', /^alquiler A1B2C3D4/));
+    expect(screen.getByRole('region', { name: 'Detalle de la reserva' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '60 días' }));
+    expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
+    // Con los datos de la ventana nueva (la reserva sigue en ella) el detalle no se vuelve a abrir solo.
+    await screen.findByText('3 piezas tienen reservas en los 60 días que se ven.');
+    expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
+
+    await user.click(barra('Sofá Lumina', /^alquiler A1B2C3D4/));
+    expect(screen.getByRole('region', { name: 'Detalle de la reserva' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '30 días' }));
+    expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
+    await screen.findByText('3 piezas tienen reservas en los 30 días que se ven.');
+    expect(screen.queryByRole('region', { name: 'Detalle de la reserva' })).toBeNull();
+  });
 });
 
 const nombresDeFilas = (container) =>
@@ -232,6 +265,16 @@ describe('VistaGeneral: la rejilla', () => {
     const region = screen.getByRole('region', { name: /^Rejilla de reservas por pieza y día/ });
     expect(within(region).getByText('Ref. NAV-SOF-001')).toBeInTheDocument();
     expect(within(region).getByText('Ref. NAV-APA-002')).toBeInTheDocument();
+  });
+
+  it('una pieza vendida antes de la ventana no sale; la vendida dentro de ella, sí', async () => {
+    const vendidaAntes = { ...VENTA, id: 'r7', referencia: '7A8B9C0D', pieza: MESA, fecha_inicio: '2026-11-09' };
+    const vendidaHoy = { ...VENTA, id: 'r8', referencia: '8B9C0D1E', pieza: LAMPARA, fecha_inicio: '2026-11-10' };
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([ALQUILER, vendidaAntes, vendidaHoy])));
+    const { container } = await montar();
+
+    expect(nombresDeFilas(container)).toEqual(['Lámpara antigua', 'Sofá Lumina']);
+    expect(screen.getByText('2 piezas tienen reservas en los 30 días que se ven.')).toBeInTheDocument();
   });
 
   it('el resumen cuenta las piezas con reservas, en singular y en plural', async () => {
@@ -530,6 +573,30 @@ describe('VistaGeneral: carga, errores y límites', () => {
     await act(async () => lectura.resolver(ok(calendario([ALQUILER]))));
     expect(screen.queryByText('Cargando el calendario…')).toBeNull();
     expect(screen.getByRole('region', { name: /^Rejilla/ })).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('el aviso de estado es siempre el mismo: cambia de texto al cambiar de ventana y el título no es una zona viva', async () => {
+    const { user } = await montar();
+    const estado = screen.getByRole('status');
+    expect(estado).toHaveTextContent('3 piezas tienen reservas en los 30 días que se ven.');
+    expect(screen.getByRole('heading', { level: 3 })).not.toHaveAttribute('aria-live');
+
+    const lectura = diferida();
+    getCalendarioReservasAdmin.mockReturnValue(lectura.promesa);
+    await user.click(screen.getByRole('button', { name: 'Semana siguiente' }));
+    expect(screen.getByRole('status')).toBe(estado);
+    expect(estado).toHaveTextContent('Cargando el calendario…');
+
+    await act(async () => lectura.resolver(ok(calendario([BLOQUEO]))));
+    expect(screen.getByRole('status')).toBe(estado);
+    expect(estado).toHaveTextContent('1 pieza tiene reservas en los 30 días que se ven.');
+  });
+
+  it('si la lectura falla, el aviso de estado queda vacío (habla el error)', async () => {
+    getCalendarioReservasAdmin.mockResolvedValueOnce(falla('Error interno al cargar el calendario de reservas.'));
+    await montar();
+
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
   it('al cambiar de ventana no enseña la anterior mientras llega la nueva', async () => {

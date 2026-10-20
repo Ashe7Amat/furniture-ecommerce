@@ -2554,6 +2554,18 @@ describe('Reservas — calendarios', () => {
     expect(screen.queryByRole('group', { name: 'Cuántos días ver' })).toBeNull();
   });
 
+  it('lo escrito en el buscador sin buscar sigue ahí al volver de un calendario', async () => {
+    const { user } = await montar();
+    await user.type(screen.getByLabelText('Cliente, pieza o referencia'), 'ana pé');
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(screen.queryByRole('search', { name: 'Buscar reservas' })).toBeNull();
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+
+    expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('ana pé');
+    expect(getReservasAdmin).not.toHaveBeenCalledWith(expect.objectContaining({ q: expect.anything() }));
+  });
+
   it('el calendario recuerda la pieza y el mes al volver de la lista', async () => {
     const { user } = await montar();
     await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
@@ -2664,6 +2676,19 @@ describe('Reservas — calendarios', () => {
       await waitFor(() =>
         expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas', q: 'A1B2C3D4', desde: '', hasta: '' })
       );
+    });
+
+    it('con algo escrito sin buscar, el buscador pasa a la referencia que se ha buscado', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.type(screen.getByLabelText('Cliente, pieza o referencia'), 'otra cosa');
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await screen.findByText(/1 reserva encontrada/);
+      expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('A1B2C3D4');
     });
 
     it('«Limpiar búsqueda» después deja la lista de la vista, como siempre', async () => {

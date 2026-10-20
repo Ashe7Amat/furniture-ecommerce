@@ -500,32 +500,32 @@ const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
         ))}
       </div>
 
-      {modo === 'lista' && (
-        <>
-          <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
-            {VISTAS.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className="reservas-vista"
-                aria-pressed={!busqueda && v.id === vista}
-                onClick={() => elegirVista(v.id)}
-              >
-                {v.etiqueta}
-                {v.aviso && resumen?.[v.aviso] > 0 && (
-                  <>
-                    {' '}
-                    <span className="reservas-vista-n">{resumen[v.aviso]}</span>
-                  </>
-                )}
-              </button>
-            ))}
-          </div>
-          {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
+      {/* Las vistas y el buscador se quedan montados (ocultos) con un calendario abierto: lo que se había
+          escrito en el buscador sigue ahí al volver. */}
+      <div hidden={modo !== 'lista'}>
+        <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
+          {VISTAS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              className="reservas-vista"
+              aria-pressed={!busqueda && v.id === vista}
+              onClick={() => elegirVista(v.id)}
+            >
+              {v.etiqueta}
+              {v.aviso && resumen?.[v.aviso] > 0 && (
+                <>
+                  {' '}
+                  <span className="reservas-vista-n">{resumen[v.aviso]}</span>
+                </>
+              )}
+            </button>
+          ))}
+        </div>
+        {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
 
-          <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
-        </>
-      )}
+        <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
+      </div>
 
       <div className="admin-toolbar">
         <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar</button>

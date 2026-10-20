@@ -61,7 +61,9 @@ const Barra = ({ barra, elegida, onElegir }) => {
           aria-label={textoDeBarra(reserva)}
           onClick={(evento) => onElegir(reserva, evento.currentTarget)}
         >
-          <span className="ocupacion-barra-reserva" aria-hidden="true">{reservado ? reserva.referencia : ''}</span>
+          <span className="ocupacion-barra-reserva" aria-hidden="true">
+            {reservado && <span className="ocupacion-barra-ref">{reserva.referencia}</span>}
+          </span>
           <span className="ocupacion-barra-margen" aria-hidden="true" />
         </button>
       )}
@@ -128,7 +130,7 @@ const VistaGeneral = ({ hoy, version = 0, activo = true, onVer }) => {
         <button type="button" className="admin-btn-ghost" onClick={() => mover(-SEMANA)}>
           Semana anterior
         </button>
-        <h3 className="ocupacion-titulo" aria-live="polite">
+        <h3 className="ocupacion-titulo">
           Del {fechaCorta(inicio)} al {fechaCorta(hasta)}
         </h3>
         <button type="button" className="admin-btn-ghost" onClick={() => mover(SEMANA)}>
@@ -137,8 +139,9 @@ const VistaGeneral = ({ hoy, version = 0, activo = true, onVer }) => {
         <button
           type="button"
           className="admin-btn-ghost"
-          disabled={inicio === hoyReal}
+          aria-disabled={inicio === hoyReal || undefined}
           onClick={() => {
+            if (inicio === hoyReal) return;
             setInicio(hoyReal);
             setSeleccion(null);
           }}
@@ -148,7 +151,16 @@ const VistaGeneral = ({ hoy, version = 0, activo = true, onVer }) => {
       </div>
       <div className="reservas-vistas" role="group" aria-label="Cuántos días ver">
         {LARGOS.map((n) => (
-          <button key={n} type="button" className="reservas-vista" aria-pressed={n === nDias} onClick={() => setNDias(n)}>
+          <button
+            key={n}
+            type="button"
+            className="reservas-vista"
+            aria-pressed={n === nDias}
+            onClick={() => {
+              setNDias(n);
+              setSeleccion(null);
+            }}
+          >
             {n} días
           </button>
         ))}
@@ -164,11 +176,14 @@ const VistaGeneral = ({ hoy, version = 0, activo = true, onVer }) => {
           </button>
         </div>
       )}
-      {!datos && cargando && <p className="admin-empty-note" role="status">Cargando el calendario…</p>}
+      {/* Un solo aviso que cambia de texto (y no uno que sale y se quita): así los lectores de pantalla lo
+          dicen al cambiar de ventana. */}
+      <p className="ocupacion-resumen" role="status">
+        {datos ? textoPiezasConReservas(filas.length, nDias) : cargando ? 'Cargando el calendario…' : ''}
+      </p>
 
       {datos && (
         <>
-          <p className="ocupacion-resumen" role="status">{textoPiezasConReservas(filas.length, nDias)}</p>
           {datos.limitada && (
             <p className="reservas-busqueda-limite" role="status">
               Hay más reservas de las que caben en el calendario: faltan algunas. Elige menos días.

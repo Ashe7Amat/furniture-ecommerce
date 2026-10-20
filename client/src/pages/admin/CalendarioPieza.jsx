@@ -142,15 +142,15 @@ const CalendarioPieza = ({ muebles = [], hoy, version = 0, activo = true, onVer 
             <button type="button" className="admin-btn-ghost" onClick={() => irAlMes(sumarMeses(mes, -1))}>
               Mes anterior
             </button>
-            <h3 className="ocupacion-titulo" aria-live="polite">{nombreDelMes(mes)}</h3>
+            <h3 className="ocupacion-titulo">{nombreDelMes(mes)}</h3>
             <button type="button" className="admin-btn-ghost" onClick={() => irAlMes(sumarMeses(mes, 1))}>
               Mes siguiente
             </button>
             <button
               type="button"
               className="admin-btn-ghost"
-              disabled={mes === mesDe(hoyReal)}
-              onClick={() => irAlMes(mesDe(hoyReal))}
+              aria-disabled={mes === mesDe(hoyReal) || undefined}
+              onClick={() => mes !== mesDe(hoyReal) && irAlMes(mesDe(hoyReal))}
             >
               Este mes
             </button>
@@ -166,11 +166,14 @@ const CalendarioPieza = ({ muebles = [], hoy, version = 0, activo = true, onVer 
               </button>
             </div>
           )}
-          {!datos && cargando && <p className="admin-empty-note" role="status">Cargando el calendario…</p>}
+          {/* Un solo aviso que cambia de texto (y no uno que sale y se quita): así los lectores de pantalla
+              lo dicen al cambiar de mes. */}
+          <p className="ocupacion-resumen" role="status">
+            {datos ? textoReservasDelMes(enElMes.size, mes) : cargando ? 'Cargando el calendario…' : ''}
+          </p>
 
           {datos && (
             <>
-              <p className="ocupacion-resumen" role="status">{textoReservasDelMes(enElMes.size, mes)}</p>
               {datos.limitada && (
                 <p className="reservas-busqueda-limite" role="status">
                   Hay más reservas de las que caben en el calendario: faltan algunas.

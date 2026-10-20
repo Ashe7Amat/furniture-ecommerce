@@ -5,8 +5,8 @@
 //   - `fin_ocupacion`: el día en que vuelve (exclusivo), o null si no tiene fin (una venta);
 //   - `ocupada_hasta`: el primer día libre después del margen (exclusivo), o null sin fin.
 // Un día entre `fecha_inicio` y `fin_ocupacion` es de reserva; entre `fin_ocupacion` y `ocupada_hasta`,
-// de margen (la pieza descansa antes de la siguiente). La base de datos impide que dos reservas de
-// una pieza se solapen, margen incluido.
+// de margen (la pieza descansa antes de la siguiente), salvo en una retrasada, cuya pieza sigue fuera.
+// La base de datos impide que dos reservas de una pieza se solapen, margen incluido.
 import { diasEntre, fechaCorta, fechaLarga, nombreDelMes, sumarDias, textoDias } from '../../utils/reservas';
 import { momento } from './reservasAdmin';
 
@@ -30,11 +30,23 @@ export const claseDe = (reserva) => {
 
 const NOMBRE_TIPO = { alquiler: 'alquiler', bloqueo: 'bloqueo', venta: 'venta' };
 
+// Hasta qué día (exclusivo) la pieza está de reserva y no de margen. Es `fin_ocupacion`, salvo en una
+// retrasada: la pieza sigue fuera hasta hoy, así que sus días de margen que ya han llegado no son de
+// descanso y se cuentan como reservados (lo que hará la tarea diaria cuando exista). Sin `hoy` no se
+// tiene en cuenta el retraso.
+const finDeLaReserva = (reserva, hoy) => {
+  if (!hoy || !reserva.retrasada || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;
+  const hastaHoy = sumarDias(hoy, 1);
+  const fin = reserva.fin_ocupacion > hastaHoy ? reserva.fin_ocupacion : hastaHoy;
+  return reserva.ocupada_hasta < fin ? reserva.ocupada_hasta : fin;
+};
+
 // Qué es el día `dia` ('AAAA-MM-DD') para una reserva: 'reserva', 'margen' o null (no la ocupa).
-export const parteDelDia = (reserva, dia) => {
+export const parteDelDia = (reserva, dia, hoy) => {
   if (dia < reserva.fecha_inicio) return null;
   if (reserva.ocupada_hasta !== null && dia >= reserva.ocupada_hasta) return null;
-  if (reserva.fin_ocupacion !== null && dia >= reserva.fin_ocupacion) return 'margen';
+  const fin = finDeLaReserva(reserva, hoy);
+  if (fin !== null && dia >= fin) return 'margen';
   return 'reserva';
 };
 
@@ -48,13 +60,13 @@ export const tramoDeRetraso = (reserva, hoy) =>
 // Lo que pasa con una pieza un día: la reserva que lo ocupa (y si es de reserva o de margen) y la
 // retrasada que la tiene fuera sin ocuparlo. `reservas` son las de esa pieza.
 export const diaDeLaPieza = (reservas, dia, hoy) => {
-  const reserva = reservas.find((r) => parteDelDia(r, dia) !== null) ?? null;
+  const reserva = reservas.find((r) => parteDelDia(r, dia, hoy) !== null) ?? null;
   const retraso =
     reservas.find((r) => {
       const tramo = tramoDeRetraso(r, hoy);
       return tramo && dia >= tramo.desde && dia < tramo.hasta;
     }) ?? null;
-  return { reserva, parte: reserva ? parteDelDia(reserva, dia) : null, retraso };
+  return { reserva, parte: reserva ? parteDelDia(reserva, dia, hoy) : null, retraso };
 };
 
 // «alquiler A1B2C3D4 de Ana Pérez, confirmada», «bloqueo C3D4E5F6 (Exposición)», «venta E5F6A7B8».
@@ -140,12 +152,10 @@ const recorte = (desde, hastaExclusivo, inicio, nDias) => {
 export const tramosDeLaReserva = (reserva, inicio, nDias, hoy) => {
   const retraso = tramoDeRetraso(reserva, hoy);
   const ultimoDia = sumarDias(inicio, nDias);
+  const fin = finDeLaReserva(reserva, hoy);
   return {
-    reservado: recorte(reserva.fecha_inicio, reserva.fin_ocupacion, inicio, nDias),
-    margen:
-      reserva.fin_ocupacion === null
-        ? null
-        : recorte(reserva.fin_ocupacion, reserva.ocupada_hasta, inicio, nDias),
+    reservado: recorte(reserva.fecha_inicio, fin, inicio, nDias),
+    margen: fin === null ? null : recorte(fin, reserva.ocupada_hasta, inicio, nDias),
     retraso: retraso ? recorte(retraso.desde, retraso.hasta, inicio, nDias) : null,
     cortaIzq: reserva.fecha_inicio < inicio,
     cortaDer: reserva.ocupada_hasta === null || reserva.ocupada_hasta > ultimoDia
@@ -153,10 +163,12 @@ export const tramosDeLaReserva = (reserva, inicio, nDias, hoy) => {
 };
 
 // Las filas de la rejilla: las piezas con algo en la ventana, por nombre, cada una con sus reservas y
-// los tramos de cada una.
+// los tramos de cada una. Una pieza vendida antes de la ventana no sale: una venta no tiene fin, pero
+// no es nada que pase en esos días (sigue en el calendario de su pieza).
 export const filasDeOcupacion = (reservas, inicio, nDias, hoy) => {
   const piezas = new Map();
   for (const reserva of reservas) {
+    if (reserva.tipo === 'venta' && reserva.fecha_inicio < inicio) continue;
     const tramos = tramosDeLaReserva(reserva, inicio, nDias, hoy);
     if (!tramos.reservado && !tramos.margen && !tramos.retraso) continue;
     if (!piezas.has(reserva.pieza.id)) piezas.set(reserva.pieza.id, { pieza: reserva.pieza, barras: [] });

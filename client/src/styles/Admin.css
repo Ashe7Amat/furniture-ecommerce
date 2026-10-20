@@ -1465,12 +1465,15 @@
 }
 
 /* ─── El panel en el móvil: zonas de pulsación y listas sin deslizar de lado ─── */
-/* De 641 a 900 px la tabla de inventario ya muestra solo cinco columnas: no hace falta que ocupe 740 px. */
+/* A 900 px o menos la tabla de inventario ya muestra solo cinco columnas: no hace falta que ocupe 740 px.
+   Mientras la barra lateral siga a la izquierda (de 769 a 900) se queda en 560 para que el nombre se lea,
+   y la tabla se desliza de lado si no cabe; de 768 para abajo cabe a todo el ancho. */
 @media (max-width: 900px) {
-  .inventory-head-row, .inventory-list-item { min-width: 0; }
+  .inventory-head-row, .inventory-list-item { min-width: 560px; }
 }
 
 @media (max-width: 768px) {
+  .inventory-head-row, .inventory-list-item { min-width: 0; }
   /* 44 px de alto en lo que se pulsa con el dedo (Reservas ya los trae). */
   .admin-content select,
   .admin-content .admin-btn,
@@ -1515,7 +1518,7 @@
   }
   .inv-checkbox { width: 24px; height: 24px; }
   /* Las insignias y las etiquetas de estado, de 12 px como mínimo. */
-  .sidebar-badge, .status-pill, .reservas-vista-n { font-size: 0.75rem; }
+  .sidebar-badge, .status-pill { font-size: 0.75rem; }
 }
 
 /* Inventario en el móvil: cada producto es una tarjeta (foto y nombre arriba; su estado y sus botones
