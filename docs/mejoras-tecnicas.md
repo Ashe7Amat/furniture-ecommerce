@@ -1406,8 +1406,13 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   - **Herramienta de mutantes:** `client/scripts/mutantes-panel.js` leía la salida de Vitest con un búfer de
     1 MB, y un mutante que rompía muchas pruebas la desbordaba y salía como superviviente sin serlo; ahora el
     búfer es de 1 GB.
-  - **Tests:** cliente 1415 → 1733, servidor 1207 → 1315. Mutantes del panel: 199 → 702 (503 nuevos: agenda,
-    buscador, hook y cálculo de ocupación, calendario por pieza, vista general, detalle y la pestaña). Sin tocar ningún `Admin.*.test.jsx` congelado.
+  - **Tests:** cliente 1415 → 1739, servidor 1207 → 1315. Mutantes del panel: 199 → 705 (506 nuevos: agenda,
+    buscador, hook y cálculo de ocupación, calendario por pieza, vista general, detalle y la pestaña). La pasada
+    final los detectó todos salvo el 1 esperado de siempre (el caso B de la categoría): salieron 4 supervivientes
+    en la lista de la pestaña (elegir la vista ya elegida sin búsqueda, buscar con una tarjeta de la agenda
+    pendiente, `limitada` ausente y «las más recientes» en otras vistas) y un mutante con el texto viejo; se
+    cerraron con 6 pruebas y 3 mutantes más sobre «las más recientes» y se repitieron. Sin tocar ningún
+    `Admin.*.test.jsx` congelado.
   - **No cambiado a propósito / límites:** las piezas marcadas a mano como «Alquilado» se bloquean solo en la web,
     no en el servidor (decide Ashe); el servidor solo añade las retrasadas cuando la ventana llega a hoy; el
     botón de la música sigue tapando un trozo del pie mientras está abierto el aviso de cookies; las casillas
