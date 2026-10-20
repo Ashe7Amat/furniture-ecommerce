@@ -1364,8 +1364,10 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
     (con las cookies ya contestadas no hay solapamiento, medido a 1440 y 1100 px); es la primera visita y la
     música no suena sola. Las vistas del panel que se solapan por diseño («Próximas» incluye lo retrasado) se
     explican ahora con su descripción.
-  - **Tests:** cliente 1342 → 1415, servidor 1182 → 1207. Mutantes del panel: ver el apunte de cierre de la
-    sesión (se añadieron para la insignia, el hook de avisos, los números de las vistas y los textos).
+  - **Tests:** cliente 1342 → 1415, servidor 1182 → 1207. Mutantes del panel: 172 → 199 (27 nuevos, para la
+    insignia, el hook de avisos, los números de las vistas y los textos), todos detectados salvo el 1
+    esperado de siempre (el caso B de la categoría, que cubre `Admin.navegacion.test.jsx`). Sin tocar
+    ningún `Admin.*.test.jsx` congelado.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 
