@@ -104,6 +104,32 @@ export const textoAvisos = (avisos) =>
     .filter(Boolean)
     .join(', ');
 
+// El resumen de la agenda de hoy y mañana, para encabezarla: «2 entregas y 1 recogida».
+export const textoTrayectos = (trayectos) => {
+  const cuenta = (tipo, singular, plural) => {
+    const n = trayectos.filter((t) => t.tipo === tipo).length;
+    return n > 0 && (n === 1 ? `1 ${singular}` : `${n} ${plural}`);
+  };
+  const partes = [cuenta('entrega', 'entrega', 'entregas'), cuenta('recogida', 'recogida', 'recogidas')];
+  return partes.filter(Boolean).join(' y ') || 'Nada que entregar ni recoger hoy ni mañana';
+};
+
+// Qué se buscó, para encabezar los resultados: «ana pérez», del 02/11/2026 al 09/11/2026
+export const textoBusqueda = ({ q, desde, hasta }) => {
+  let fechas = '';
+  if (desde && hasta) fechas = desde === hasta ? `el ${fechaCorta(desde)}` : `del ${fechaCorta(desde)} al ${fechaCorta(hasta)}`;
+  else if (desde) fechas = `desde el ${fechaCorta(desde)}`;
+  else if (hasta) fechas = `hasta el ${fechaCorta(hasta)}`;
+  return [q && `«${q}»`, fechas].filter(Boolean).join(', ');
+};
+
+// El resultado de una búsqueda: «3 reservas encontradas. Búsqueda: «ana», desde el 02/11/2026.»
+export const textoResultados = (filtros, n) => {
+  const que = textoBusqueda(filtros);
+  if (n === 0) return `Ninguna reserva coincide con la búsqueda: ${que}.`;
+  return `${n === 1 ? '1 reserva encontrada' : `${n} reservas encontradas`}. Búsqueda: ${que}.`;
+};
+
 // El texto del botón de cada acción que puede traer una reserva en `acciones`. Una acción que no
 // esté aquí (una nueva del servidor) no se pinta.
 export const ETIQUETA_ACCION = {

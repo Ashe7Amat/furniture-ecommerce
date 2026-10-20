@@ -221,6 +221,11 @@
   gap: 14px;
   min-width: 0;
 }
+/* El texto (nombre y categoría) cede sitio al precio: sin min-width: 0, un nombre largo ensanchaba la fila
+   y, a 320 px, la página entera (medido en «Resumen»). */
+.sale-row-info > div:not(.sale-thumb) {
+  min-width: 0;
+}
 .sale-thumb {
   width: 44px;
   height: 44px;
@@ -739,6 +744,19 @@
 .cat-add-form input:focus {
   border-color: var(--accent-color);
 }
+.cat-add-form select {
+  padding: 12px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background-color: var(--card-bg);
+  color: var(--primary-color);
+  font-family: inherit;
+}
+.cat-add-form select:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
 .cat-add-form button {
   padding: 12px 20px;
   align-self: flex-start;
@@ -955,13 +973,66 @@
   margin: 0 0 20px;
 }
 .mensaje-acciones { display: flex; gap: 10px; }
-/* En móvil la tabla no cabe: se desplaza dentro de su caja en vez de ensanchar la página. */
+/* En el móvil cada mensaje es una tarjeta (quién, cuándo, si está leído, y el texto debajo): la tabla de
+   cinco columnas obligaba a deslizar de lado y dejaba el mensaje en una columna de una palabra por línea.
+   Los títulos de las columnas se quedan solo para el lector de pantalla. */
 @media (max-width: 768px) {
   .mensajes-tabla {
     display: block;
-    overflow-x: auto;
+    background: none;
+    border: none;
+    border-radius: 0;
   }
-  .mensajes-tabla td:nth-child(4) { white-space: nowrap; }
+  .mensajes-tabla thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .mensajes-tabla tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .mensajes-tabla tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'nombre estado'
+      'email fecha'
+      'mensaje mensaje';
+    align-items: center;
+    gap: 2px 12px;
+    padding: 12px 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+  }
+  .mensajes-tabla td {
+    min-width: 0;
+    padding: 0;
+    border: none;
+    overflow-wrap: anywhere;
+  }
+  .mensajes-tabla td:nth-child(1) { grid-area: nombre; }
+  .mensajes-tabla td:nth-child(2) { grid-area: email; }
+  .mensajes-tabla td:nth-child(3) { grid-area: mensaje; margin-top: 8px; }
+  .mensajes-tabla td:nth-child(4) { grid-area: fecha; white-space: nowrap; }
+  .mensajes-tabla td:nth-child(5) { grid-area: estado; justify-self: end; }
+  .mensajes-tabla td:nth-child(2),
+  .mensajes-tabla td:nth-child(4) {
+    color: var(--secondary-color);
+    font-size: 0.8rem;
+  }
+  /* Sin leer: solo el nombre va en negrita; si no, toda la tarjeta pesa. */
+  .mensajes-tabla tr.is-no-leido td:not(:first-child) { font-weight: 400; }
+  .mensajes-abrir {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
 
 /* ─── Importar catálogo (CSV) ─── */
@@ -1391,4 +1462,82 @@
     border-top: 1px solid var(--border-color);
     padding-top: 16px;
   }
+}
+
+/* ─── El panel en el móvil: zonas de pulsación y listas sin deslizar de lado ─── */
+/* A 900 px o menos la tabla de inventario ya muestra solo cinco columnas: no hace falta que ocupe 740 px.
+   Mientras la barra lateral siga a la izquierda (de 769 a 900) se queda en 560 para que el nombre se lea,
+   y la tabla se desliza de lado si no cabe; de 768 para abajo cabe a todo el ancho. */
+@media (max-width: 900px) {
+  .inventory-head-row, .inventory-list-item { min-width: 560px; }
+}
+
+@media (max-width: 768px) {
+  .inventory-head-row, .inventory-list-item { min-width: 0; }
+  /* 44 px de alto en lo que se pulsa con el dedo (Reservas ya los trae). */
+  .admin-content select,
+  .admin-content .admin-btn,
+  .admin-content .admin-btn-ghost,
+  .admin-content input[type='text'],
+  .admin-content input[type='search'],
+  .admin-content input[type='file'],
+  .admin-modal-overlay select,
+  .admin-modal-overlay .admin-btn,
+  .admin-modal-overlay .admin-btn-ghost,
+  .admin-modal-overlay input[type='file'],
+  .inv-edit-btn,
+  .inv-del-btn,
+  .foto-galeria-asa,
+  .foto-galeria-principal {
+    min-height: 44px;
+  }
+  /* El correo del mensaje es un enlace de una línea: se le da altura sin mover el resto. */
+  .mensaje-datos a {
+    display: inline-block;
+    padding: 14px 0;
+    margin: -14px 0;
+  }
+  .admin-modal-close {
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -10px -10px -10px 0;
+  }
+  /* Las fotos de un producto: quitarlas se pulsa con el dedo (44 px en la galería del editor, 32 en las
+     miniaturas pequeñas del alta, que no dan más de sí). */
+  .image-thumb-remove { width: 32px; height: 32px; }
+  .image-thumb-remove svg { width: 14px; height: 14px; }
+  .foto-galeria .image-thumb-remove { width: 44px; height: 44px; }
+  .foto-galeria-asa, .foto-galeria-principal { min-width: 44px; }
+  .cat-card-edit-btn, .cat-card-del-btn {
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .inv-checkbox { width: 24px; height: 24px; }
+  /* Las insignias y las etiquetas de estado, de 12 px como mínimo. */
+  .sidebar-badge, .status-pill { font-size: 0.75rem; }
+}
+
+/* Inventario en el móvil: cada producto es una tarjeta (foto y nombre arriba; su estado y sus botones
+   debajo, a todo el ancho) y la cabecera se queda en «Seleccionar todos». */
+@media (max-width: 640px) {
+  .inventory-head-row { grid-template-columns: 28px minmax(0, 1fr); gap: 12px; }
+  .inventory-head-row > span { display: none; }
+  .inventory-head-row::after {
+    content: 'Seleccionar todos';
+    content: 'Seleccionar todos' / '';
+  }
+  .inventory-list-item {
+    grid-template-columns: 28px 44px minmax(0, 1fr);
+    gap: 10px 12px;
+  }
+  /* El estado (la sexta celda; la categoría, el precio y la referencia están ocultos) y los botones. */
+  .inventory-list-item > :nth-child(6),
+  .inventory-list-item > .inv-actions { grid-column: 2 / -1; }
+  .inv-name { white-space: normal; overflow-wrap: anywhere; }
+  .inv-status-select { width: 100%; }
+  .inv-actions { display: grid; grid-template-columns: 1fr 1fr; }
 }

@@ -17,6 +17,8 @@ const {
   presentarFilas,
   listarReservas,
   resumenDeAvisos,
+  agendaDeHoy,
+  calendarioDeReservas,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
@@ -47,12 +49,16 @@ const responderError = (res, error, contexto, mensajeInterno) => {
   return res.status(500).json({ error: mensajeInterno });
 };
 
-// GET /api/admin/reservas?vista=...&mueble_id=... (la consulta ya validada) → { hoy, reservas }
+// GET /api/admin/reservas?vista=...&mueble_id=...&q=...&desde=...&hasta=... (la consulta ya validada)
+// → { hoy, reservas }, y `limitada` si es una búsqueda que no pudo mirarlo todo o enseñarlo todo
 const listarReservasAdmin = async (req, res) => {
   try {
     const resultado = await listarReservas({
       vista: req.query.vista,
       muebleId: req.query.mueble_id,
+      q: req.query.q,
+      desde: req.query.desde,
+      hasta: req.query.hasta,
       ahora: new Date()
     });
     res.set('Cache-Control', 'private, no-store');
@@ -79,6 +85,44 @@ const resumenReservasAdmin = async (req, res) => {
       error,
       'Error al contar los avisos de reservas del panel',
       'Error interno al cargar los avisos de reservas.'
+    );
+  }
+};
+
+// GET /api/admin/reservas/agenda → { hoy, manana, trayectos }: las entregas y recogidas de hoy y mañana
+const agendaReservasAdmin = async (req, res) => {
+  try {
+    const agenda = await agendaDeHoy({ ahora: new Date() });
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(agenda);
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      'Error al armar la agenda de reservas del panel',
+      'Error interno al cargar las entregas y recogidas.'
+    );
+  }
+};
+
+// GET /api/admin/reservas/calendario?desde=...&hasta=...&mueble_id=... (la consulta ya validada)
+// → { hoy, desde, hasta, reservas, limitada }: lo que ocupa las piezas en esos días
+const calendarioReservasAdmin = async (req, res) => {
+  try {
+    const calendario = await calendarioDeReservas({
+      desde: req.query.desde,
+      hasta: req.query.hasta,
+      muebleId: req.query.mueble_id,
+      ahora: new Date()
+    });
+    res.set('Cache-Control', 'private, no-store');
+    res.status(200).json(calendario);
+  } catch (error) {
+    responderError(
+      res,
+      error,
+      'Error al armar el calendario de reservas del panel',
+      'Error interno al cargar el calendario de reservas.'
     );
   }
 };
@@ -189,6 +233,8 @@ module.exports = {
   exigirObjeto,
   listarReservasAdmin,
   resumenReservasAdmin,
+  agendaReservasAdmin,
+  calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,

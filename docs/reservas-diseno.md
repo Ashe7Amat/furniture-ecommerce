@@ -1082,6 +1082,33 @@ legacy en revisión** (`origen = 'legacy'`).
   vista sirve para **ver** los riesgos: retrasos que se acercan a la reserva siguiente, márgenes justos y reservas
   sin fecha de entrega coordinada.
 
+**Hecho el 20 oct 2026** (detrás de los interruptores de reservas; detalle y pruebas en H7 de
+`docs/mejoras-tecnicas.md`). La pestaña «Reservas» tiene tres formas de ver: «Lista» (la de 8.1), «Calendario por
+pieza» y «Vista general». Encima de las tres, la agenda «Hoy y mañana» con los trayectos. Todo se lee de
+`GET /api/admin/reservas/calendario?desde&hasta[&mueble_id]` (como mucho 100 días seguidos y 1000 reservas;
+si no caben, `limitada` y un aviso, y faltan las más viejas) y de `GET /api/admin/reservas/agenda`.
+
+- **Cómo se distingue cada cosa** sin depender del color: alquiler = relleno verde, esperando pago = borde
+  discontinuo de 2 px, retrasada = rayas rojas, bloqueo = puntos, venta = relleno oscuro y margen = sombreado fino.
+  Cada día o barra tiene su descripción para el lector de pantalla (fecha, tipo, referencia, cliente, estado).
+- **Calendario por pieza:** se elige la pieza, se ve el mes (anterior, siguiente, «Este mes») con un resumen
+  («1 reserva en noviembre de 2026.») y al pulsar un día se abre su detalle con «Ver reserva». Una venta ocupa
+  todos los días desde su fecha.
+- **Vista general:** 30 o 60 días desde hoy, de semana en semana, una fila por pieza con barras (reserva y margen
+  pegado) y la franja «Fuera» de una retrasada. No salen las piezas vendidas antes de la ventana (no pasa nada
+  en esos días; siguen en el calendario de su pieza). Encima, «A vigilar»: una retrasada con otra reserva de la
+  misma pieza a continuación, dos alquileres seguidos sin un día de sobra y un alquiler sin hora de entrega o de
+  recogida.
+- **«Ver reserva»** (desde un día, una barra o la agenda) lleva a «Lista», busca por la referencia y deja el foco
+  en su tarjeta, donde están las acciones. Los calendarios no ofrecen acciones propias.
+- **Una retrasada** (en curso con la recogida pasada) tiene la pieza fuera: sus días de margen que ya han llegado
+  se dibujan como reservados, no como descanso, y desde que acaba su ocupación hasta hoy sale «Fuera». Cuando
+  exista la tarea diaria de R-e (que amplía la ocupación de las retrasadas hasta mañana), esa franja solo se verá
+  entre una ejecución y la siguiente.
+- **Límites conocidos:** el servidor solo añade las retrasadas cuando la ventana llega a hoy (en un mes pasado
+  no se ve que la pieza seguía fuera), y las ventas de antes de la ventana solo se ven en el calendario de su
+  pieza.
+
 ### 8.3 Acciones
 
 | Acción | Efecto | Notas |
@@ -1499,8 +1526,8 @@ desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno
 15. `feat(client): lista y acciones de reservas en el panel` — **mínimo para lanzar**. Si la tarea 4 no ha
     terminado, va en un componente propio (`AdminReservas.jsx`) que `Admin.jsx` monta con una sola línea, para no
     hacer crecer el archivo de 1037 líneas; si ya terminó, es una pestaña más.
-16. `feat(client): calendario por pieza` — **tras la tarea 4**.
-17. `feat(client): vista general de reservas` — **tras la tarea 4**.
+16. `feat(client): calendario por pieza` — **tras la tarea 4**. *Hecho el 20 oct 2026 (8.2).*
+17. `feat(client): vista general de reservas` — **tras la tarea 4**. *Hecho el 20 oct 2026 (8.2).*
 
 ### Bloque R-e — Fianza y tarea diaria (≈ 2–4 días)
 

@@ -580,11 +580,13 @@ export const solicitarCancelacionReserva = (id, motivo) =>
   );
 
 // Panel: la lista de reservas de una vista (proximas, entregas, recogidas, retrasadas, conflicto,
-// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger.
-export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
+// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger. Con `q` (cliente,
+// pieza o referencia) o con `desde` y `hasta` (AAAA-MM-DD) es una búsqueda en todas las reservas, y la
+// vista no cuenta.
+export const getReservasAdmin = ({ vista = 'proximas', muebleId, q, desde, hasta } = {}) =>
   peticion(
     apiFetch,
-    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId })}`,
+    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId, q, desde, hasta })}`,
     { cache: 'no-store' },
     'No se han podido cargar las reservas.'
   );
@@ -597,6 +599,27 @@ export const getResumenReservasAdmin = () =>
     `${API_URL}/admin/reservas/resumen`,
     { cache: 'no-store' },
     'No se han podido cargar los avisos de reservas.'
+  );
+
+// Panel: las entregas y recogidas de hoy y mañana en una sola lista por día y hora, para organizar la
+// ruta y llamar sin abrir cada reserva: { hoy, manana, trayectos }.
+export const getAgendaReservasAdmin = () =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/agenda`,
+    { cache: 'no-store' },
+    'No se ha podido cargar la agenda de hoy y mañana.'
+  );
+
+// Panel: lo que ocupa las piezas entre dos días (AAAA-MM-DD, los dos incluidos, hasta 100 días), con el
+// margen, y las retrasadas, para el calendario de una pieza y la vista general:
+// { hoy, desde, hasta, reservas, limitada }.
+export const getCalendarioReservasAdmin = ({ desde, hasta, muebleId } = {}) =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/calendario${consulta({ desde, hasta, mueble_id: muebleId })}`,
+    { cache: 'no-store' },
+    'No se ha podido cargar el calendario de reservas.'
   );
 
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,

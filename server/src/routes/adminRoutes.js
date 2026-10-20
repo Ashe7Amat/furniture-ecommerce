@@ -13,6 +13,8 @@ const {
   exigirObjeto,
   listarReservasAdmin,
   resumenReservasAdmin,
+  agendaReservasAdmin,
+  calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
@@ -24,6 +26,7 @@ const { validar } = require('../middleware/validar');
 const { reservasActivas } = require('../utils/reservas');
 const {
   schemaListaReservas,
+  schemaCalendarioReservas,
   schemaBloqueo,
   schemaAlquilerFueraDeLaWeb,
   schemaVentaFueraDeLaWeb
@@ -76,6 +79,15 @@ const reservas = [verificarAdmin, exigirReservasActivas];
 router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
 // La insignia del menú: cuántas reservas piden atención (retrasadas, sin confirmar, reembolsos a medias).
 router.get('/reservas/resumen', ...reservas, resumenReservasAdmin);
+// Las entregas y recogidas de hoy y mañana, en una sola lista por hora, para organizar la ruta.
+router.get('/reservas/agenda', ...reservas, agendaReservasAdmin);
+// La ocupación de unos días: el calendario de una pieza y la vista general.
+router.get(
+  '/reservas/calendario',
+  ...reservas,
+  validar(schemaCalendarioReservas, 'query'),
+  calendarioReservasAdmin
+);
 router.post(
   '/reservas/bloqueos',
   ...reservas,

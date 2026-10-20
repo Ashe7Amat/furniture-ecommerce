@@ -52,6 +52,13 @@ describe('esFechaValida', () => {
       assert.equal(esFechaValida(f), true, f);
     }
   });
+  test('acepta de 2000-01-01 a 2100-12-31 y rechaza los años de fuera', () => {
+    for (const f of ['2000-01-01', '2100-12-31']) assert.equal(esFechaValida(f), true, f);
+    // '0050-01-01' y '9999-12-31' son días que existen, pero con ellos las cuentas dan fechas rotas.
+    for (const f of ['1999-12-31', '2101-01-01', '0050-01-01', '0000-01-01', '9999-12-31']) {
+      assert.equal(esFechaValida(f), false, f);
+    }
+  });
   test('rechaza días que no existen, otros formatos y lo que no es texto', () => {
     for (const f of [
       '2026-02-30',
