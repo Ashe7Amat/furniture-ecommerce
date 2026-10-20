@@ -3,6 +3,7 @@ const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const {
   crearSesionPagoReserva,
+  retomarPagoReserva,
   obtenerMisReservas,
   solicitarCancelacionReserva,
   MENSAJE_ALQUILER_CERRADO
@@ -42,6 +43,26 @@ router.post(
   verificarToken,
   validar(schemaSesionPagoReserva),
   crearSesionPagoReserva
+);
+
+// Seguir con el pago de una reserva a medio pagar: no crea nada, pide a Stripe la sesión que ya existe. Pocas
+// por IP, como los demás límites de las reservas.
+const limitadorRetomarPago = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Demasiados intentos seguidos. Espera unos minutos antes de volver a intentarlo.'
+  }
+});
+
+router.post(
+  '/:id/retomar-pago',
+  exigirReservasActivas,
+  limitadorRetomarPago,
+  verificarToken,
+  retomarPagoReserva
 );
 
 // "Mis reservas" en la cuenta del cliente (bloque R-c, commit 13).

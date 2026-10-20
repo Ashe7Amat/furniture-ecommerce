@@ -169,9 +169,62 @@ describe('GET /api/reservas/mias', () => {
         dias: 3,
         importe_total_centimos: 11250,
         cancelacion_solicitada: false,
-        puede_solicitar_cancelacion: true
+        puede_solicitar_cancelacion: true,
+        pago_hasta: null,
+        reembolso: null
       }
     ]);
+  });
+
+  test('una reserva que espera el pago dice hasta cuándo se puede pagar: lo que dura su sesión, sin la gracia', async () => {
+    const expiraEn = new Date(Date.now() + 40 * 60_000).toISOString();
+    instalar({
+      reservas: [
+        pagada({ estado: 'pendiente', expira_en: expiraEn, stripe_payment_intent_id: null })
+      ]
+    });
+    const [reserva] = (await misReservas()).body;
+    assert.equal(reserva.estado, 'esperando_pago');
+    // 15 minutos de gracia del webhook (REGLAS_ALQUILER.graciaWebhookMin) menos que `expira_en`.
+    assert.equal(reserva.pago_hasta, new Date(Date.parse(expiraEn) - 15 * 60_000).toISOString());
+    assert.equal(reserva.reembolso, null);
+  });
+
+  test('una cancelada enseña lo que se le devuelve y si ya está hecho; sin reembolso, nada', async () => {
+    instalar({
+      reservas: [
+        pagada({
+          id: R1,
+          estado: 'cancelada',
+          reembolso_solicitado_en: '2026-10-20T10:00:00Z',
+          reembolso_importe: 87.5,
+          stripe_refund_id: 're_1'
+        }),
+        pagada({
+          id: R2,
+          estado: 'cancelada',
+          fecha_inicio: dia(30),
+          fecha_fin: dia(33),
+          fin_ocupacion: dia(33),
+          reembolso_solicitado_en: '2026-10-20T10:00:00Z',
+          reembolso_importe: 112.5,
+          stripe_refund_id: null
+        }),
+        pagada({
+          id: '10000000-0000-4000-8000-000000000003',
+          estado: 'cancelada',
+          fecha_inicio: dia(40),
+          fecha_fin: dia(43),
+          fin_ocupacion: dia(43)
+        })
+      ]
+    });
+    const porId = Object.fromEntries((await misReservas()).body.map((r) => [r.id, r]));
+    assert.deepEqual(porId[R1].reembolso, { importe_centimos: 8750, hecho: true });
+    assert.deepEqual(porId[R2].reembolso, { importe_centimos: 11250, hecho: false });
+    assert.equal(porId['10000000-0000-4000-8000-000000000003'].reembolso, null);
+    // Nunca sale el id del reembolso de Stripe.
+    assert.ok(!JSON.stringify(porId).includes('re_1'));
   });
 
   test('solo las de su cuenta y solo alquileres', async () => {

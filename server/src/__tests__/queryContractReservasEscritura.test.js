@@ -20,7 +20,11 @@ const supabase = require('../data/supabase');
 const stripeUtil = require('../utils/stripe');
 const app = require('../index');
 const { hoyEnMadrid, sumarDias } = require('../utils/fechasMadrid');
-const { MENSAJE_FECHAS_OCUPADAS, MENSAJE_OTRA_RESERVA } = require('../utils/reservas');
+const {
+  MENSAJE_FECHAS_OCUPADAS,
+  MENSAJE_OTRA_RESERVA,
+  CODIGO_OTRA_RESERVA
+} = require('../utils/reservas');
 
 const hoy = hoyEnMadrid();
 const ANA = '00000000-0000-4000-8000-0000000000a1';
@@ -156,14 +160,14 @@ describe('contrato de POST /api/reservas/sesion-pago con supabase-js real', () =
     provisionalesVivas = [{ id: RESERVA }];
     const res = await reservar();
     assert.equal(res.status, 409);
-    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA, codigo: CODIGO_OTRA_RESERVA });
   });
 
   test('el 23505 del índice de una provisional por cliente es un 409 "vuelve a intentarlo"', async () => {
     respuestaInsercion = () => json(409, ERROR_UNICIDAD);
     const res = await reservar();
     assert.equal(res.status, 409);
-    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA, codigo: CODIGO_OTRA_RESERVA });
     assert.equal(de('POST', '/rest/v1/reservas').length, 1, 'un 23505 no se reintenta');
   });
 
