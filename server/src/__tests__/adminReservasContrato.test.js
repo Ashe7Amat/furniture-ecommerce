@@ -403,7 +403,8 @@ describe('contrato de la lista: el filtro de cada vista', () => {
         ['mueble_id', `eq.${SOFA}`],
         ['estado', ESTADOS_QUE_OCUPAN],
         ['rango_ocupado', `ov.[${dia(0)},${dia(31)})`],
-        ['order', 'fecha_inicio.asc'],
+        // Las más recientes primero: si no caben todas, faltan las más viejas.
+        ['order', 'fecha_inicio.desc'],
         ['limit', '1000']
       ]
     );

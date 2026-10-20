@@ -402,6 +402,37 @@ describe('calendario: el límite', () => {
     assert.equal(res.body.limitada, true);
   });
 
+  test('si no caben todas, faltan las más viejas (las ventas de hace tiempo), no las que están por llegar', async () => {
+    const ventasViejas = Array.from({ length: MAX_CALENDARIO }, (_, i) =>
+      alquiler(i + 1, {
+        id: uuid(2000 + i),
+        tipo: 'venta',
+        fecha_inicio: dia(-1100 + i),
+        fecha_fin: null,
+        fin_ocupacion: null,
+        dias_margen: 0,
+        hora_entrega: null,
+        hora_recogida: null,
+        datos_contacto: null,
+        motivo: 'Venta en tienda'
+      })
+    );
+    instalar([
+      ...ventasViejas,
+      alquiler(5000, {
+        id: uuid(5000),
+        fecha_inicio: dia(20),
+        fecha_fin: dia(22),
+        fin_ocupacion: dia(22)
+      })
+    ]);
+    const res = await calendario(ventana(0, 30));
+    assert.equal(res.body.limitada, true);
+    assert.equal(res.body.reservas.length, MAX_CALENDARIO);
+    assert.ok(ids(res).includes(uuid(5000)));
+    assert.ok(!ids(res).includes(uuid(2000)));
+  });
+
   test('las canceladas no gastan el límite de lectura', async () => {
     instalar([
       ...muchas(MAX_CALENDARIO).map((fila) => ({

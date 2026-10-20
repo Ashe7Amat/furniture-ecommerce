@@ -496,7 +496,9 @@ const calendarioDeReservas = async ({ desde, hasta, muebleId, ahora = new Date()
       consultaBase(muebleId)
         .in('estado', ESTADOS_QUE_OCUPAN)
         .overlaps('rango_ocupado', `[${desde},${sumarDias(hasta, 1)})`)
-        .order('fecha_inicio', { ascending: true })
+        // Las más recientes primero: si hay más de las que caben, que falten las más viejas (las ventas no
+        // tienen fin y entran en toda ventana posterior a su día), no las que están por llegar.
+        .order('fecha_inicio', { ascending: false })
         .limit(MAX_CALENDARIO)
     ),
     hasta < contexto.hoy
