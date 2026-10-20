@@ -307,14 +307,14 @@ export const MUTANTES = [
   {
     nombre: 'al avisar de un cambio, el contenedor no se entera (la insignia del menú)',
     archivo: ARCHIVO,
-    buscar: '    alCambiar?.();\n    recargarAgenda();\n  };',
-    reemplazo: '    recargarAgenda();\n  };'
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n    setVersion((v) => v + 1);\n  };',
+    reemplazo: '    recargarAgenda();\n    setVersion((v) => v + 1);\n  };'
   },
   {
     nombre: 'al avisar de un cambio, la agenda de hoy y mañana no se vuelve a leer',
     archivo: ARCHIVO,
-    buscar: '    alCambiar?.();\n    recargarAgenda();\n  };',
-    reemplazo: '    alCambiar?.();\n  };'
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n    setVersion((v) => v + 1);\n  };',
+    reemplazo: '    alCambiar?.();\n    setVersion((v) => v + 1);\n  };'
   },
   {
     nombre: 'la agenda no se enseña (llega siempre vacía)',
@@ -369,8 +369,8 @@ export const MUTANTES = [
   {
     nombre: '«Ver reserva» no pide enfocar la tarjeta',
     archivo: ARCHIVO,
-    buscar: '    tarjetaPendiente.current = reserva.id;\n',
-    reemplazo: ''
+    buscar: '    tarjetaPendiente.current = reserva.id;\n    dejarBusqueda();\n',
+    reemplazo: '    dejarBusqueda();\n'
   },
   {
     nombre: 'elegir otra vista no cancela la tarjeta pendiente: el foco salta a ella más tarde',
@@ -435,8 +435,8 @@ export const MUTANTES = [
   {
     nombre: 'buscar no guarda la búsqueda para las recargas de después',
     archivo: ARCHIVO,
-    buscar: '    busquedaRef.current = filtros;\n',
-    reemplazo: ''
+    buscar: '    tarjetaPendiente.current = null;\n    busquedaRef.current = filtros;\n',
+    reemplazo: '    tarjetaPendiente.current = null;\n'
   },
   {
     nombre: 'quitar la búsqueda recarga aunque no hubiera ninguna',

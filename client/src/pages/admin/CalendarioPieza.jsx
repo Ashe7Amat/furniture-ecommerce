@@ -119,9 +119,7 @@ const CalendarioPieza = ({ muebles = [], hoy, version = 0, activo = true, onVer 
   };
 
   const detalle = seleccion && datos ? delDia(seleccion) : null;
-  const delDetalle = detalle
-    ? [...new Map([detalle.reserva, detalle.retraso].filter(Boolean).map((r) => [r.id, r])).values()]
-    : [];
+  const delDetalle = detalle ? [detalle.reserva, detalle.retraso].filter(Boolean) : [];
 
   return (
     <div className="ocupacion ocupacion-pieza">
