@@ -123,8 +123,14 @@ export const MUTANTES = [
   {
     nombre: 'con un calendario abierto se siguen viendo las vistas y el buscador',
     archivo: ARCHIVO,
-    buscar: "      {modo === 'lista' && (\n        <>\n          <div className=\"reservas-vistas\"",
-    reemplazo: "      {true && (\n        <>\n          <div className=\"reservas-vistas\""
+    buscar: "      <div hidden={modo !== 'lista'}>\n        <div className=\"reservas-vistas\"",
+    reemplazo: "      <div>\n        <div className=\"reservas-vistas\""
+  },
+  {
+    nombre: 'al volver de un calendario se pierde lo escrito en el buscador',
+    archivo: ARCHIVO,
+    buscar: '<BuscadorReservas activa={busqueda}',
+    reemplazo: '<BuscadorReservas key={modo} activa={busqueda}'
   },
   {
     nombre: 'con un calendario abierto no están «Actualizar» ni las altas',

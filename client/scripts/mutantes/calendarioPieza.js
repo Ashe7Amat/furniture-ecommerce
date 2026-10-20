@@ -3,6 +3,9 @@
 export const TEST = 'src/pages/admin/CalendarioPieza.test.jsx';
 
 const ARCHIVO = 'src/pages/admin/CalendarioPieza.jsx';
+// El aviso de estado del calendario (un solo <p> que cambia de texto), tal como está en el código.
+const EST_C =
+  "{datos ? textoReservasDelMes(enElMes.size, mes) : cargando ? 'Cargando el calendario…' : ''}";
 
 export const MUTANTES = [
   // ─── la pieza ───
@@ -135,22 +138,40 @@ export const MUTANTES = [
     reemplazo: 'onClick={() => irAlMes(mes)}'
   },
   {
-    nombre: '«Este mes» sigue activo estando en este mes',
+    nombre: '«Este mes» no se ve apagado estando en este mes',
     archivo: ARCHIVO,
-    buscar: 'disabled={mes === mesDe(hoyReal)}',
-    reemplazo: 'disabled={false}'
+    buscar: 'aria-disabled={mes === mesDe(hoyReal) || undefined}',
+    reemplazo: 'aria-disabled={undefined}'
   },
   {
-    nombre: '«Este mes» está desactivado estando en otro mes',
+    nombre: '«Este mes» se ve apagado estando en otro mes',
     archivo: ARCHIVO,
-    buscar: 'disabled={mes === mesDe(hoyReal)}',
-    reemplazo: 'disabled'
+    buscar: 'aria-disabled={mes === mesDe(hoyReal) || undefined}',
+    reemplazo: 'aria-disabled'
+  },
+  {
+    nombre: '«Este mes», apagado, cierra el detalle que hubiera abierto',
+    archivo: ARCHIVO,
+    buscar: 'onClick={() => mes !== mesDe(hoyReal) && irAlMes(mesDe(hoyReal))}',
+    reemplazo: 'onClick={() => irAlMes(mesDe(hoyReal))}'
+  },
+  {
+    nombre: '«Este mes», apagado, se come el foco (se desactiva de verdad)',
+    archivo: ARCHIVO,
+    buscar: 'aria-disabled={mes === mesDe(hoyReal) || undefined}',
+    reemplazo: 'disabled={mes === mesDe(hoyReal)}'
   },
   {
     nombre: 'el título no dice qué mes es',
     archivo: ARCHIVO,
-    buscar: '<h3 className="ocupacion-titulo" aria-live="polite">{nombreDelMes(mes)}</h3>',
-    reemplazo: '<h3 className="ocupacion-titulo" aria-live="polite" />'
+    buscar: '<h3 className="ocupacion-titulo">{nombreDelMes(mes)}</h3>',
+    reemplazo: '<h3 className="ocupacion-titulo" />'
+  },
+  {
+    nombre: 'el título del mes es una zona viva (se dice dos veces con el aviso)',
+    archivo: ARCHIVO,
+    buscar: '<h3 className="ocupacion-titulo">{nombreDelMes(mes)}</h3>',
+    reemplazo: '<h3 className="ocupacion-titulo" aria-live="polite">{nombreDelMes(mes)}</h3>'
   },
   // ─── mientras se lee ───
   {
@@ -168,20 +189,30 @@ export const MUTANTES = [
   {
     nombre: 'mientras se lee no se avisa',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{false && <p'
+    buscar: EST_C,
+    reemplazo: "{datos ? textoReservasDelMes(enElMes.size, mes) : ''}"
   },
   {
     nombre: 'con un fallo se sigue diciendo que está cargando',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{!datos && <p'
+    buscar: EST_C,
+    reemplazo: "{datos ? textoReservasDelMes(enElMes.size, mes) : 'Cargando el calendario…'}"
   },
   {
     nombre: 'al volver a leer se vuelve a decir que está cargando aunque se vea el calendario',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{cargando && <p'
+    buscar: EST_C,
+    reemplazo: "{cargando ? 'Cargando el calendario…' : datos ? textoReservasDelMes(enElMes.size, mes) : ''}"
+  },
+  {
+    nombre: 'el aviso de estado sale y se quita en vez de cambiar de texto (los lectores no lo dicen)',
+    archivo: ARCHIVO,
+    cambios: [
+      {
+        buscar: '<p className="ocupacion-resumen" role="status">\n            ' + EST_C + '\n          </p>',
+        reemplazo: "{(datos || cargando) && <p className=\"ocupacion-resumen\" role=\"status\" key={String(Boolean(datos))}>" + EST_C + "</p>}"
+      }
+    ]
   },
   {
     nombre: 'el calendario no avisa de que se está volviendo a leer',

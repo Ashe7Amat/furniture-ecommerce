@@ -436,6 +436,17 @@ describe('CalendarioPieza: ir de mes en mes', () => {
     expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(lecturas + 2);
   });
 
+  it('«Este mes», apagado, no cierra el detalle que hay abierto', async () => {
+    const { user } = await montar();
+    await elegir(user);
+    await user.click(screen.getByRole('button', { name: dia(13) }));
+    expect(screen.getByRole('region', { name: /^Detalle del/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Este mes' }));
+
+    expect(screen.getByRole('region', { name: /^Detalle del/ })).toBeInTheDocument();
+  });
+
   it('cambiar de mes cierra el detalle', async () => {
     const { user } = await montar();
     await elegir(user);

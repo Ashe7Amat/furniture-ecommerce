@@ -58,20 +58,81 @@ export const MUTANTES = [
   {
     nombre: 'el día en que vuelve la pieza todavía es de reserva, no de margen',
     archivo: ARCHIVO,
-    buscar: 'dia >= reserva.fin_ocupacion) return',
-    reemplazo: 'dia > reserva.fin_ocupacion) return'
+    buscar: 'dia >= fin) return',
+    reemplazo: 'dia > fin) return'
   },
   {
     nombre: 'una reserva sin fin se mira como si tuviera margen',
     archivo: ARCHIVO,
-    buscar: "if (reserva.fin_ocupacion !== null && dia >= reserva.fin_ocupacion) return 'margen';",
-    reemplazo: "if (reserva.fin_ocupacion === null || dia >= reserva.fin_ocupacion) return 'margen';"
+    buscar: "if (fin !== null && dia >= fin) return 'margen';",
+    reemplazo: "if (fin === null || dia >= fin) return 'margen';"
   },
   {
     nombre: 'el margen se pinta como reserva',
     archivo: ARCHIVO,
-    buscar: "dia >= reserva.fin_ocupacion) return 'margen';",
-    reemplazo: "dia >= reserva.fin_ocupacion) return 'reserva';"
+    buscar: "dia >= fin) return 'margen';",
+    reemplazo: "dia >= fin) return 'reserva';"
+  },
+  // ─── finDeLaReserva: el margen de una retrasada ya no es descanso ───
+  {
+    nombre: 'sin hoy, el cálculo de la retrasada revienta',
+    archivo: ARCHIVO,
+    buscar: 'if (!hoy || !reserva.retrasada || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;',
+    reemplazo: 'if (!reserva.retrasada || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;'
+  },
+  {
+    nombre: 'una reserva que no está retrasada también tiene la pieza fuera en su margen',
+    archivo: ARCHIVO,
+    buscar: 'if (!hoy || !reserva.retrasada || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;',
+    reemplazo: 'if (!hoy || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;'
+  },
+  {
+    nombre: 'una retrasada sin fin (no existe) tiene el fin de hoy',
+    archivo: ARCHIVO,
+    buscar: 'if (!hoy || !reserva.retrasada || reserva.fin_ocupacion === null) return reserva.fin_ocupacion;',
+    reemplazo: 'if (!hoy || !reserva.retrasada) return reserva.fin_ocupacion;'
+  },
+  {
+    nombre: 'el margen de una retrasada sigue siendo descanso hasta hoy (no se alarga a mañana)',
+    archivo: ARCHIVO,
+    buscar: 'const hastaHoy = sumarDias(hoy, 1);',
+    reemplazo: 'const hastaHoy = hoy;'
+  },
+  {
+    nombre: 'una ocupación que ya llega más allá de hoy se acorta hasta hoy',
+    archivo: ARCHIVO,
+    buscar: 'const fin = reserva.fin_ocupacion > hastaHoy ? reserva.fin_ocupacion : hastaHoy;',
+    reemplazo: 'const fin = hastaHoy;'
+  },
+  {
+    nombre: 'una ocupación acabada hace tiempo no se alarga hasta hoy',
+    archivo: ARCHIVO,
+    buscar: 'const fin = reserva.fin_ocupacion > hastaHoy ? reserva.fin_ocupacion : hastaHoy;',
+    reemplazo: 'const fin = reserva.fin_ocupacion;'
+  },
+  {
+    nombre: 'una retrasada que ya no ocupa nada se dibuja reservada más allá de su ocupación',
+    archivo: ARCHIVO,
+    buscar: 'return reserva.ocupada_hasta < fin ? reserva.ocupada_hasta : fin;',
+    reemplazo: 'return fin;'
+  },
+  {
+    nombre: 'una retrasada se dibuja reservada hasta el final de su margen aunque este aún no haya llegado',
+    archivo: ARCHIVO,
+    buscar: 'return reserva.ocupada_hasta < fin ? reserva.ocupada_hasta : fin;',
+    reemplazo: 'return reserva.ocupada_hasta;'
+  },
+  {
+    nombre: 'los tramos de la reserva no tienen en cuenta que la pieza sigue fuera',
+    archivo: ARCHIVO,
+    buscar: 'const fin = finDeLaReserva(reserva, hoy);\n  return {',
+    reemplazo: 'const fin = reserva.fin_ocupacion;\n  return {'
+  },
+  {
+    nombre: 'los días reservados de una retrasada acaban donde su ocupación, no donde la pieza vuelve',
+    archivo: ARCHIVO,
+    buscar: 'reservado: recorte(reserva.fecha_inicio, fin, inicio, nDias),',
+    reemplazo: 'reservado: recorte(reserva.fecha_inicio, reserva.fin_ocupacion, inicio, nDias),'
   },
   // ─── tramoDeRetraso ───
   {
@@ -120,13 +181,13 @@ export const MUTANTES = [
   {
     nombre: 'un día sin reserva dice que es de reserva',
     archivo: ARCHIVO,
-    buscar: 'parte: reserva ? parteDelDia(reserva, dia) : null,',
+    buscar: 'parte: reserva ? parteDelDia(reserva, dia, hoy) : null,',
     reemplazo: "parte: reserva ? 'reserva' : null,"
   },
   {
     nombre: 'un día sin reserva sigue diciendo que hay reserva',
     archivo: ARCHIVO,
-    buscar: 'const reserva = reservas.find((r) => parteDelDia(r, dia) !== null) ?? null;',
+    buscar: 'const reserva = reservas.find((r) => parteDelDia(r, dia, hoy) !== null) ?? null;',
     reemplazo: 'const reserva = reservas[0] ?? null;'
   },
   // ─── describirReserva y los textos del lector de pantalla ───
@@ -406,14 +467,14 @@ export const MUTANTES = [
   {
     nombre: 'una reserva sin fin tiene franja de margen',
     archivo: ARCHIVO,
-    buscar: '      reserva.fin_ocupacion === null\n        ? null\n        : recorte(',
-    reemplazo: '      reserva.fin_ocupacion !== null\n        ? null\n        : recorte('
+    buscar: 'margen: fin === null ? null : recorte(',
+    reemplazo: 'margen: fin !== null ? null : recorte('
   },
   {
     nombre: 'el margen se dibuja desde el inicio de la reserva',
     archivo: ARCHIVO,
-    buscar: ': recorte(reserva.fin_ocupacion, reserva.ocupada_hasta, inicio, nDias),',
-    reemplazo: ': recorte(reserva.fecha_inicio, reserva.ocupada_hasta, inicio, nDias),'
+    buscar: 'margen: fin === null ? null : recorte(fin, reserva.ocupada_hasta, inicio, nDias),',
+    reemplazo: 'margen: fin === null ? null : recorte(reserva.fecha_inicio, reserva.ocupada_hasta, inicio, nDias),'
   },
   {
     nombre: 'una reserva que empieza el primer día de la ventana se dice cortada por la izquierda',
@@ -452,6 +513,30 @@ export const MUTANTES = [
     reemplazo: 'retraso: null,'
   },
   // ─── filasDeOcupacion ───
+  {
+    nombre: 'una pieza vendida antes de la ventana sale en la vista general',
+    archivo: ARCHIVO,
+    buscar: "    if (reserva.tipo === 'venta' && reserva.fecha_inicio < inicio) continue;\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'una pieza vendida el primer día de la ventana no sale',
+    archivo: ARCHIVO,
+    buscar: "reserva.tipo === 'venta' && reserva.fecha_inicio < inicio",
+    reemplazo: "reserva.tipo === 'venta' && reserva.fecha_inicio <= inicio"
+  },
+  {
+    nombre: 'un alquiler anterior a la ventana tampoco sale',
+    archivo: ARCHIVO,
+    buscar: "reserva.tipo === 'venta' && reserva.fecha_inicio < inicio",
+    reemplazo: 'reserva.fecha_inicio < inicio'
+  },
+  {
+    nombre: 'una pieza vendida dentro de la ventana no sale',
+    archivo: ARCHIVO,
+    buscar: "reserva.tipo === 'venta' && reserva.fecha_inicio < inicio",
+    reemplazo: "reserva.tipo === 'venta'"
+  },
   {
     nombre: 'una pieza sin nada en la ventana tiene fila',
     archivo: ARCHIVO,

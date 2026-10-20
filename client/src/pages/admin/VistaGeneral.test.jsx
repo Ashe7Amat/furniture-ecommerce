@@ -193,6 +193,16 @@ describe('VistaGeneral: la ventana', () => {
     expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(lecturas);
   });
 
+  it('«Hoy», apagado, no cierra el detalle que hay abierto', async () => {
+    const { user } = await montar();
+    await user.click(barra('Sofá Lumina', /^alquiler A1B2C3D4/));
+    expect(screen.getByRole('region', { name: 'Detalle de la reserva' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Hoy' }));
+
+    expect(screen.getByRole('region', { name: 'Detalle de la reserva' })).toBeInTheDocument();
+  });
+
   it('«Hoy» es el del servidor si la pestaña llevaba abierta desde ayer', async () => {
     getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([], { hoy: '2026-11-11' })));
     const { user } = await montar();

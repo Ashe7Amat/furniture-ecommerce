@@ -3,6 +3,9 @@
 export const TEST = 'src/pages/admin/VistaGeneral.test.jsx';
 
 const ARCHIVO = 'src/pages/admin/VistaGeneral.jsx';
+// El aviso de estado de la vista (un solo <p> que cambia de texto), tal como está en el código.
+const EST_V =
+  "{datos ? textoPiezasConReservas(filas.length, nDias) : cargando ? 'Cargando el calendario…' : ''}";
 
 export const MUTANTES = [
   // ─── qué se lee ───
@@ -92,16 +95,28 @@ export const MUTANTES = [
     reemplazo: 'Del {fechaCorta(inicio)} al {fechaCorta(inicio)}'
   },
   {
-    nombre: '«Hoy» sigue activo estando ya en hoy',
+    nombre: '«Hoy» no se ve apagado estando ya en hoy',
     archivo: ARCHIVO,
-    buscar: 'disabled={inicio === hoyReal}',
-    reemplazo: 'disabled={false}'
+    buscar: 'aria-disabled={inicio === hoyReal || undefined}',
+    reemplazo: 'aria-disabled={undefined}'
   },
   {
-    nombre: '«Hoy» está desactivado fuera de hoy',
+    nombre: '«Hoy» se ve apagado fuera de hoy',
     archivo: ARCHIVO,
-    buscar: 'disabled={inicio === hoyReal}',
-    reemplazo: 'disabled'
+    buscar: 'aria-disabled={inicio === hoyReal || undefined}',
+    reemplazo: 'aria-disabled'
+  },
+  {
+    nombre: '«Hoy», apagado, cierra el detalle que hubiera abierto',
+    archivo: ARCHIVO,
+    buscar: '            if (inicio === hoyReal) return;\n',
+    reemplazo: ''
+  },
+  {
+    nombre: '«Hoy», apagado, se come el foco (se desactiva de verdad)',
+    archivo: ARCHIVO,
+    buscar: 'aria-disabled={inicio === hoyReal || undefined}',
+    reemplazo: 'disabled={inicio === hoyReal}'
   },
   {
     nombre: '«Hoy» no vuelve a hoy',
@@ -124,8 +139,14 @@ export const MUTANTES = [
   {
     nombre: 'los botones de 30 y 60 días no cambian los días',
     archivo: ARCHIVO,
-    buscar: 'onClick={() => setNDias(n)}',
-    reemplazo: 'onClick={() => {}}'
+    buscar: '              setNDias(n);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'cambiar entre 30 y 60 días deja abierto el detalle',
+    archivo: ARCHIVO,
+    buscar: '              setNDias(n);\n              setSeleccion(null);',
+    reemplazo: '              setNDias(n);'
   },
   {
     nombre: 'los botones de 30 y 60 días no marcan el elegido',
@@ -155,20 +176,36 @@ export const MUTANTES = [
   {
     nombre: 'mientras se lee no se avisa',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{false && <p'
+    buscar: EST_V,
+    reemplazo: "{datos ? textoPiezasConReservas(filas.length, nDias) : ''}"
   },
   {
     nombre: 'con un fallo se sigue diciendo que está cargando',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{!datos && <p'
+    buscar: EST_V,
+    reemplazo: "{datos ? textoPiezasConReservas(filas.length, nDias) : 'Cargando el calendario…'}"
   },
   {
     nombre: 'al volver a leer se vuelve a decir que está cargando aunque se vea la vista',
     archivo: ARCHIVO,
-    buscar: '{!datos && cargando && <p',
-    reemplazo: '{cargando && <p'
+    buscar: EST_V,
+    reemplazo: "{cargando ? 'Cargando el calendario…' : datos ? textoPiezasConReservas(filas.length, nDias) : ''}"
+  },
+  {
+    nombre: 'el aviso de estado sale y se quita en vez de cambiar de texto (los lectores no lo dicen)',
+    archivo: ARCHIVO,
+    cambios: [
+      {
+        buscar: '<p className="ocupacion-resumen" role="status">\n        ' + EST_V + '\n      </p>',
+        reemplazo: "{(datos || cargando) && <p className=\"ocupacion-resumen\" role=\"status\" key={String(Boolean(datos))}>" + EST_V + "</p>}"
+      }
+    ]
+  },
+  {
+    nombre: 'el título de las fechas es una zona viva (se dice dos veces con el aviso)',
+    archivo: ARCHIVO,
+    buscar: '<h3 className="ocupacion-titulo">',
+    reemplazo: '<h3 className="ocupacion-titulo" aria-live="polite">'
   },
   {
     nombre: 'la rejilla no avisa de que se está volviendo a leer',
@@ -440,14 +477,14 @@ export const MUTANTES = [
   {
     nombre: 'la barra no escribe la referencia de la reserva',
     archivo: ARCHIVO,
-    buscar: "{reservado ? reserva.referencia : ''}",
-    reemplazo: "{''}"
+    buscar: '{reservado && <span className="ocupacion-barra-ref">{reserva.referencia}</span>}',
+    reemplazo: '{reservado && <span className="ocupacion-barra-ref" />}'
   },
   {
     nombre: 'una barra de solo margen escribe la referencia',
     archivo: ARCHIVO,
-    buscar: "{reservado ? reserva.referencia : ''}",
-    reemplazo: '{reserva.referencia}'
+    buscar: '{reservado && <span className="ocupacion-barra-ref">',
+    reemplazo: '{<span className="ocupacion-barra-ref">'
   },
   {
     nombre: 'pulsar una barra no la elige',

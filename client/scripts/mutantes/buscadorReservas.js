@@ -132,22 +132,34 @@ export const MUTANTES = [
     reemplazo: 'useState(VACIO)'
   },
   {
-    nombre: 'si la búsqueda se quita desde fuera, los campos se quedan',
+    nombre: 'si la búsqueda cambia desde fuera, los campos se quedan',
     archivo: ARCHIVO,
-    buscar: '    if (!activa) {\n      setBorrador(VACIO);\n      setError(\'\');\n    }',
-    reemplazo: '    if (!activa) {\n      setError(\'\');\n    }'
+    buscar: "    setBorrador(activa ?? VACIO);\n    setError('');",
+    reemplazo: "    setError('');"
   },
   {
     nombre: 'si la búsqueda se quita desde fuera, el aviso se queda',
     archivo: ARCHIVO,
-    buscar: "      setBorrador(VACIO);\n      setError('');\n    }\n  }",
-    reemplazo: '      setBorrador(VACIO);\n    }\n  }'
+    buscar: "    setBorrador(activa ?? VACIO);\n    setError('');\n  }",
+    reemplazo: '    setBorrador(activa ?? VACIO);\n  }'
   },
   {
     nombre: 'cualquier búsqueda nueva vacía los campos (se pierde lo que se estaba escribiendo)',
     archivo: ARCHIVO,
-    buscar: '    if (!activa) {\n      setBorrador(VACIO);',
-    reemplazo: '    {\n      setBorrador(VACIO);'
+    buscar: '    setBorrador(activa ?? VACIO);',
+    reemplazo: '    setBorrador(VACIO);'
+  },
+  {
+    nombre: 'una búsqueda que llega desde fuera («Ver reserva») no pasa a los campos',
+    archivo: ARCHIVO,
+    buscar: '    setBorrador(activa ?? VACIO);',
+    reemplazo: '    if (!activa) setBorrador(VACIO);'
+  },
+  {
+    nombre: 'si la búsqueda se quita desde fuera, los campos vuelven a la anterior',
+    archivo: ARCHIVO,
+    buscar: '    setBorrador(activa ?? VACIO);',
+    reemplazo: '    setBorrador(activa ?? borrador);'
   },
   {
     nombre: '«Hasta el día» no limita su mínimo a «Desde el día»',

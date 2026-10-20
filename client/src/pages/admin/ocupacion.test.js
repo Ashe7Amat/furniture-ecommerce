@@ -155,6 +155,10 @@ describe('parteDelDia de una retrasada: la pieza sigue fuera, no descansa', () =
     expect(parteDelDia({ ...tardia, retrasada: false }, '2026-11-06', HOY_TARDIO)).toBe('margen');
   });
 
+  it('una venta marcada como retrasada por error (no existe) sigue sin fin', () => {
+    expect(parteDelDia({ ...VENTA, retrasada: true }, '2030-01-01', HOY)).toBe('reserva');
+  });
+
   it('si su ocupación ya llega más allá de hoy (una ampliación), nada cambia', () => {
     const ampliada = { ...tardia, fin_ocupacion: '2026-11-12', ocupada_hasta: '2026-11-15' };
     expect(parteDelDia(ampliada, '2026-11-11', HOY_TARDIO)).toBe('reserva');
