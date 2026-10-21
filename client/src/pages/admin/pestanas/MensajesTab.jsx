@@ -1,14 +1,50 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { marcarMensajeLeido } from '../../../services/api';
+import { marcarMensajeLeido, crearEnCalendarioAdmin } from '../../../services/api';
+import { reservasActivas } from '../../../utils/reservas';
 import Icon from '../Icon';
-import { recortar, fechaMensaje } from '../mensajes';
+import AltaCalendarioModal from '../modales/AltaCalendarioModal';
+import { recortar, fechaMensaje, piezasDelMensaje, textoEstado } from '../mensajes';
+import { hoyMasReciente } from '../reservasAdmin';
+import '../../../styles/AdminReservas.css';
 
 // Pestaña "Mensajes": lo que llega por el formulario de contacto (tabla mensajes_contacto). La lista
 // viene del contenedor (useAdminDatos), porque la insignia de no leídos está en la barra lateral.
 // Pulsar una fila abre el mensaje entero, desde donde se marca como leído.
+// Si el mensaje nombra piezas por su referencia (el botón «Preguntar por esta pieza» de la web escribe
+// «(ref. NAV-SIL-001)»), el modal enseña una tarjeta por pieza, con botones para abrir su editor y,
+// con las reservas encendidas (VITE_RESERVAS_ACTIVAS), para registrar un alquiler con los datos del cliente.
 
-const MensajeModal = ({ mensaje, marcando, onMarcarLeido, onCerrar }) => (
+const TarjetaPieza = ({ referencia, mueble, onEditar, onReservar }) => {
+  if (!mueble) {
+    return <li className="mensaje-pieza no-encontrada">Pieza no encontrada ({referencia})</li>;
+  }
+  const foto = mueble.imagenes?.[0];
+  return (
+    <li className="mensaje-pieza">
+      {foto
+        ? <img className="mensaje-pieza-foto" src={foto} alt="" width="60" height="60" />
+        : <span className="mensaje-pieza-foto sin-foto" aria-hidden="true" />}
+      <div className="mensaje-pieza-datos">
+        <strong>{mueble.nombre}</strong>
+        <span className="mensaje-pieza-ref">{referencia}</span>
+        <span className={`status-pill ${mueble.estado || 'disponible'}`}>{textoEstado(mueble.estado)}</span>
+      </div>
+      <div className="mensaje-pieza-botones">
+        <button type="button" className="admin-btn-ghost" onClick={() => onEditar(mueble)}>
+          Ver/Editar pieza
+        </button>
+        {onReservar && (
+          <button type="button" className="admin-btn-ghost" onClick={() => onReservar(mueble)}>
+            Crear reserva
+          </button>
+        )}
+      </div>
+    </li>
+  );
+};
+
+const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onReservar, onCerrar }) => (
   <div className="admin-modal-overlay">
     <div className="admin-modal-content mensaje-modal" role="dialog" aria-modal="true" aria-labelledby="mensaje-titulo">
       <div className="admin-modal-header">
@@ -24,6 +60,16 @@ const MensajeModal = ({ mensaje, marcando, onMarcarLeido, onCerrar }) => (
         <dd>{mensaje.leido ? 'Leído' : 'Sin leer'}</dd>
       </dl>
       <p className="mensaje-texto">{mensaje.mensaje}</p>
+      {piezas.length > 0 && (
+        <section className="mensaje-piezas" aria-label="Piezas del mensaje">
+          <h4>{piezas.length === 1 ? 'Pieza del mensaje' : 'Piezas del mensaje'}</h4>
+          <ul>
+            {piezas.map((p) => (
+              <TarjetaPieza key={p.referencia} {...p} onEditar={onEditar} onReservar={onReservar} />
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="mensaje-acciones">
         {!mensaje.leido && (
           <button className="admin-btn" onClick={onMarcarLeido} disabled={marcando}>
@@ -36,11 +82,17 @@ const MensajeModal = ({ mensaje, marcando, onMarcarLeido, onCerrar }) => (
   </div>
 );
 
-const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes }) => {
+const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, muebles, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const [filtro, setFiltro] = useState('todos');
   const [abierto, setAbierto] = useState(null);
   const [marcando, setMarcando] = useState(false);
+  // El alta de alquiler abierta desde un mensaje: { inicial, hoy }, y lo que pasa al guardarla.
+  const [alta, setAlta] = useState(null);
+  const [guardandoAlta, setGuardandoAlta] = useState(false);
+  // La guarda de un segundo envío (Intro dos veces) antes de que el botón se desactive.
+  const guardando = useRef(false);
+  const [errorAlta, setErrorAlta] = useState('');
 
   const noLeidos = mensajes.filter((m) => !m.leido).length;
   const visibles = filtro === 'no-leidos' ? mensajes.filter((m) => !m.leido) : mensajes;
@@ -56,6 +108,34 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes })
     setMensajes((lista) => lista.map((m) => (m.id === actualizado.id ? { ...m, leido: true } : m)));
     setAbierto((actual) => ({ ...actual, leido: true }));
     showToast('Mensaje marcado como leído', 'success');
+  };
+
+  // El editor de la pieza es el del inventario (vive en Admin.jsx); el mensaje se cierra para que no
+  // haya dos diálogos abiertos a la vez.
+  const editarPieza = (mueble) => {
+    setAbierto(null);
+    abrirEditorMueble(mueble);
+  };
+
+  const reservarPieza = (mueble) => {
+    setErrorAlta('');
+    setAlta({ inicial: { mueble_id: mueble.id, nombre: abierto.nombre, email: abierto.email }, hoy: hoyMasReciente(null) });
+    setAbierto(null);
+  };
+
+  const enviarAlta = async (datos) => {
+    if (guardando.current) return;
+    guardando.current = true;
+    setGuardandoAlta(true);
+    const { error } = await crearEnCalendarioAdmin('alquiler', datos);
+    guardando.current = false;
+    setGuardandoAlta(false);
+    if (error) {
+      setErrorAlta(error);
+      return;
+    }
+    setAlta(null);
+    showToast('Alquiler registrado', 'success');
   };
 
   return (
@@ -117,9 +197,25 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes })
       {abierto && (
         <MensajeModal
           mensaje={abierto}
+          piezas={piezasDelMensaje(abierto, muebles)}
           marcando={marcando}
           onMarcarLeido={marcarLeido}
+          onEditar={editarPieza}
+          onReservar={reservasActivas() ? reservarPieza : null}
           onCerrar={() => setAbierto(null)}
+        />
+      )}
+
+      {alta && (
+        <AltaCalendarioModal
+          tipo="alquiler"
+          muebles={muebles}
+          hoy={alta.hoy}
+          inicial={alta.inicial}
+          enviando={guardandoAlta}
+          error={errorAlta}
+          onEnviar={enviarAlta}
+          onCerrar={() => setAlta(null)}
         />
       )}
     </div>

@@ -1501,3 +1501,34 @@
     padding-top: 16px;
   }
 }
+
+/* Mensajes: las piezas que nombra un mensaje por su referencia (21 oct 2026). */
+.mensaje-piezas { margin: 0 0 20px; }
+.mensaje-piezas h4 { margin: 0 0 10px; font-size: 0.88rem; color: var(--secondary-color); font-weight: 600; }
+.mensaje-piezas ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mensaje-pieza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+.mensaje-pieza.no-encontrada { color: var(--secondary-color); font-size: 0.88rem; }
+.mensaje-pieza-foto {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg-color);
+}
+.mensaje-pieza-datos { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; flex: 1; }
+.mensaje-pieza-datos strong { overflow-wrap: anywhere; }
+.mensaje-pieza-ref { font-size: 0.8rem; color: var(--secondary-color); font-variant-numeric: tabular-nums; }
+.mensaje-pieza-datos .status-pill { margin: 4px 0 0; }
+.mensaje-pieza-botones { display: flex; flex-direction: column; gap: 6px; }
+@media (max-width: 520px) {
+  .mensaje-pieza { flex-wrap: wrap; }
+  .mensaje-pieza-botones { flex-direction: row; width: 100%; }
+}

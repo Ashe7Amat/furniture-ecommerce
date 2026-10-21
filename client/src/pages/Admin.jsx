@@ -166,6 +166,8 @@ const Admin = () => {
             setMensajes={setMensajes}
             errorMensajes={errorMensajes}
             recargarMensajes={cargarMensajes}
+            muebles={muebles}
+            abrirEditorMueble={setMuebleAEditar}
           />
         )}
 
