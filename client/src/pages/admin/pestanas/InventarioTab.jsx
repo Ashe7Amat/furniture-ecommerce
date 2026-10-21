@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { updateMueble, deleteMueble, exportarCatalogoCsv } from '../../../services/api';
+import { updateMueble, deleteMueble, duplicarMueble, exportarCatalogoCsv } from '../../../services/api';
 import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
@@ -64,6 +64,32 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
         showToast('Mueble eliminado con éxito', 'success');
         recargarMuebles();
       }
+    );
+  };
+
+  // "Duplicar" en la fila: el servidor crea la copia (mismos datos, sin fotos, disponible y con la
+  // referencia siguiente de su categoría) y aquí se abre su editor, para ponerle las fotos. Mientras
+  // se duplica, un segundo clic en "Duplicar" del diálogo no crea otra copia.
+  const duplicando = useRef(false);
+  const handleDuplicar = (m) => {
+    confirmarBorrado(
+      'Duplicar pieza',
+      `¿Duplicar ${m.nombre}? Se creará una nueva pieza con la misma información excepto las fotos.`,
+      async () => {
+        if (duplicando.current) return;
+        duplicando.current = true;
+        const { data, error } = await duplicarMueble(m.id);
+        duplicando.current = false;
+        const nueva = data?.data?.[0];
+        if (error || !nueva) {
+          showToast(error || 'No se pudo duplicar la pieza.', 'error');
+          return;
+        }
+        showToast(nueva.referencia ? `Pieza duplicada (${nueva.referencia})` : 'Pieza duplicada', 'success');
+        recargarMuebles();
+        abrirEditorMueble(nueva);
+      },
+      'Duplicar'
     );
   };
 
@@ -265,6 +291,7 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
                 </span>
                 <div className="inv-actions">
                   <button onClick={() => abrirEditorMueble(m)} className="inv-edit-btn">Editar</button>
+                  <button onClick={() => handleDuplicar(m)} className="inv-edit-btn">Duplicar</button>
                   <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
                 </div>
               </div>

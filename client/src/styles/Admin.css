@@ -693,7 +693,12 @@
 }
 .inv-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
+}
+/* Tres botones (Editar, Duplicar, Eliminar): un poco más estrechos, para no quitar sitio al nombre */
+.inv-actions .inv-edit-btn,
+.inv-actions .inv-del-btn {
+  padding: 7px 10px;
 }
 .inv-edit-btn {
   background: transparent;

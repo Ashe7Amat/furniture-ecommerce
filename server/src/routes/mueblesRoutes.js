@@ -7,6 +7,7 @@ const {
   crearMueble,
   editarMueble,
   eliminarMueble,
+  duplicarMueble,
   buscarMuebles,
   crearSesionPago,
   confirmarSesion
@@ -105,5 +106,7 @@ router.put(
   editarMueble
 );
 router.delete('/:id', verificarAdmin, eliminarMueble);
+// Duplicar una pieza desde el inventario del panel: la copia sale sin fotos y con referencia nueva.
+router.post('/:id/duplicar', verificarAdmin, duplicarMueble);
 
 module.exports = router;

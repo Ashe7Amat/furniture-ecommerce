@@ -212,6 +212,13 @@ export const updateMueble = (id, muebleData) =>
 export const deleteMueble = (id) =>
   escrituraContratoA('deleteMueble', `${API_URL}/muebles/${id}`, { method: 'DELETE' }, 'Error al eliminar mueble');
 
+// Duplicar una pieza desde el inventario (POST /api/muebles/:id/duplicar, con sesión de
+// administrador). Ya con el formato de peticion.js, { data, error, status }, para que el panel
+// pueda enseñar el motivo del servidor (p. ej. el 409 de la referencia): la pieza nueva viene en
+// data.data[0].
+export const duplicarMueble = (id) =>
+  peticion(apiFetch, `${API_URL}/muebles/${id}/duplicar`, { method: 'POST' }, 'No se pudo duplicar la pieza.');
+
 // Un CSV del panel, para Excel (GET a una ruta de /api/admin, con sesión de administrador).
 // Devuelve { blob, nombreArchivo } y lanza si el servidor responde con error. El nombre lo pone el
 // servidor (<prefijo>-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
