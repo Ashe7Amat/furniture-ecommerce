@@ -1,10 +1,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from './Icon';
+import '../../styles/MenuAcciones.css';
 
 // El botón «⋮» de una fila del inventario y su menú (21 oct 2026): las acciones que no caben como
-// botones en la fila. `acciones` es una lista de { texto, onElegir, peligro? } y `null` para una
-// línea de separación.
+// botones en la fila. `acciones` es una lista de { texto, onElegir, icono?, peligro?, marcada? } y
+// `null` para una línea de separación. Con `marcada` (true o false), la opción es de las que se eligen
+// una entre varias (menuitemradio, con ✓ en la elegida): así lo usa «Cambiar estado» de la barra de
+// modo admin de la ficha (BarraAdmin.jsx), con su propio texto en el botón (`children`, `claseBoton`).
 // El menú se pinta en <body> con posición fija, junto al botón: dentro de la tabla (que se desplaza
 // en horizontal) se cortaría. Si debajo del botón no cabe, se abre hacia arriba.
 // Teclado, como un menú de la guía de ARIA: al abrir, el foco va a la primera opción; las flechas,
@@ -14,14 +17,20 @@ import Icon from './Icon';
 // (en el móvil, la tabla se desplaza sola al pulsar un botón medio tapado, y el menú no debe cerrarse).
 const MARGEN = 4;
 
-const MenuAcciones = ({ etiqueta, acciones }) => {
+const MenuAcciones = ({
+  etiqueta,
+  acciones,
+  children = <Icon name="more" />,
+  claseBoton = 'inv-edit-btn inv-icon-btn inv-menu-btn',
+  titulo = 'Más acciones'
+}) => {
   const [abierto, setAbierto] = useState(false);
   const [posicion, setPosicion] = useState(null);
   const boton = useRef(null);
   const menu = useRef(null);
   const idMenu = useId();
 
-  const opciones = () => [...menu.current.querySelectorAll('[role="menuitem"]')];
+  const opciones = () => [...menu.current.querySelectorAll('[role^="menuitem"]')];
   const cerrar = (devolverFoco) => {
     setAbierto(false);
     setPosicion(null);
@@ -98,15 +107,15 @@ const MenuAcciones = ({ etiqueta, acciones }) => {
       <button
         ref={boton}
         type="button"
-        className="inv-edit-btn inv-icon-btn inv-menu-btn"
+        className={claseBoton}
         aria-label={etiqueta}
-        title="Más acciones"
+        title={titulo}
         aria-haspopup="menu"
         aria-expanded={abierto}
         aria-controls={abierto ? idMenu : undefined}
         onClick={() => (abierto ? cerrar(false) : setAbierto(true))}
       >
-        <Icon name="more" />
+        {children}
       </button>
       {abierto && createPortal(
         <div
@@ -125,12 +134,16 @@ const MenuAcciones = ({ etiqueta, acciones }) => {
               <button
                 key={accion.texto}
                 type="button"
-                role="menuitem"
+                role={accion.marcada === undefined ? 'menuitem' : 'menuitemradio'}
+                aria-checked={accion.marcada}
                 tabIndex={-1}
                 className={`menu-acciones-opcion ${accion.peligro ? 'peligro' : ''}`}
                 onClick={() => elegir(accion)}
               >
                 {accion.icono && <Icon name={accion.icono} />}
+                {accion.marcada !== undefined && (
+                  <span className="menu-acciones-marca" aria-hidden="true">{accion.marcada && <Icon name="check" />}</span>
+                )}
                 {accion.texto}
               </button>
             )

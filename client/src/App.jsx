@@ -20,7 +20,8 @@ import ScrollToTop from './components/ScrollToTop';
 const Catalog = lazy(() => import('./pages/Catalog'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const Login = lazy(() => import('./pages/Login'));
-const Admin = lazy(() => import('./pages/Admin'));
+// AdminRuta monta Admin.jsx con el ?editar={id} de la URL (ver AdminRuta.jsx).
+const Admin = lazy(() => import('./pages/AdminRuta'));
 const Profile = lazy(() => import('./pages/Profile'));
 const About = lazy(() => import('./pages/About'));
 const Sustainability = lazy(() => import('./pages/Sustainability'));

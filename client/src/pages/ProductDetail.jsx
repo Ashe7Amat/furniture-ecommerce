@@ -5,6 +5,7 @@ import { descripcionParaMeta } from '../utils/descripcionMeta';
 import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
+import { AuthContext } from '../context/AuthContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
 import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
@@ -15,6 +16,8 @@ import { reservasActivas, sumarDias, fechaCorta } from '../utils/reservas';
 // Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
 // descargan si el interruptor está encendido y la pieza se puede alquilar.
 const PanelReserva = lazy(() => import('../components/reservas/PanelReserva'));
+// Modo admin (BarraAdmin.jsx): solo se descarga con la sesión de un administrador.
+const BarraAdmin = lazy(() => import('../components/BarraAdmin'));
 
 // Hasta qué día tiene reservas una pieza que no se puede comprar por ellas: el día antes del primero
 // libre (`comprable_desde`, 7.1).
@@ -30,6 +33,7 @@ const ProductDetail = () => {
   // hace falta duplicar el aviso aquí.
   const { addToCart, cestaLlena } = useContext(CartContext);
   const { favorites, toggleFavorite } = useContext(FavoritesContext);
+  const esAdmin = useContext(AuthContext)?.user?.rol === 'admin';
   const [mueble, setMueble] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState('');
@@ -140,7 +144,20 @@ const ProductDetail = () => {
   const sinCompra = conReservas && !mueble.precio_venta && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado';
 
   return (
-    <div className="pd-container">
+    <div className={`pd-container ${esAdmin ? 'con-barra-admin' : ''}`}>
+      {esAdmin && (
+        <Suspense fallback={null}>
+          {/* Tras cambiar el estado, la ficha se pinta con el nuevo y, con las reservas, se vuelve a
+              pedir la disponibilidad (el servidor decide si se puede comprar). */}
+          <BarraAdmin
+            mueble={mueble}
+            onEstadoCambiado={(estado) => {
+              setMueble((actual) => ({ ...actual, estado }));
+              setRecargas((n) => n + 1);
+            }}
+          />
+        </Suspense>
+      )}
       <div className="pd-breadcrumb">
         <button onClick={() => navigate(-1)} className="pd-back-link">
           &larr; Volver a la colección
