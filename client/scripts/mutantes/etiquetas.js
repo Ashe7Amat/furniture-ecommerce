@@ -183,10 +183,10 @@ export const MUTANTES = [
     reemplazo: 'useDialogoModal(true, ref, () => {});'
   },
   {
-    nombre: 'el botón de la fila abre la etiqueta de otra pieza',
+    nombre: '«Imprimir etiqueta» del menú de la fila abre la de otra pieza',
     archivo: PESTANA,
-    buscar: 'onClick={() => setEtiquetas([m])}',
-    reemplazo: 'onClick={() => setEtiquetas([muebles[0]])}'
+    buscar: 'onElegir: () => setEtiquetas([m]) }',
+    reemplazo: 'onElegir: () => setEtiquetas([muebles[0]]) }'
   },
   {
     nombre: 'el lote imprime todo el catálogo',

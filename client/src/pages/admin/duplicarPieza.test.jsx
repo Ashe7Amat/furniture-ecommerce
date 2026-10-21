@@ -49,8 +49,10 @@ const fila = (nombre) =>
   within(screen.getByRole('checkbox', { name: `Seleccionar ${nombre}` }).closest('.inventory-list-item'));
 const dialogo = () => within(screen.getByRole('heading', { level: 3, name: 'Duplicar pieza' }).closest('.confirm-box'));
 const editor = () => within(screen.getByRole('heading', { level: 3, name: 'Editar Producto' }).closest('.admin-modal-content'));
+// «Duplicar» está en el menú «⋮» de la fila (MenuAcciones).
 const pedirDuplicar = async (user, nombre = 'Silla Thonet') => {
-  await user.click(fila(nombre).getByRole('button', { name: 'Duplicar' }));
+  await user.click(fila(nombre).getByRole('button', { name: `Más acciones de ${nombre}` }));
+  await user.click(screen.getByRole('menuitem', { name: 'Duplicar' }));
 };
 
 beforeEach(() => {
@@ -58,9 +60,11 @@ beforeEach(() => {
 });
 
 describe('Inventario — duplicar pieza', () => {
-  it('cada fila tiene "Duplicar", y pide confirmación antes de hacer nada', async () => {
+  it('el menú de cada fila tiene "Duplicar", y pide confirmación antes de hacer nada', async () => {
     const { user } = await abrirInventario();
-    expect(fila('Silla Tolix').getByRole('button', { name: 'Duplicar' })).toBeInTheDocument();
+    await user.click(fila('Silla Tolix').getByRole('button', { name: 'Más acciones de Silla Tolix' }));
+    expect(screen.getByRole('menuitem', { name: 'Duplicar' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
 
     await pedirDuplicar(user);
 

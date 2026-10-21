@@ -8,6 +8,7 @@ import ImportarCatalogoModal from '../modales/ImportarCatalogoModal';
 import AsignarAlquilerModal from '../modales/AsignarAlquilerModal';
 import EtiquetasModal from '../modales/EtiquetasModal';
 import PrecioEditable from '../PrecioEditable';
+import MenuAcciones from '../MenuAcciones';
 import { ejecutarLote, textoLoteAMedias } from '../lotes';
 import { textoResultadoAlquiler } from '../precios';
 
@@ -19,8 +20,9 @@ import { textoResultadoAlquiler } from '../precios';
 // reintentarlo.
 // Los precios de venta y de alquiler se editan en la misma fila (PrecioEditable), y el de alquiler
 // se puede poner a varias piezas a la vez (AsignarAlquilerModal).
-// El botón del QR en la fila y «Imprimir etiquetas» en la barra en lote abren la vista de impresión de
-// las etiquetas con QR (EtiquetasModal).
+// En cada fila solo están «Editar» y el menú «⋮» (MenuAcciones), con «Duplicar», «Imprimir etiqueta»
+// y «Eliminar». «Imprimir etiqueta» y el «Imprimir etiquetas» de la barra en lote abren la vista de
+// impresión de las etiquetas con QR (EtiquetasModal).
 const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarBorrado, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const {
@@ -243,7 +245,7 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
               {/* Los dos precios van en la misma columna, uno encima del otro: con dos columnas, en un
                   portátil no quedaba sitio para el nombre. */}
               <span className="inv-price inv-precios"><span>Venta</span><span>Alquiler/día</span></span>
-              <span>Acciones</span>
+              <span className="inv-actions-head">Acciones</span>
             </div>
             {muebleVisibles.map(m => (
               <div key={m.id} className={`inventory-list-item ${seleccionados.includes(m.id) ? 'is-selected' : ''}`}>
@@ -299,17 +301,15 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
                 </span>
                 <div className="inv-actions">
                   <button onClick={() => abrirEditorMueble(m)} className="inv-edit-btn">Editar</button>
-                  <button onClick={() => handleDuplicar(m)} className="inv-edit-btn">Duplicar</button>
-                  {/* Solo el icono: con cuatro botones con texto, el nombre de la pieza no cabe a 1366 px. */}
-                  <button
-                    onClick={() => setEtiquetas([m])}
-                    className="inv-edit-btn inv-icon-btn"
-                    aria-label={`Imprimir etiqueta de ${m.nombre}`}
-                    title="Imprimir etiqueta"
-                  >
-                    <Icon name="qr" />
-                  </button>
-                  <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
+                  <MenuAcciones
+                    etiqueta={`Más acciones de ${m.nombre}`}
+                    acciones={[
+                      { texto: 'Duplicar', icono: 'copy', onElegir: () => handleDuplicar(m) },
+                      { texto: 'Imprimir etiqueta', icono: 'qr', onElegir: () => setEtiquetas([m]) },
+                      null,
+                      { texto: 'Eliminar', icono: 'trash', peligro: true, onElegir: () => handleDeleteMueble(m.id) }
+                    ]}
+                  />
                 </div>
               </div>
             ))}

@@ -316,7 +316,9 @@ describe('Inventario — paginación', () => {
     expect(nombresVisibles()).toEqual(['Pieza 21']);
 
     getMuebles.mockResolvedValue(muchas(20)); // lo que devolverá la recarga tras el borrado
-    await user.click(fila('Pieza 21').getByRole('button', { name: 'Eliminar' }));
+    // CAMBIADO A PROPÓSITO (2026-10-21): «Eliminar» de la fila está ahora en el menú «⋮» (MenuAcciones).
+    await user.click(fila('Pieza 21').getByRole('button', { name: 'Más acciones de Pieza 21' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Eliminar' }));
     await user.click(dialogo('Eliminar Mueble').getByRole('button', { name: 'Eliminar' }));
 
     await waitFor(() => expect(nombresVisibles()).toHaveLength(20));
@@ -576,7 +578,11 @@ describe('Inventario — acciones por fila', () => {
     deleteMueble.mockResolvedValue({ success: true });
     const { user, showToast } = await abrirInventario();
 
-    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Eliminar' }));
+    // CAMBIADO A PROPÓSITO (2026-10-21): «Eliminar» de la fila está ahora en el menú «⋮» (MenuAcciones).
+
+    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Más acciones de Mesa de roble' }));
+
+    await user.click(screen.getByRole('menuitem', { name: 'Eliminar' }));
     const confirmacion = dialogo('Eliminar Mueble');
     expect(
       confirmacion.getByText('¿Estás seguro de que quieres eliminar de forma permanente este mueble del catálogo?')
@@ -594,7 +600,11 @@ describe('Inventario — acciones por fila', () => {
     deleteMueble.mockResolvedValue(null);
     const { user, showToast } = await abrirInventario();
 
-    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Eliminar' }));
+    // CAMBIADO A PROPÓSITO (2026-10-21): «Eliminar» de la fila está ahora en el menú «⋮» (MenuAcciones).
+
+    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Más acciones de Mesa de roble' }));
+
+    await user.click(screen.getByRole('menuitem', { name: 'Eliminar' }));
     await user.click(dialogo('Eliminar Mueble').getByRole('button', { name: 'Eliminar' }));
 
     await waitFor(() => expect(showToast).toHaveBeenCalledWith('No se pudo eliminar el mueble', 'error'));
@@ -606,7 +616,11 @@ describe('Inventario — acciones por fila', () => {
   it('cancelar la confirmación de la fila no borra nada', async () => {
     const { user } = await abrirInventario();
 
-    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Eliminar' }));
+    // CAMBIADO A PROPÓSITO (2026-10-21): «Eliminar» de la fila está ahora en el menú «⋮» (MenuAcciones).
+
+    await user.click(fila('Mesa de roble').getByRole('button', { name: 'Más acciones de Mesa de roble' }));
+
+    await user.click(screen.getByRole('menuitem', { name: 'Eliminar' }));
     await user.click(dialogo('Eliminar Mueble').getByRole('button', { name: 'Cancelar' }));
 
     expect(deleteMueble).not.toHaveBeenCalled();

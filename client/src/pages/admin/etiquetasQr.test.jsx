@@ -33,6 +33,11 @@ const abrirInventario = async (muebles = CATALOGO) => {
   return { user, ...utils };
 };
 const fila = (nombre) => within(screen.getByRole('checkbox', { name: `Seleccionar ${nombre}` }).closest('.inventory-list-item'));
+// «Imprimir etiqueta» está en el menú «⋮» de la fila (MenuAcciones).
+const pedirEtiqueta = async (user, nombre) => {
+  await user.click(fila(nombre).getByRole('button', { name: `Más acciones de ${nombre}` }));
+  await user.click(screen.getByRole('menuitem', { name: 'Imprimir etiqueta' }));
+};
 const vista = () => within(screen.getByRole('dialog'));
 const etiquetas = () => screen.queryAllByRole('article');
 
@@ -88,10 +93,10 @@ describe('Etiquetas — ayudantes', () => {
 });
 
 describe('Etiquetas — una pieza', () => {
-  it('el botón del QR en la fila abre la vista previa con su etiqueta', async () => {
+  it('«Imprimir etiqueta» en el menú de la fila abre la vista previa con su etiqueta', async () => {
     const { user } = await abrirInventario();
 
-    await user.click(fila('Silla Thonet').getByRole('button', { name: 'Imprimir etiqueta de Silla Thonet' }));
+    await pedirEtiqueta(user, 'Silla Thonet');
 
     expect(vista().getByRole('heading', { level: 3, name: 'Etiqueta de 1 pieza' })).toBeInTheDocument();
     expect(etiquetas()).toHaveLength(1);
@@ -105,7 +110,7 @@ describe('Etiquetas — una pieza', () => {
   it('el QR lleva a la ficha pública de la pieza, y mide 100 × 100', async () => {
     const { user } = await abrirInventario();
 
-    await user.click(fila('Silla Thonet').getByRole('button', { name: 'Imprimir etiqueta de Silla Thonet' }));
+    await pedirEtiqueta(user, 'Silla Thonet');
 
     const qr = within(etiquetas()[0]).getByRole('img', { name: 'Código QR de la ficha de Silla Thonet' });
     expect(qr).toHaveAttribute('data-qr', 'https://www.nave5barcelona.com/mueble/3f2a9c1e-7b41-4d2a-9e0f-1a2b3c4d5e6f');
@@ -121,7 +126,7 @@ describe('Etiquetas — una pieza', () => {
   it('una pieza sin referencia lo dice en la etiqueta', async () => {
     const { user } = await abrirInventario();
 
-    await user.click(fila('Baúl sin referencia').getByRole('button', { name: 'Imprimir etiqueta de Baúl sin referencia' }));
+    await pedirEtiqueta(user, 'Baúl sin referencia');
 
     expect(within(etiquetas()[0]).getByText('Sin referencia')).toHaveClass('etiqueta-ref', 'sin-ref');
   });
@@ -129,7 +134,7 @@ describe('Etiquetas — una pieza', () => {
   it('«Imprimir» llama a la impresión del navegador', async () => {
     const imprimir = vi.spyOn(window, 'print').mockImplementation(() => {});
     const { user } = await abrirInventario();
-    await user.click(fila('Silla Thonet').getByRole('button', { name: 'Imprimir etiqueta de Silla Thonet' }));
+    await pedirEtiqueta(user, 'Silla Thonet');
 
     await user.click(vista().getByRole('button', { name: 'Imprimir' }));
 
@@ -138,7 +143,7 @@ describe('Etiquetas — una pieza', () => {
 
   it('mientras está abierta, <body> lleva la clase de impresión; «Cerrar» la quita y cierra', async () => {
     const { user } = await abrirInventario();
-    await user.click(fila('Silla Thonet').getByRole('button', { name: 'Imprimir etiqueta de Silla Thonet' }));
+    await pedirEtiqueta(user, 'Silla Thonet');
 
     expect(document.body).toHaveClass('con-impresion');
     // La vista cuelga de <body>, para que la hoja de impresión pueda esconder todo lo demás.
@@ -152,7 +157,7 @@ describe('Etiquetas — una pieza', () => {
 
   it('Escape también cierra', async () => {
     const { user } = await abrirInventario();
-    await user.click(fila('Silla Thonet').getByRole('button', { name: 'Imprimir etiqueta de Silla Thonet' }));
+    await pedirEtiqueta(user, 'Silla Thonet');
 
     await user.keyboard('{Escape}');
 

@@ -90,9 +90,9 @@ export const MUTANTES = [
     reemplazo: '`Pieza duplicada (${nueva.referencia})`'
   },
   {
-    nombre: '"Duplicar" de la fila no hace nada',
+    nombre: '"Duplicar" del menú de la fila no hace nada',
     archivo: PESTANA,
-    buscar: 'onClick={() => handleDuplicar(m)}',
-    reemplazo: 'onClick={() => {}}'
+    buscar: "onElegir: () => handleDuplicar(m) }",
+    reemplazo: "onElegir: () => {} }"
   }
 ];
