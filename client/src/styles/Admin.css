@@ -2030,3 +2030,207 @@
   .albaran-metadatos { grid-template-columns: 1fr; }
   .albaran-firmas { grid-template-columns: 1fr; }
 }
+
+/* ─── Registro de Actividad (Audit Log) ─── */
+.audit-toolbar {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.audit-table-wrapper {
+  overflow-x: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+.audit-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+.audit-tabla th,
+.audit-tabla td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+.audit-tabla th {
+  color: var(--secondary-color);
+  font-weight: 500;
+  font-size: 0.8rem;
+  background: var(--surface-alt);
+}
+.audit-tabla tbody tr.audit-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.audit-tabla tbody tr.audit-row:hover {
+  background: var(--bg-color);
+}
+.audit-tabla tbody tr.audit-row-no-diff {
+  cursor: default;
+}
+.audit-tabla tbody tr.audit-row-no-diff:hover {
+  background: transparent;
+}
+.audit-col-fecha {
+  white-space: nowrap;
+  color: var(--secondary-color);
+  font-size: 0.82rem;
+}
+.audit-col-admin {
+  font-weight: 500;
+}
+.audit-col-detalle {
+  color: var(--primary-color);
+}
+.audit-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.audit-badge.badge-crear {
+  background: #dcfce7;
+  color: #15803d;
+}
+.audit-badge.badge-editar {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.audit-badge.badge-eliminar {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.audit-badge.badge-duplicar {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+.audit-badge.badge-cambio_estado {
+  background: #fef3c7;
+  color: #b45309;
+}
+.audit-badge.badge-login {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.audit-entidad-tag {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  background: var(--surface-alt);
+  color: var(--secondary-color);
+  border: 1px solid var(--border-color);
+}
+
+/* Modal Diff */
+.audit-diff-modal {
+  max-width: 720px;
+  width: 90%;
+}
+.audit-diff-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.audit-diff-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+  margin: 16px 0;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.audit-diff-subtitulo {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 16px 0 12px;
+  color: var(--primary-color);
+}
+.audit-borrado-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  margin: 16px 0;
+}
+.audit-borrado-icono {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.audit-borrado-icono svg {
+  width: 20px;
+  height: 20px;
+}
+.audit-borrado-texto {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--primary-color);
+}
+.audit-diff-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.audit-diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.audit-diff-table th,
+.audit-diff-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+  text-align: left;
+}
+.audit-diff-table th {
+  background: var(--surface-alt);
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--secondary-color);
+}
+.audit-diff-table th.th-anterior {
+  color: #b91c1c;
+}
+.audit-diff-table th.th-nuevo {
+  color: #15803d;
+}
+.diff-campo-nombre {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.diff-anterior {
+  background: rgba(239, 68, 68, 0.04);
+  color: #b91c1c;
+}
+.diff-nuevo {
+  background: rgba(34, 197, 94, 0.04);
+  color: #15803d;
+}
+.diff-valor {
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+

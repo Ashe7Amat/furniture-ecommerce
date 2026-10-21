@@ -268,7 +268,8 @@ describe('contrato del panel con la venta del calendario', () => {
         'GET /rest/v1/muebles',
         'GET /rest/v1/reservas',
         'PATCH /rest/v1/reservas',
-        'PATCH /rest/v1/muebles'
+        'PATCH /rest/v1/muebles',
+        'POST /rest/v1/audit_log'
       ]
     );
     const [antes, ventas, cancelar] = peticiones;

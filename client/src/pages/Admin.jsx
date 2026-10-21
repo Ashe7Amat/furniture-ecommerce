@@ -17,6 +17,7 @@ import PedidosTab from './admin/pestanas/PedidosTab';
 import CategoriasTab from './admin/pestanas/CategoriasTab';
 import MensajesTab from './admin/pestanas/MensajesTab';
 import ReservasTab from './admin/pestanas/ReservasTab';
+import ActividadTab from './admin/pestanas/ActividadTab';
 import { reservasActivas } from '../utils/reservas';
 import EditarMuebleModal from './admin/modales/EditarMuebleModal';
 import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
@@ -29,7 +30,8 @@ const PESTANAS = [
   { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },
   { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },
   { id: 'mensajes', etiqueta: 'Mensajes', icono: 'mail' },
-  { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' }
+  { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' },
+  { id: 'actividad', etiqueta: 'Actividad', icono: 'activity' }
 ];
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1): la pestaña solo existe con el interruptor
@@ -227,6 +229,8 @@ const Admin = ({ idEditar = null, onEnlaceUsado }) => {
             abrirEditorCategoria={setCategoriaAEditar}
           />
         )}
+
+        {vistaActiva === 'actividad' && <ActividadTab />}
 
       </main>
 

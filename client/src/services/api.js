@@ -682,3 +682,24 @@ export const crearEnCalendarioAdmin = (tipo, datos) =>
     jsonPost(datos),
     'No se ha podido guardar en el calendario.'
   );
+
+// Panel: consulta del registro de actividad (audit log) con filtros y paginación
+export const getAuditLogs = async ({ entidad = '', accion = '', admin_email = '', fecha = '', page = 1, limit = 50 } = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (entidad) params.set('entidad', entidad);
+    if (accion) params.set('accion', accion);
+    if (admin_email) params.set('admin_email', admin_email);
+    if (fecha) params.set('fecha', fecha);
+    if (page) params.set('page', String(page));
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_URL}/admin/audit-log${qs}`);
+    if (!response.ok) throw new Error('Error al obtener registro de actividad');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getAuditLogs:', error);
+    return null;
+  }
+};
+

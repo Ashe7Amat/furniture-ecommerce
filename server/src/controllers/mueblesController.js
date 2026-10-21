@@ -14,6 +14,7 @@ const { fechaLegible, sumarDias } = require('../utils/fechasMadrid');
 const { escaparIlike } = require('../utils/ilike');
 const { insertarMuebleConReferencia } = require('../utils/altaMueble');
 const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
+const { registrarActividad } = require('../utils/audit');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -162,6 +163,13 @@ const crearMueble = async (req, res) => {
       estado: estado || 'disponible'
     });
 
+    const muebleCreado = Array.isArray(data) ? data[0] : data;
+    try {
+      await registrarActividad(req, 'crear', 'muebles', muebleCreado?.id, null, muebleCreado);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al crear mueble:', errAudit.message);
+    }
+
     res.status(201).json({ success: true, message: 'Mueble creado con éxito', data });
   } catch (error) {
     console.error('Error al crear mueble:', error.message);
@@ -239,21 +247,31 @@ const editarMueble = async (req, res) => {
       updateData.imagenes = imagenesFinales;
     }
 
-    // De `vendido` a `disponible`: la venta del calendario se cancela antes (cancelarVentasDeLaPieza).
-    // Antes y no después: si falla el cambio de estado, el reintento la vuelve a ver `vendido`.
-    if (estado === 'disponible') {
-      const { data: antes, error: errorAntes } = await supabase
-        .from('muebles')
-        .select('estado')
-        .eq('id', id)
-        .maybeSingle();
-      if (errorAntes) throw errorAntes;
-      if (antes?.estado === 'vendido') await cancelarVentasDeLaPieza(id);
+    // Leemos los campos a modificar para cancelar ventas si pasa a disponible y para registrar la auditoría
+    const camposALeer =
+      Object.keys(updateData).length > 0 ? Object.keys(updateData).join(',') : 'id';
+    const { data: dataAntes, error: errorAntes } = await supabase
+      .from('muebles')
+      .select(camposALeer)
+      .eq('id', id)
+      .maybeSingle();
+    if (errorAntes) throw errorAntes;
+    const muebleAntes = dataAntes ? { ...dataAntes } : null;
+
+    if (estado === 'disponible' && muebleAntes?.estado === 'vendido') {
+      await cancelarVentasDeLaPieza(id);
     }
 
     const { data, error } = await supabase.from('muebles').update(updateData).eq('id', id).select();
 
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'editar', 'muebles', id, muebleAntes, updateData);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al editar mueble:', errAudit.message);
+    }
+
     res.status(200).json({ success: true, message: 'Mueble editado con éxito', data });
   } catch (error) {
     console.error('Error al editar mueble:', error.message);
@@ -265,6 +283,12 @@ const editarMueble = async (req, res) => {
 const eliminarMueble = async (req, res) => {
   try {
     const { id } = req.params;
+    const { data: muebleAntes } = await supabase
+      .from('muebles')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase.from('muebles').delete().eq('id', id);
     // Las filas del calendario (reservas, ventas, bloqueos; también las canceladas) se guardan como
     // historial y no dejan borrar su pieza (ON DELETE RESTRICT, docs/reservas-diseno.md).
@@ -275,6 +299,13 @@ const eliminarMueble = async (req, res) => {
       });
     }
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'eliminar', 'muebles', id, muebleAntes, null);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al eliminar mueble:', errAudit.message);
+    }
+
     res
       .status(200)
       .json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
@@ -319,6 +350,20 @@ const duplicarMueble = async (req, res) => {
       },
       { origen: 'duplicarMueble' }
     );
+
+    const muebleDuplicado = Array.isArray(data) ? data[0] : data;
+    try {
+      await registrarActividad(
+        req,
+        'duplicar',
+        'muebles',
+        muebleDuplicado?.id,
+        null,
+        muebleDuplicado
+      );
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al duplicar mueble:', errAudit.message);
+    }
 
     res.status(201).json({ success: true, message: 'Mueble duplicado con éxito', data });
   } catch (error) {
