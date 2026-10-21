@@ -6,6 +6,7 @@ import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
 import ImportarCatalogoModal from '../modales/ImportarCatalogoModal';
 import AsignarAlquilerModal from '../modales/AsignarAlquilerModal';
+import EtiquetasModal from '../modales/EtiquetasModal';
 import PrecioEditable from '../PrecioEditable';
 import { ejecutarLote, textoLoteAMedias } from '../lotes';
 import { textoResultadoAlquiler } from '../precios';
@@ -18,6 +19,8 @@ import { textoResultadoAlquiler } from '../precios';
 // reintentarlo.
 // Los precios de venta y de alquiler se editan en la misma fila (PrecioEditable), y el de alquiler
 // se puede poner a varias piezas a la vez (AsignarAlquilerModal).
+// El botón del QR en la fila y «Imprimir etiquetas» en la barra en lote abren la vista de impresión de
+// las etiquetas con QR (EtiquetasModal).
 const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarBorrado, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const {
@@ -38,6 +41,8 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
   const [exportando, setExportando] = useState(false);
   const [importando, setImportando] = useState(false);
   const [asignandoAlquiler, setAsignandoAlquiler] = useState(false);
+  // Las piezas de las etiquetas abiertas (se fijan al abrir, aunque luego cambie la selección).
+  const [etiquetas, setEtiquetas] = useState(null);
 
   // El catálogo entero (no solo lo filtrado), con los precios reales, en un CSV para Excel.
   const handleExportar = async () => {
@@ -214,6 +219,9 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
             </select>
             <button className="admin-btn-ghost" onClick={handleBulkEstado}>Aplicar estado</button>
             <button className="admin-btn-ghost" onClick={() => setAsignandoAlquiler(true)}>Asignar precio de alquiler</button>
+            <button className="admin-btn-ghost" onClick={() => setEtiquetas(muebles.filter(m => seleccionados.includes(m.id)))}>
+              Imprimir etiquetas
+            </button>
             <button className="admin-btn-danger-ghost" onClick={handleBulkDelete}>Eliminar seleccionados</button>
             <button className="admin-btn-ghost" onClick={() => setSeleccionados([])}>Cancelar</button>
           </div>
@@ -292,6 +300,15 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
                 <div className="inv-actions">
                   <button onClick={() => abrirEditorMueble(m)} className="inv-edit-btn">Editar</button>
                   <button onClick={() => handleDuplicar(m)} className="inv-edit-btn">Duplicar</button>
+                  {/* Solo el icono: con cuatro botones con texto, el nombre de la pieza no cabe a 1366 px. */}
+                  <button
+                    onClick={() => setEtiquetas([m])}
+                    className="inv-edit-btn inv-icon-btn"
+                    aria-label={`Imprimir etiqueta de ${m.nombre}`}
+                    title="Imprimir etiqueta"
+                  >
+                    <Icon name="qr" />
+                  </button>
                   <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
                 </div>
               </div>
@@ -307,6 +324,8 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
           onAplicado={trasAsignarAlquiler}
         />
       )}
+
+      {etiquetas && <EtiquetasModal piezas={etiquetas} onCerrar={() => setEtiquetas(null)} />}
 
       {importando && (
         <ImportarCatalogoModal onCerrar={() => setImportando(false)} onImportado={recargarMuebles} />

@@ -712,6 +712,8 @@
   transition: all 0.2s;
   font-family: inherit;
 }
+.inv-actions .inv-icon-btn { display: inline-flex; align-items: center; padding: 7px 8px; }
+.inv-icon-btn svg { width: 16px; height: 16px; }
 .inv-edit-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
@@ -1553,3 +1555,107 @@
   color: inherit;
 }
 .buscar-pieza-resultado:hover, .buscar-pieza-resultado:focus-visible { border-color: var(--primary-color); }
+
+/* Vista de impresión del panel (VistaImpresion.jsx: etiquetas QR, albarán; 21 oct 2026). En pantalla,
+   un diálogo a pantalla completa con las hojas A4 como se imprimirán. Al imprimir, solo las hojas. */
+.zona-impresion {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  overflow-y: auto;
+  background: #d9d6d1;
+}
+.impresion-dialogo { min-height: 100%; outline: none; }
+.impresion-barra {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+.impresion-barra h3 { margin: 0; font-size: 1.05rem; }
+.impresion-botones { display: flex; gap: 10px; }
+.impresion-hojas { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 24px 16px 48px; }
+.hoja-a4 {
+  box-sizing: border-box;
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  padding: 10mm;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+}
+
+/* Etiquetas: 6 por hoja (2 × 3), con el borde punteado como guía de corte. */
+.hoja-etiquetas {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 92mm);
+  align-content: start;
+}
+.etiqueta {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3mm;
+  padding: 6mm;
+  /* Guías de corte: cada etiqueta pone su borde derecho e inferior, y las de la primera columna y la
+     primera fila, también el izquierdo y el superior. Así entre dos vecinas sale una sola línea. */
+  border-right: 1px dashed #9a9a9a;
+  border-bottom: 1px dashed #9a9a9a;
+  text-align: center;
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+.etiqueta:nth-child(odd) { border-left: 1px dashed #9a9a9a; }
+.etiqueta:nth-child(-n + 2) { border-top: 1px dashed #9a9a9a; }
+.etiqueta p { margin: 0; }
+.etiqueta-marca { font-weight: 800; font-size: 10pt; letter-spacing: 0.18em; }
+.etiqueta-ref { font-weight: 800; font-size: 24pt; }
+.etiqueta-ref.sin-ref { font-size: 12pt; font-weight: 600; color: #555; }
+.etiqueta-nombre {
+  font-size: 12pt;
+  line-height: 1.3;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.codigo-qr { display: block; flex-shrink: 0; }
+
+@page hoja-a4 { size: A4 portrait; margin: 1cm; }
+@media print {
+  body.con-impresion > *:not(.zona-impresion) { display: none !important; }
+  body.con-impresion { background: #fff; }
+  .zona-impresion { position: static; overflow: visible; background: none; }
+  .impresion-barra { display: none; }
+  .impresion-hojas { display: block; padding: 0; }
+  .hoja-a4 {
+    page: hoja-a4;
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    box-shadow: none;
+    break-after: page;
+  }
+  .hoja-a4:last-child { break-after: auto; }
+  .etiqueta { break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media (max-width: 768px) {
+  .impresion-barra { padding: 10px 16px; }
+  .hoja-a4 { min-height: 0; padding: 4mm; }
+  .hoja-etiquetas { grid-template-columns: 1fr; grid-template-rows: none; }
+  .etiqueta { min-height: 80mm; border-left: 1px dashed #9a9a9a; }
+  .etiqueta:nth-child(2) { border-top: none; }
+}
