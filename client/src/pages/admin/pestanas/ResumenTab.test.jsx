@@ -7,9 +7,11 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResumenTab from './ResumenTab';
 import { ToastContext } from '../../../context/ToastContext';
-import { getMetricasDashboard } from '../../../services/api';
+import { getMetricasDashboard, exportarClientesCsv } from '../../../services/api';
+import { descargarArchivo } from '../../../utils/descargarArchivo';
 
 vi.mock('../../../services/api');
+vi.mock('../../../utils/descargarArchivo');
 vi.mock('recharts', async (importOriginal) => ({
   ...(await importOriginal()),
   ResponsiveContainer: ({ children }) => cloneElement(children, { width: 600, height: 260 })
@@ -242,5 +244,127 @@ describe('Resumen — si fallan las métricas', () => {
     await Promise.resolve();
 
     expect(console.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('Resumen — tarjetas clicables y navegación', () => {
+  it('al pulsar "Disponibles", navega a la pestaña de Inventario', async () => {
+    const user = userEvent.setup();
+    const irA = vi.fn();
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({
+      muebles: [{ id: 'm1', nombre: 'Silla', estado: 'disponible' }],
+      irA
+    });
+
+    const tarjeta = screen.getByRole('button', { name: 'Ver piezas disponibles en inventario' });
+    await user.click(tarjeta);
+
+    expect(irA).toHaveBeenCalledTimes(1);
+    expect(irA).toHaveBeenCalledWith('inventario');
+  });
+
+  it('al pulsar "Pedidos por procesar", navega a Pedidos con filtro "procesando"', async () => {
+    const user = userEvent.setup();
+    const irA = vi.fn();
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({ pedidosPendientes: 3, irA });
+
+    const tarjeta = screen.getByRole('button', { name: 'Ver pedidos pendientes de procesar' });
+    await user.click(tarjeta);
+
+    expect(irA).toHaveBeenCalledTimes(1);
+    expect(irA).toHaveBeenCalledWith('pedidos', 'procesando');
+  });
+
+  it('al pulsar "Clientes", activa la exportación de clientes y descarga el archivo', async () => {
+    const user = userEvent.setup();
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    exportarClientesCsv.mockResolvedValue({
+      blob: new Blob(['id;email'], { type: 'text/csv' }),
+      nombreArchivo: 'clientes.csv'
+    });
+    renderResumen();
+
+    const tarjeta = screen.getByRole('button', { name: 'Exportar clientes en CSV' });
+    await user.click(tarjeta);
+
+    expect(exportarClientesCsv).toHaveBeenCalled();
+    expect(descargarArchivo).toHaveBeenCalled();
+  });
+
+  it('permite activar la navegación con el teclado (Enter / Espacio)', async () => {
+    const user = userEvent.setup();
+    const irA = vi.fn();
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({
+      muebles: [{ id: 'm1', nombre: 'Silla', estado: 'disponible' }],
+      irA
+    });
+
+    const tarjeta = screen.getByRole('button', { name: 'Ver piezas disponibles en inventario' });
+    tarjeta.focus();
+    await user.keyboard('{Enter}');
+
+    expect(irA).toHaveBeenCalledWith('inventario');
+  });
+});
+
+describe('Resumen — semáforo de pedidos pendientes', () => {
+  it('con pedidos pendientes > 0, la tarjeta se pone en advertencia (naranja/rojo) con clase semaforo-alerta', () => {
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({ pedidosPendientes: 5 });
+
+    const tarjeta = screen.getByRole('button', { name: 'Ver pedidos pendientes de procesar' });
+    expect(tarjeta).toHaveClass('accent-warning');
+    expect(tarjeta).toHaveClass('semaforo-alerta');
+    expect(tarjeta).not.toHaveClass('accent-success');
+    expect(tarjeta).not.toHaveClass('semaforo-ok');
+  });
+
+  it('con 0 pedidos pendientes, la tarjeta se pone en verde con clase semaforo-ok', () => {
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({ pedidosPendientes: 0 });
+
+    const tarjeta = screen.getByRole('button', { name: 'Ver pedidos pendientes de procesar' });
+    expect(tarjeta).toHaveClass('accent-success');
+    expect(tarjeta).toHaveClass('semaforo-ok');
+    expect(tarjeta).not.toHaveClass('accent-warning');
+    expect(tarjeta).not.toHaveClass('semaforo-alerta');
+  });
+});
+
+describe('Resumen — miniaturas en últimas ventas', () => {
+  it('cada fila de últimas ventas muestra una miniatura de 40x40px', () => {
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen({
+      muebles: [
+        {
+          id: 'm1',
+          nombre: 'Mesa Roble',
+          categoria: 'Mesas',
+          estado: 'vendido',
+          precio_venta: 200,
+          imagenes: ['https://example.com/mesa.jpg']
+        }
+      ]
+    });
+
+    const imagen = screen.getByRole('img', { name: 'Mesa Roble' });
+    expect(imagen).toBeInTheDocument();
+    expect(imagen).toHaveAttribute('width', '40');
+    expect(imagen).toHaveAttribute('height', '40');
+    expect(imagen.closest('.sale-thumb')).toBeInTheDocument();
+  });
+});
+
+describe('Resumen — resumen de clientes (nuevos este mes y recurrentes)', () => {
+  it('enseña los clientes nuevos este mes y los recurrentes en la tarjeta y en la sección', async () => {
+    getMetricasDashboard.mockResolvedValue(METRICAS);
+    renderResumen();
+
+    await screen.findByText('125 €');
+    const textos = screen.getAllByText('2 nuevos este mes · 1 recurrentes');
+    expect(textos.length).toBeGreaterThanOrEqual(1);
   });
 });

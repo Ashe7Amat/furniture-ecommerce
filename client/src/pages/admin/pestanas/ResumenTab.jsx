@@ -70,7 +70,14 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           <h3>{totalMuebles}</h3>
           <p>Total Catálogo</p>
         </div>
-        <div className="resumen-card accent-success">
+        <div
+          className="resumen-card accent-success resumen-card-clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => irA('inventario')}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('inventario')}
+          aria-label="Ver piezas disponibles en inventario"
+        >
           <h3>{disponibles.length}</h3>
           <p>Disponibles</p>
         </div>
@@ -86,7 +93,14 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           <h3>{formatPrice(valorDisponible)} €</h3>
           <p>Valor en stock</p>
         </div>
-        <div className="resumen-card accent-warning">
+        <div
+          className={`resumen-card ${pedidosPendientes > 0 ? 'accent-warning semaforo-alerta' : 'accent-success semaforo-ok'} resumen-card-clickable`}
+          role="button"
+          tabIndex={0}
+          onClick={() => irA('pedidos', 'procesando')}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('pedidos', 'procesando')}
+          aria-label="Ver pedidos pendientes de procesar"
+        >
           <h3>{pedidosPendientes}</h3>
           <p>Pedidos por procesar</p>
         </div>
@@ -97,6 +111,22 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
         <div className="resumen-card">
           <h3>{metricas ? formatearImporte(metricas.ingresosAlquiler) : '—'}</h3>
           <p>Ingresos Alquiler/mes</p>
+        </div>
+        <div
+          className="resumen-card resumen-card-clickable"
+          role="button"
+          tabIndex={0}
+          onClick={handleExportarClientes}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleExportarClientes()}
+          aria-label="Exportar clientes en CSV"
+        >
+          <h3>{metricas?.clientes ? metricas.clientes.nuevosEsteMes + metricas.clientes.recurrentes : '—'}</h3>
+          <p>Clientes</p>
+          {metricas?.clientes && (
+            <span className="resumen-card-subtexto">
+              {metricas.clientes.nuevosEsteMes} nuevos este mes · {metricas.clientes.recurrentes} recurrentes
+            </span>
+          )}
         </div>
       </div>
 
@@ -148,7 +178,15 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
               <div key={m.id} className="sale-row">
                 <div className="sale-row-info">
                   <div className="sale-thumb">
-                    <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
+                    <img
+                      src={m.imagenes?.[0] || PLACEHOLDER_IMG}
+                      alt={m.nombre}
+                      width="40"
+                      height="40"
+                      className="sale-thumb-img"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <div>
                     <h4 className="sale-name">{m.nombre}</h4>
@@ -170,6 +208,11 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
       <section className="resumen-clientes" aria-labelledby="resumen-clientes-titulo">
         <h3 id="resumen-clientes-titulo" className="admin-section-title"><Icon name="mail" /> Clientes</h3>
         <p>Las cuentas registradas en la tienda, en un CSV para Excel: email, nombre, rol y fecha de alta. Nunca la contraseña.</p>
+        {metricas?.clientes && (
+          <p className="resumen-clientes-subtexto">
+            {metricas.clientes.nuevosEsteMes} nuevos este mes · {metricas.clientes.recurrentes} recurrentes
+          </p>
+        )}
         <button className="admin-btn-ghost" onClick={handleExportarClientes} disabled={exportandoClientes}>
           {exportandoClientes ? 'Exportando…' : 'Exportar clientes (CSV)'}
         </button>
