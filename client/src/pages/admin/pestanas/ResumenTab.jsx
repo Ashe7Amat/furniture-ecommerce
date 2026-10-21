@@ -1,17 +1,26 @@
-import { useContext, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import Icon from '../Icon';
 import { ToastContext } from '../../../context/ToastContext';
-import { exportarClientesCsv } from '../../../services/api';
+import { exportarClientesCsv, getMetricasDashboard } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
 import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
+import { formatearImporte } from '../dashboard';
+
+// Recharts pesa bastante: los gráficos se bajan aparte, solo al entrar en el Resumen.
+const GraficosDashboard = lazy(() => import('../GraficosDashboard'));
 
 // Pestaña "Resumen": contadores del catálogo, avisos de piezas sin fotos o sin categoría, el
 // bloque "Avisos / Últimas Ventas" (que sale del `estado` de los muebles, no de los pedidos) y
 // la exportación de las cuentas de clientes a CSV (el panel no tiene pestaña de clientes).
+// Las métricas (ticket medio, gráficos) vienen de GET /api/admin/dashboard/metricas.
 const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   const { showToast } = useContext(ToastContext);
   const [exportandoClientes, setExportandoClientes] = useState(false);
+  // 'cargando' | 'listo' | 'error'. Sin métricas, las tarjetas nuevas enseñan "—" y no se inventa nada.
+  const [metricas, setMetricas] = useState(null);
+  const [estadoMetricas, setEstadoMetricas] = useState('cargando');
+  const [intento, setIntento] = useState(0);
   const totalMuebles = muebles.length;
   const disponibles = muebles.filter(m => m.estado === 'disponible' || !m.estado);
   const vendidos = muebles.filter(m => m.estado === 'vendido').length;
@@ -19,6 +28,25 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   const valorDisponible = disponibles.reduce((acc, m) => acc + (Number(m.precio_venta) || 0), 0);
   const sinImagen = muebles.filter(m => !m.imagenes || m.imagenes.length === 0).length;
   const sinCategoria = muebles.filter(m => !m.categoria).length;
+
+  useEffect(() => {
+    let activo = true;
+    const cargar = async () => {
+      const datos = await getMetricasDashboard();
+      if (!activo) return;
+      setMetricas(datos || null);
+      setEstadoMetricas(datos ? 'listo' : 'error');
+    };
+    cargar();
+    return () => {
+      activo = false;
+    };
+  }, [intento]);
+
+  const reintentarMetricas = () => {
+    setEstadoMetricas('cargando');
+    setIntento(n => n + 1);
+  };
 
   const handleExportarClientes = async () => {
     setExportandoClientes(true);
@@ -62,7 +90,34 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           <h3>{pedidosPendientes}</h3>
           <p>Pedidos por procesar</p>
         </div>
+        <div className="resumen-card accent-brand">
+          <h3>{metricas ? formatearImporte(metricas.ticketMedio) : '—'}</h3>
+          <p>Ticket Medio</p>
+        </div>
+        <div className="resumen-card">
+          <h3>{metricas ? formatearImporte(metricas.ingresosAlquiler) : '—'}</h3>
+          <p>Ingresos Alquiler/mes</p>
+        </div>
       </div>
+
+      {estadoMetricas === 'error' && (
+        <div className="admin-alerts">
+          <div className="admin-alert" role="alert">
+            <Icon name="warning" />
+            No se pudieron cargar las métricas de ventas.
+            <button onClick={reintentarMetricas}>Reintentar</button>
+          </div>
+        </div>
+      )}
+
+      {metricas && (
+        <Suspense fallback={<p className="admin-empty-note">Cargando gráficos…</p>}>
+          <GraficosDashboard
+            ventasPorMes={metricas.ventasPorMes}
+            topCategorias={metricas.topCategorias}
+          />
+        </Suspense>
+      )}
 
       {(sinImagen > 0 || sinCategoria > 0) && (
         <div className="admin-alerts">
