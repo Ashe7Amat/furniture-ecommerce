@@ -1,9 +1,9 @@
-// client/src/components/AuthModal.jsx
 import { useState, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
+import { EyeIcon, EyeOffIcon } from './EyeIcons';
 import '../styles/AuthModal.css';
 
 // `descripcion` y `textoEntrar` son los textos del acceso, para quien no viene de la cesta (la reserva por
@@ -19,6 +19,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const dialogoRef = useRef(null);
@@ -78,6 +79,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
       setNombre('');
       setEmail('');
       setPassword('');
+      setMostrarPassword(false);
       setError('');
     }, 300);
   };
@@ -88,6 +90,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
     setNombre('');
     setEmail('');
     setPassword('');
+    setMostrarPassword(false);
   };
 
   return (
@@ -143,13 +146,24 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
 
             <div className="auth-input-group">
               <label>Contraseña</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                required
-              />
+              <div className="auth-password-wrapper">
+                <input 
+                  type={mostrarPassword ? 'text' : 'password'} 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-toggle-password-btn"
+                  onClick={() => setMostrarPassword((prev) => !prev)}
+                  aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  tabIndex={0}
+                >
+                  {mostrarPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
 
             {error && <span className="auth-error-msg">{error}</span>}

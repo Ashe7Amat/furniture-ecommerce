@@ -310,6 +310,27 @@ describe('Login — Google', () => {
   });
 });
 
+describe('Login — mostrar y ocultar contraseña', () => {
+  it('permite alternar la visibilidad de la contraseña cambiando el tipo de input y el aria-label', async () => {
+    await cargar();
+    const inputPassword = screen.getByPlaceholderText('Contraseña');
+    expect(inputPassword).toHaveAttribute('type', 'password');
+
+    const botonOjo = screen.getByRole('button', { name: 'Mostrar contraseña' });
+    expect(botonOjo).toHaveAttribute('tabindex', '0');
+
+    // Al pulsar el ojo, el input cambia de type a text y el aria-label a "Ocultar contraseña"
+    fireEvent.click(botonOjo);
+    expect(inputPassword).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Ocultar contraseña' })).toBeInTheDocument();
+
+    // Al volver a pulsar, vuelve a password y el aria-label a "Mostrar contraseña"
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }));
+    expect(inputPassword).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Mostrar contraseña' })).toBeInTheDocument();
+  });
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
