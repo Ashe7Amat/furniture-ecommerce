@@ -620,10 +620,64 @@
   font-family: inherit;
   font-size: inherit;
 }
+/* En la cabecera, "Categoría", "Venta" y "Alquiler/día" con la letra de las demás columnas */
+.inventory-head-row .inv-category,
+.inventory-head-row .inv-price {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
 .inv-price {
   font-variant-numeric: tabular-nums;
   color: var(--primary-color);
   font-weight: 500;
+}
+/* Edición rápida del precio en la fila: doble clic en el precio o el lápiz. Venta arriba y
+   alquiler/día debajo, en la misma columna (también en la cabecera). */
+.inv-precios {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.inv-precios > :nth-child(2) {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--secondary-color);
+}
+.inventory-head-row .inv-precios > :nth-child(2) { font-size: inherit; }
+.inv-precio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inv-precio-valor { cursor: text; }
+.inv-precio-lapiz {
+  display: inline-flex;
+  padding: 3px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--secondary-color);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.inv-precio-lapiz svg { width: 14px; height: 14px; }
+.inventory-list-item:hover .inv-precio-lapiz,
+.inv-precio-lapiz:focus-visible {
+  opacity: 1;
+  color: var(--primary-color);
+}
+.inv-precio-input {
+  width: 88px;
+  padding: 5px 8px;
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--primary-color);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 .inv-status-select {
   padding: 6px 10px;
@@ -1047,6 +1101,56 @@
 .importar-tabla tr.is-error td:last-child { color: var(--danger-color); }
 .importar-tabla tr.is-valida td:last-child { color: var(--success-color, #3c7a4a); }
 .importar-exito { font-weight: 500; }
+
+/* ─── Asignar precio de alquiler (acción en lote) ─── */
+.alquiler-grupo {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.alquiler-grupo legend {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.alquiler-opcion {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.alquiler-opcion.is-desactivada {
+  color: var(--secondary-color);
+  cursor: not-allowed;
+}
+.alquiler-grupo > .importar-aviso {
+  margin: 0;
+  padding-left: 26px;
+}
+.alquiler-detalle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 26px;
+}
+.alquiler-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+.alquiler-detalle input[type="number"] {
+  width: 110px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--card-bg);
+  color: var(--primary-color);
+  font: inherit;
+}
 
 .modal-form-row {
   display: flex;

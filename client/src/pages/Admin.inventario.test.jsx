@@ -79,9 +79,12 @@ describe('Inventario — listado', () => {
     expect(fila('Silla Tolix').getByText('Sillas')).toBeInTheDocument();
     expect(fila('Silla Tolix').getByText('1250€')).toBeInTheDocument();
     expect(fila('Banco de iglesia').getByText('12.500€')).toBeInTheDocument();
-    // Sin precio de venta, el de alquiler; sin ninguno, una raya. Sin categoría, otra raya.
+    // CAMBIADO A PROPÓSITO (2026-10-21): la columna de precio enseña ahora los dos, venta y
+    // alquiler/día (edición rápida de precios), cada uno con su raya si falta. Antes: sin precio de
+    // venta, el de alquiler; sin ninguno, una raya (y el Aparador tenía 2 rayas, no 3).
+    // Sin categoría, otra raya.
     expect(fila('Lámpara de pie').getByText('40€/día')).toBeInTheDocument();
-    expect(fila('Aparador').getAllByText('—')).toHaveLength(2);
+    expect(fila('Aparador').getAllByText('—')).toHaveLength(3);
   });
 
   it('el estado de cada fila es un selector; una pieza sin estado sale como "Disponible"', async () => {
