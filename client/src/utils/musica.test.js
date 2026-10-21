@@ -52,6 +52,12 @@ describe('cuándo sale el reproductor', () => {
   it('el aviso de cookies no esconde el botón: lo sube encima con --alto-aviso-cookies', () => {
     const css = readFileSync(new URL('../styles/MusicaDeFondo.css', import.meta.url), 'utf8');
     expect(css).not.toMatch(/cookie-banner/);
-    expect(css.match(/bottom:\s*calc\(\d+px \+ var\(--alto-aviso-cookies, 0px\)\);/g)).toHaveLength(2);
+    expect(css.match(/bottom:\s*calc\(\d+px \+ var\(--alto-aviso-cookies, 0px\) \+ var\(--alto-barra-admin, 0px\)\);/g)).toHaveLength(2);
+  });
+
+  // La barra de modo admin de la ficha (BarraAdmin.jsx, 21 oct 2026) va abajo: el botón se sube encima.
+  it('tampoco lo tapa la barra de modo admin: lo sube con --alto-barra-admin', () => {
+    const css = readFileSync(new URL('../styles/MusicaDeFondo.css', import.meta.url), 'utf8');
+    expect(css.match(/var\(--alto-barra-admin, 0px\)/g)).toHaveLength(2);
   });
 });

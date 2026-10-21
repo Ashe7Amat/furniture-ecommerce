@@ -284,6 +284,57 @@ const eliminarMueble = async (req, res) => {
   }
 };
 
+// 5b. Duplicar un mueble (POST /api/muebles/:id/duplicar, solo administradores). La copia lleva los
+// mismos datos que la original (nombre con " (Copia)", categoría, descripción y los dos precios), en
+// `disponible` y sin fotos: las de la original son de esa pieza, y las nuevas se suben al editar la
+// copia. La referencia es nueva y la pone insertarMuebleConReferencia, igual que al crear (MAX + 1 de
+// la categoría). La original no se toca: solo se lee.
+const COLUMNAS_A_DUPLICAR =
+  'nombre, categoria, categoria_id, descripcion, precio_venta, precio_alquiler_dia';
+const SUFIJO_COPIA = ' (Copia)';
+
+const duplicarMueble = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: original, error: errorLectura } = await supabase
+      .from('muebles')
+      .select(COLUMNAS_A_DUPLICAR)
+      .eq('id', id)
+      .maybeSingle();
+    if (errorLectura) throw errorLectura;
+    if (!original) return res.status(404).json({ error: 'Mueble no encontrado.' });
+
+    const data = await insertarMuebleConReferencia(
+      {
+        nombre: `${original.nombre}${SUFIJO_COPIA}`,
+        categoria: original.categoria,
+        // Una pieza antigua sin categoria_id: se resuelve por el nombre, como en crearMueble.
+        categoria_id:
+          original.categoria_id ?? (await resolverCategoriaIdPorNombre(original.categoria)),
+        descripcion: original.descripcion,
+        precio_venta: original.precio_venta,
+        precio_alquiler_dia: original.precio_alquiler_dia,
+        imagenes: [],
+        estado: 'disponible'
+      },
+      { origen: 'duplicarMueble' }
+    );
+
+    res.status(201).json({ success: true, message: 'Mueble duplicado con éxito', data });
+  } catch (error) {
+    console.error('Error al duplicar mueble:', error.message);
+    // 23505 en la referencia con los reintentos agotados: otros administradores estaban dando de
+    // alta piezas de la misma categoría a la vez. Se puede volver a intentar.
+    if (error.code === '23505' && error.message?.includes('referencia')) {
+      return res.status(409).json({
+        error:
+          'No se pudo dar una referencia nueva a la copia porque se estaban creando otras piezas a la vez. Vuelve a intentarlo.'
+      });
+    }
+    res.status(500).json({ error: 'Error al duplicar el mueble.' });
+  }
+};
+
 // 6. Buscar muebles por coincidencia de texto. El término se escapa: lo que escribe el usuario se
 //    busca tal cual, y sus "_", "%" o "*" no hacen de comodín (ver utils/ilike.js).
 const buscarMuebles = async (req, res) => {
@@ -532,6 +583,7 @@ module.exports = {
   crearMueble,
   editarMueble,
   eliminarMueble,
+  duplicarMueble,
   buscarMuebles,
   crearSesionPago,
   confirmarSesion

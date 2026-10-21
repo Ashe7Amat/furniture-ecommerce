@@ -3079,6 +3079,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   guardan con el límite nuevo. **Comprobación en producción pendiente del usuario:** subir una foto vertical a una
   pieza de prueba y mirar en Storage que el lado mayor es de 1600 px o menos.
 
+### H63 · MEDIA · PANEL · PENDIENTE: NUEVA FUNCIONALIDAD (anotada el 21 oct 2026) · Registro de actividad de administradores (Audit Log)
+
+- **Problema:** Hubo un borrado misterioso (NAV-SIL-013) que no se pudo rastrear. Hay 2 administradores (el usuario y Hervé) y cualquier cambio en precios, inventario o pedidos se hace sin dejar rastro.
+- **Solución propuesta:**
+  - Tabla `audit_log` en BD (id, admin_id, admin_email, accion, entidad, entidad_id, datos_anteriores jsonb, datos_nuevos jsonb, created_at).
+  - Helper en el servidor para registrar mutaciones (crear, editar, borrar, cambiar estado/precio).
+  - Pestaña "Actividad" en el panel admin con filtros por fecha, admin y acción.
+  - Modal de diff visual (antes/después).
+- **Decisiones a tomar antes de implementar:** retención de datos (ej. 90 días), si guardar IP (GDPR), quién puede ver el log.
+- **Cuándo:** En una sesión aparte, después de terminar las features 5 y 6 del panel admin.
+- **Esfuerzo estimado:** 2-3 días.
+
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
 - **Qué pasa:**

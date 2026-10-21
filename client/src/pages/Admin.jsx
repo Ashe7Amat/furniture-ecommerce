@@ -1,5 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/Admin.css';
 import Icon from './admin/Icon';
@@ -37,15 +38,19 @@ const PESTANA_RESERVAS = { id: 'reservas', etiqueta: 'Reservas', icono: 'bell' }
 const pestanasVisibles = () =>
   reservasActivas() ? PESTANAS.flatMap(p => (p.id === 'pedidos' ? [p, PESTANA_RESERVAS] : [p])) : PESTANAS;
 
-const Admin = () => {
+// `idEditar` y `onEnlaceUsado` vienen de la URL /admin?editar={id} (AdminRuta.jsx): la barra de modo
+// admin de la ficha pública enlaza así al editor de la pieza. Sin ellos (los tests del panel montan
+// <Admin /> sin router), el panel es el de siempre.
+const Admin = ({ idEditar = null, onEnlaceUsado }) => {
   const { user } = useContext(AuthContext);
+  const { showToast } = useContext(ToastContext);
 
   const [vistaActiva, setVistaActiva] = useState('resumen');
 
   // El filtro de pedidos vive aquí (se conserva al cambiar de pestaña) y lo aplica el servidor (H37).
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
   const {
-    muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    muebles, mueblesCargados, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
     infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
   } = useAdminDatos(user, filtroEstadoPedido);
@@ -94,6 +99,30 @@ const Admin = () => {
     // preseleccionar justo después de vaciar el formulario al crear un mueble (caso C).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorias]);
+
+  // /admin?editar={id}: con el inventario ya cargado, se abre el editor de esa pieza (en "Gestionar
+  // Inventario", para que al cerrarlo se vea en la lista). Al cerrarlo, ?editar sale de la URL, así que
+  // recargar el inventario tras guardar no lo vuelve a abrir. Si la pieza no está, se avisa y se quita
+  // de la URL.
+  useEffect(() => {
+    if (!idEditar || !mueblesCargados) return;
+    const pieza = muebles.find(m => String(m.id) === idEditar);
+    if (pieza) {
+      setVistaActiva('inventario');
+      setMuebleAEditar(pieza);
+    } else {
+      showToast('No se ha encontrado la pieza que querías editar', 'error');
+      onEnlaceUsado();
+    }
+    // Solo al llegar el enlace o el inventario: showToast y onEnlaceUsado cambian en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idEditar, mueblesCargados, muebles]);
+
+  // Al cerrar el editor abierto por el enlace, el ?editar sale de la URL: recargar no lo reabre.
+  const cerrarEditorMueble = () => {
+    setMuebleAEditar(null);
+    if (idEditar) onEnlaceUsado();
+  };
 
   if (!user) {
     return <div className="admin-msg">Acceso denegado. Inicia sesión primero.</div>;
@@ -163,6 +192,7 @@ const Admin = () => {
             filtroEstadoPedido={filtroEstadoPedido}
             setFiltroEstadoPedido={setFiltroEstadoPedido}
             cargarPedidos={cargarPedidos}
+            muebles={muebles}
           />
         )}
 
@@ -176,6 +206,8 @@ const Admin = () => {
             setMensajes={setMensajes}
             errorMensajes={errorMensajes}
             recargarMensajes={cargarMensajes}
+            muebles={muebles}
+            abrirEditorMueble={setMuebleAEditar}
           />
         )}
 
@@ -207,7 +239,7 @@ const Admin = () => {
           categorias={categorias}
           confirmarBorrado={confirmarBorrado}
           onGuardado={cargarMuebles}
-          onCerrar={() => setMuebleAEditar(null)}
+          onCerrar={cerrarEditorMueble}
         />
       )}
 
