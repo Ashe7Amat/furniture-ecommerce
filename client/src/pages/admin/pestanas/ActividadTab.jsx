@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getAuditLogs } from '../../../services/api';
 import DiffModal from '../modales/DiffModal';
-import { obtenerResumenDetalle, ETIQUETAS_ACCION, ETIQUETAS_ENTIDAD } from '../actividad';
+import {
+  obtenerResumenDetalle,
+  hayCambiosRelevantes,
+  ETIQUETAS_ACCION,
+  ETIQUETAS_ENTIDAD
+} from '../actividad';
 
 const ActividadTab = ({ initialLogs = null }) => {
   const [logs, setLogs] = useState(initialLogs || []);
@@ -183,15 +188,17 @@ const ActividadTab = ({ initialLogs = null }) => {
                 const accionEtiqueta = ETIQUETAS_ACCION[log.accion] || log.accion;
                 const entidadEtiqueta = ETIQUETAS_ENTIDAD[log.entidad] || log.entidad;
 
+                const interactuable = hayCambiosRelevantes(log);
+
                 return (
                   <tr
                     key={log.id}
-                    onClick={() => setLogSeleccionado(log)}
-                    onKeyDown={(e) => e.key === 'Enter' && setLogSeleccionado(log)}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Ver detalle de ${accionEtiqueta} en ${entidadEtiqueta}`}
-                    className="audit-row"
+                    onClick={() => interactuable && setLogSeleccionado(log)}
+                    onKeyDown={(e) => e.key === 'Enter' && interactuable && setLogSeleccionado(log)}
+                    tabIndex={interactuable ? 0 : -1}
+                    role={interactuable ? 'button' : undefined}
+                    aria-label={interactuable ? `Ver detalle de ${accionEtiqueta} en ${entidadEtiqueta}` : undefined}
+                    className={`audit-row ${!interactuable ? 'audit-row-no-diff' : ''}`}
                   >
                     <td className="audit-col-fecha">{fecha}</td>
                     <td className="audit-col-admin">{log.admin_email || 'Sistema'}</td>

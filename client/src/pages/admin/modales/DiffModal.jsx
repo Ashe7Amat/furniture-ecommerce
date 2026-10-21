@@ -1,28 +1,14 @@
 import { useId, useRef } from 'react';
 import useDialogoModal from '../../../utils/useDialogoModal';
 import Icon from '../Icon';
-
-const formatearValor = (valor) => {
-  if (valor === null || valor === undefined) return '—';
-  if (typeof valor === 'boolean') return valor ? 'Sí (true)' : 'No (false)';
-  if (typeof valor === 'object') {
-    try {
-      return JSON.stringify(valor, null, 2);
-    } catch {
-      return String(valor);
-    }
-  }
-  return String(valor);
-};
-
-const ETIQUETAS_ACCION = {
-  crear: 'Crear',
-  editar: 'Editar',
-  eliminar: 'Eliminar',
-  duplicar: 'Duplicar',
-  cambio_estado: 'Cambio de estado',
-  login: 'Inicio de sesión'
-};
+import {
+  CAMPOS_IGNORADOS,
+  traducirCampo,
+  formatearValor,
+  construirMensajeBorrado,
+  ETIQUETAS_ACCION,
+  ETIQUETAS_ENTIDAD
+} from '../actividad';
 
 const DiffModal = ({ log, onCerrar }) => {
   const ref = useRef(null);
@@ -39,16 +25,22 @@ const DiffModal = ({ log, onCerrar }) => {
     : '—';
 
   const accionTexto = ETIQUETAS_ACCION[log.accion] || log.accion;
+  const entidadTexto = ETIQUETAS_ENTIDAD[log.entidad] || log.entidad;
   const ant = log.datos_anteriores;
   const nue = log.datos_nuevos;
 
-  // Obtener todas las claves únicas para la comparativa
+  // Filtrar claves excluyendo siempre los campos técnicos
   const claves = Array.from(
     new Set([...(ant ? Object.keys(ant) : []), ...(nue ? Object.keys(nue) : [])])
-  );
+  ).filter((c) => !CAMPOS_IGNORADOS.has(c));
+
+  const esBorrado = log.accion === 'eliminar' || (ant && (!nue || Object.keys(nue).length === 0));
 
   return (
-    <div className="admin-modal-overlay" onClick={(e) => e.target === e.currentTarget && onCerrar()}>
+    <div
+      className="admin-modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onCerrar()}
+    >
       <div
         ref={ref}
         className="admin-modal-content audit-diff-modal"
@@ -62,7 +54,12 @@ const DiffModal = ({ log, onCerrar }) => {
             <h3 id={idTitulo}>Detalle de Actividad</h3>
             <span className={`audit-badge badge-${log.accion}`}>{accionTexto}</span>
           </div>
-          <button type="button" className="admin-modal-close" onClick={onCerrar} aria-label="Cerrar modal">
+          <button
+            type="button"
+            className="admin-modal-close"
+            onClick={onCerrar}
+            aria-label="Cerrar modal"
+          >
             <Icon name="close" />
           </button>
         </div>
@@ -75,59 +72,68 @@ const DiffModal = ({ log, onCerrar }) => {
             <strong>Admin:</strong> <span>{log.admin_email || 'Sistema'}</span>
           </div>
           <div>
-            <strong>Entidad:</strong> <span>{log.entidad}</span>
+            <strong>Entidad:</strong> <span>{entidadTexto}</span>
           </div>
           {log.entidad_id && (
             <div>
-              <strong>ID Entidad:</strong> <code>{log.entidad_id}</code>
+              <strong>Referencia/ID:</strong> <span>{ant?.referencia || nue?.referencia || log.entidad_id}</span>
             </div>
           )}
         </div>
 
         <div className="audit-diff-body">
-          <h4 className="audit-diff-subtitulo">Comparativa de cambios (Diff)</h4>
-
-          {claves.length === 0 ? (
-            <p className="admin-empty-note">No hay detalles de datos registrados para esta acción.</p>
-          ) : (
-            <div className="audit-diff-table-wrapper">
-              <table className="audit-diff-table">
-                <thead>
-                  <tr>
-                    <th>Campo</th>
-                    <th className="th-anterior">Datos anteriores</th>
-                    <th className="th-nuevo">Datos nuevos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {claves.map((clave) => {
-                    const valAnt = ant ? ant[clave] : undefined;
-                    const valNue = nue ? nue[clave] : undefined;
-                    return (
-                      <tr key={clave}>
-                        <td className="diff-clave">
-                          <code>{clave}</code>
-                        </td>
-                        <td className="diff-anterior">
-                          {valAnt !== undefined ? (
-                            <pre className="diff-pre">{formatearValor(valAnt)}</pre>
-                          ) : (
-                            <span className="diff-vacio">(vacío / no definido)</span>
-                          )}
-                        </td>
-                        <td className="diff-nuevo">
-                          {valNue !== undefined ? (
-                            <pre className="diff-pre">{formatearValor(valNue)}</pre>
-                          ) : (
-                            <span className="diff-vacio">(vacío / no definido)</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {esBorrado ? (
+            <div className="audit-borrado-card">
+              <div className="audit-borrado-icono" aria-hidden="true">
+                <Icon name="trash" />
+              </div>
+              <p className="audit-borrado-texto">{construirMensajeBorrado(log)}</p>
             </div>
+          ) : (
+            <>
+              <h4 className="audit-diff-subtitulo">Comparativa de cambios</h4>
+
+              {claves.length === 0 ? (
+                <p className="admin-empty-note">
+                  No hay cambios visibles relevantes para esta acción.
+                </p>
+              ) : (
+                <div className="audit-diff-table-wrapper">
+                  <table className="audit-diff-table">
+                    <thead>
+                      <tr>
+                        <th>Campo</th>
+                        <th className="th-anterior">Antes</th>
+                        <th className="th-nuevo">Después</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {claves.map((clave) => {
+                        const valAnt = ant ? ant[clave] : undefined;
+                        const valNue = nue ? nue[clave] : undefined;
+                        const campoNombre = traducirCampo(clave);
+                        const textoAnt = formatearValor(clave, valAnt, false, log.accion);
+                        const textoNue = formatearValor(clave, valNue, true, log.accion);
+
+                        return (
+                          <tr key={clave}>
+                            <td className="diff-clave">
+                              <span className="diff-campo-nombre">{campoNombre}</span>
+                            </td>
+                            <td className="diff-anterior">
+                              <span className="diff-valor">{textoAnt}</span>
+                            </td>
+                            <td className="diff-nuevo">
+                              <span className="diff-valor">{textoNue}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
 
