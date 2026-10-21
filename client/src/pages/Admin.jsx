@@ -184,6 +184,7 @@ const Admin = ({ idEditar = null, onEnlaceUsado }) => {
             filtroEstadoPedido={filtroEstadoPedido}
             setFiltroEstadoPedido={setFiltroEstadoPedido}
             cargarPedidos={cargarPedidos}
+            muebles={muebles}
           />
         )}
 
