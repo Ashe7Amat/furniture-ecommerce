@@ -39,7 +39,15 @@ describe('Panel — pestaña "Reservas" con el interruptor apagado', () => {
     vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'false');
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
 
-    expect(botonesBarra()).toEqual(['Resumen', 'Añadir Mueble', 'Gestionar Inventario', 'Pedidos', 'Mensajes', 'Gestionar Categorías']);
+    expect(botonesBarra()).toEqual([
+      'Resumen',
+      'Añadir Mueble',
+      'Gestionar Inventario',
+      'Pedidos',
+      'Mensajes',
+      'Gestionar Categorías',
+      'Actividad'
+    ]);
     expect(getReservasAdmin).not.toHaveBeenCalled();
     expect(getResumenReservasAdmin).not.toHaveBeenCalled();
   });
@@ -60,7 +68,14 @@ describe('Panel — pestaña "Reservas" con el interruptor encendido', () => {
   it('sale después de "Pedidos", y hasta abrirla no se pide nada', async () => {
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
     expect(botonesBarra()).toEqual([
-      'Resumen', 'Añadir Mueble', 'Gestionar Inventario', 'Pedidos', 'Reservas', 'Mensajes', 'Gestionar Categorías'
+      'Resumen',
+      'Añadir Mueble',
+      'Gestionar Inventario',
+      'Pedidos',
+      'Reservas',
+      'Mensajes',
+      'Gestionar Categorías',
+      'Actividad'
     ]);
     expect(getReservasAdmin).not.toHaveBeenCalled();
   });

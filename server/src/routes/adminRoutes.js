@@ -9,6 +9,7 @@ const {
 } = require('../controllers/catalogoCsvController');
 const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
+const { obtenerAuditLogs } = require('../controllers/auditLogController');
 const {
   exigirObjeto,
   listarReservasAdmin,
@@ -66,6 +67,9 @@ router.get('/clientes/export', verificarAdmin, exportarClientesCsv);
 // Mensajes del formulario de contacto (pendiente de la migración mensajes_contacto).
 router.get('/mensajes', verificarAdmin, obtenerMensajes);
 router.patch('/mensajes/:id/leido', verificarAdmin, marcarLeido);
+
+// Registro de actividad (audit log)
+router.get('/audit-log', verificarAdmin, obtenerAuditLogs);
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d): la lista por vistas, las
 // acciones sobre cada reserva y las altas sin pago web. Primero la sesión de administrador y después

@@ -3,6 +3,7 @@ const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 require('./helpers/testEnv');
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-audit-log';
@@ -44,6 +45,26 @@ const instalar = (opciones = {}) => {
         codigo: 'SIL',
         imagen_url: 'https://example.com/cat-sillas.jpg',
         categoria_padre_id: null
+      }
+    ],
+    clientes: [
+      {
+        id: ADMIN_ID,
+        email: ADMIN_EMAIL,
+        password: bcrypt.hashSync('Password123!', 10),
+        nombre: 'Admin Nave 5',
+        rol: 'admin',
+        email_verificado: true
+      }
+    ],
+    pedidos: [
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        estado: 'procesando',
+        total: 150,
+        created_at: '2026-10-21T10:00:00.000Z',
+        items: [],
+        cliente_info: { nombre: 'Cliente Test', email: 'cliente@test.com' }
       }
     ],
     ...opciones
@@ -409,5 +430,198 @@ describe('Integración con categoriasController', () => {
       .delete('/api/categorias/1')
       .set('Authorization', `Bearer ${tokenAdmin}`);
     assert.equal(resEliminar.status, 200);
+  });
+});
+
+describe('Integración con pedidosController', () => {
+  const PEDIDO_ID = '00000000-0000-4000-8000-000000000010';
+
+  test('PATCH /api/pedidos/:id/estado registra actividad de cambio_estado', async () => {
+    const res = await request(app)
+      .patch(`/api/pedidos/${PEDIDO_ID}/estado`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ estado: 'enviado' });
+
+    assert.equal(res.status, 200);
+    assert.equal(fake.tablas.audit_log.length, 1);
+    const log = fake.tablas.audit_log[0];
+    assert.equal(log.accion, 'cambio_estado');
+    assert.equal(log.entidad, 'pedidos');
+    assert.equal(log.entidad_id, PEDIDO_ID);
+    assert.equal(log.admin_id, ADMIN_ID);
+    assert.equal(log.admin_email, ADMIN_EMAIL);
+    assert.deepEqual(log.datos_anteriores, { estado: 'procesando' });
+    assert.deepEqual(log.datos_nuevos, { estado: 'enviado' });
+  });
+
+  test('REGLA DE ORO: si el log falla, el estado del pedido se actualiza igual', async () => {
+    instalar({
+      fallos: { 'audit_log.insert': { message: 'fallo de conexión a audit_log' } }
+    });
+
+    const res = await request(app)
+      .patch(`/api/pedidos/${PEDIDO_ID}/estado`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ estado: 'entregado' });
+
+    assert.equal(res.status, 200);
+    const pedido = fake.tablas.pedidos.find((p) => p.id === PEDIDO_ID);
+    assert.equal(pedido.estado, 'entregado');
+  });
+});
+
+describe('Integración con authController (login)', () => {
+  test('POST /api/auth/login registra actividad de login exitoso', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: ADMIN_EMAIL, password: 'Password123!' });
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.token);
+    assert.equal(fake.tablas.audit_log.length, 1);
+    const log = fake.tablas.audit_log[0];
+    assert.equal(log.accion, 'login');
+    assert.equal(log.entidad, 'auth');
+    assert.equal(log.admin_id, ADMIN_ID);
+    assert.equal(log.admin_email, ADMIN_EMAIL);
+    assert.equal(log.datos_anteriores, null);
+    assert.equal(log.datos_nuevos.email, ADMIN_EMAIL);
+    assert.equal(log.datos_nuevos.rol, 'admin');
+  });
+
+  test('REGLA DE ORO: si el log de auditoría falla, el login funciona igual', async () => {
+    instalar({
+      fallos: { 'audit_log.insert': { message: 'fallo de conexión a audit_log' } }
+    });
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: ADMIN_EMAIL, password: 'Password123!' });
+
+    assert.equal(res.status, 200);
+    assert.ok(res.body.token);
+  });
+});
+
+describe('Endpoint GET /api/admin/audit-log', () => {
+  const tokenCliente = jwt.sign(
+    { sub: '00000000-0000-4000-8000-0000000000c1', email: 'cliente@test.com', rol: 'cliente' },
+    process.env.JWT_SECRET
+  );
+
+  beforeEach(() => {
+    instalar({
+      audit_log: [
+        {
+          id: 'log-1',
+          admin_id: ADMIN_ID,
+          admin_email: ADMIN_EMAIL,
+          accion: 'crear',
+          entidad: 'muebles',
+          entidad_id: 'm-1',
+          datos_anteriores: null,
+          datos_nuevos: { nombre: 'Mueble Uno' },
+          created_at: '2026-10-21T12:00:00.000Z'
+        },
+        {
+          id: 'log-2',
+          admin_id: ADMIN_ID,
+          admin_email: ADMIN_EMAIL,
+          accion: 'editar',
+          entidad: 'muebles',
+          entidad_id: 'm-1',
+          datos_anteriores: { precio_venta: 100 },
+          datos_nuevos: { precio_venta: 120 },
+          created_at: '2026-10-21T12:10:00.000Z'
+        },
+        {
+          id: 'log-3',
+          admin_id: 'otro-admin',
+          admin_email: 'otro@nave5barcelona.com',
+          accion: 'cambio_estado',
+          entidad: 'pedidos',
+          entidad_id: 'ped-1',
+          datos_anteriores: { estado: 'procesando' },
+          datos_nuevos: { estado: 'enviado' },
+          created_at: '2026-10-21T12:20:00.000Z'
+        }
+      ]
+    });
+  });
+
+  test('sin token devuelve 401', async () => {
+    const res = await request(app).get('/api/admin/audit-log');
+    assert.equal(res.status, 401);
+  });
+
+  test('con rol no admin devuelve 403', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-log')
+      .set('Authorization', `Bearer ${tokenCliente}`);
+    assert.equal(res.status, 403);
+  });
+
+  test('con token admin devuelve los registros paginados ordenados por created_at DESC', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-log')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.logs));
+    assert.equal(res.body.logs.length, 3);
+    assert.equal(res.body.total, 3);
+    assert.equal(res.body.pagina, 1);
+    assert.equal(res.body.porPagina, 50);
+    assert.equal(res.body.logs[0].id, 'log-3');
+    assert.equal(res.body.logs[1].id, 'log-2');
+    assert.equal(res.body.logs[2].id, 'log-1');
+  });
+
+  test('filtra por entidad (tanto singular como plural)', async () => {
+    const resSingular = await request(app)
+      .get('/api/admin/audit-log?entidad=mueble')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(resSingular.status, 200);
+    assert.equal(resSingular.body.logs.length, 2);
+    assert.ok(resSingular.body.logs.every((l) => l.entidad === 'muebles'));
+
+    const resPlural = await request(app)
+      .get('/api/admin/audit-log?entidad=muebles')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(resPlural.status, 200);
+    assert.equal(resPlural.body.logs.length, 2);
+  });
+
+  test('filtra por accion', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-log?accion=crear')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.logs.length, 1);
+    assert.equal(res.body.logs[0].accion, 'crear');
+  });
+
+  test('filtra por admin_email', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-log?admin_email=otro@nave5barcelona.com')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.logs.length, 1);
+    assert.equal(res.body.logs[0].admin_email, 'otro@nave5barcelona.com');
+  });
+
+  test('soporta paginación con page y limit', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-log?page=1&limit=2')
+      .set('Authorization', `Bearer ${tokenAdmin}`);
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.logs.length, 2);
+    assert.equal(res.body.total, 3);
+    assert.equal(res.body.totalPaginas, 2);
   });
 });

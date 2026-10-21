@@ -8,6 +8,7 @@ const correos = require('../utils/email');
 const refreshTokens = require('../utils/refreshTokens');
 const verificacionEmail = require('../utils/verificacionEmail');
 const { enviarTodos } = require('../utils/enviarTodos');
+const { registrarActividad } = require('../utils/audit');
 
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
@@ -191,6 +192,19 @@ const loginCliente = async (req, res) => {
     // el nombre de siempre) y el refresh token
     const token = firmarToken(usuario);
     const refreshToken = await emitirRefresh(usuario, req);
+
+    try {
+      await registrarActividad(
+        { ...req, usuario: { sub: usuario.id, email: usuario.email, rol: usuario.rol } },
+        'login',
+        'auth',
+        usuario.id,
+        null,
+        { email: usuario.email, rol: usuario.rol }
+      );
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría en login:', errAudit.message);
+    }
 
     res.status(200).json({
       success: true,
