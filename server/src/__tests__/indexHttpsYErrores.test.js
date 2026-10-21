@@ -64,4 +64,25 @@ describe('manejador de errores no capturados', () => {
     assert.doesNotMatch(JSON.stringify(res.body), /File too large|LIMIT_FILE_SIZE/);
     assert.equal(console.error.mock.callCount(), 1, 'el detalle queda solo en el log');
   });
+
+  test('un cuerpo que no es un JSON válido responde 400 con entity.parse.failed', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"invalido":');
+
+    assert.equal(res.status, 400);
+    assert.deepEqual(res.body, { error: 'El cuerpo de la petición no es un JSON válido.' });
+  });
+
+  test('un cuerpo que excede 1MB responde 413 con entity.too.large', async () => {
+    const cuerpoGrande = JSON.stringify({ datos: 'a'.repeat(1024 * 1024 + 50) });
+    const res = await request(app)
+      .post('/api/auth/login')
+      .set('Content-Type', 'application/json')
+      .send(cuerpoGrande);
+
+    assert.equal(res.status, 413);
+    assert.deepEqual(res.body, { error: 'El cuerpo de la petición es demasiado grande.' });
+  });
 });

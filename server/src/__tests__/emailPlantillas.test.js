@@ -221,3 +221,31 @@ describe('enviarConfirmacionCliente — plantilla', () => {
     assert.match(text, /Envío a: Calle Falsa 123/);
   });
 });
+
+describe('correo de recuperación de contraseña', () => {
+  test('construye y envía el correo con enlace, maqueta común y versión texto', async () => {
+    await email.enviarEmailRecuperacion(
+      'ana@example.com',
+      'https://www.nave5barcelona.com/reset-password?token=tok-123'
+    );
+    const { to, subject, html, text } = enviado();
+
+    assert.equal(to, 'ana@example.com');
+    assert.match(subject, /Recuperar contraseña/);
+    comprobarMaqueta(html);
+    assert.match(html, /reset-password\?token=tok-123/);
+    assert.match(html, /Restablecer contraseña/);
+    assert.match(text, /reset-password\?token=tok-123/);
+  });
+
+  test('acepta también formato de objeto { email, url }', async () => {
+    await email.enviarEmailRecuperacion({
+      email: 'ana@example.com',
+      url: 'https://www.nave5barcelona.com/reset-password?token=tok-obj'
+    });
+    const { to, html } = enviado();
+
+    assert.equal(to, 'ana@example.com');
+    assert.match(html, /reset-password\?token=tok-obj/);
+  });
+});

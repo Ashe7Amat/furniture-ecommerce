@@ -178,3 +178,9 @@
 .text-btn:hover {
   color: var(--primary-color);
 }
+
+.forgot-password-link {
+  margin-top: 15px;
+  text-align: center;
+}
+

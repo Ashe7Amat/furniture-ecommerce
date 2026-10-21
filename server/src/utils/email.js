@@ -796,8 +796,60 @@ const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
   }
 };
 
+// ─── Recuperación de contraseña ───────────────────────────────────────────────────
+const construirEmailRecuperacion = ({ url }) => {
+  const titulo = 'Recuperar contraseña';
+  const cuerpo = `${parrafo(
+    'Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Nave 5 Barcelona.'
+  )}${parrafo(
+    'Si has sido tú, haz clic en el siguiente botón para elegir una nueva contraseña:'
+  )}${botonEmail({
+    href: escaparHtml(url),
+    texto: 'Restablecer contraseña',
+    textoAlternativo: `Si el botón no funciona, entra en ${escaparHtml(url)}`
+  })}${parrafo(
+    '<br>Este enlace caducará en 1 hora por motivos de seguridad.',
+    { secundario: true }
+  )}${parrafo(
+    'Si no has solicitado este cambio, puedes ignorar este correo con total tranquilidad: tu contraseña seguirá siendo la misma.',
+    { secundario: true }
+  )}`;
+  return {
+    asunto: 'Recuperar contraseña - Nave 5 Barcelona',
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [
+      'Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Nave 5 Barcelona.',
+      'Si has sido tú, usa el siguiente enlace para elegir una nueva contraseña:',
+      '',
+      `Restablecer contraseña: ${url}`,
+      '',
+      'Este enlace caducará en 1 hora por motivos de seguridad.',
+      'Si no has solicitado este cambio, puedes ignorar este correo con total tranquilidad: tu contraseña seguirá siendo la misma.'
+    ])
+  };
+};
+
+const enviarEmailRecuperacion = async (destinatario, urlOpciones) => {
+  let email;
+  let url;
+  if (typeof destinatario === 'object' && destinatario !== null) {
+    email = destinatario.email;
+    url = destinatario.url || destinatario.enlace;
+  } else {
+    email = destinatario;
+    url = typeof urlOpciones === 'string' ? urlOpciones : urlOpciones?.url || urlOpciones?.enlace;
+  }
+  return enviarCorreoCuenta({
+    tipo: 'recuperación de contraseña',
+    para: email,
+    ...construirEmailRecuperacion({ url })
+  });
+};
+
 module.exports = {
   enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin,
   enviarConfirmarRegistro, enviarCuentaActivada, enviarConfirmarCambioEmail, enviarAvisoCambioEmail,
-  enviarCuentaProtegida, ocultarEmail, enviarConfirmacionReserva, enviarConflictoReserva
+  enviarCuentaProtegida, ocultarEmail, enviarConfirmacionReserva, enviarConflictoReserva,
+  enviarEmailRecuperacion
 };
+

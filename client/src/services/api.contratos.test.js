@@ -69,6 +69,8 @@ describe('contrato B: si falla, { error }', () => {
     ['crearSesionPago', () => api.crearSesionPago({ items: [], clienteInfo: {} }), 'No se pudo iniciar el pago.'],
     ['confirmarSesionPago', () => api.confirmarSesionPago('cs_1'), 'No se pudo confirmar el pago.'],
     ['enviarContacto', () => api.enviarContacto({ nombre: 'Ana', email: 'a@b.es', mensaje: 'Hola' }), 'No se pudo enviar el mensaje.'],
+    ['solicitarRecuperacionPassword', () => api.solicitarRecuperacionPassword('a@b.es'), 'Error al solicitar recuperación de contraseña.'],
+    ['restablecerPassword', () => api.restablecerPassword('tok', 'clave12345'), 'Error al restablecer contraseña.'],
   ];
 
   it.each(casos)('%s: si el servidor responde con error, devuelve su mensaje', async (_nombre, llamar) => {
@@ -244,6 +246,14 @@ describe('qué se pide a cada ruta', () => {
     await api.loginConGoogle('credencial-de-google');
     expect(ultimaPeticion().url).toMatch(/\/auth\/google$/);
     expect(ultimaPeticion().body).toBe(JSON.stringify({ credential: 'credencial-de-google' }));
+    expect(ultimaPeticion().headers.Authorization).toBeUndefined();
+
+    await api.solicitarRecuperacionPassword('a@b.es');
+    expect(ultimaPeticion().url).toMatch(/\/auth\/forgot-password$/);
+    expect(ultimaPeticion().headers.Authorization).toBeUndefined();
+
+    await api.restablecerPassword('tok', 'clave12345');
+    expect(ultimaPeticion().url).toMatch(/\/auth\/reset-password$/);
     expect(ultimaPeticion().headers.Authorization).toBeUndefined();
   });
 

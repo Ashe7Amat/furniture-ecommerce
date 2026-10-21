@@ -64,6 +64,15 @@ describe('Login — iniciar sesión', () => {
     expect(document.querySelectorAll('h1')).toHaveLength(1);
   });
 
+  it('muestra el enlace "¿Olvidaste tu contraseña?" hacia /forgot-password y lo oculta en modo registro', async () => {
+    await cargar();
+    const enlace = screen.getByRole('link', { name: '¿Olvidaste tu contraseña?' });
+    expect(enlace).toHaveAttribute('href', '/forgot-password');
+
+    fireEvent.click(screen.getByRole('button', { name: /Regístrate/ }));
+    expect(screen.queryByRole('link', { name: '¿Olvidaste tu contraseña?' })).not.toBeInTheDocument();
+  });
+
   it('sin email o contraseña avisa y no llama al servidor', async () => {
     const { api } = await cargar();
     escribir('Email', 'ana@correo.es');

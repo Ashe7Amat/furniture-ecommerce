@@ -378,6 +378,39 @@ export const reenviarVerificacion = async () => {
   }
 };
 
+export const solicitarRecuperacionPassword = async (email) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al solicitar recuperación de contraseña.');
+    return data;
+  } catch (error) {
+    console.error('Error en solicitarRecuperacionPassword:', error);
+    return { error: error.message };
+  }
+};
+
+export const restablecerPassword = async (token, newPassword) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al restablecer contraseña.');
+    return data;
+  } catch (error) {
+    console.error('Error en restablecerPassword:', error);
+    return { error: error.message };
+  }
+};
+
+
 // Crea una sesión de pago real de Stripe (modo test o real, según la clave del servidor)
 // y devuelve la URL a la que hay que redirigir al comprador.
 export const crearSesionPago = async ({ items, clienteInfo }) => {

@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser, loginConGoogle } from '../services/api';
@@ -163,6 +163,13 @@ const Login = () => {
           <button type="submit" className="login-btn">
             {isRegister ? 'Registrarme' : 'Continuar'}
           </button>
+          {!isRegister && (
+            <div className="forgot-password-link">
+              <Link to="/forgot-password" className="text-btn">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+          )}
         </form>
 
         <div className="login-toggle-link">

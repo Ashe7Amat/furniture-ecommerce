@@ -72,6 +72,18 @@ const schemaVerificarEmail = z.object({
     .max(200, MENSAJE_SIN_TOKEN_EMAIL)
 });
 
+// POST /api/auth/forgot-password
+const schemaForgotPassword = z.object({
+  email: z.string().optional()
+});
+
+// POST /api/auth/reset-password
+const MENSAJE_PASSWORD_RESET = 'La contraseña debe tener al menos 8 caracteres.';
+const schemaResetPassword = z.object({
+  token: requerido('El token es obligatorio.'),
+  newPassword: z.string().min(8, MENSAJE_PASSWORD_RESET)
+});
+
 module.exports = {
   schemaRegistro,
   schemaVerificarEmail,
@@ -79,5 +91,7 @@ module.exports = {
   schemaGoogle,
   schemaPerfilUpdate,
   schemaRefresh,
+  schemaForgotPassword,
+  schemaResetPassword,
   PASSWORD_MIN_LENGTH
 };

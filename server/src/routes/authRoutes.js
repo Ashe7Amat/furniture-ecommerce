@@ -9,7 +9,9 @@ const {
   refrescarSesion,
   cerrarSesion,
   verificarEmail,
-  reenviarVerificacion
+  reenviarVerificacion,
+  solicitarRecuperacion,
+  restablecerPassword
 } = require('../controllers/authController');
 const { verificarToken } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -19,7 +21,9 @@ const {
   schemaGoogle,
   schemaPerfilUpdate,
   schemaRefresh,
-  schemaVerificarEmail
+  schemaVerificarEmail,
+  schemaForgotPassword,
+  schemaResetPassword
 } = require('../schemas/auth');
 
 // Límite anti fuerza-bruta: máximo 15 intentos de login/registro por IP cada 15 minutos.
@@ -97,5 +101,14 @@ router.post('/logout', validar(schemaRefresh), cerrarSesion);
 // fallidos cuentan en el mismo límite por IP que el login. Pedir otro enlace sí pide sesión.
 router.post('/verificar-email', limitadorAuth, validar(schemaVerificarEmail), verificarEmail);
 router.post('/reenviar-verificacion', verificarToken, limitadorReenvio, reenviarVerificacion);
+
+// Recuperación de contraseña:
+router.post(
+  '/forgot-password',
+  limitadorAuth,
+  validar(schemaForgotPassword),
+  solicitarRecuperacion
+);
+router.post('/reset-password', limitadorAuth, validar(schemaResetPassword), restablecerPassword);
 
 module.exports = router;
