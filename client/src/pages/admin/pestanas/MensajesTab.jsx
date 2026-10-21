@@ -1,10 +1,11 @@
-import { useContext, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { marcarMensajeLeido, crearEnCalendarioAdmin } from '../../../services/api';
 import { reservasActivas } from '../../../utils/reservas';
 import Icon from '../Icon';
 import AltaCalendarioModal from '../modales/AltaCalendarioModal';
-import { recortar, fechaMensaje, piezasDelMensaje, textoEstado } from '../mensajes';
+import DialogoReserva from '../modales/DialogoReserva';
+import { recortar, fechaMensaje, piezasDelMensaje, buscarPiezas, textoEstado } from '../mensajes';
 import { hoyMasReciente } from '../reservasAdmin';
 import '../../../styles/AdminReservas.css';
 
@@ -14,20 +15,31 @@ import '../../../styles/AdminReservas.css';
 // Si el mensaje nombra piezas por su referencia (el botón «Preguntar por esta pieza» de la web escribe
 // «(ref. NAV-SIL-001)»), el modal enseña una tarjeta por pieza, con botones para abrir su editor y,
 // con las reservas encendidas (VITE_RESERVAS_ACTIVAS), para registrar un alquiler con los datos del cliente.
+// También salen las piezas cuyo nombre entero escribe el cliente, marcadas aparte porque son menos
+// seguras. Si no sale ninguna, «Buscar pieza relacionada» busca a mano en el inventario ya cargado.
 
-const TarjetaPieza = ({ referencia, mueble, onEditar, onReservar }) => {
+const ORIGEN = { referencia: 'Detectada por referencia', nombre: 'Detectada por nombre' };
+// En el buscador manual se enseñan como mucho estas; si hay más, se pide afinar.
+const MAX_RESULTADOS = 20;
+
+const Miniatura = ({ mueble }) => {
+  const foto = mueble.imagenes?.[0];
+  return foto
+    ? <img className="mensaje-pieza-foto" src={foto} alt="" width="60" height="60" />
+    : <span className="mensaje-pieza-foto sin-foto" aria-hidden="true" />;
+};
+
+const TarjetaPieza = ({ referencia, mueble, origen, onEditar, onReservar }) => {
   if (!mueble) {
     return <li className="mensaje-pieza no-encontrada">Pieza no encontrada ({referencia})</li>;
   }
-  const foto = mueble.imagenes?.[0];
   return (
     <li className="mensaje-pieza">
-      {foto
-        ? <img className="mensaje-pieza-foto" src={foto} alt="" width="60" height="60" />
-        : <span className="mensaje-pieza-foto sin-foto" aria-hidden="true" />}
+      <Miniatura mueble={mueble} />
       <div className="mensaje-pieza-datos">
         <strong>{mueble.nombre}</strong>
-        <span className="mensaje-pieza-ref">{referencia}</span>
+        {referencia && <span className="mensaje-pieza-ref">{referencia}</span>}
+        <span className={`mensaje-pieza-origen ${origen}`}>{ORIGEN[origen]}</span>
         <span className={`status-pill ${mueble.estado || 'disponible'}`}>{textoEstado(mueble.estado)}</span>
       </div>
       <div className="mensaje-pieza-botones">
@@ -44,7 +56,61 @@ const TarjetaPieza = ({ referencia, mueble, onEditar, onReservar }) => {
   );
 };
 
-const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onReservar, onCerrar }) => (
+// El buscador manual: filtra los muebles que ya tiene el panel, sin pedir nada al servidor. Elegir una
+// pieza abre su editor. No guarda nada que una el mensaje con la pieza.
+const BuscarPiezaModal = ({ muebles, onElegir, onCerrar }) => {
+  const [busqueda, setBusqueda] = useState('');
+  const campo = useRef(null);
+  // El diálogo lleva el foco a su primer botón (cerrar); aquí lo normal es empezar a escribir. Este
+  // efecto corre después del de DialogoReserva, que es su hijo.
+  useEffect(() => {
+    campo.current.focus();
+  }, []);
+  const encontradas = buscarPiezas(muebles, busqueda);
+  const resto = encontradas.length - MAX_RESULTADOS;
+  return (
+    <DialogoReserva titulo="Buscar pieza relacionada" onCerrar={onCerrar}>
+      <p className="reservas-dialogo-texto">
+        Esto no guarda la relación en la base de datos: solo ayuda a encontrar la pieza mientras respondes.
+      </p>
+      <input
+        ref={campo}
+        type="search"
+        className="buscar-pieza-campo"
+        value={busqueda}
+        onChange={(e) => setBusqueda(e.target.value)}
+        placeholder="Nombre o referencia"
+        aria-label="Buscar en el inventario"
+      />
+      {busqueda.trim() && encontradas.length === 0 && <p className="admin-empty-note">Ninguna pieza coincide.</p>}
+      {encontradas.length > 0 && (
+        <ul className="buscar-pieza-lista" aria-label="Resultados">
+          {encontradas.slice(0, MAX_RESULTADOS).map((m) => (
+            <li key={m.id}>
+              <button type="button" className="buscar-pieza-resultado" onClick={() => onElegir(m)}>
+                <Miniatura mueble={m} />
+                <span className="mensaje-pieza-datos">
+                  <strong>{m.nombre}</strong>
+                  {m.referencia && <span className="mensaje-pieza-ref">{m.referencia}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {resto > 0 && (
+        <p className="admin-empty-note">
+          {resto === 1 ? 'Hay 1 pieza más' : `Hay ${resto} piezas más`}: escribe más para afinar.
+        </p>
+      )}
+      <div className="reservas-dialogo-botones">
+        <button type="button" className="admin-btn-ghost" onClick={onCerrar}>Volver al mensaje</button>
+      </div>
+    </DialogoReserva>
+  );
+};
+
+const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onReservar, onBuscar, onCerrar }) => (
   <div className="admin-modal-overlay">
     <div className="admin-modal-content mensaje-modal" role="dialog" aria-modal="true" aria-labelledby="mensaje-titulo">
       <div className="admin-modal-header">
@@ -65,10 +131,15 @@ const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onRe
           <h4>{piezas.length === 1 ? 'Pieza del mensaje' : 'Piezas del mensaje'}</h4>
           <ul>
             {piezas.map((p) => (
-              <TarjetaPieza key={p.referencia} {...p} onEditar={onEditar} onReservar={onReservar} />
+              <TarjetaPieza key={p.mueble?.id ?? p.referencia} {...p} onEditar={onEditar} onReservar={onReservar} />
             ))}
           </ul>
         </section>
+      )}
+      {!piezas.some((p) => p.mueble) && (
+        <button type="button" className="admin-btn-ghost mensaje-buscar-pieza" onClick={onBuscar}>
+          Buscar pieza relacionada
+        </button>
       )}
       <div className="mensaje-acciones">
         {!mensaje.leido && (
@@ -82,6 +153,12 @@ const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onRe
   </div>
 );
 
+// Las tarjetas del mensaje: primero las de referencia, que son las más fiables, y luego las de nombre.
+const piezasEnOrden = ({ porReferencia, porNombre }) => [
+  ...porReferencia.map((p) => ({ ...p, origen: 'referencia' })),
+  ...porNombre.map((p) => ({ ...p, origen: 'nombre' }))
+];
+
 const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, muebles, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const [filtro, setFiltro] = useState('todos');
@@ -93,6 +170,8 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
   // La guarda de un segundo envío (Intro dos veces) antes de que el botón se desactive.
   const guardando = useRef(false);
   const [errorAlta, setErrorAlta] = useState('');
+  // El buscador manual, abierto encima del mensaje (al volver, el mensaje sigue ahí).
+  const [buscando, setBuscando] = useState(false);
 
   const noLeidos = mensajes.filter((m) => !m.leido).length;
   const visibles = filtro === 'no-leidos' ? mensajes.filter((m) => !m.leido) : mensajes;
@@ -112,7 +191,9 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
 
   // El editor de la pieza es el del inventario (vive en Admin.jsx); el mensaje se cierra para que no
   // haya dos diálogos abiertos a la vez.
+  // Si se llega desde el buscador, se cierra también (si no, saldría abierto en el siguiente mensaje).
   const editarPieza = (mueble) => {
+    setBuscando(false);
     setAbierto(null);
     abrirEditorMueble(mueble);
   };
@@ -197,13 +278,18 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
       {abierto && (
         <MensajeModal
           mensaje={abierto}
-          piezas={piezasDelMensaje(abierto, muebles)}
+          piezas={piezasEnOrden(piezasDelMensaje(abierto, muebles))}
           marcando={marcando}
           onMarcarLeido={marcarLeido}
           onEditar={editarPieza}
           onReservar={reservasActivas() ? reservarPieza : null}
+          onBuscar={() => setBuscando(true)}
           onCerrar={() => setAbierto(null)}
         />
+      )}
+
+      {abierto && buscando && (
+        <BuscarPiezaModal muebles={muebles} onElegir={editarPieza} onCerrar={() => setBuscando(false)} />
       )}
 
       {alta && (

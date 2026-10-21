@@ -76,8 +76,9 @@ describe('Mensajes con piezas — ayudantes', () => {
   });
 
   it('piezasDelMensaje: cada referencia con su pieza, o null si no está en el inventario', () => {
-    expect(piezasDelMensaje(INEXISTENTE, MUEBLES)).toEqual([{ referencia: 'NAV-SIL-999', mueble: null }]);
-    expect(piezasDelMensaje(UNA, MUEBLES)).toEqual([{ referencia: 'NAV-SIL-001', mueble: SILLA }]);
+    expect(piezasDelMensaje(INEXISTENTE, MUEBLES)).toEqual({ porReferencia: [{ referencia: 'NAV-SIL-999', mueble: null }], porNombre: [] });
+    // El mensaje nombra la Silla Thonet por su referencia y por su nombre: sale una vez, por referencia.
+    expect(piezasDelMensaje(UNA, MUEBLES)).toEqual({ porReferencia: [{ referencia: 'NAV-SIL-001', mueble: SILLA }], porNombre: [] });
   });
 
   it('textoEstado: los tres estados, y sin estado cuenta como disponible', () => {

@@ -1532,3 +1532,24 @@
   .mensaje-pieza { flex-wrap: wrap; }
   .mensaje-pieza-botones { flex-direction: row; width: 100%; }
 }
+/* Cómo se encontró la pieza del mensaje, y el buscador manual (21 oct 2026). */
+.mensaje-pieza-origen { font-size: 0.72rem; color: var(--secondary-color); }
+.mensaje-pieza-origen.nombre { color: var(--warning-color); }
+.mensaje-buscar-pieza { margin: 0 0 20px; }
+.buscar-pieza-campo { width: 100%; padding: 10px 12px; margin: 0 0 12px; border: 1px solid var(--border-color); border-radius: 6px; font: inherit; }
+.buscar-pieza-lista { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; max-height: 50vh; overflow-y: auto; }
+.buscar-pieza-resultado {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.buscar-pieza-resultado:hover, .buscar-pieza-resultado:focus-visible { border-color: var(--primary-color); }
