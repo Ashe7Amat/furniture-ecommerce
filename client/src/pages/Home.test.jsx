@@ -22,6 +22,7 @@ const renderHome = async () => {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   // jsdom no implementa matchMedia (lo usa useScrollReveal).
   window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   getCategorias.mockResolvedValue([]);
@@ -272,6 +273,25 @@ describe('Home — hero con las fotos elegidas desde el panel', () => {
     expect(screen.getAllByRole('button', { name: /^Ver foto \d de 4$/ })).toHaveLength(4);
     expect(activa()).toBe('/img/hero-almacen.webp');
   });
+
+  it('el carrusel adapta dinámicamente sus puntos y rotación a cualquier número N de imágenes (ej. 3 fotos)', async () => {
+    vi.useFakeTimers();
+    try {
+      getAjustesHome.mockResolvedValue({ hero_imagenes: urls(3), productos_destacados: [] });
+      await renderHome();
+
+      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 3$/ })).toHaveLength(3);
+      expect(activa()).toBe('https://img.test/hero1.webp');
+      await pasar(5500);
+      expect(activa()).toBe('https://img.test/hero2.webp');
+      await pasar(5500);
+      expect(activa()).toBe('https://img.test/hero3.webp');
+      await pasar(5500);
+      expect(activa()).toBe('https://img.test/hero1.webp');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('Home — destacados elegidos desde el panel', () => {
@@ -295,6 +315,22 @@ describe('Home — destacados elegidos desde el panel', () => {
     expect(texto).not.toContain('Diván');
     expect(texto.indexOf('Cómoda')).toBeLessThan(texto.indexOf('Aparador'));
     expect(getMuebles).toHaveBeenCalledWith();
+  });
+
+  it('el fallback de los 4 muebles más recientes nunca se solicita si hay destacados configurados', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['b'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    // Solo se debe consultar el catálogo completo para resolver los IDs, nunca el fallback con limit: 4
+    expect(getMuebles).not.toHaveBeenCalledWith({ limit: 4 });
+    expect(getMuebles).toHaveBeenCalledWith();
+
+    const grid = document.querySelector('.home-products-grid');
+    expect(grid.textContent).toContain('Butaca');
+    expect(grid.textContent).not.toContain('Aparador');
+    expect(grid.textContent).not.toContain('Cómoda');
+    expect(grid.textContent).not.toContain('Diván');
   });
 
   it('sin destacados guardados usa las 4 más recientes', async () => {
