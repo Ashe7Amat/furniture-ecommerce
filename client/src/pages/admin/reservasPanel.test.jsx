@@ -39,8 +39,10 @@ describe('Panel — pestaña "Reservas" con el interruptor apagado', () => {
     vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'false');
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
 
+    // CAMBIADO A PROPÓSITO: pestaña nueva "Portada" junto a Resumen.
     expect(botonesBarra()).toEqual([
       'Resumen',
+      'Portada',
       'Añadir Mueble',
       'Gestionar Inventario',
       'Pedidos',
@@ -67,8 +69,10 @@ describe('Panel — pestaña "Reservas" con el interruptor encendido', () => {
 
   it('sale después de "Pedidos", y hasta abrirla no se pide nada', async () => {
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
+    // CAMBIADO A PROPÓSITO: pestaña nueva "Portada" junto a Resumen.
     expect(botonesBarra()).toEqual([
       'Resumen',
+      'Portada',
       'Añadir Mueble',
       'Gestionar Inventario',
       'Pedidos',
@@ -79,6 +83,7 @@ describe('Panel — pestaña "Reservas" con el interruptor encendido', () => {
     ]);
     expect(getReservasAdmin).not.toHaveBeenCalled();
   });
+
 
   it('al pulsarla se abre (y queda marcada), pide las próximas y las altas usan el inventario del panel', async () => {
     const user = userEvent.setup();

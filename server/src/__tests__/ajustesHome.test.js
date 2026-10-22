@@ -203,4 +203,62 @@ describe('Ajustes de Portada (Home)', () => {
       assert.equal(res.body.success, true);
     });
   });
+
+  describe('POST /api/admin/ajustes/home/imagen (protegido con verificarAdmin)', () => {
+    test('sin token responde 401', async () => {
+      const res = await request(app).post('/api/admin/ajustes/home/imagen');
+      assert.equal(res.status, 401);
+    });
+
+    test('un cliente no administrador responde 403', async () => {
+      const res = await request(app)
+        .post('/api/admin/ajustes/home/imagen')
+        .set('Authorization', `Bearer ${tokenCliente}`);
+      assert.equal(res.status, 403);
+    });
+
+    test('sin archivo responde 400', async () => {
+      const res = await request(app)
+        .post('/api/admin/ajustes/home/imagen')
+        .set('Authorization', `Bearer ${tokenAdmin}`);
+      assert.equal(res.status, 400);
+      assert.equal(res.body.error, 'No se ha seleccionado ninguna imagen.');
+    });
+
+    test('un administrador sube una imagen y devuelve su URL en la carpeta home', async () => {
+      const uploadUtils = require('../utils/upload');
+      let folderUsado = null;
+      mock.method(uploadUtils, 'uploadToSupabase', async (file, folder) => {
+        folderUsado = folder;
+        return 'https://supabase.co/storage/v1/object/public/imagenes/home/foto.webp';
+      });
+
+      const res = await request(app)
+        .post('/api/admin/ajustes/home/imagen')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .attach('imagen', Buffer.from('fake-image-bytes'), 'hero.jpg');
+
+      assert.equal(res.status, 200);
+      assert.equal(folderUsado, 'home');
+      assert.equal(
+        res.body.url,
+        'https://supabase.co/storage/v1/object/public/imagenes/home/foto.webp'
+      );
+    });
+
+    test('si uploadToSupabase lanza error, responde 500', async () => {
+      const uploadUtils = require('../utils/upload');
+      mock.method(uploadUtils, 'uploadToSupabase', async () => {
+        throw new Error('Storage error');
+      });
+
+      const res = await request(app)
+        .post('/api/admin/ajustes/home/imagen')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .attach('imagen', Buffer.from('fake-image-bytes'), 'hero.jpg');
+
+      assert.equal(res.status, 500);
+      assert.equal(res.body.error, 'Error al subir la imagen de portada.');
+    });
+  });
 });

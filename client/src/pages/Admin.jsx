@@ -18,6 +18,7 @@ import CategoriasTab from './admin/pestanas/CategoriasTab';
 import MensajesTab from './admin/pestanas/MensajesTab';
 import ReservasTab from './admin/pestanas/ReservasTab';
 import ActividadTab from './admin/pestanas/ActividadTab';
+import PortadaTab from './admin/pestanas/PortadaTab';
 import { reservasActivas } from '../utils/reservas';
 import EditarMuebleModal from './admin/modales/EditarMuebleModal';
 import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
@@ -26,6 +27,7 @@ import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
 // y su caso en <main> (ver docs/tarea4-diseno.md, sección 7).
 const PESTANAS = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'dashboard' },
+  { id: 'portada', etiqueta: 'Portada', icono: 'home' },
   { id: 'crear', etiqueta: 'Añadir Mueble', icono: 'add' },
   { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },
   { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },
@@ -33,6 +35,7 @@ const PESTANAS = [
   { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' },
   { id: 'actividad', etiqueta: 'Actividad', icono: 'activity' }
 ];
+
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1): la pestaña solo existe con el interruptor
 // VITE_RESERVAS_ACTIVAS encendido, después de "Pedidos". Apagado, la barra lateral es la de siempre.
@@ -171,7 +174,12 @@ const Admin = ({ idEditar = null, onEnlaceUsado }) => {
           />
         )}
 
+        {vistaActiva === 'portada' && (
+          <PortadaTab muebles={muebles} />
+        )}
+
         {vistaActiva === 'crear' && (
+
           <CrearMuebleTab
             categorias={categorias}
             formData={formData}

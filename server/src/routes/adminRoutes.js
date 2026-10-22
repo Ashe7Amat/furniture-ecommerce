@@ -11,7 +11,8 @@ const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
 const { obtenerAuditLogs } = require('../controllers/auditLogController');
 const { obtenerMetricasDashboard } = require('../controllers/dashboardController');
-const { actualizarAjustesHome } = require('../controllers/ajustesController');
+const { upload } = require('../utils/upload');
+const { actualizarAjustesHome, subirImagenHero } = require('../controllers/ajustesController');
 const {
   exigirObjeto,
   listarReservasAdmin,
@@ -43,6 +44,7 @@ router.put(
   validar(schemaActualizarAjustesHome),
   actualizarAjustesHome
 );
+router.post('/ajustes/home/imagen', verificarAdmin, upload.single('imagen'), subirImagenHero);
 
 // Lecturas que solo necesita el panel de administración (H26): lo que no debe salir en las rutas
 // públicas. Todas piden sesión de administrador.

@@ -94,7 +94,24 @@ const actualizarAjustesHome = async (req, res) => {
   }
 };
 
+const uploadUtils = require('../utils/upload');
+
+// POST /api/admin/ajustes/home/imagen (admin): sube una imagen a Supabase Storage en la carpeta 'home'
+const subirImagenHero = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se ha seleccionado ninguna imagen.' });
+    }
+    const url = await uploadUtils.uploadToSupabase(req.file, 'home');
+    res.status(200).json({ url });
+  } catch (error) {
+    console.error('Error al subir imagen de portada:', error.message);
+    res.status(500).json({ error: 'Error al subir la imagen de portada.' });
+  }
+};
+
 module.exports = {
   obtenerAjustesHome,
-  actualizarAjustesHome
+  actualizarAjustesHome,
+  subirImagenHero
 };

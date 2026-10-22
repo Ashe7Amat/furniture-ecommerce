@@ -716,3 +716,53 @@ export const getMetricasDashboard = async () => {
   }
 };
 
+// Ajustes de portada (Hero y Destacados)
+export const getAjustesHome = async () => {
+  try {
+    const response = await fetch(`${API_URL}/ajustes/home`);
+    if (!response.ok) throw new Error('Error al obtener ajustes de portada');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getAjustesHome:', error);
+    return null;
+  }
+};
+
+export const actualizarAjustesHome = async (datos) => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/ajustes/home`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Error al actualizar ajustes de portada');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error en actualizarAjustesHome:', error);
+    return null;
+  }
+};
+
+export const subirImagenHero = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('imagen', file);
+    const response = await apiFetch(`${API_URL}/admin/ajustes/home/imagen`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Error al subir imagen de portada');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error en subirImagenHero:', error);
+    return null;
+  }
+};
+
+
