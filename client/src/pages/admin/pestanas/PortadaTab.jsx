@@ -5,14 +5,21 @@ import SeccionImagenes from '../SeccionImagenes';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
 
-// Tope de fotos del hero: más de 10 no aporta y alarga la carga.
+// Tope de fotos por sección: hero hasta 10, inspiración 2-3, sostenibilidad 1.
 const MAX_HERO = 10;
+const MAX_INSPIRACION = 3;
+const MAX_SOSTENIBILIDAD = 1;
 
 const PLACEHOLDERS_HERO = [
   { url: '/img/hero-almacen.webp', titulo: 'Por defecto 1 (Almacén)' },
   { url: '/img/hero-aerea.webp', titulo: 'Por defecto 2 (Vista aérea)' },
   { url: '/img/hero-sillones.webp', titulo: 'Por defecto 3 (Butacas)' },
   { url: '/img/hero-showroom.webp', titulo: 'Por defecto 4 (Showroom)' }
+];
+
+const PLACEHOLDERS_INSPIRACION = [
+  { url: '/img/galeria-rincon.webp', titulo: 'Por defecto 1 (Rincón de decoración)' },
+  { url: '/img/galeria-butacas.webp', titulo: 'Por defecto 2 (Butacas de cine)' }
 ];
 
 const PortadaTab = ({ muebles = [] }) => {
@@ -22,6 +29,8 @@ const PortadaTab = ({ muebles = [] }) => {
 
   const [heroImagenes, setHeroImagenes] = useState([]);
   const [productosDestacados, setProductosDestacados] = useState([]);
+  const [imagenesInspiracion, setImagenesInspiracion] = useState([]);
+  const [imagenSostenibilidad, setImagenSostenibilidad] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
   // Cargar configuración existente
@@ -34,6 +43,14 @@ const PortadaTab = ({ muebles = [] }) => {
         if (!cancelado && datos) {
           setHeroImagenes(Array.isArray(datos.hero_imagenes) ? datos.hero_imagenes : []);
           setProductosDestacados(Array.isArray(datos.productos_destacados) ? datos.productos_destacados : []);
+          setImagenesInspiracion(
+            Array.isArray(datos.imagenes_seccion_inspiracion) ? datos.imagenes_seccion_inspiracion : []
+          );
+          setImagenSostenibilidad(
+            typeof datos.imagen_seccion_sostenibilidad === 'string' && datos.imagen_seccion_sostenibilidad.trim()
+              ? [datos.imagen_seccion_sostenibilidad]
+              : []
+          );
         }
       } catch (err) {
         if (!cancelado) {
@@ -78,7 +95,9 @@ const PortadaTab = ({ muebles = [] }) => {
     try {
       const res = await actualizarAjustesHome({
         hero_imagenes: heroImagenes,
-        productos_destacados: productosDestacados
+        productos_destacados: productosDestacados,
+        imagenes_seccion_inspiracion: imagenesInspiracion,
+        imagen_seccion_sostenibilidad: imagenSostenibilidad[0] || null
       });
       if (res?.success) {
         showToast?.('Ajustes de portada guardados correctamente', 'success');
@@ -134,17 +153,19 @@ const PortadaTab = ({ muebles = [] }) => {
       <div className="admin-view-head">
         <div>
           <h2>Gestión de Portada</h2>
-          <p>Personaliza las imágenes del carrusel Hero y la selección de piezas destacadas.</p>
+          <p>Personaliza las imágenes del carrusel Hero, las piezas destacadas y el resto de secciones visuales.</p>
         </div>
-        <button
-          type="button"
-          className="admin-btn admin-btn--guardar"
-          onClick={handleGuardarCambios}
-          disabled={guardando}
-          aria-label="Guardar cambios de la portada"
-        >
-          {guardando ? 'Guardando...' : 'Guardar cambios'}
-        </button>
+        <div>
+          <button
+            type="button"
+            className="admin-btn admin-btn--guardar"
+            onClick={handleGuardarCambios}
+            disabled={guardando}
+            aria-label="Guardar cambios de la portada"
+          >
+            {guardando ? 'Guardando...' : 'Guardar cambios'}
+          </button>
+        </div>
       </div>
 
       <div className="portada-contenedor">
@@ -304,6 +325,34 @@ const PortadaTab = ({ muebles = [] }) => {
             )}
           </div>
         </section>
+
+        {/* SECCIÓN 3: ESPACIOS QUE INSPIRAN */}
+        <SeccionImagenes
+          id="seccion-inspiracion"
+          titulo="Galería: Espacios que inspiran"
+          descripcion="Fotografías de ambiente para la galería intermedia (admite de 2 a 3 imágenes). Si está vacía, se muestran las fotos predeterminadas."
+          imagenes={imagenesInspiracion}
+          onChange={setImagenesInspiracion}
+          max={MAX_INSPIRACION}
+          predeterminadas={PLACEHOLDERS_INSPIRACION}
+          textoVacio="No hay fotos personalizadas para esta galería. La web muestra las 2 fotos predeterminadas."
+          ariaSubir="Subir nueva imagen para la galería de inspiración"
+          mensajeAnadida="Imagen añadida a la galería de inspiración"
+        />
+
+        {/* SECCIÓN 4: SOSTENIBILIDAD */}
+        <SeccionImagenes
+          id="seccion-sostenibilidad"
+          titulo="Sección Sostenibilidad (Segunda vida)"
+          descripcion="Fotografía ilustrativa para acompañar el bloque 'El mueble más sostenible es el que ya existe' (1 imagen)."
+          imagenes={imagenSostenibilidad}
+          onChange={setImagenSostenibilidad}
+          max={MAX_SOSTENIBILIDAD}
+          predeterminadas={[]}
+          textoVacio="No hay foto personalizada configurada. El bloque se muestra con su estilo original."
+          ariaSubir="Subir imagen para la sección de sostenibilidad"
+          mensajeAnadida="Imagen asignada a sostenibilidad"
+        />
       </div>
     </div>
   );

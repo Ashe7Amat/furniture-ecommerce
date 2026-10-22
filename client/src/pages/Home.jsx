@@ -41,6 +41,8 @@ export default function Home() {
     const [heroSlides, setHeroSlides] = useState(null);
     const [heroSlide, setHeroSlide] = useState(0);
     const [heroPedidas, setHeroPedidas] = useState(() => new Set([0]));
+    const [imagenesInspiracion, setImagenesInspiracion] = useState([]);
+    const [imagenSostenibilidad, setImagenSostenibilidad] = useState(null);
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
     const slides = heroSlides ?? [];
@@ -74,6 +76,14 @@ export default function Home() {
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
                 setHeroSlides(slidesDesdeAjustes(ajustes?.hero_imagenes));
+                setImagenesInspiracion(
+                    Array.isArray(ajustes?.imagenes_seccion_inspiracion) ? ajustes.imagenes_seccion_inspiracion : []
+                );
+                setImagenSostenibilidad(
+                    typeof ajustes?.imagen_seccion_sostenibilidad === 'string' && ajustes.imagen_seccion_sostenibilidad.trim()
+                        ? ajustes.imagen_seccion_sostenibilidad.trim()
+                        : null
+                );
 
                 // Si el panel eligió piezas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
                 // elegidas existe ya (borradas), o no hay selección, se vuelve a las 4 más recientes.
@@ -99,6 +109,11 @@ export default function Home() {
         };
         cargarPortada();
     }, []);
+
+    const fotosInspiracionValidas = imagenesInspiracion.filter(u => typeof u === 'string' && u.trim() !== '');
+    const fotosGaleria = fotosInspiracionValidas.length >= 2
+        ? fotosInspiracionValidas
+        : ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
 
     return (
         <>
@@ -198,21 +213,57 @@ export default function Home() {
 
                 {/* GALERÍA DE AMBIENTE */}
                 <section className="home-gallery-section reveal-init" ref={galleryRef}>
-                    <div className="gallery-grid">
-                        <img src="/img/galeria-rincon.webp" alt="Rincón de decoración en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                    <div className={`gallery-grid${fotosGaleria.length >= 3 ? ' gallery-grid--tres' : ''}`}>
+                        <img
+                            src={fotosGaleria[0]}
+                            alt="Espacio decorativo en Nave 5 Barcelona"
+                            className="gallery-img"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <div className="gallery-text-block">
                             <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
                         </div>
-                        <img src="/img/galeria-butacas.webp" alt="Butacas de cine restauradas en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                        <img
+                            src={fotosGaleria[1]}
+                            alt="Detalle de muebles restaurados en Nave 5 Barcelona"
+                            className="gallery-img"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                        {fotosGaleria.length >= 3 && (
+                            <img
+                                src={fotosGaleria[2]}
+                                alt="Ambiente singular en Nave 5 Barcelona"
+                                className="gallery-img"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        )}
                     </div>
                 </section>
 
-                {/* SEGUNDA VIDA. Antes decía "madera certificada FSC y materiales reciclados", texto de plantilla
-                    que no encaja con muebles restaurados; ahora cuenta lo mismo que "Sobre nosotros". */}
-                <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
-                    <div className="sustainability-content">
-                        <h2>El mueble más sostenible es el que ya existe</h2>
-                        <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>
+                {/* SEGUNDA VIDA */}
+                <section
+                    className={`home-sustainability reveal-init${imagenSostenibilidad ? ' home-sustainability--con-imagen' : ''}`}
+                    ref={sustainabilityRef}
+                >
+                    <div className="sustainability-layout">
+                        {imagenSostenibilidad && (
+                            <div className="sustainability-image-box">
+                                <img
+                                    src={imagenSostenibilidad}
+                                    alt="Restauración artesanal en Nave 5 Barcelona"
+                                    className="sustainability-img"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            </div>
+                        )}
+                        <div className="sustainability-content">
+                            <h2>El mueble más sostenible es el que ya existe</h2>
+                            <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>
+                        </div>
                     </div>
                 </section>
             </div>

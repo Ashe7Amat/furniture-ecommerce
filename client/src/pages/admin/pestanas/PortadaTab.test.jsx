@@ -134,7 +134,8 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
 
     // CAMBIADO A PROPÓSITO: el hero ya no tiene 4 huecos fijos; el resumen cuenta sobre el máximo (10)
     expect(screen.getByText('Imágenes personalizadas: 1 de 10.')).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    const heroSection = document.getElementById('seccion-hero');
+    expect(within(heroSection).getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('permite subir una nueva imagen al Hero con optimización y Supabase Storage', async () => {
@@ -272,11 +273,42 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
 
     expect(api.actualizarAjustesHome).toHaveBeenCalledWith({
       hero_imagenes: ['https://img.test/hero1.webp'],
-      productos_destacados: ['m1']
+      productos_destacados: ['m1'],
+      imagenes_seccion_inspiracion: [],
+      imagen_seccion_sostenibilidad: null
     });
 
     await waitFor(() => {
       expect(showToastMock).toHaveBeenCalledWith('Ajustes de portada guardados correctamente', 'success');
+    });
+  });
+
+  it('guarda los cambios de inspiración y sostenibilidad al pulsar Guardar cambios', async () => {
+    const user = userEvent.setup();
+    api.getAjustesHome.mockResolvedValueOnce({
+      hero_imagenes: [],
+      productos_destacados: [],
+      imagenes_seccion_inspiracion: ['https://img.test/insp1.webp'],
+      imagen_seccion_sostenibilidad: 'https://img.test/sost.webp'
+    });
+    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
+
+    renderPortadaTab();
+
+    await waitFor(() => {
+      expect(screen.getByText('Galería: Espacios que inspiran')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Sección Sostenibilidad (Segunda vida)')).toBeInTheDocument();
+
+    const btnGuardar = screen.getByRole('button', { name: 'Guardar cambios de la portada' });
+    await user.click(btnGuardar);
+
+    expect(api.actualizarAjustesHome).toHaveBeenCalledWith({
+      hero_imagenes: [],
+      productos_destacados: [],
+      imagenes_seccion_inspiracion: ['https://img.test/insp1.webp'],
+      imagen_seccion_sostenibilidad: 'https://img.test/sost.webp'
     });
   });
 

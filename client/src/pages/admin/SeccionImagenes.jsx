@@ -78,7 +78,7 @@ const SeccionImagenes = ({
       : `Imágenes personalizadas: ${imagenes.length} de ${max}.`;
 
   return (
-    <section className="portada-seccion" aria-labelledby={`${id}-titulo`}>
+    <section className="portada-seccion" id={id} aria-labelledby={`${id}-titulo`}>
       <div className="portada-seccion-header">
         <div>
           <h3 id={`${id}-titulo`}>{titulo}</h3>

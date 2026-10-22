@@ -315,3 +315,48 @@ describe('Home — destacados elegidos desde el panel', () => {
     expect(document.querySelector('.home-products-grid').textContent).toContain('Aparador');
   });
 });
+
+describe('Home — galería de inspiración y sostenibilidad configurables', () => {
+  it('usa las fotos e imagen predeterminadas si no hay configuración guardada', async () => {
+    getAjustesHome.mockResolvedValue({
+      hero_imagenes: [],
+      productos_destacados: [],
+      imagenes_seccion_inspiracion: [],
+      imagen_seccion_sostenibilidad: null
+    });
+    await renderHome();
+
+    const imgs = document.querySelectorAll('.gallery-grid img.gallery-img');
+    expect(imgs).toHaveLength(2);
+    expect(imgs[0]).toHaveAttribute('src', '/img/galeria-rincon.webp');
+    expect(imgs[1]).toHaveAttribute('src', '/img/galeria-butacas.webp');
+    expect(document.querySelector('.home-sustainability--con-imagen')).toBeNull();
+  });
+
+  it('renderiza fotos personalizadas de inspiración y fotografía en sostenibilidad', async () => {
+    getAjustesHome.mockResolvedValue({
+      hero_imagenes: [],
+      productos_destacados: [],
+      imagenes_seccion_inspiracion: [
+        'https://img.test/insp1.webp',
+        'https://img.test/insp2.webp',
+        'https://img.test/insp3.webp'
+      ],
+      imagen_seccion_sostenibilidad: 'https://img.test/sost-foto.webp'
+    });
+    await renderHome();
+
+    const grid = document.querySelector('.gallery-grid');
+    expect(grid).toHaveClass('gallery-grid--tres');
+    const imgs = grid.querySelectorAll('img.gallery-img');
+    expect(imgs).toHaveLength(3);
+    expect(imgs[0]).toHaveAttribute('src', 'https://img.test/insp1.webp');
+    expect(imgs[1]).toHaveAttribute('src', 'https://img.test/insp2.webp');
+    expect(imgs[2]).toHaveAttribute('src', 'https://img.test/insp3.webp');
+
+    const sosten = document.querySelector('.home-sustainability');
+    expect(sosten).toHaveClass('home-sustainability--con-imagen');
+    const sostenImg = sosten.querySelector('img.sustainability-img');
+    expect(sostenImg).toHaveAttribute('src', 'https://img.test/sost-foto.webp');
+  });
+});

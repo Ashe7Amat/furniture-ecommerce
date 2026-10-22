@@ -43,6 +43,11 @@ describe('Ajustes de Portada (Home)', () => {
             id: 1,
             hero_imagenes: ['https://img.test/hero1.webp', 'https://img.test/hero2.webp'],
             productos_destacados: ['uuid-mueble-1', 'uuid-mueble-2'],
+            imagenes_seccion_inspiracion: [
+              'https://img.test/insp1.webp',
+              'https://img.test/insp2.webp'
+            ],
+            imagen_seccion_sostenibilidad: 'https://img.test/sost.webp',
             updated_at: '2026-10-22T10:00:00.000Z'
           }
         ]
@@ -57,6 +62,11 @@ describe('Ajustes de Portada (Home)', () => {
         'https://img.test/hero2.webp'
       ]);
       assert.deepEqual(res.body.productos_destacados, ['uuid-mueble-1', 'uuid-mueble-2']);
+      assert.deepEqual(res.body.imagenes_seccion_inspiracion, [
+        'https://img.test/insp1.webp',
+        'https://img.test/insp2.webp'
+      ]);
+      assert.equal(res.body.imagen_seccion_sostenibilidad, 'https://img.test/sost.webp');
     });
 
     test('si no hay fila guardada aún en la tabla, devuelve id=1 con arrays vacíos sin fallar', async () => {
@@ -106,7 +116,9 @@ describe('Ajustes de Portada (Home)', () => {
           {
             id: 1,
             hero_imagenes: ['https://img.test/vieja.webp'],
-            productos_destacados: ['id-viejo']
+            productos_destacados: ['id-viejo'],
+            imagenes_seccion_inspiracion: [],
+            imagen_seccion_sostenibilidad: null
           }
         ]
       });
@@ -170,6 +182,61 @@ describe('Ajustes de Portada (Home)', () => {
         .set('Authorization', `Bearer ${tokenAdmin}`)
         .send({ productos_destacados: [''] });
       assert.equal(res2.status, 400);
+    });
+
+    test('rechaza con 400 si imagenes_seccion_inspiracion tiene más de 3 fotos o URLs vacías', async () => {
+      instalar();
+      const res1 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({
+          imagenes_seccion_inspiracion: [
+            'https://img.test/1.jpg',
+            'https://img.test/2.jpg',
+            'https://img.test/3.jpg',
+            'https://img.test/4.jpg'
+          ]
+        });
+      assert.equal(res1.status, 400);
+
+      const res2 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ imagenes_seccion_inspiracion: [''] });
+      assert.equal(res2.status, 400);
+    });
+
+    test('acepta y actualiza imagenes_seccion_inspiracion e imagen_seccion_sostenibilidad', async () => {
+      instalar({
+        ajustes_home: [
+          {
+            id: 1,
+            hero_imagenes: [],
+            productos_destacados: [],
+            imagenes_seccion_inspiracion: [],
+            imagen_seccion_sostenibilidad: null
+          }
+        ]
+      });
+
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({
+          imagenes_seccion_inspiracion: [
+            'https://img.test/insp1.webp',
+            'https://img.test/insp2.webp'
+          ],
+          imagen_seccion_sostenibilidad: 'https://img.test/sost.webp'
+        });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.deepEqual(res.body.data.imagenes_seccion_inspiracion, [
+        'https://img.test/insp1.webp',
+        'https://img.test/insp2.webp'
+      ]);
+      assert.equal(res.body.data.imagen_seccion_sostenibilidad, 'https://img.test/sost.webp');
     });
 
     test('si la base de datos falla al leer o escribir, responde 500', async () => {

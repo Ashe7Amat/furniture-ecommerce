@@ -404,6 +404,10 @@
     height: 400px;
 }
 
+.gallery-grid--tres {
+    grid-template-columns: repeat(4, 1fr);
+}
+
 .gallery-img {
     width: 100%;
     height: 100%;
@@ -432,6 +436,41 @@
     padding: 60px 40px;
     text-align: center;
     margin-bottom: 80px;
+}
+
+.home-sustainability--con-imagen {
+    padding: 48px 40px;
+}
+
+.home-sustainability--con-imagen .sustainability-layout {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 48px;
+    align-items: center;
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.home-sustainability--con-imagen .sustainability-content h2,
+.home-sustainability--con-imagen .sustainability-content p {
+    text-align: left;
+    margin-left: 0;
+}
+
+.sustainability-image-box {
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #111;
+}
+
+.sustainability-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .sustainability-content h2 {
@@ -475,6 +514,20 @@
     }
     .gallery-img {
         height: 300px;
+    }
+
+    .home-sustainability--con-imagen {
+        padding: 40px 20px;
+    }
+    .home-sustainability--con-imagen .sustainability-layout {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        text-align: center;
+    }
+    .home-sustainability--con-imagen .sustainability-content h2,
+    .home-sustainability--con-imagen .sustainability-content p {
+        text-align: center;
+        margin: 0 auto;
     }
 }
 /* ─── Portada pulida (tarea 6, bloque D) ───────────────────────────────────────────────────────────
