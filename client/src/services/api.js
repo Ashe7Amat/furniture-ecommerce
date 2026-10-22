@@ -719,7 +719,7 @@ export const getMetricasDashboard = async () => {
 // Ajustes de portada (Hero y Destacados)
 export const getAjustesHome = async () => {
   try {
-    const response = await fetch(`${API_URL}/ajustes/home`);
+    const response = await fetch(`${API_URL}/ajustes/home`, { cache: 'no-store' });
     if (!response.ok) throw new Error('Error al obtener ajustes de portada');
     return await response.json();
   } catch (error) {

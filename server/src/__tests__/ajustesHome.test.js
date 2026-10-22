@@ -50,6 +50,7 @@ describe('Ajustes de Portada (Home)', () => {
 
       const res = await request(app).get('/api/ajustes/home');
       assert.equal(res.status, 200);
+      assert.equal(res.headers['cache-control'], 'no-store');
       assert.equal(res.body.id, 1);
       assert.deepEqual(res.body.hero_imagenes, [
         'https://img.test/hero1.webp',

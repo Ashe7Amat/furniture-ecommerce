@@ -3,7 +3,9 @@ const supabase = require('../data/supabase');
 const { registrarActividad } = require('../utils/audit');
 
 // GET /api/ajustes/home (público): devuelve los ajustes de la portada (id = 1)
+// Sin caché (navegador ni CDN): lo que guarda el panel debe verse al recargar la portada.
 const obtenerAjustesHome = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
   try {
     const { data, error } = await supabase
       .from('ajustes_home')

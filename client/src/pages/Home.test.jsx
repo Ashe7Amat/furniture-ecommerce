@@ -3,11 +3,12 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './Home';
-import { getMuebles, getCategorias } from '../services/api';
+import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
 
 vi.mock('../services/api', () => ({
   getMuebles: vi.fn(),
-  getCategorias: vi.fn()
+  getCategorias: vi.fn(),
+  getAjustesHome: vi.fn()
 }));
 
 const renderHome = async () => {
@@ -25,6 +26,7 @@ beforeEach(() => {
   window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   getCategorias.mockResolvedValue([]);
   getMuebles.mockResolvedValue([]);
+  getAjustesHome.mockResolvedValue(null);
 });
 
 describe('Home — hero', () => {
@@ -225,5 +227,47 @@ describe('Home — textos y piezas destacadas', () => {
   it('la sección "Vistos en" no sale mientras no haya producciones', async () => {
     await renderHome();
     expect(screen.queryByText('Nuestras piezas han salido en')).toBeNull();
+  });
+});
+
+describe('Home — destacados elegidos desde el panel', () => {
+  const MUEBLES = [
+    { id: 'a', nombre: 'Aparador', imagenes: [] },
+    { id: 'b', nombre: 'Butaca', imagenes: [] },
+    { id: 'c', nombre: 'Cómoda', imagenes: [] },
+    { id: 'd', nombre: 'Diván', imagenes: [] }
+  ];
+
+  it('con destacados guardados enseña solo esas piezas, en el orden de la API', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['c', 'a'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    const grid = document.querySelector('.home-products-grid');
+    const texto = grid.textContent;
+    expect(texto).toContain('Cómoda');
+    expect(texto).toContain('Aparador');
+    expect(texto).not.toContain('Butaca');
+    expect(texto).not.toContain('Diván');
+    expect(texto.indexOf('Cómoda')).toBeLessThan(texto.indexOf('Aparador'));
+    expect(getMuebles).toHaveBeenCalledWith();
+  });
+
+  it('sin destacados guardados usa las 4 más recientes', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: [] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    expect(getMuebles).toHaveBeenCalledWith({ limit: 4 });
+    expect(document.querySelector('.home-products-grid').textContent).toContain('Butaca');
+  });
+
+  it('si ninguna de las elegidas existe ya, vuelve a las 4 más recientes', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['borrada'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    expect(getMuebles).toHaveBeenCalledWith({ limit: 4 });
+    expect(document.querySelector('.home-products-grid').textContent).toContain('Aparador');
   });
 });

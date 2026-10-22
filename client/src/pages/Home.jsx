@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMuebles, getCategorias } from '../services/api';
+import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
 import { useScrollReveal } from '../utils/useScrollReveal';
 import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
 import ProductCard from '../components/ProductCard';
@@ -55,12 +55,27 @@ export default function Home() {
     useEffect(() => {
         const cargarPortada = async () => {
             try {
-                const [dataCat, dataMue] = await Promise.all([
+                const [dataCat, ajustes] = await Promise.all([
                     getCategorias(),
-                    getMuebles({ limit: 4 })
+                    getAjustesHome()
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
-                setDestacados(Array.isArray(dataMue) ? dataMue : []);
+
+                // Si el panel eligió piezas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
+                // elegidas existe ya (borradas), o no hay selección, se vuelve a las 4 más recientes.
+                const ids = Array.isArray(ajustes?.productos_destacados) ? ajustes.productos_destacados.map(String) : [];
+                let elegidas = [];
+                if (ids.length > 0) {
+                    const todos = await getMuebles();
+                    const porId = new Map((Array.isArray(todos) ? todos : []).map(m => [String(m.id), m]));
+                    elegidas = ids.map(id => porId.get(id)).filter(Boolean);
+                }
+                if (elegidas.length > 0) {
+                    setDestacados(elegidas);
+                } else {
+                    const recientes = await getMuebles({ limit: 4 });
+                    setDestacados(Array.isArray(recientes) ? recientes : []);
+                }
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
