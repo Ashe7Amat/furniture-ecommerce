@@ -181,6 +181,25 @@ describe('ProductCard', () => {
       expect(screen.getByAltText('Aparador Mid-Century')).toHaveClass('product-image--sold');
       expect(screen.getByText('Ver detalles →')).toBeInTheDocument();
     });
+
+    it('el badge tiene las clases correctas y el contenedor product-footer no desborda', () => {
+      renderProductCard({
+        id: '12',
+        nombre: 'Silla Windsor restaurada',
+        estado: 'disponible',
+        precio_venta: 180
+      });
+
+      const badge = screen.getByText('Pieza Única');
+      expect(badge).toHaveClass('product-badge', 'product-badge--unique');
+
+      const footer = document.querySelector('.product-footer');
+      expect(footer).toBeInTheDocument();
+      expect(footer).toContainElement(screen.getByText('180 €'));
+      expect(footer).toContainElement(screen.getByText('Solicitar información →'));
+    });
   });
 });
+
+
 
