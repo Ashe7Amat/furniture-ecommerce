@@ -95,9 +95,9 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     });
 
     expect(screen.getByText('Imagen 2')).toBeInTheDocument();
-    // Slots 3 y 4 deben ser placeholders
-    expect(screen.getByText('Por defecto 3 (Butacas)')).toBeInTheDocument();
-    expect(screen.getByText('Por defecto 4 (Showroom)')).toBeInTheDocument();
+    // Con fotos propias, los placeholders ya no salen: no hay huecos fijos
+    expect(screen.queryByText('Por defecto 3 (Butacas)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Por defecto 4 (Showroom)')).not.toBeInTheDocument();
 
     // Piezas destacadas
     expect(screen.getByText('Aparador Nórdico de Roble')).toBeInTheDocument();
@@ -132,9 +132,9 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     const btnEliminar = screen.getByRole('button', { name: 'Eliminar imagen 1' });
     await user.click(btnEliminar);
 
-    // Ahora solo queda 1 imagen personalizada y 3 placeholders
-    expect(screen.getByText('1 de 4 imágenes personalizadas configuradas.')).toBeInTheDocument();
-    expect(screen.getByText('Por defecto 2 (Vista aérea)')).toBeInTheDocument();
+    // CAMBIADO A PROPÓSITO: el hero ya no tiene 4 huecos fijos; el resumen cuenta sobre el máximo (10)
+    expect(screen.getByText('Imágenes personalizadas: 1 de 10.')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(1);
   });
 
   it('permite subir una nueva imagen al Hero con optimización y Supabase Storage', async () => {
@@ -154,7 +154,7 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     });
 
     const file = new File(['mock-image-content'], 'hero-nuevo.png', { type: 'image/png' });
-    const input = document.getElementById('hero-file-input');
+    const input = document.getElementById('seccion-hero-file-input');
     expect(input).toBeInTheDocument();
 
     await user.upload(input, file);
@@ -166,6 +166,36 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     expect(imagenUtils.redimensionarImagen).toHaveBeenCalledTimes(1);
     expect(showToastMock).toHaveBeenCalledWith('Imagen añadida al Hero', 'success');
     expect(screen.getByText('Imagen 2')).toBeInTheDocument();
+  });
+
+  it('el hero admite más de 4 imágenes y la nueva se añade al final, hasta un máximo de 10', async () => {
+    const user = userEvent.setup();
+    const seis = Array.from({ length: 6 }, (_, i) => `https://img.test/h${i + 1}.webp`);
+    api.getAjustesHome.mockResolvedValueOnce({ hero_imagenes: seis, productos_destacados: [] });
+    api.subirImagenHero.mockResolvedValueOnce({ url: 'https://img.test/h7.webp' });
+    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
+
+    renderPortadaTab();
+    await waitFor(() => expect(screen.getByText('Imagen 6')).toBeInTheDocument());
+
+    await user.upload(document.getElementById('seccion-hero-file-input'), new File(['x'], 'h7.png', { type: 'image/png' }));
+    await waitFor(() => expect(screen.getByText('Imagen 7')).toBeInTheDocument());
+    expect(screen.getByAltText('Imagen de portada 7')).toHaveAttribute('src', 'https://img.test/h7.webp');
+
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios de la portada' }));
+    expect(api.actualizarAjustesHome).toHaveBeenCalledWith(
+      expect.objectContaining({ hero_imagenes: [...seis, 'https://img.test/h7.webp'] })
+    );
+  });
+
+  it('con 10 imágenes en el hero no se puede subir otra', async () => {
+    const diez = Array.from({ length: 10 }, (_, i) => `https://img.test/h${i + 1}.webp`);
+    api.getAjustesHome.mockResolvedValueOnce({ hero_imagenes: diez, productos_destacados: [] });
+
+    renderPortadaTab();
+    await waitFor(() => expect(screen.getByText('Imagen 10')).toBeInTheDocument());
+
+    expect(screen.getByRole('button', { name: 'Subir nueva imagen al carrusel Hero' })).toBeDisabled();
   });
 
   it('permite buscar y añadir un mueble a la lista de destacados', async () => {

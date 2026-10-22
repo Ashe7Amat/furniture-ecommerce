@@ -230,6 +230,50 @@ describe('Home — textos y piezas destacadas', () => {
   });
 });
 
+describe('Home — hero con las fotos elegidas desde el panel', () => {
+  const urls = (n) => Array.from({ length: n }, (_, i) => `https://img.test/hero${i + 1}.webp`);
+  const activa = () => document.querySelector('.hero-slide-img.is-active').getAttribute('src');
+  const pasar = (ms) => act(() => { vi.advanceTimersByTime(ms); });
+
+  it('con 6 fotos hay 6 puntos y rota entre las 6, dando la vuelta', async () => {
+    vi.useFakeTimers();
+    try {
+      getAjustesHome.mockResolvedValue({ hero_imagenes: urls(6), productos_destacados: [] });
+      await renderHome();
+
+      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 6$/ })).toHaveLength(6);
+      expect(activa()).toBe('https://img.test/hero1.webp');
+      for (let i = 0; i < 5; i += 1) await pasar(5500);
+      expect(activa()).toBe('https://img.test/hero6.webp');
+      await pasar(5500);
+      expect(activa()).toBe('https://img.test/hero1.webp');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('las fotos del panel son <img> sin versiones de móvil ni tableta', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: urls(2), productos_destacados: [] });
+    await renderHome();
+    expect(document.querySelectorAll('.hero-image-box picture source')).toHaveLength(0);
+    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', 'Foto 1 de la portada de Nave 5 Barcelona');
+  });
+
+  it('con una sola foto no hay puntos ni rotación', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: urls(1), productos_destacados: [] });
+    await renderHome();
+    expect(screen.queryByRole('button', { name: /Ver foto/ })).toBeNull();
+    expect(activa()).toBe('https://img.test/hero1.webp');
+  });
+
+  it('sin fotos guardadas (o con la API caída) usa las 4 de siempre', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: [] });
+    await renderHome();
+    expect(screen.getAllByRole('button', { name: /^Ver foto \d de 4$/ })).toHaveLength(4);
+    expect(activa()).toBe('/img/hero-almacen.webp');
+  });
+});
+
 describe('Home — destacados elegidos desde el panel', () => {
   const MUEBLES = [
     { id: 'a', nombre: 'Aparador', imagenes: [] },

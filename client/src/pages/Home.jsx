@@ -26,31 +26,44 @@ const HERO_SLIDE_INTERVAL_MS = 5500;
 // visto; la siguiente se pide este tiempo después de mostrar la actual, 2,5 s antes de que le toque.
 const HERO_PRECARGA_MS = 3000;
 
+// Las fotos que sube el administrador no tienen versiones de 800/1200 px (solo la que dejó el panel).
+const slidesDesdeAjustes = (urls) => {
+    const validas = Array.isArray(urls) ? urls.filter(u => typeof u === 'string' && u.trim() !== '') : [];
+    if (validas.length === 0) return HERO_SLIDES;
+    return validas.map((src, i) => ({ src, alt: `Foto ${i + 1} de la portada de Nave 5 Barcelona` }));
+};
+
 export default function Home() {
     const [categorias, setCategorias] = useState([]);
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
+    // null mientras se leen los ajustes: así no se ve un instante la foto de respaldo antes de la elegida.
+    const [heroSlides, setHeroSlides] = useState(null);
     const [heroSlide, setHeroSlide] = useState(0);
     const [heroPedidas, setHeroPedidas] = useState(() => new Set([0]));
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
+    const slides = heroSlides ?? [];
+    const totalSlides = slides.length;
 
     useEffect(() => {
+        if (totalSlides < 2) return undefined;
         const timer = setInterval(() => {
-            setHeroSlide(prev => (prev + 1) % HERO_SLIDES.length);
+            setHeroSlide(prev => (prev + 1) % totalSlides);
         }, HERO_SLIDE_INTERVAL_MS);
         return () => clearInterval(timer);
-    }, []);
+    }, [totalSlides]);
 
     // La foto que se ve se queda pedida (para el fundido al salir) y la siguiente se pide poco antes de
     // que le toque. Al pulsar un punto, la foto elegida sale en ese mismo render (ver abajo).
     useEffect(() => {
+        if (totalSlides === 0) return undefined;
         const anadir = (i) => setHeroPedidas(prev => (prev.has(i) ? prev : new Set(prev).add(i)));
         anadir(heroSlide);
-        const siguiente = (heroSlide + 1) % HERO_SLIDES.length;
+        const siguiente = (heroSlide + 1) % totalSlides;
         const pedirSiguiente = setTimeout(() => anadir(siguiente), HERO_PRECARGA_MS);
         return () => clearTimeout(pedirSiguiente);
-    }, [heroSlide]);
+    }, [heroSlide, totalSlides]);
 
     useEffect(() => {
         const cargarPortada = async () => {
@@ -60,6 +73,7 @@ export default function Home() {
                     getAjustesHome()
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
+                setHeroSlides(slidesDesdeAjustes(ajustes?.hero_imagenes));
 
                 // Si el panel eligió piezas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
                 // elegidas existe ya (borradas), o no hay selección, se vuelve a las 4 más recientes.
@@ -79,6 +93,7 @@ export default function Home() {
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
+                setHeroSlides(prev => prev ?? HERO_SLIDES);
                 setLoading(false);
             }
         };
@@ -103,10 +118,10 @@ export default function Home() {
                     </div>
                 </div>
                 <div className="hero-image-box">
-                    {HERO_SLIDES.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
+                    {slides.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
                         // <picture> no cambia la maqueta: la <img> sigue posicionada respecto a .hero-image-box.
-                        <picture key={slide.src}>
-                            <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />
+                        <picture key={`${slide.src}-${i}`}>
+                            {slide.movil && <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />}
                             {slide.tableta && <source media={HERO_MEDIA_TABLETA} srcSet={slide.tableta} />}
                             <img
                                 src={slide.src}
@@ -121,18 +136,20 @@ export default function Home() {
                             />
                         </picture>
                     ))}
+                    {totalSlides > 1 && (
                     <div className="hero-slide-dots">
-                        {HERO_SLIDES.map((slide, i) => (
+                        {slides.map((slide, i) => (
                             <button
-                                key={slide.src}
+                                key={`${slide.src}-${i}`}
                                 type="button"
                                 className={`hero-dot${i === heroSlide ? ' is-active' : ''}`}
-                                aria-label={`Ver foto ${i + 1} de ${HERO_SLIDES.length}`}
+                                aria-label={`Ver foto ${i + 1} de ${totalSlides}`}
                                 aria-current={i === heroSlide}
                                 onClick={() => setHeroSlide(i)}
                             />
                         ))}
                     </div>
+                    )}
                 </div>
             </section>
 

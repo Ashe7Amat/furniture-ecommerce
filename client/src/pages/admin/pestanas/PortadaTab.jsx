@@ -1,9 +1,12 @@
-import { useState, useEffect, useContext, useRef } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { getAjustesHome, actualizarAjustesHome, subirImagenHero } from '../../../services/api';
-import { redimensionarImagen } from '../../../utils/imagen';
+import { getAjustesHome, actualizarAjustesHome } from '../../../services/api';
+import SeccionImagenes from '../SeccionImagenes';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
+
+// Tope de fotos del hero: más de 10 no aporta y alarga la carga.
+const MAX_HERO = 10;
 
 const PLACEHOLDERS_HERO = [
   { url: '/img/hero-almacen.webp', titulo: 'Por defecto 1 (Almacén)' },
@@ -16,14 +19,10 @@ const PortadaTab = ({ muebles = [] }) => {
   const { showToast } = useContext(ToastContext);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
-  const [subiendoHero, setSubiendoHero] = useState(false);
-  const [mensajeSubida, setMensajeSubida] = useState('');
 
   const [heroImagenes, setHeroImagenes] = useState([]);
   const [productosDestacados, setProductosDestacados] = useState([]);
   const [busqueda, setBusqueda] = useState('');
-
-  const fileInputRef = useRef(null);
 
   // Cargar configuración existente
   useEffect(() => {
@@ -49,56 +48,6 @@ const PortadaTab = ({ muebles = [] }) => {
       cancelado = true;
     };
   }, [showToast]);
-
-  // Manejo de subida de imagen para el Hero
-  const handleSeleccionarArchivo = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (heroImagenes.length >= 4) {
-      showToast?.('El Hero admite un máximo de 4 imágenes. Elimina una para añadir otra.', 'error');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
-    }
-
-    try {
-      setSubiendoHero(true);
-      setMensajeSubida('Optimizando imagen...');
-      const optimizada = await redimensionarImagen(file, { maxLado: 1920, calidad: 0.85 });
-
-      setMensajeSubida('Subiendo a Supabase Storage...');
-      const resultado = await subirImagenHero(optimizada);
-
-      if (resultado?.url) {
-        setHeroImagenes(prev => [...prev, resultado.url]);
-        showToast?.('Imagen añadida al Hero', 'success');
-      } else {
-        showToast?.('Error al subir la imagen a Storage', 'error');
-      }
-    } catch (err) {
-      showToast?.('Error al procesar la imagen', 'error');
-    } finally {
-      setSubiendoHero(false);
-      setMensajeSubida('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleEliminarHero = (index) => {
-    setHeroImagenes(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleMoverHero = (index, direccion) => {
-    const nuevoIndex = index + direccion;
-    if (nuevoIndex < 0 || nuevoIndex >= heroImagenes.length) return;
-    setHeroImagenes(prev => {
-      const copia = [...prev];
-      const temp = copia[index];
-      copia[index] = copia[nuevoIndex];
-      copia[nuevoIndex] = temp;
-      return copia;
-    });
-  };
 
   // Manejo de Destacados
   const handleAnadirDestacado = (muebleId) => {
@@ -185,7 +134,7 @@ const PortadaTab = ({ muebles = [] }) => {
       <div className="admin-view-head">
         <div>
           <h2>Gestión de Portada</h2>
-          <p>Personaliza las 4 imágenes del carrusel Hero y la selección de piezas destacadas.</p>
+          <p>Personaliza las imágenes del carrusel Hero y la selección de piezas destacadas.</p>
         </div>
         <button
           type="button"
@@ -199,116 +148,19 @@ const PortadaTab = ({ muebles = [] }) => {
       </div>
 
       <div className="portada-contenedor">
-        {/* SECCIÓN 1: HERO */}
-        <section className="portada-seccion" aria-labelledby="seccion-hero-titulo">
-          <div className="portada-seccion-header">
-            <div>
-              <h3 id="seccion-hero-titulo">Carrusel Hero (4 imágenes)</h3>
-              <p className="portada-seccion-desc">
-                {heroImagenes.length === 0
-                  ? 'No hay imágenes personalizadas. La web usa las 4 fotos predeterminadas.'
-                  : `${heroImagenes.length} de 4 imágenes personalizadas configuradas.`}
-              </p>
-            </div>
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                id="hero-file-input"
-                accept="image/*"
-                onChange={handleSeleccionarArchivo}
-                style={{ display: 'none' }}
-                disabled={subiendoHero || heroImagenes.length >= 4}
-              />
-              <button
-                type="button"
-                className="admin-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={subiendoHero || heroImagenes.length >= 4}
-                aria-label="Subir nueva imagen al carrusel Hero"
-              >
-                <Icon name="add" /> Subir nueva imagen
-              </button>
-            </div>
-          </div>
-
-          {subiendoHero && (
-            <p className="admin-status" aria-live="polite">
-              {mensajeSubida || 'Subiendo imagen...'}
-            </p>
-          )}
-
-          <div className="hero-grid" role="list" aria-label="Lista de imágenes del Hero">
-            {[0, 1, 2, 3].map(slotIndex => {
-              const url = heroImagenes[slotIndex];
-              const esPersonalizada = Boolean(url);
-              const infoPlaceholder = PLACEHOLDERS_HERO[slotIndex];
-              const srcFinal = esPersonalizada ? url : infoPlaceholder.url;
-
-              return (
-                <div
-                  key={`hero-slot-${slotIndex}`}
-                  className={`hero-slot ${esPersonalizada ? 'hero-slot--activo' : 'hero-slot--placeholder'}`}
-                  role="listitem"
-                >
-                  <div className="hero-slot-preview">
-                    <img
-                      src={srcFinal}
-                      alt={
-                        esPersonalizada
-                          ? `Imagen de portada ${slotIndex + 1}`
-                          : `Placeholder ${slotIndex + 1}: ${infoPlaceholder.titulo}`
-                      }
-                      className="hero-slot-img"
-                    />
-                    <span className="hero-slot-badge">
-                      {esPersonalizada ? `Slot ${slotIndex + 1}` : `Predeterminada ${slotIndex + 1}`}
-                    </span>
-                  </div>
-
-                  <div className="hero-slot-info">
-                    <span className="hero-slot-label">
-                      {esPersonalizada ? `Imagen ${slotIndex + 1}` : infoPlaceholder.titulo}
-                    </span>
-                    {esPersonalizada && (
-                      <div className="hero-slot-acciones">
-                        <button
-                          type="button"
-                          className="hero-accion-btn"
-                          onClick={() => handleMoverHero(slotIndex, -1)}
-                          disabled={slotIndex === 0}
-                          aria-label={`Mover imagen ${slotIndex + 1} hacia arriba`}
-                          title="Subir posición"
-                        >
-                          <Icon name="arrowUp" />
-                        </button>
-                        <button
-                          type="button"
-                          className="hero-accion-btn"
-                          onClick={() => handleMoverHero(slotIndex, 1)}
-                          disabled={slotIndex === heroImagenes.length - 1}
-                          aria-label={`Mover imagen ${slotIndex + 1} hacia abajo`}
-                          title="Bajar posición"
-                        >
-                          <Icon name="arrowDown" />
-                        </button>
-                        <button
-                          type="button"
-                          className="hero-accion-btn hero-accion-btn--borrar"
-                          onClick={() => handleEliminarHero(slotIndex)}
-                          aria-label={`Eliminar imagen ${slotIndex + 1}`}
-                          title="Eliminar de la lista"
-                        >
-                          <Icon name="trash" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        {/* SECCIÓN 1: HERO (número libre de fotos, hasta MAX_HERO) */}
+        <SeccionImagenes
+          id="seccion-hero"
+          titulo="Carrusel Hero"
+          descripcion={`Las fotos rotan en el orden de la lista, hasta ${MAX_HERO}. Las nuevas se añaden al final.`}
+          imagenes={heroImagenes}
+          onChange={setHeroImagenes}
+          max={MAX_HERO}
+          predeterminadas={PLACEHOLDERS_HERO}
+          textoVacio="No hay imágenes personalizadas. La web usa las 4 fotos predeterminadas."
+          ariaSubir="Subir nueva imagen al carrusel Hero"
+          mensajeAnadida="Imagen añadida al Hero"
+        />
 
         {/* SECCIÓN 2: DESTACADOS */}
         <section className="portada-seccion" aria-labelledby="seccion-destacados-titulo">
