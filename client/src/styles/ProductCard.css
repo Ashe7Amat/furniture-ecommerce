@@ -3,22 +3,25 @@
   color: var(--primary-color);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  background-color: var(--card-bg);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease;
+  background-color: var(--surface-alt);
+  border-radius: 12px;
+  overflow: hidden;
   position: relative;
+  border: 1px solid var(--border-color);
 }
 
 .product-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  border-color: rgba(179, 138, 112, 0.35);
 }
 
 .product-image-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 4 / 5;
   background-color: var(--surface-alt);
-  margin-bottom: 15px;
   overflow: hidden;
 }
 
@@ -26,28 +29,91 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), filter 0.5s ease, opacity 0.5s ease;
 }
 
 .product-card:hover .product-image {
-  transform: scale(1.03);
+  transform: scale(1.05);
 }
 
+/* Imagen en escala de grises si el producto está vendido */
+.product-image--sold,
+.product-card.is-sold .product-image {
+  filter: grayscale(100%);
+  opacity: 0.88;
+}
+
+/* Badge overlay en esquina superior izquierda */
+.product-badge-overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.product-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(26, 21, 16, 0.7);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
+}
+
+.product-badge--unique {
+  background: rgba(26, 21, 16, 0.7);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.product-badge--sold {
+  background: rgba(184, 50, 50, 0.85);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.product-badge--rented {
+  background: rgba(194, 120, 24, 0.85);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Botón favoritos con fondo oscuro y backdrop-blur en esquina superior derecha */
 .fav-btn {
   position: absolute;
-  top: 15px;
-  right: 15px;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(30, 24, 20, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   z-index: 10;
-  opacity: 0.8;
-  transition: opacity 0.3s, transform 0.2s;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  transition: background 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  padding: 0;
 }
 
 .fav-btn:hover {
-  opacity: 1;
+  background: rgba(30, 24, 20, 0.8);
+  transform: scale(1.08);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .fav-btn.pop-anim {
@@ -87,82 +153,80 @@
   background: var(--accent-hover);
 }
 
-.status-banner {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  background: var(--bg-color);
-  color: var(--primary-color);
-  padding: 5px 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.status-banner.sold {
-  color: var(--danger-color);
-  background: var(--danger-bg);
-}
-
+/* Información del producto y tipografía premium */
 .product-info {
   display: flex;
   flex-direction: column;
+  padding: 16px 18px 18px;
+  flex-grow: 1;
+  background-color: var(--surface-alt);
 }
 
 .product-title {
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-size: 1.22rem;
   font-weight: 600;
-  margin: 0 0 5px 0;
-  color: var(--primary-color);
+  line-height: 1.3;
+  margin: 0 0 3px 0;
+  color: var(--text-color);
+  letter-spacing: -0.01em;
+}
+
+.product-reference {
+  margin: 0 0 8px 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--secondary-color);
+  letter-spacing: 0.04em;
+  opacity: 0.85;
 }
 
 .product-description {
   font-size: 0.85rem;
   color: var(--secondary-color);
-  margin: 0 0 10px 0;
-  white-space: nowrap;
+  margin: 0 0 12px 0;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.product-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .price-value {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: clamp(0.85rem, 2.5vw, 0.95rem);
+  font-weight: 600;
   color: var(--primary-color);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
-/* Elegant Sold / Rented Overlay */
-.product-sold-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(62, 50, 42, 0.45); /* Warm espresso overlay */
-  display: flex;
-  justify-content: center;
+.product-cta {
+  font-size: clamp(0.76rem, 2.2vw, 0.85rem);
+  font-weight: 600;
+  color: var(--accent-color);
+  letter-spacing: 0.01em;
+  display: inline-flex;
   align-items: center;
-  z-index: 5;
-  backdrop-filter: blur(2px);
-  animation: overlayFadeIn 0.3s ease;
+  gap: 3px;
+  transition: color 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-@keyframes overlayFadeIn {
-  from { opacity: 0; backdrop-filter: blur(0px); }
-  to { opacity: 1; backdrop-filter: blur(2px); }
-}
-
-.product-sold-badge {
-  background: var(--card-bg);
-  color: var(--primary-color);
-  padding: 10px 24px;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  letter-spacing: 2px;
-  font-weight: 500;
-  text-transform: uppercase;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 15px rgba(62, 50, 42, 0.15);
+.product-card:hover .product-cta {
+  color: var(--accent-hover);
+  transform: translateX(3px);
 }
