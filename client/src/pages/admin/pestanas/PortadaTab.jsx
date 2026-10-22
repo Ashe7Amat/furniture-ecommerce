@@ -155,7 +155,15 @@ const PortadaTab = ({ muebles = [] }) => {
           <h2>Gestión de Portada</h2>
           <p>Personaliza las imágenes del carrusel Hero, las piezas destacadas y el resto de secciones visuales.</p>
         </div>
-        <div>
+        <div className="admin-view-head-actions">
+          <button
+            type="button"
+            className="admin-btn admin-btn--secondary"
+            onClick={() => window.open('/', '_blank', 'noopener,noreferrer')}
+            aria-label="Abrir vista previa de la portada en una pestaña nueva"
+          >
+            <Icon name="eye" /> Vista previa
+          </button>
           <button
             type="button"
             className="admin-btn admin-btn--guardar"

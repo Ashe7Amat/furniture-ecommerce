@@ -283,6 +283,29 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     });
   });
 
+  it('el botón de Vista previa abre la portada en una pestaña nueva', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    api.getAjustesHome.mockResolvedValueOnce({
+      hero_imagenes: [],
+      productos_destacados: []
+    });
+
+    renderPortadaTab();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
+    });
+
+    const btnVistaPrevia = screen.getByRole('button', {
+      name: 'Abrir vista previa de la portada en una pestaña nueva'
+    });
+    await user.click(btnVistaPrevia);
+
+    expect(openSpy).toHaveBeenCalledWith('/', '_blank', 'noopener,noreferrer');
+  });
+
   it('guarda los cambios de inspiración y sostenibilidad al pulsar Guardar cambios', async () => {
     const user = userEvent.setup();
     api.getAjustesHome.mockResolvedValueOnce({

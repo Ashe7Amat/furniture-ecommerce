@@ -2312,6 +2312,36 @@
   font-size: 1rem;
 }
 
+.admin-view-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-btn--secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-btn--secondary:hover {
+  background: var(--surface-alt);
+  border-color: var(--primary-color);
+}
+
+.admin-btn--secondary svg {
+  width: 16px;
+  height: 16px;
+}
+
 .admin-btn--guardar {
   background: var(--accent-color);
   color: #fff;
