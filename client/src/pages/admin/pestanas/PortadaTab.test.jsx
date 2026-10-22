@@ -169,6 +169,56 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     expect(screen.getByText('Imagen 2')).toBeInTheDocument();
   });
 
+  it('al subir dos imágenes seguidas se mantienen ambas sin sobrescribirse y el array tiene 2 elementos', async () => {
+    const user = userEvent.setup();
+    api.getAjustesHome.mockResolvedValueOnce({
+      hero_imagenes: [],
+      productos_destacados: []
+    });
+    api.subirImagenHero
+      .mockResolvedValueOnce({ url: 'https://img.test/hero-primera.webp' })
+      .mockResolvedValueOnce({ url: 'https://img.test/hero-segunda.webp' });
+    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
+
+    renderPortadaTab();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
+    });
+
+    const input = document.getElementById('seccion-hero-file-input');
+
+    // Subir primera imagen
+    const file1 = new File(['fake-1'], 'foto1.png', { type: 'image/png' });
+    await user.upload(input, file1);
+
+    await waitFor(() => {
+      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Imágenes personalizadas: 1 de 10.')).toBeInTheDocument();
+
+    // Subir segunda imagen seguida
+    const file2 = new File(['fake-2'], 'foto2.png', { type: 'image/png' });
+    await user.upload(input, file2);
+
+    await waitFor(() => {
+      expect(screen.getByText('Imagen 2')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Imágenes personalizadas: 2 de 10.')).toBeInTheDocument();
+
+    // Guardar cambios y comprobar que se envían las 2 imágenes al endpoint
+    await user.click(screen.getByRole('button', { name: 'Guardar cambios de la portada' }));
+
+    expect(api.actualizarAjustesHome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hero_imagenes: [
+          'https://img.test/hero-primera.webp',
+          'https://img.test/hero-segunda.webp'
+        ]
+      })
+    );
+  });
+
   it('el hero admite más de 4 imágenes y la nueva se añade al final, hasta un máximo de 10', async () => {
     const user = userEvent.setup();
     const seis = Array.from({ length: 6 }, (_, i) => `https://img.test/h${i + 1}.webp`);

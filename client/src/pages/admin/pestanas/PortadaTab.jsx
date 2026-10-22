@@ -89,6 +89,19 @@ const PortadaTab = ({ muebles = [] }) => {
     });
   };
 
+  // Manejo de cambios en las secciones de imágenes (soporta updater funcional)
+  const handleCambioHero = (nuevas) => {
+    setHeroImagenes((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+  };
+
+  const handleCambioInspiracion = (nuevas) => {
+    setImagenesInspiracion((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+  };
+
+  const handleCambioSostenibilidad = (nuevas) => {
+    setImagenSostenibilidad((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+  };
+
   // Guardar cambios generales (PUT)
   const handleGuardarCambios = async () => {
     setGuardando(true);
@@ -183,7 +196,7 @@ const PortadaTab = ({ muebles = [] }) => {
           titulo="Carrusel Hero"
           descripcion={`Las fotos rotan en el orden de la lista, hasta ${MAX_HERO}. Las nuevas se añaden al final.`}
           imagenes={heroImagenes}
-          onChange={setHeroImagenes}
+          onChange={handleCambioHero}
           max={MAX_HERO}
           predeterminadas={PLACEHOLDERS_HERO}
           textoVacio="No hay imágenes personalizadas. La web usa las 4 fotos predeterminadas."
@@ -340,7 +353,7 @@ const PortadaTab = ({ muebles = [] }) => {
           titulo="Galería: Espacios que inspiran"
           descripcion="Fotografías de ambiente para la galería intermedia (admite de 2 a 3 imágenes). Si está vacía, se muestran las fotos predeterminadas."
           imagenes={imagenesInspiracion}
-          onChange={setImagenesInspiracion}
+          onChange={handleCambioInspiracion}
           max={MAX_INSPIRACION}
           predeterminadas={PLACEHOLDERS_INSPIRACION}
           textoVacio="No hay fotos personalizadas para esta galería. La web muestra las 2 fotos predeterminadas."
@@ -354,7 +367,7 @@ const PortadaTab = ({ muebles = [] }) => {
           titulo="Sección Sostenibilidad (Segunda vida)"
           descripcion="Fotografía ilustrativa para acompañar el bloque 'El mueble más sostenible es el que ya existe' (1 imagen)."
           imagenes={imagenSostenibilidad}
-          onChange={setImagenSostenibilidad}
+          onChange={handleCambioSostenibilidad}
           max={MAX_SOSTENIBILIDAD}
           predeterminadas={[]}
           textoVacio="No hay foto personalizada configurada. El bloque se muestra con su estilo original."

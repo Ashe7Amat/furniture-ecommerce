@@ -47,8 +47,11 @@ const SeccionImagenes = ({
       setMensaje('Subiendo a Supabase Storage...');
       const resultado = await subirImagenHero(optimizada);
       if (resultado?.url) {
-        // Siempre al final de la lista (o en lugar de la única foto, con max = 1).
-        onChange(sustituye ? [resultado.url] : [...imagenes, resultado.url]);
+        // Siempre al final de la lista usando actualización funcional para no perder fotos previas
+        onChange((prev) => {
+          const base = Array.isArray(prev) ? prev : imagenes;
+          return sustituye ? [resultado.url] : [...base, resultado.url];
+        });
         showToast?.(mensajeAnadida || 'Imagen añadida', 'success');
       } else {
         showToast?.('Error al subir la imagen a Storage', 'error');
@@ -62,14 +65,21 @@ const SeccionImagenes = ({
     }
   };
 
-  const eliminar = (index) => onChange(imagenes.filter((_, i) => i !== index));
+  const eliminar = (index) => {
+    onChange((prev) => {
+      const base = Array.isArray(prev) ? prev : imagenes;
+      return base.filter((_, i) => i !== index);
+    });
+  };
 
   const mover = (index, direccion) => {
     const destino = index + direccion;
-    if (destino < 0 || destino >= imagenes.length) return;
-    const copia = [...imagenes];
-    [copia[index], copia[destino]] = [copia[destino], copia[index]];
-    onChange(copia);
+    onChange((prev) => {
+      const base = Array.isArray(prev) ? [...prev] : [...imagenes];
+      if (destino < 0 || destino >= base.length) return base;
+      [base[index], base[destino]] = [base[destino], base[index]];
+      return base;
+    });
   };
 
   const resumen =
