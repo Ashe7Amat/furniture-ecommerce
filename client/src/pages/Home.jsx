@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMuebles, getCategorias } from '../services/api';
-import { textoPrecio } from '../utils/format';
 import { useScrollReveal } from '../utils/useScrollReveal';
-import { PLACEHOLDER_IMG } from '../utils/images';
 import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
-import ReferenciaProducto from '../components/ReferenciaProducto';
+import ProductCard from '../components/ProductCard';
 import VistosEn from '../components/VistosEn';
 import '../styles/Home.css';
 
@@ -157,20 +155,7 @@ export default function Home() {
                     ) : (
                         <div className="home-products-grid">
                             {destacados.map(mueble => (
-                                <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
-                                    <div className="home-card-img-holder">
-                                        <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
-                                        {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
-                                    </div>
-                                    <div className="home-card-meta">
-                                        <h3>{mueble.nombre}</h3>
-                                        <ReferenciaProducto referencia={mueble.referencia} className="ref-producto--etiqueta" />
-                                        <p className="home-card-desc">{mueble.descripcion}</p>
-                                        <span className="home-card-price">
-                                            {textoPrecio(mueble)}
-                                        </span>
-                                    </div>
-                                </Link>
+                                <ProductCard key={mueble.id} mueble={mueble} />
                             ))}
                         </div>
                     )}

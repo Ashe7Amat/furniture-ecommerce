@@ -199,14 +199,27 @@ describe('Home — textos y piezas destacadas', () => {
     expect(screen.queryByText(/FSC|reciclados/)).toBeNull();
   });
 
-  it('cada destacada lleva su referencia como etiqueta de almacén; sin referencia, nada', async () => {
+  it('cada destacada lleva su referencia en tipografía monoespaciada; sin referencia, nada', async () => {
+    // CAMBIADO A PROPÓSITO (22 oct 2026): piezas destacadas unificadas con ProductCard del catálogo.
     getMuebles.mockResolvedValue([
       { id: 1, nombre: 'Butaca de cine', referencia: 'NAV-SIL-001', imagenes: [] },
       { id: 2, nombre: 'Baúl antiguo', imagenes: [] }
     ]);
     await renderHome();
-    const etiquetas = [...document.querySelectorAll('.home-card-meta .ref-producto--etiqueta')];
-    expect(etiquetas.map((e) => e.textContent)).toEqual(['Ref. NAV-SIL-001']);
+    const referencias = [...document.querySelectorAll('.product-reference')];
+    expect(referencias.map((e) => e.textContent)).toEqual(['Ref. NAV-SIL-001']);
+  });
+
+  it('las destacadas usan el diseño unificado con badge "Pieza Única" y CTA "Solicitar información"', async () => {
+    // CAMBIADO A PROPÓSITO (22 oct 2026): piezas destacadas unificadas con ProductCard del catálogo.
+    getMuebles.mockResolvedValue([
+      { id: 1, nombre: 'Aparador nórdico', estado: 'disponible', imagenes: [] }
+    ]);
+    await renderHome();
+
+    const badge = screen.getByText('Pieza Única');
+    expect(badge).toHaveClass('product-badge', 'product-badge--unique');
+    expect(screen.getByText('Solicitar información →')).toBeInTheDocument();
   });
 
   it('la sección "Vistos en" no sale mientras no haya producciones', async () => {

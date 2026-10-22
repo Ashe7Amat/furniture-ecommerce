@@ -338,74 +338,7 @@
     margin-bottom: 80px;
 }
 
-.home-product-card {
-    text-decoration: none;
-    color: var(--primary-color);
-    display: block;
-    transition: transform 0.3s ease;
-}
 
-.home-product-card:hover {
-    transform: translateY(-3px);
-}
-
-.home-card-img-holder {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1;
-    overflow: hidden;
-    background: var(--surface-alt);
-    margin-bottom: 16px;
-}
-
-.home-card-img-holder img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.home-product-card:hover .home-card-img-holder img {
-    transform: scale(1.03);
-}
-
-.card-state-tag {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    background: var(--bg-color);
-    color: var(--primary-color);
-    padding: 4px 10px;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 1px;
-}
-
-.card-state-tag.vendido {
-    background: var(--danger-bg);
-    color: var(--danger-color);
-}
-
-.home-card-meta h3 {
-    font-size: 15px;
-    font-weight: 400;
-    margin-bottom: 4px;
-}
-
-.home-card-desc {
-    font-size: 13px;
-    color: var(--secondary-color);
-    margin-bottom: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.home-card-price {
-    font-size: 16px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-}
 
 /* "Vistos en": los nombres de las producciones en la tipografía de la marca, separados por una línea
    fina. Solo se pinta si hay alguna (components/VistosEn.jsx). */
@@ -577,38 +510,11 @@
     white-space: nowrap;
 }
 
-/* Las tarjetas destacadas: nombre con la tipografía de la marca, la etiqueta de estado con esquinas
-   suaves y algo de sombra al pasar el ratón, como las del catálogo. */
-.home-card-meta h3 {
-    font-family: var(--font-display);
-    font-size: 17px;
-    font-weight: 500;
-    line-height: 1.25;
-    margin-top: 0;
-}
-.card-state-tag {
-    border-radius: var(--radius-sm, 4px);
-}
-.home-card-img-holder {
-    transition: box-shadow 0.3s ease;
-}
-.home-product-card:hover .home-card-img-holder,
-.home-product-card:focus-visible .home-card-img-holder {
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.08);
-}
-
 /* Ritmo vertical: en móvil, 56 px entre secciones en vez de 80 (se veían huecos grandes). */
 @media (max-width: 768px) {
     .home-slider-section,
     .home-gallery-section,
     .home-products-grid {
         margin-bottom: 56px;
-    }
-    .home-card-meta h3 {
-        font-size: 15px;
-    }
-    .card-state-tag {
-        top: 10px;
-        left: 10px;
     }
 }
