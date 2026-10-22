@@ -1,0 +1,206 @@
+// server/src/__tests__/ajustesHome.test.js
+const { test, describe, beforeEach, afterEach, mock } = require('node:test');
+const assert = require('node:assert/strict');
+const request = require('supertest');
+const jwt = require('jsonwebtoken');
+require('./helpers/testEnv');
+
+process.env.JWT_SECRET = 'secreto-de-prueba-para-ajustes-home';
+
+const supabase = require('../data/supabase');
+const app = require('../index');
+const { crearFakeSupabase } = require('./helpers/fakeSupabase');
+
+describe('Ajustes de Portada (Home)', () => {
+  const tokenAdmin = jwt.sign(
+    { sub: 'a1', email: 'admin@nave5barcelona.com', rol: 'admin' },
+    process.env.JWT_SECRET
+  );
+  const tokenCliente = jwt.sign(
+    { sub: 'c1', email: 'cliente@test.com', rol: 'cliente' },
+    process.env.JWT_SECRET
+  );
+
+  let fake;
+  const instalar = (opciones = {}) => {
+    fake = crearFakeSupabase(opciones);
+    mock.method(supabase, 'from', fake.from);
+  };
+
+  beforeEach(() => {
+    mock.method(console, 'error', () => {});
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+  });
+
+  describe('GET /api/ajustes/home (público)', () => {
+    test('es público y devuelve los arrays de hero_imagenes y productos_destacados', async () => {
+      instalar({
+        ajustes_home: [
+          {
+            id: 1,
+            hero_imagenes: ['https://img.test/hero1.webp', 'https://img.test/hero2.webp'],
+            productos_destacados: ['uuid-mueble-1', 'uuid-mueble-2'],
+            updated_at: '2026-10-22T10:00:00.000Z'
+          }
+        ]
+      });
+
+      const res = await request(app).get('/api/ajustes/home');
+      assert.equal(res.status, 200);
+      assert.equal(res.body.id, 1);
+      assert.deepEqual(res.body.hero_imagenes, [
+        'https://img.test/hero1.webp',
+        'https://img.test/hero2.webp'
+      ]);
+      assert.deepEqual(res.body.productos_destacados, ['uuid-mueble-1', 'uuid-mueble-2']);
+    });
+
+    test('si no hay fila guardada aún en la tabla, devuelve id=1 con arrays vacíos sin fallar', async () => {
+      instalar({ ajustes_home: [] });
+
+      const res = await request(app).get('/api/ajustes/home');
+      assert.equal(res.status, 200);
+      assert.equal(res.body.id, 1);
+      assert.deepEqual(res.body.hero_imagenes, []);
+      assert.deepEqual(res.body.productos_destacados, []);
+    });
+
+    test('si la base de datos falla, responde 500', async () => {
+      instalar({
+        fallos: {
+          'ajustes_home.select': new Error('Fallo de conexión')
+        }
+      });
+
+      const res = await request(app).get('/api/ajustes/home');
+      assert.equal(res.status, 500);
+      assert.equal(res.body.error, 'Error al obtener los ajustes de portada.');
+    });
+  });
+
+  describe('PUT /api/admin/ajustes/home (protegido con verificarAdmin)', () => {
+    test('sin token responde 401', async () => {
+      instalar();
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .send({ hero_imagenes: ['https://img.test/hero.webp'] });
+      assert.equal(res.status, 401);
+    });
+
+    test('un cliente no administrador responde 403', async () => {
+      instalar();
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenCliente}`)
+        .send({ hero_imagenes: ['https://img.test/hero.webp'] });
+      assert.equal(res.status, 403);
+    });
+
+    test('un administrador puede actualizar los arrays correctamente cuando la fila ya existe', async () => {
+      instalar({
+        ajustes_home: [
+          {
+            id: 1,
+            hero_imagenes: ['https://img.test/vieja.webp'],
+            productos_destacados: ['id-viejo']
+          }
+        ]
+      });
+
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({
+          hero_imagenes: ['https://img.test/hero-nuevo.webp'],
+          productos_destacados: ['uuid-mueble-1', 'uuid-mueble-2']
+        });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.deepEqual(res.body.data.hero_imagenes, ['https://img.test/hero-nuevo.webp']);
+      assert.deepEqual(res.body.data.productos_destacados, ['uuid-mueble-1', 'uuid-mueble-2']);
+    });
+
+    test('un administrador inserta la fila por defecto si no existía previamente', async () => {
+      instalar({ ajustes_home: [] });
+
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({
+          hero_imagenes: ['https://img.test/hero-insert.webp'],
+          productos_destacados: ['uuid-mueble-insert']
+        });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+      assert.deepEqual(res.body.data.hero_imagenes, ['https://img.test/hero-insert.webp']);
+      assert.deepEqual(res.body.data.productos_destacados, ['uuid-mueble-insert']);
+    });
+
+    test('rechaza con 400 si hero_imagenes no es un array o contiene URLs vacías', async () => {
+      instalar();
+      const res1 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ hero_imagenes: 'no-es-array' });
+      assert.equal(res1.status, 400);
+
+      const res2 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ hero_imagenes: ['   '] });
+      assert.equal(res2.status, 400);
+    });
+
+    test('rechaza con 400 si productos_destacados no es un array o contiene IDs vacíos', async () => {
+      instalar();
+      const res1 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ productos_destacados: 12345 });
+      assert.equal(res1.status, 400);
+
+      const res2 = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ productos_destacados: [''] });
+      assert.equal(res2.status, 400);
+    });
+
+    test('si la base de datos falla al leer o escribir, responde 500', async () => {
+      instalar({
+        fallos: {
+          'ajustes_home.select': new Error('Fallo de lectura')
+        }
+      });
+
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ hero_imagenes: [] });
+
+      assert.equal(res.status, 500);
+      assert.equal(res.body.error, 'Error al actualizar los ajustes de portada.');
+    });
+
+    test('si registrarActividad lanza error, la respuesta sigue siendo 200 y se captura el error', async () => {
+      instalar();
+      const audit = require('../utils/audit');
+      mock.method(audit, 'registrarActividad', async () => {
+        throw new Error('Fallo simulado en auditoría');
+      });
+
+      const res = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ hero_imagenes: [] });
+
+      assert.equal(res.status, 200);
+      assert.equal(res.body.success, true);
+    });
+  });
+});
