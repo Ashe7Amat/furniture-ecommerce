@@ -5,53 +5,59 @@ import userEvent from '@testing-library/user-event';
 import CatalogViewToggle from './CatalogViewToggle';
 
 describe('CatalogViewToggle', () => {
-  it('con vista="grid", marca aria-pressed=true en "Vista cuadrícula" y false en "Vista lista"', () => {
-    render(<CatalogViewToggle vista="grid" onChange={() => {}} />);
+  const BOTONES = [
+    { vista: 'grid-large', nombre: 'Vista de 2 columnas' },
+    { vista: 'grid-normal', nombre: 'Vista de 3 columnas' },
+    { vista: 'grid-compact', nombre: 'Vista de 4 columnas' },
+    { vista: 'table', nombre: 'Vista de lista' }
+  ];
 
-    expect(screen.getByRole('button', { name: 'Vista cuadrícula' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Vista lista' })).toHaveAttribute('aria-pressed', 'false');
+  it.each(BOTONES)('con vista="$vista", marca aria-pressed=true en "$nombre" y false en las demás', ({ vista, nombre }) => {
+    render(<CatalogViewToggle vista={vista} onChange={() => {}} />);
+
+    BOTONES.forEach((b) => {
+      const boton = screen.getByRole('button', { name: b.nombre });
+      if (b.nombre === nombre) {
+        expect(boton).toHaveAttribute('aria-pressed', 'true');
+        expect(boton).toHaveClass('active');
+      } else {
+        expect(boton).toHaveAttribute('aria-pressed', 'false');
+        expect(boton).not.toHaveClass('active');
+      }
+    });
   });
 
-  it('con vista="table", marca aria-pressed=true en "Vista lista" y false en "Vista cuadrícula"', () => {
-    render(<CatalogViewToggle vista="table" onChange={() => {}} />);
-
-    expect(screen.getByRole('button', { name: 'Vista lista' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Vista cuadrícula' })).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('llama a onChange con "table" al pulsar "Vista lista"', async () => {
+  it.each(BOTONES)('llama a onChange con "$vista" al pulsar "$nombre"', async ({ vista, nombre }) => {
     const onChange = vi.fn();
-    render(<CatalogViewToggle vista="grid" onChange={onChange} />);
+    const user = userEvent.setup();
+    render(<CatalogViewToggle vista="grid-normal" onChange={onChange} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Vista lista' }));
-
-    expect(onChange).toHaveBeenCalledWith('table');
+    await user.click(screen.getByRole('button', { name: nombre }));
+    expect(onChange).toHaveBeenCalledWith(vista);
   });
 
-  it('llama a onChange con "grid" al pulsar "Vista cuadrícula"', async () => {
-    const onChange = vi.fn();
-    render(<CatalogViewToggle vista="table" onChange={onChange} />);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Vista cuadrícula' }));
-
-    expect(onChange).toHaveBeenCalledWith('grid');
-  });
-
-  it('cambia de vista de verdad al hacer clic (estado real, no solo la llamada a onChange)', async () => {
-    // Envoltorio con estado real: comprueba el cambio de vista de punta a punta a nivel
-    // del toggle, sin necesitar montar Catalog.jsx completo (que arrastra getMuebles/
-    // getCategorias/FavoritesContext solo para probar el interruptor).
+  it('cambia de vista de forma interactiva con estado real', async () => {
+    const user = userEvent.setup();
     const ToggleConEstado = () => {
-      const [vista, setVista] = useState('grid');
+      const [vista, setVista] = useState('grid-normal');
       return <CatalogViewToggle vista={vista} onChange={setVista} />;
     };
     render(<ToggleConEstado />);
 
-    expect(screen.getByRole('button', { name: 'Vista cuadrícula' })).toHaveAttribute('aria-pressed', 'true');
+    // Inicialmente normal (3 columnas)
+    expect(screen.getByRole('button', { name: 'Vista de 3 columnas' })).toHaveAttribute('aria-pressed', 'true');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Vista lista' }));
+    // Cambiar a grande (2 columnas)
+    await user.click(screen.getByRole('button', { name: 'Vista de 2 columnas' }));
+    expect(screen.getByRole('button', { name: 'Vista de 2 columnas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Vista de 3 columnas' })).toHaveAttribute('aria-pressed', 'false');
 
-    expect(screen.getByRole('button', { name: 'Vista lista' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Vista cuadrícula' })).toHaveAttribute('aria-pressed', 'false');
+    // Cambiar a compacto (4 columnas)
+    await user.click(screen.getByRole('button', { name: 'Vista de 4 columnas' }));
+    expect(screen.getByRole('button', { name: 'Vista de 4 columnas' })).toHaveAttribute('aria-pressed', 'true');
+
+    // Cambiar a tabla/lista
+    await user.click(screen.getByRole('button', { name: 'Vista de lista' }));
+    expect(screen.getByRole('button', { name: 'Vista de lista' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

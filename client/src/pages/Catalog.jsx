@@ -263,7 +263,7 @@ export default function Catalog() {
 
       {/* SKELETON LOADERS mientras carga */}
       {loading ? (
-        <div className="products-grid">
+        <div className={`products-grid ${vista === 'grid-large' ? 'products-grid--large' : vista === 'grid-compact' ? 'products-grid--compact' : 'products-grid--normal'}`}>
           {Array.from({ length: 8 }).map((_, i) => (
             <ProductSkeleton key={i} />
           ))}
@@ -274,7 +274,7 @@ export default function Catalog() {
         ) : (
           <div
             key={categoriaUrl || 'all'}
-            className="products-grid products-grid--animated"
+            className={`products-grid products-grid--animated ${vista === 'grid-large' ? 'products-grid--large' : vista === 'grid-compact' ? 'products-grid--compact' : 'products-grid--normal'}`}
           >
             {mueblesFiltrados.map((mueble, index) => (
               <div
