@@ -159,7 +159,16 @@ const Admin = ({ idEditar = null, onEnlaceUsado }) => {
       <main className="admin-content">
 
         {vistaActiva === 'resumen' && (
-          <ResumenTab muebles={muebles} pedidosPendientes={pedidosPendientes} irA={setVistaActiva} />
+          <ResumenTab
+            muebles={muebles}
+            pedidosPendientes={pedidosPendientes}
+            irA={(vista, filtro) => {
+              if (filtro !== undefined) {
+                setFiltroEstadoPedido(filtro);
+              }
+              setVistaActiva(vista);
+            }}
+          />
         )}
 
         {vistaActiva === 'crear' && (

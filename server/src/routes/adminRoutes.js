@@ -10,6 +10,7 @@ const {
 const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
 const { obtenerAuditLogs } = require('../controllers/auditLogController');
+const { obtenerMetricasDashboard } = require('../controllers/dashboardController');
 const {
   exigirObjeto,
   listarReservasAdmin,
@@ -70,6 +71,9 @@ router.patch('/mensajes/:id/leido', verificarAdmin, marcarLeido);
 
 // Registro de actividad (audit log)
 router.get('/audit-log', verificarAdmin, obtenerAuditLogs);
+
+// Métricas del dashboard (ticket medio, ventas por mes, top de categorías, clientes)
+router.get('/dashboard/metricas', verificarAdmin, obtenerMetricasDashboard);
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d): la lista por vistas, las
 // acciones sobre cada reserva y las altas sin pago web. Primero la sesión de administrador y después

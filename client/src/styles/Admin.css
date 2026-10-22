@@ -133,6 +133,73 @@
 .resumen-card.accent-danger { border-top-color: var(--danger-color); }
 .resumen-card.accent-warning { border-top-color: var(--warning-color); }
 .resumen-card.accent-brand { border-top-color: var(--accent-color); }
+.resumen-card.semaforo-alerta { border-top-color: var(--warning-color); }
+.resumen-card.semaforo-ok { border-top-color: var(--success-color); }
+
+.resumen-card-clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.resumen-card-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+.resumen-card-clickable:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+.resumen-card-subtexto {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--secondary-color);
+  margin-top: 6px;
+  line-height: 1.3;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.resumen-clientes-subtexto {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin: 6px 0 12px;
+}
+
+/* Gráficos del dashboard (Recharts): colores del tema, claro y oscuro */
+.resumen-graficos {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+  margin-top: 28px;
+}
+.grafico-card {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 20px 20px 12px;
+  min-width: 0;
+}
+.grafico-titulo {
+  margin: 0 0 14px;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--secondary-color);
+}
+.grafico-vacio {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 900px) {
+  .resumen-graficos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 /* Alertas de calidad de datos */
 .admin-alerts {
@@ -227,8 +294,8 @@
   min-width: 0;
 }
 .sale-thumb {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--border-color);

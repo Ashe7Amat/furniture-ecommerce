@@ -703,3 +703,16 @@ export const getAuditLogs = async ({ entidad = '', accion = '', admin_email = ''
   }
 };
 
+// Panel: las métricas del dashboard (GET /api/admin/dashboard/metricas): ticket medio, ventas de los
+// últimos 6 meses, top de categorías y clientes. El objeto del servidor, o null si falla.
+export const getMetricasDashboard = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/dashboard/metricas`);
+    if (!response.ok) throw new Error('Error al obtener las métricas del dashboard');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getMetricasDashboard:', error);
+    return null;
+  }
+};
+
