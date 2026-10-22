@@ -30,47 +30,80 @@ const ProductCard = ({ mueble }) => {
     setIsQuickViewOpen(true);
   };
 
+  const esVendido = mueble.estado === 'vendido';
+  const esAlquilado = mueble.estado === 'alquilado';
+
   return (
     <>
-      <Link to={`/mueble/${mueble.id}`} className="product-card">
+      <Link to={`/mueble/${mueble.id}`} className={`product-card ${esVendido ? 'is-sold' : ''}`}>
         <div className="product-image-container">
-          <img src={imageUrl} alt={mueble.nombre || 'Mueble'} className="product-image" loading="lazy" decoding="async" />
-          <button className={`fav-btn ${isPopping ? 'pop-anim' : ''}`} onClick={handleFavClick} aria-label="Favorito">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill={isFav ? "var(--accent-color)" : "none"} stroke={isFav ? "var(--accent-color)" : "var(--primary-color)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="card-fav-svg">
+          <img
+            src={imageUrl}
+            alt={mueble.nombre || 'Mueble'}
+            className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
+            loading="lazy"
+            decoding="async"
+          />
+
+          {/* Overlay esquina superior izquierda: Pieza Única (disponible) o Vendido (grayscale) */}
+          <div className="product-badge-overlay">
+            {esVendido ? (
+              <span className="product-badge product-badge--sold">Vendido</span>
+            ) : esAlquilado ? (
+              <span className="product-badge product-badge--rented">Alquilado</span>
+            ) : (
+              <span className="product-badge product-badge--unique">Pieza Única</span>
+            )}
+          </div>
+
+          {/* Overlay esquina superior derecha: Corazón de favoritos con fondo oscuro y backdrop-blur */}
+          <button
+            className={`fav-btn ${isPopping ? 'pop-anim' : ''}`}
+            onClick={handleFavClick}
+            aria-label="Favorito"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill={isFav ? "var(--accent-color)" : "none"}
+              stroke={isFav ? "var(--accent-color)" : "#ffffff"}
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="card-fav-svg"
+            >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </button>
-          {mueble.estado === 'vendido' && (
-            <div className="product-sold-overlay">
-              <span className="product-sold-badge">Vendido</span>
-            </div>
-          )}
-          {mueble.estado === 'alquilado' && (
-            <div className="product-sold-overlay">
-              <span className="product-sold-badge" style={{ color: 'var(--secondary-color)' }}>Alquilado</span>
-            </div>
-          )}
-          {mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && (
+
+          {!esVendido && !esAlquilado && (
             <button className="quick-view-btn" onClick={handleQuickView}>Vista rápida</button>
           )}
         </div>
         <div className="product-info">
           <h2 className="product-title">{mueble.nombre}</h2>
-          <ReferenciaProducto referencia={mueble.referencia} className="ref-producto--etiqueta" />
-          <p className="product-description">{mueble.descripcion}</p>
-          <span className="price-value">
-            {/* C2: vendida, el precio tachado; vendida y sin precio, nada (antes salía "null €/día", y
-                pedir precio de algo vendido no tiene sentido). Si no, textoPrecio. */}
-            {mueble.estado === 'vendido' ? (
-              tienePrecio(mueble) && (
-                <span style={{ textDecoration: 'line-through', color: 'var(--secondary-color)', fontSize: '0.9rem' }}>
-                  {textoPrecio(mueble)}
-                </span>
-              )
-            ) : (
-              textoPrecio(mueble)
-            )}
-          </span>
+          <ReferenciaProducto referencia={mueble.referencia} className="product-reference" />
+          {mueble.descripcion && (
+            <p className="product-description">{mueble.descripcion}</p>
+          )}
+          <div className="product-footer">
+            <span className="price-value">
+              {/* C2: vendida, el precio tachado; vendida y sin precio, nada. Si no, textoPrecio. */}
+              {esVendido ? (
+                tienePrecio(mueble) && (
+                  <span style={{ textDecoration: 'line-through', color: 'var(--secondary-color)', fontSize: '0.9rem' }}>
+                    {textoPrecio(mueble)}
+                  </span>
+                )
+              ) : (
+                textoPrecio(mueble)
+              )}
+            </span>
+            <span className="product-cta">
+              {esVendido ? 'Ver detalles →' : 'Solicitar información →'}
+            </span>
+          </div>
         </div>
       </Link>
       {isQuickViewOpen && <QuickViewModal mueble={mueble} onClose={() => setIsQuickViewOpen(false)} />}
