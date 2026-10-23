@@ -26,30 +26,18 @@ const HERO_SLIDE_INTERVAL_MS = 5500;
 // visto; la siguiente se pide este tiempo después de mostrar la actual, 2,5 s antes de que le toque.
 const HERO_PRECARGA_MS = 3000;
 
-// Las fotos que sube el administrador no tienen versiones de 800/1200 px (solo la que dejó el panel).
-const slidesDesdeAjustes = (urls) => {
-    const validas = Array.isArray(urls) ? urls.filter(u => typeof u === 'string' && u.trim() !== '') : [];
-    if (validas.length === 0) return HERO_SLIDES;
-    return validas.map((src, i) => ({ src, alt: `Foto ${i + 1} de la portada de Nave 5 Barcelona` }));
-};
-
 export default function Home() {
     const [categorias, setCategorias] = useState([]);
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);
-    // null mientras se leen los ajustes: así no se ve un instante la foto de respaldo antes de la elegida.
-    const [heroSlides, setHeroSlides] = useState(null);
     const [heroSlide, setHeroSlide] = useState(0);
     const [heroPedidas, setHeroPedidas] = useState(() => new Set([0]));
-    const [imagenesInspiracion, setImagenesInspiracion] = useState([]);
-    const [imagenSostenibilidad, setImagenSostenibilidad] = useState(null);
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
-    const slides = heroSlides ?? [];
+    const slides = HERO_SLIDES;
     const totalSlides = slides.length;
 
     useEffect(() => {
-        if (totalSlides < 2) return undefined;
         const timer = setInterval(() => {
             setHeroSlide(prev => (prev + 1) % totalSlides);
         }, HERO_SLIDE_INTERVAL_MS);
@@ -59,7 +47,6 @@ export default function Home() {
     // La foto que se ve se queda pedida (para el fundido al salir) y la siguiente se pide poco antes de
     // que le toque. Al pulsar un punto, la foto elegida sale en ese mismo render (ver abajo).
     useEffect(() => {
-        if (totalSlides === 0) return undefined;
         const anadir = (i) => setHeroPedidas(prev => (prev.has(i) ? prev : new Set(prev).add(i)));
         anadir(heroSlide);
         const siguiente = (heroSlide + 1) % totalSlides;
@@ -75,17 +62,8 @@ export default function Home() {
                     getAjustesHome()
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
-                setHeroSlides(slidesDesdeAjustes(ajustes?.hero_imagenes));
-                setImagenesInspiracion(
-                    Array.isArray(ajustes?.imagenes_seccion_inspiracion) ? ajustes.imagenes_seccion_inspiracion : []
-                );
-                setImagenSostenibilidad(
-                    typeof ajustes?.imagen_seccion_sostenibilidad === 'string' && ajustes.imagen_seccion_sostenibilidad.trim()
-                        ? ajustes.imagen_seccion_sostenibilidad.trim()
-                        : null
-                );
 
-                // Si el panel eligió piezas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
+                // Si el panel eligió piezas destacadas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
                 // elegidas existe ya (borradas), o no hay selección, se vuelve a las 4 más recientes.
                 const ids = Array.isArray(ajustes?.productos_destacados) ? ajustes.productos_destacados.map(String) : [];
                 let elegidas = [];
@@ -103,17 +81,13 @@ export default function Home() {
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
-                setHeroSlides(prev => prev ?? HERO_SLIDES);
                 setLoading(false);
             }
         };
         cargarPortada();
     }, []);
 
-    const fotosInspiracionValidas = imagenesInspiracion.filter(u => typeof u === 'string' && u.trim() !== '');
-    const fotosGaleria = fotosInspiracionValidas.length >= 2
-        ? fotosInspiracionValidas
-        : ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
+    const fotosGaleria = ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
 
     return (
         <>
@@ -244,22 +218,8 @@ export default function Home() {
                 </section>
 
                 {/* SEGUNDA VIDA */}
-                <section
-                    className={`home-sustainability reveal-init${imagenSostenibilidad ? ' home-sustainability--con-imagen' : ''}`}
-                    ref={sustainabilityRef}
-                >
+                <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
                     <div className="sustainability-layout">
-                        {imagenSostenibilidad && (
-                            <div className="sustainability-image-box">
-                                <img
-                                    src={imagenSostenibilidad}
-                                    alt="Restauración artesanal en Nave 5 Barcelona"
-                                    className="sustainability-img"
-                                    loading="lazy"
-                                    decoding="async"
-                                />
-                            </div>
-                        )}
                         <div className="sustainability-content">
                             <h2>El mueble más sostenible es el que ya existe</h2>
                             <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>

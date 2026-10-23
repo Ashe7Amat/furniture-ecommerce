@@ -4,10 +4,8 @@ import userEvent from '@testing-library/user-event';
 import PortadaTab from './PortadaTab';
 import { ToastContext } from '../../../context/ToastContext';
 import * as api from '../../../services/api';
-import * as imagenUtils from '../../../utils/imagen';
 
 vi.mock('../../../services/api');
-vi.mock('../../../utils/imagen');
 
 const MUEBLES_PRUEBA = [
   {
@@ -48,211 +46,47 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
   beforeEach(() => {
     vi.resetAllMocks();
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    imagenUtils.redimensionarImagen.mockImplementation(async (file) => file);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('muestra estado de carga inicialmente y luego renderiza los slots por defecto si no hay datos', async () => {
+  it('muestra estado de carga inicialmente y luego el estado vacío si no hay destacados', async () => {
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
       productos_destacados: []
     });
 
     renderPortadaTab();
 
-    expect(screen.getByText('Cargando ajustes de portada...')).toBeInTheDocument();
+    expect(screen.getByText('Cargando piezas destacadas...')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
     });
 
-    // 4 placeholders del carrusel Hero
-    expect(screen.getByText('Por defecto 1 (Almacén)')).toBeInTheDocument();
-    expect(screen.getByText('Por defecto 2 (Vista aérea)')).toBeInTheDocument();
-    expect(screen.getByText('Por defecto 3 (Butacas)')).toBeInTheDocument();
-    expect(screen.getByText('Por defecto 4 (Showroom)')).toBeInTheDocument();
-
-    // Estado vacío en destacados
     expect(screen.getByText('No hay ningún mueble destacado seleccionado.')).toBeInTheDocument();
+    expect(screen.getByText('0 muebles seleccionados')).toBeInTheDocument();
   });
 
-  it('muestra las imágenes del Hero y piezas destacadas cuando ya existen en la configuración', async () => {
+  it('muestra las piezas destacadas cuando ya existen en la configuración', async () => {
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [
-        'https://img.test/foto1.webp',
-        'https://img.test/foto2.webp'
-      ],
       productos_destacados: ['m1', 'm2']
     });
 
     renderPortadaTab();
 
     await waitFor(() => {
-      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
+      expect(screen.getByText('Aparador Nórdico de Roble')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Imagen 2')).toBeInTheDocument();
-    // Con fotos propias, los placeholders ya no salen: no hay huecos fijos
-    expect(screen.queryByText('Por defecto 3 (Butacas)')).not.toBeInTheDocument();
-    expect(screen.queryByText('Por defecto 4 (Showroom)')).not.toBeInTheDocument();
-
-    // Piezas destacadas
-    expect(screen.getByText('Aparador Nórdico de Roble')).toBeInTheDocument();
     expect(screen.getByText('Mesa de Centro Rústica')).toBeInTheDocument();
     expect(screen.getByText('2 muebles seleccionados')).toBeInTheDocument();
-  });
-
-  it('permite reordenar y eliminar imágenes del Hero', async () => {
-    const user = userEvent.setup();
-    api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [
-        'https://img.test/foto1.webp',
-        'https://img.test/foto2.webp'
-      ],
-      productos_destacados: []
-    });
-
-    renderPortadaTab();
-
-    await waitFor(() => {
-      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
-    });
-
-    // Bajar imagen 1 a la posición 2
-    const btnBajar = screen.getByRole('button', { name: 'Mover imagen 1 hacia abajo' });
-    await user.click(btnBajar);
-
-    // Comprobar que los botones de acción se actualizan
-    expect(screen.getByRole('button', { name: 'Mover imagen 2 hacia arriba' })).toBeInTheDocument();
-
-    // Eliminar la imagen 1
-    const btnEliminar = screen.getByRole('button', { name: 'Eliminar imagen 1' });
-    await user.click(btnEliminar);
-
-    // CAMBIADO A PROPÓSITO: el hero ya no tiene 4 huecos fijos; el resumen cuenta sobre el máximo (10)
-    expect(screen.getByText('Imágenes personalizadas: 1 de 10.')).toBeInTheDocument();
-    const heroSection = document.getElementById('seccion-hero');
-    expect(within(heroSection).getAllByRole('listitem')).toHaveLength(1);
-  });
-
-  it('permite subir una nueva imagen al Hero con optimización y Supabase Storage', async () => {
-    const user = userEvent.setup();
-    api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: ['https://img.test/foto1.webp'],
-      productos_destacados: []
-    });
-    api.subirImagenHero.mockResolvedValueOnce({
-      url: 'https://supabase.co/storage/v1/object/public/imagenes/home/nueva.webp'
-    });
-
-    renderPortadaTab();
-
-    await waitFor(() => {
-      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
-    });
-
-    const file = new File(['mock-image-content'], 'hero-nuevo.png', { type: 'image/png' });
-    const input = document.getElementById('seccion-hero-file-input');
-    expect(input).toBeInTheDocument();
-
-    await user.upload(input, file);
-
-    await waitFor(() => {
-      expect(api.subirImagenHero).toHaveBeenCalledTimes(1);
-    });
-
-    expect(imagenUtils.redimensionarImagen).toHaveBeenCalledTimes(1);
-    expect(showToastMock).toHaveBeenCalledWith('Imagen añadida al Hero', 'success');
-    expect(screen.getByText('Imagen 2')).toBeInTheDocument();
-  });
-
-  it('al subir dos imágenes seguidas se mantienen ambas sin sobrescribirse y el array tiene 2 elementos', async () => {
-    const user = userEvent.setup();
-    api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
-      productos_destacados: []
-    });
-    api.subirImagenHero
-      .mockResolvedValueOnce({ url: 'https://img.test/hero-primera.webp' })
-      .mockResolvedValueOnce({ url: 'https://img.test/hero-segunda.webp' });
-    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
-
-    renderPortadaTab();
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
-    });
-
-    const input = document.getElementById('seccion-hero-file-input');
-
-    // Subir primera imagen
-    const file1 = new File(['fake-1'], 'foto1.png', { type: 'image/png' });
-    await user.upload(input, file1);
-
-    await waitFor(() => {
-      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Imágenes personalizadas: 1 de 10.')).toBeInTheDocument();
-
-    // Subir segunda imagen seguida
-    const file2 = new File(['fake-2'], 'foto2.png', { type: 'image/png' });
-    await user.upload(input, file2);
-
-    await waitFor(() => {
-      expect(screen.getByText('Imagen 2')).toBeInTheDocument();
-    });
-    expect(screen.getByText('Imágenes personalizadas: 2 de 10.')).toBeInTheDocument();
-
-    // Guardar cambios y comprobar que se envían las 2 imágenes al endpoint
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios de la portada' }));
-
-    expect(api.actualizarAjustesHome).toHaveBeenCalledWith(
-      expect.objectContaining({
-        hero_imagenes: [
-          'https://img.test/hero-primera.webp',
-          'https://img.test/hero-segunda.webp'
-        ]
-      })
-    );
-  });
-
-  it('el hero admite más de 4 imágenes y la nueva se añade al final, hasta un máximo de 10', async () => {
-    const user = userEvent.setup();
-    const seis = Array.from({ length: 6 }, (_, i) => `https://img.test/h${i + 1}.webp`);
-    api.getAjustesHome.mockResolvedValueOnce({ hero_imagenes: seis, productos_destacados: [] });
-    api.subirImagenHero.mockResolvedValueOnce({ url: 'https://img.test/h7.webp' });
-    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
-
-    renderPortadaTab();
-    await waitFor(() => expect(screen.getByText('Imagen 6')).toBeInTheDocument());
-
-    await user.upload(document.getElementById('seccion-hero-file-input'), new File(['x'], 'h7.png', { type: 'image/png' }));
-    await waitFor(() => expect(screen.getByText('Imagen 7')).toBeInTheDocument());
-    expect(screen.getByAltText('Imagen de portada 7')).toHaveAttribute('src', 'https://img.test/h7.webp');
-
-    await user.click(screen.getByRole('button', { name: 'Guardar cambios de la portada' }));
-    expect(api.actualizarAjustesHome).toHaveBeenCalledWith(
-      expect.objectContaining({ hero_imagenes: [...seis, 'https://img.test/h7.webp'] })
-    );
-  });
-
-  it('con 10 imágenes en el hero no se puede subir otra', async () => {
-    const diez = Array.from({ length: 10 }, (_, i) => `https://img.test/h${i + 1}.webp`);
-    api.getAjustesHome.mockResolvedValueOnce({ hero_imagenes: diez, productos_destacados: [] });
-
-    renderPortadaTab();
-    await waitFor(() => expect(screen.getByText('Imagen 10')).toBeInTheDocument());
-
-    expect(screen.getByRole('button', { name: 'Subir nueva imagen al carrusel Hero' })).toBeDisabled();
   });
 
   it('permite buscar y añadir un mueble a la lista de destacados', async () => {
     const user = userEvent.setup();
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
       productos_destacados: ['m1']
     });
 
@@ -282,7 +116,6 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
   it('permite quitar y reordenar un mueble de la lista de destacados', async () => {
     const user = userEvent.setup();
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
       productos_destacados: ['m1', 'm2']
     });
 
@@ -307,87 +140,34 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
   it('llama a actualizarAjustesHome al hacer clic en Guardar cambios y muestra toast de éxito', async () => {
     const user = userEvent.setup();
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: ['https://img.test/hero1.webp'],
-      productos_destacados: ['m1']
+      productos_destacados: ['m1', 'm2']
     });
-    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
+    api.actualizarAjustesHome.mockResolvedValueOnce({
+      success: true,
+      data: { productos_destacados: ['m1', 'm2'] }
+    });
 
     renderPortadaTab();
 
     await waitFor(() => {
-      expect(screen.getByText('Imagen 1')).toBeInTheDocument();
+      expect(screen.getByText('Aparador Nórdico de Roble')).toBeInTheDocument();
     });
 
     const btnGuardar = screen.getByRole('button', { name: 'Guardar cambios de la portada' });
     await user.click(btnGuardar);
 
     expect(api.actualizarAjustesHome).toHaveBeenCalledWith({
-      hero_imagenes: ['https://img.test/hero1.webp'],
-      productos_destacados: ['m1'],
-      imagenes_seccion_inspiracion: [],
-      imagen_seccion_sostenibilidad: null
+      productos_destacados: ['m1', 'm2']
     });
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('Ajustes de portada guardados correctamente', 'success');
-    });
-  });
-
-  it('el botón de vista previa abre el modal de previsualización de portada', async () => {
-    const user = userEvent.setup();
-
-    api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
-      productos_destacados: []
-    });
-
-    renderPortadaTab();
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
-    });
-
-    const btnVistaPrevia = screen.getByRole('button', {
-      name: /vista previa/i
-    });
-    await user.click(btnVistaPrevia);
-
-    expect(screen.getByRole('dialog', { name: /vista previa de la portada/i })).toBeInTheDocument();
-  });
-
-  it('guarda los cambios de inspiración y sostenibilidad al pulsar Guardar cambios', async () => {
-    const user = userEvent.setup();
-    api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
-      productos_destacados: [],
-      imagenes_seccion_inspiracion: ['https://img.test/insp1.webp'],
-      imagen_seccion_sostenibilidad: 'https://img.test/sost.webp'
-    });
-    api.actualizarAjustesHome.mockResolvedValueOnce({ success: true });
-
-    renderPortadaTab();
-
-    await waitFor(() => {
-      expect(screen.getByText('Galería: Espacios que inspiran')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Sección Sostenibilidad (Segunda vida)')).toBeInTheDocument();
-
-    const btnGuardar = screen.getByRole('button', { name: 'Guardar cambios de la portada' });
-    await user.click(btnGuardar);
-
-    expect(api.actualizarAjustesHome).toHaveBeenCalledWith({
-      hero_imagenes: [],
-      productos_destacados: [],
-      imagenes_seccion_inspiracion: ['https://img.test/insp1.webp'],
-      imagen_seccion_sostenibilidad: 'https://img.test/sost.webp'
+      expect(showToastMock).toHaveBeenCalledWith('Piezas destacadas guardadas correctamente', 'success');
     });
   });
 
   it('muestra toast de error si la llamada de Guardar cambios falla', async () => {
     const user = userEvent.setup();
     api.getAjustesHome.mockResolvedValueOnce({
-      hero_imagenes: [],
       productos_destacados: []
     });
     api.actualizarAjustesHome.mockResolvedValueOnce(null);
@@ -402,7 +182,23 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     await user.click(btnGuardar);
 
     await waitFor(() => {
-      expect(showToastMock).toHaveBeenCalledWith('Error al guardar los ajustes de portada', 'error');
+      expect(showToastMock).toHaveBeenCalledWith('Error al guardar las piezas destacadas', 'error');
     });
+  });
+
+  it('el botón Ver portada enlaza a la raíz en una nueva pestaña', async () => {
+    api.getAjustesHome.mockResolvedValueOnce({
+      productos_destacados: []
+    });
+
+    renderPortadaTab();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Portada' })).toBeInTheDocument();
+    });
+
+    const enlacePortada = screen.getByRole('link', { name: 'Ver portada de la tienda en una pestaña nueva' });
+    expect(enlacePortada).toHaveAttribute('href', '/');
+    expect(enlacePortada).toHaveAttribute('target', '_blank');
   });
 });

@@ -231,66 +231,37 @@ describe('Home — textos y piezas destacadas', () => {
   });
 });
 
-describe('Home — hero con las fotos elegidas desde el panel', () => {
-  const urls = (n) => Array.from({ length: n }, (_, i) => `https://img.test/hero${i + 1}.webp`);
+describe('Home — carrusel hero estático con 4 fotos de siempre', () => {
   const activa = () => document.querySelector('.hero-slide-img.is-active').getAttribute('src');
   const pasar = (ms) => act(() => { vi.advanceTimersByTime(ms); });
 
-  it('con 6 fotos hay 6 puntos y rota entre las 6, dando la vuelta', async () => {
+  it('usa siempre las 4 fotos estáticas por defecto con sus 4 puntos y rota entre ellas', async () => {
     vi.useFakeTimers();
     try {
-      getAjustesHome.mockResolvedValue({ hero_imagenes: urls(6), productos_destacados: [] });
+      getAjustesHome.mockResolvedValue({ productos_destacados: [] });
       await renderHome();
 
-      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 6$/ })).toHaveLength(6);
-      expect(activa()).toBe('https://img.test/hero1.webp');
-      for (let i = 0; i < 5; i += 1) await pasar(5500);
-      expect(activa()).toBe('https://img.test/hero6.webp');
+      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 4$/ })).toHaveLength(4);
+      expect(activa()).toBe('/img/hero-almacen.webp');
       await pasar(5500);
-      expect(activa()).toBe('https://img.test/hero1.webp');
+      expect(activa()).toBe('/img/hero-aerea.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-sillones.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-showroom.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-almacen.webp');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('las fotos del panel son <img> sin versiones de móvil ni tableta', async () => {
-    getAjustesHome.mockResolvedValue({ hero_imagenes: urls(2), productos_destacados: [] });
+  it('las fotos estáticas del hero tienen sus fuentes responsive para móvil y tableta', async () => {
+    getAjustesHome.mockResolvedValue({ productos_destacados: [] });
     await renderHome();
-    expect(document.querySelectorAll('.hero-image-box picture source')).toHaveLength(0);
-    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', 'Foto 1 de la portada de Nave 5 Barcelona');
-  });
-
-  it('con una sola foto no hay puntos ni rotación', async () => {
-    getAjustesHome.mockResolvedValue({ hero_imagenes: urls(1), productos_destacados: [] });
-    await renderHome();
-    expect(screen.queryByRole('button', { name: /Ver foto/ })).toBeNull();
-    expect(activa()).toBe('https://img.test/hero1.webp');
-  });
-
-  it('sin fotos guardadas (o con la API caída) usa las 4 de siempre', async () => {
-    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: [] });
-    await renderHome();
-    expect(screen.getAllByRole('button', { name: /^Ver foto \d de 4$/ })).toHaveLength(4);
-    expect(activa()).toBe('/img/hero-almacen.webp');
-  });
-
-  it('el carrusel adapta dinámicamente sus puntos y rotación a cualquier número N de imágenes (ej. 3 fotos)', async () => {
-    vi.useFakeTimers();
-    try {
-      getAjustesHome.mockResolvedValue({ hero_imagenes: urls(3), productos_destacados: [] });
-      await renderHome();
-
-      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 3$/ })).toHaveLength(3);
-      expect(activa()).toBe('https://img.test/hero1.webp');
-      await pasar(5500);
-      expect(activa()).toBe('https://img.test/hero2.webp');
-      await pasar(5500);
-      expect(activa()).toBe('https://img.test/hero3.webp');
-      await pasar(5500);
-      expect(activa()).toBe('https://img.test/hero1.webp');
-    } finally {
-      vi.useRealTimers();
-    }
+    const sources = document.querySelectorAll('.hero-image-box picture source');
+    expect(sources.length).toBeGreaterThan(0);
+    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', 'Vista general del almacén de Nave 5 Barcelona');
   });
 });
 
@@ -352,13 +323,10 @@ describe('Home — destacados elegidos desde el panel', () => {
   });
 });
 
-describe('Home — galería de inspiración y sostenibilidad configurables', () => {
-  it('usa las fotos e imagen predeterminadas si no hay configuración guardada', async () => {
+describe('Home — galería de inspiración y sostenibilidad estáticas', () => {
+  it('muestra las 2 fotos de ambiente fijas y el bloque de sostenibilidad original', async () => {
     getAjustesHome.mockResolvedValue({
-      hero_imagenes: [],
-      productos_destacados: [],
-      imagenes_seccion_inspiracion: [],
-      imagen_seccion_sostenibilidad: null
+      productos_destacados: []
     });
     await renderHome();
 
@@ -366,33 +334,6 @@ describe('Home — galería de inspiración y sostenibilidad configurables', () 
     expect(imgs).toHaveLength(2);
     expect(imgs[0]).toHaveAttribute('src', '/img/galeria-rincon.webp');
     expect(imgs[1]).toHaveAttribute('src', '/img/galeria-butacas.webp');
-    expect(document.querySelector('.home-sustainability--con-imagen')).toBeNull();
-  });
-
-  it('renderiza fotos personalizadas de inspiración y fotografía en sostenibilidad', async () => {
-    getAjustesHome.mockResolvedValue({
-      hero_imagenes: [],
-      productos_destacados: [],
-      imagenes_seccion_inspiracion: [
-        'https://img.test/insp1.webp',
-        'https://img.test/insp2.webp',
-        'https://img.test/insp3.webp'
-      ],
-      imagen_seccion_sostenibilidad: 'https://img.test/sost-foto.webp'
-    });
-    await renderHome();
-
-    const grid = document.querySelector('.gallery-grid');
-    expect(grid).toHaveClass('gallery-grid--tres');
-    const imgs = grid.querySelectorAll('img.gallery-img');
-    expect(imgs).toHaveLength(3);
-    expect(imgs[0]).toHaveAttribute('src', 'https://img.test/insp1.webp');
-    expect(imgs[1]).toHaveAttribute('src', 'https://img.test/insp2.webp');
-    expect(imgs[2]).toHaveAttribute('src', 'https://img.test/insp3.webp');
-
-    const sosten = document.querySelector('.home-sustainability');
-    expect(sosten).toHaveClass('home-sustainability--con-imagen');
-    const sostenImg = sosten.querySelector('img.sustainability-img');
-    expect(sostenImg).toHaveAttribute('src', 'https://img.test/sost-foto.webp');
+    expect(screen.getByText('El mueble más sostenible es el que ya existe')).toBeInTheDocument();
   });
 });
