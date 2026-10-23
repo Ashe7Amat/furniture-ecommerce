@@ -72,7 +72,9 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!conReservas || !muebleId) return undefined;
     let vigente = true;
-    getDisponibilidad(muebleId).then(({ data }) => {
+    const peticion = getDisponibilidad(muebleId);
+    if (!peticion || typeof peticion.then !== 'function') return undefined;
+    peticion.then(({ data } = {}) => {
       if (!vigente) return;
       setDisponibilidad((anterior) =>
         data
@@ -80,6 +82,11 @@ const ProductDetail = () => {
           : anterior.para === muebleId
             ? anterior
             : { para: muebleId, estado: 'fallo' }
+      );
+    }).catch(() => {
+      if (!vigente) return;
+      setDisponibilidad((anterior) =>
+        anterior.para === muebleId ? anterior : { para: muebleId, estado: 'fallo' }
       );
     });
     return () => {
@@ -165,6 +172,25 @@ const ProductDetail = () => {
   const conCalendario = Boolean(
     datosDisp?.alquilable && datosDisp.precio_dia_centimos != null && mueble.estado !== 'alquilado'
   );
+
+  const datosDispNormalizados = datosDisp ? {
+    ...datosDisp,
+    precio_dia_centimos: datosDisp.precio_dia_centimos ?? (mueble.precio_alquiler_dia ? Math.round(Number(mueble.precio_alquiler_dia) * 100) : null)
+  } : null;
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
+    console.log('[ProductDetail Reservas]', {
+      conReservas,
+      muebleId: mueble.id,
+      referencia: mueble.referencia,
+      precioAlquilerDia: mueble.precio_alquiler_dia,
+      estado: mueble.estado,
+      disponibilidad,
+      datosDisp,
+      conCalendario
+    });
+  }
+
   const bloqueadaPorReservas =
     datosDisp?.comprable === false && datosDisp.motivo_no_comprable === 'reservas_activas';
   const noComprable = datosDisp?.comprable === false;
@@ -415,7 +441,7 @@ const ProductDetail = () => {
               <PanelReserva
                 key={mueble.id}
                 mueble={mueble}
-                disponibilidad={datosDisp}
+                disponibilidad={datosDispNormalizados}
                 onRecargar={() => setRecargas((n) => n + 1)}
                 precioEnCabecera={!mueble.precio_venta}
               />

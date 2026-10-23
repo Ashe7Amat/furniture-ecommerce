@@ -152,6 +152,17 @@ const PanelReserva = ({ mueble, disponibilidad, onRecargar, precioEnCabecera = f
   else if (!verificado) nota = CONFIRMA_EMAIL_PARA_RESERVAR;
   else if (!seleccion) nota = 'Elige en el calendario los días de entrega y de recogida.';
 
+  if (!disponibilidad) {
+    return (
+      <section className="reserva-panel" aria-labelledby={`${id}-titulo`}>
+        <h2 id={`${id}-titulo`} className="reserva-panel-titulo">
+          Alquilar por fechas
+        </h2>
+        <p className="reserva-panel-ayuda">Consultando disponibilidad…</p>
+      </section>
+    );
+  }
+
   return (
     <section className="reserva-panel" aria-labelledby={`${id}-titulo`}>
       <h2 id={`${id}-titulo`} className="reserva-panel-titulo">
