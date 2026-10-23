@@ -22,6 +22,11 @@ const PLACEHOLDERS_INSPIRACION = [
   { url: '/img/galeria-butacas.webp', titulo: 'Por defecto 2 (Butacas de cine)' }
 ];
 
+const limpiarArrayUrls = (arr) =>
+  (Array.isArray(arr) ? arr : [])
+    .map((item) => (typeof item === 'string' ? item : item?.url || ''))
+    .filter((u) => typeof u === 'string' && u.trim().length > 0 && u !== '[object Object]');
+
 const PortadaTab = ({ muebles = [] }) => {
   const { showToast } = useContext(ToastContext);
   const [cargando, setCargando] = useState(true);
@@ -37,7 +42,7 @@ const PortadaTab = ({ muebles = [] }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [heroPreviewIdx, setHeroPreviewIdx] = useState(0);
 
-  // Cargar configuración existente
+  // Cargar configuración existente una sola vez al montar
   useEffect(() => {
     let cancelado = false;
     const cargar = async () => {
@@ -45,14 +50,12 @@ const PortadaTab = ({ muebles = [] }) => {
       try {
         const datos = await getAjustesHome();
         if (!cancelado && datos) {
-          setHeroImagenes(Array.isArray(datos.hero_imagenes) ? datos.hero_imagenes : []);
+          setHeroImagenes(limpiarArrayUrls(datos.hero_imagenes));
           setProductosDestacados(Array.isArray(datos.productos_destacados) ? datos.productos_destacados : []);
-          setImagenesInspiracion(
-            Array.isArray(datos.imagenes_seccion_inspiracion) ? datos.imagenes_seccion_inspiracion : []
-          );
+          setImagenesInspiracion(limpiarArrayUrls(datos.imagenes_seccion_inspiracion));
           setImagenSostenibilidad(
             typeof datos.imagen_seccion_sostenibilidad === 'string' && datos.imagen_seccion_sostenibilidad.trim()
-              ? [datos.imagen_seccion_sostenibilidad]
+              ? [datos.imagen_seccion_sostenibilidad.trim()]
               : []
           );
         }
@@ -68,7 +71,8 @@ const PortadaTab = ({ muebles = [] }) => {
     return () => {
       cancelado = true;
     };
-  }, [showToast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Cerrar el modal con Escape
   useEffect(() => {
@@ -103,17 +107,26 @@ const PortadaTab = ({ muebles = [] }) => {
     });
   };
 
-  // Manejo de cambios en las secciones de imágenes (soporta updater funcional)
+  // Manejo de cambios en las secciones de imágenes (soporta updater funcional y limpia URLs)
   const handleCambioHero = (nuevas) => {
-    setHeroImagenes((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+    setHeroImagenes((prev) => {
+      const res = typeof nuevas === 'function' ? nuevas(prev) : nuevas;
+      return limpiarArrayUrls(res);
+    });
   };
 
   const handleCambioInspiracion = (nuevas) => {
-    setImagenesInspiracion((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+    setImagenesInspiracion((prev) => {
+      const res = typeof nuevas === 'function' ? nuevas(prev) : nuevas;
+      return limpiarArrayUrls(res);
+    });
   };
 
   const handleCambioSostenibilidad = (nuevas) => {
-    setImagenSostenibilidad((prev) => (typeof nuevas === 'function' ? nuevas(prev) : nuevas));
+    setImagenSostenibilidad((prev) => {
+      const res = typeof nuevas === 'function' ? nuevas(prev) : nuevas;
+      return limpiarArrayUrls(res).slice(0, 1);
+    });
   };
 
   // Guardar cambios generales (PUT)
@@ -121,16 +134,18 @@ const PortadaTab = ({ muebles = [] }) => {
     setGuardando(true);
     try {
       const res = await actualizarAjustesHome({
-        hero_imagenes: heroImagenes,
-        productos_destacados: productosDestacados,
-        imagenes_seccion_inspiracion: imagenesInspiracion,
+        hero_imagenes: limpiarArrayUrls(heroImagenes),
+        productos_destacados: Array.isArray(productosDestacados) ? productosDestacados : [],
+        imagenes_seccion_inspiracion: limpiarArrayUrls(imagenesInspiracion),
         imagen_seccion_sostenibilidad: imagenSostenibilidad[0] || null
       });
       if (res?.success) {
         if (res?.data) {
-          if (Array.isArray(res.data.hero_imagenes)) setHeroImagenes(res.data.hero_imagenes);
+          if (res.data.hero_imagenes) setHeroImagenes(limpiarArrayUrls(res.data.hero_imagenes));
           if (Array.isArray(res.data.productos_destacados)) setProductosDestacados(res.data.productos_destacados);
-          if (Array.isArray(res.data.imagenes_seccion_inspiracion)) setImagenesInspiracion(res.data.imagenes_seccion_inspiracion);
+          if (res.data.imagenes_seccion_inspiracion) {
+            setImagenesInspiracion(limpiarArrayUrls(res.data.imagenes_seccion_inspiracion));
+          }
           if (res.data.imagen_seccion_sostenibilidad) {
             setImagenSostenibilidad([res.data.imagen_seccion_sostenibilidad]);
           } else {

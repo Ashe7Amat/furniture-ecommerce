@@ -71,18 +71,23 @@ const SeccionImagenes = ({
 
         setMensaje(`Subiendo a Supabase Storage${sufijo}...`);
         const resultado = await subirImagenHero(optimizada);
+        const urlFinal = typeof resultado === 'string' ? resultado : resultado?.url;
 
-        if (resultado?.url) {
-          nuevasUrls.push(resultado.url);
+        if (typeof urlFinal === 'string' && urlFinal.trim().length > 0 && urlFinal !== '[object Object]') {
+          nuevasUrls.push(urlFinal.trim());
         } else {
           showToast?.(`Error al subir "${file.name}" a Storage`, 'error');
         }
       }
 
+      console.log('Nuevas URLs a añadir:', nuevasUrls);
+
       if (nuevasUrls.length > 0) {
-        // Actualización funcional acumulando todas las nuevas URLs
+        // Actualización funcional acumulando todas las nuevas URLs como strings válidos
         onChange((prev) => {
-          const base = Array.isArray(prev) ? prev : [];
+          const base = (Array.isArray(prev) ? prev : [])
+            .map((item) => (typeof item === 'string' ? item : item?.url || ''))
+            .filter((u) => typeof u === 'string' && u.trim().length > 0 && u !== '[object Object]');
           return sustituye ? [nuevasUrls[0]] : [...base, ...nuevasUrls];
         });
 
@@ -118,6 +123,8 @@ const SeccionImagenes = ({
       return base;
     });
   };
+
+  console.log('Imágenes a renderizar:', imagenes);
 
   const resumen =
     imagenes.length === 0
@@ -204,27 +211,30 @@ const SeccionImagenes = ({
               </div>
             </div>
           ))
-          : imagenes.map((url, i) => (
-            <div key={`${url}-${i}`} className="hero-slot hero-slot--activo" role="listitem">
-              <div className="hero-slot-preview">
-                <img
-                  src={url}
-                  alt={`${Etiqueta} de portada ${i + 1}`}
-                  className="hero-slot-img"
-                  style={{
-                    width: '100%',
-                    aspectRatio: '1 / 1',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    display: 'block'
-                  }}
-                />
-                <span className="hero-slot-badge">#{i + 1}</span>
-              </div>
-              <div className="hero-slot-info">
-                <span className="hero-slot-label">
-                  {Etiqueta} {i + 1}
-                </span>
+          : imagenes.map((imgItem, i) => {
+            const url = typeof imgItem === 'string' ? imgItem : imgItem?.url || '';
+            if (!url || url === '[object Object]') return null;
+            return (
+              <div key={`${url}-${i}`} className="hero-slot hero-slot--activo" role="listitem">
+                <div className="hero-slot-preview">
+                  <img
+                    src={url}
+                    alt={`${Etiqueta} de portada ${i + 1}`}
+                    className="hero-slot-img"
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: '8px',
+                      display: 'block'
+                    }}
+                  />
+                  <span className="hero-slot-badge">#{i + 1}</span>
+                </div>
+                <div className="hero-slot-info">
+                  <span className="hero-slot-label">
+                    {Etiqueta} {i + 1}
+                  </span>
                 <div className="hero-slot-acciones">
                   {!sustituye && (
                     <>
@@ -262,7 +272,8 @@ const SeccionImagenes = ({
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
       </div>
     </section>
   );

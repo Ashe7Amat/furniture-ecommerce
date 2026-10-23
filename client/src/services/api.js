@@ -758,7 +758,8 @@ export const subirImagenHero = async (file) => {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.error || 'Error al subir imagen de portada');
     }
-    return await response.json();
+    const data = await response.json();
+    return typeof data?.url === 'string' ? data.url : (data || null);
   } catch (error) {
     console.error('Error en subirImagenHero:', error);
     return null;
