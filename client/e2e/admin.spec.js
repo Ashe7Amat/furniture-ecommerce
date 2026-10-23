@@ -86,7 +86,7 @@ const prepararEditorDeFotos = async (page) => {
 const abrirEditorDeLaSilla = async (page) => {
   await page.goto('/admin');
   await page.getByRole('button', { name: 'Gestionar Inventario' }).click();
-  await page.locator('.inventory-list-item', { hasText: 'Silla Tolix Verde' }).getByRole('button', { name: 'Editar' }).click();
+  await page.locator('.inventory-list-item', { hasText: 'Silla Tolix Verde' }).getByRole('button', { name: 'Editar', exact: true }).click();
   const galeria = page.getByRole('list', { name: 'Fotos del mueble, en orden' });
   await expect(galeria).toBeVisible();
   return galeria;
@@ -198,5 +198,46 @@ test('el Resumen descarga el CSV de clientes', async ({ page }) => {
   const contenido = await readFile(await descarga.path(), 'utf8');
   expect(contenido).toBe(CSV);
   await expect(page.getByText('Clientes exportados')).toBeVisible();
+  expect(errores).toEqual([]);
+});
+
+// Modo admin en la ficha pública (21 oct 2026): la barra cabe en el móvil sin desplazar la página en
+// horizontal, y «Editar en panel» abre el editor de la pieza en /admin?editar={id}; al cerrarlo, el
+// parámetro sale de la URL.
+test('modo admin en la ficha: la barra cabe en el móvil y «Editar en panel» abre el editor', async ({ page }) => {
+  const errores = vigilarConsola(page);
+  const { sinSimular } = await simularApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await iniciarSesion(page, ADMIN);
+
+  // Sin recargar (el access token vive en memoria): se navega dentro de la web.
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/mueble/m3');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  const barra = page.getByRole('region', { name: 'Modo admin' });
+  await expect(barra).toContainText('Modo admin: Mesa de Roble Restaurada');
+
+  const caja = await barra.boundingBox();
+  expect(caja.x).toBeGreaterThanOrEqual(16);
+  expect(caja.x + caja.width).toBeLessThanOrEqual(390 - 16);
+  expect(caja.y + caja.height).toBeLessThanOrEqual(844);
+  const { ancho, visible } = await page.evaluate(() => ({
+    ancho: document.documentElement.scrollWidth,
+    visible: document.documentElement.clientWidth
+  }));
+  expect(ancho).toBeLessThanOrEqual(visible);
+
+  await barra.getByRole('link', { name: 'Editar en panel' }).click();
+  await expect(page).toHaveURL('/admin?editar=m3');
+  const editor = page.locator('.admin-modal-content');
+  await expect(editor.getByRole('heading', { name: 'Editar Producto' })).toBeVisible();
+  await expect(editor.getByRole('textbox').nth(1)).toHaveValue('Mesa de Roble Restaurada');
+
+  await editor.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(page).toHaveURL('/admin');
+  await expect(editor).toHaveCount(0);
+
+  expect(sinSimular).toEqual([]);
   expect(errores).toEqual([]);
 });

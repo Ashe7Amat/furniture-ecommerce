@@ -41,6 +41,8 @@ describe('App — rutas', () => {
     ['/terminos', 'Términos y Condiciones'],
     ['/checkout/cancelado', 'Pago cancelado'],
     ['/verificar-email?token=abc', 'Confirma tu email'],
+    ['/forgot-password', 'Recuperar contraseña'],
+    ['/reset-password', 'Restablecer contraseña'],
     ['/esto-no-existe', 'Esta pieza no está en el almacén']
   ])('%s pinta su página', async (ruta, titulo) => {
     visitar(ruta);
@@ -71,6 +73,8 @@ describe('App — rutas', () => {
     ['/contacto', 'Conecta con Nosotros'],
     ['/cuenta', 'Mi Cuenta'],
     ['/sobre-nosotros', 'Nave 5 Barcelona'],
+    ['/forgot-password', 'Recuperar contraseña'],
+    ['/reset-password', 'Restablecer contraseña'],
     ['/esto-no-existe', 'Esta pieza no está en el almacén']
   ])('%s: exactamente un h1 y los títulos no se saltan niveles (H43)', async (ruta, h1) => {
     api.getMuebles.mockResolvedValue([MUEBLE, { ...MUEBLE, id: 'm2', nombre: 'Banco' }]);

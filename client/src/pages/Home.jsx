@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getMuebles, getCategorias } from '../services/api';
-import { textoPrecio } from '../utils/format';
+import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
 import { useScrollReveal } from '../utils/useScrollReveal';
-import { PLACEHOLDER_IMG } from '../utils/images';
 import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
-import ReferenciaProducto from '../components/ReferenciaProducto';
+import ProductCard from '../components/ProductCard';
 import VistosEn from '../components/VistosEn';
 import '../styles/Home.css';
 
@@ -36,33 +34,50 @@ export default function Home() {
     const [heroPedidas, setHeroPedidas] = useState(() => new Set([0]));
     const galleryRef = useScrollReveal();
     const sustainabilityRef = useScrollReveal();
+    const slides = HERO_SLIDES;
+    const totalSlides = slides.length;
 
     useEffect(() => {
         const timer = setInterval(() => {
-            setHeroSlide(prev => (prev + 1) % HERO_SLIDES.length);
+            setHeroSlide(prev => (prev + 1) % totalSlides);
         }, HERO_SLIDE_INTERVAL_MS);
         return () => clearInterval(timer);
-    }, []);
+    }, [totalSlides]);
 
     // La foto que se ve se queda pedida (para el fundido al salir) y la siguiente se pide poco antes de
     // que le toque. Al pulsar un punto, la foto elegida sale en ese mismo render (ver abajo).
     useEffect(() => {
         const anadir = (i) => setHeroPedidas(prev => (prev.has(i) ? prev : new Set(prev).add(i)));
         anadir(heroSlide);
-        const siguiente = (heroSlide + 1) % HERO_SLIDES.length;
+        const siguiente = (heroSlide + 1) % totalSlides;
         const pedirSiguiente = setTimeout(() => anadir(siguiente), HERO_PRECARGA_MS);
         return () => clearTimeout(pedirSiguiente);
-    }, [heroSlide]);
+    }, [heroSlide, totalSlides]);
 
     useEffect(() => {
         const cargarPortada = async () => {
             try {
-                const [dataCat, dataMue] = await Promise.all([
+                const [dataCat, ajustes] = await Promise.all([
                     getCategorias(),
-                    getMuebles({ limit: 4 })
+                    getAjustesHome()
                 ]);
                 setCategorias(Array.isArray(dataCat) ? dataCat : []);
-                setDestacados(Array.isArray(dataMue) ? dataMue : []);
+
+                // Si el panel eligió piezas destacadas, se enseñan EXCLUSIVAMENTE esas y en su orden. Si ninguna de las
+                // elegidas existe ya (borradas), o no hay selección, se vuelve a las 4 más recientes.
+                const ids = Array.isArray(ajustes?.productos_destacados) ? ajustes.productos_destacados.map(String) : [];
+                let elegidas = [];
+                if (ids.length > 0) {
+                    const todos = await getMuebles();
+                    const porId = new Map((Array.isArray(todos) ? todos : []).map(m => [String(m.id), m]));
+                    elegidas = ids.map(id => porId.get(id)).filter(Boolean);
+                }
+                if (elegidas.length > 0) {
+                    setDestacados(elegidas);
+                } else {
+                    const recientes = await getMuebles({ limit: 4 });
+                    setDestacados(Array.isArray(recientes) ? recientes : []);
+                }
             } catch (error) {
                 console.error("Error al alimentar la portada:", error);
             } finally {
@@ -71,6 +86,8 @@ export default function Home() {
         };
         cargarPortada();
     }, []);
+
+    const fotosGaleria = ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
 
     return (
         <>
@@ -90,10 +107,10 @@ export default function Home() {
                     </div>
                 </div>
                 <div className="hero-image-box">
-                    {HERO_SLIDES.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
+                    {slides.map((slide, i) => (heroPedidas.has(i) || i === heroSlide) && (
                         // <picture> no cambia la maqueta: la <img> sigue posicionada respecto a .hero-image-box.
-                        <picture key={slide.src}>
-                            <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />
+                        <picture key={`${slide.src}-${i}`}>
+                            {slide.movil && <source media={HERO_MEDIA_MOVIL} srcSet={slide.movil} />}
                             {slide.tableta && <source media={HERO_MEDIA_TABLETA} srcSet={slide.tableta} />}
                             <img
                                 src={slide.src}
@@ -108,18 +125,20 @@ export default function Home() {
                             />
                         </picture>
                     ))}
+                    {totalSlides > 1 && (
                     <div className="hero-slide-dots">
-                        {HERO_SLIDES.map((slide, i) => (
+                        {slides.map((slide, i) => (
                             <button
-                                key={slide.src}
+                                key={`${slide.src}-${i}`}
                                 type="button"
                                 className={`hero-dot${i === heroSlide ? ' is-active' : ''}`}
-                                aria-label={`Ver foto ${i + 1} de ${HERO_SLIDES.length}`}
+                                aria-label={`Ver foto ${i + 1} de ${totalSlides}`}
                                 aria-current={i === heroSlide}
                                 onClick={() => setHeroSlide(i)}
                             />
                         ))}
                     </div>
+                    )}
                 </div>
             </section>
 
@@ -157,20 +176,7 @@ export default function Home() {
                     ) : (
                         <div className="home-products-grid">
                             {destacados.map(mueble => (
-                                <Link to={`/mueble/${mueble.id}`} key={mueble.id} className="home-product-card">
-                                    <div className="home-card-img-holder">
-                                        <img src={mueble.imagenes?.[0] || PLACEHOLDER_IMG} alt={mueble.nombre} loading="lazy" decoding="async" />
-                                        {mueble.estado && <span className={`card-state-tag ${mueble.estado}`}>{mueble.estado.toUpperCase()}</span>}
-                                    </div>
-                                    <div className="home-card-meta">
-                                        <h3>{mueble.nombre}</h3>
-                                        <ReferenciaProducto referencia={mueble.referencia} className="ref-producto--etiqueta" />
-                                        <p className="home-card-desc">{mueble.descripcion}</p>
-                                        <span className="home-card-price">
-                                            {textoPrecio(mueble)}
-                                        </span>
-                                    </div>
-                                </Link>
+                                <ProductCard key={mueble.id} mueble={mueble} />
                             ))}
                         </div>
                     )}
@@ -181,21 +187,43 @@ export default function Home() {
 
                 {/* GALERÍA DE AMBIENTE */}
                 <section className="home-gallery-section reveal-init" ref={galleryRef}>
-                    <div className="gallery-grid">
-                        <img src="/img/galeria-rincon.webp" alt="Rincón de decoración en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                    <div className={`gallery-grid${fotosGaleria.length >= 3 ? ' gallery-grid--tres' : ''}`}>
+                        <img
+                            src={fotosGaleria[0]}
+                            alt="Espacio decorativo en Nave 5 Barcelona"
+                            className="gallery-img"
+                            loading="lazy"
+                            decoding="async"
+                        />
                         <div className="gallery-text-block">
                             <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
                         </div>
-                        <img src="/img/galeria-butacas.webp" alt="Butacas de cine restauradas en el almacén de Nave 5" className="gallery-img" loading="lazy" decoding="async" />
+                        <img
+                            src={fotosGaleria[1]}
+                            alt="Detalle de muebles restaurados en Nave 5 Barcelona"
+                            className="gallery-img"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                        {fotosGaleria.length >= 3 && (
+                            <img
+                                src={fotosGaleria[2]}
+                                alt="Ambiente singular en Nave 5 Barcelona"
+                                className="gallery-img"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        )}
                     </div>
                 </section>
 
-                {/* SEGUNDA VIDA. Antes decía "madera certificada FSC y materiales reciclados", texto de plantilla
-                    que no encaja con muebles restaurados; ahora cuenta lo mismo que "Sobre nosotros". */}
+                {/* SEGUNDA VIDA */}
                 <section className="home-sustainability reveal-init" ref={sustainabilityRef}>
-                    <div className="sustainability-content">
-                        <h2>El mueble más sostenible es el que ya existe</h2>
-                        <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>
+                    <div className="sustainability-layout">
+                        <div className="sustainability-content">
+                            <h2>El mueble más sostenible es el que ya existe</h2>
+                            <p>No fabricamos nada nuevo. Rescatamos piezas con décadas de historia y las restauramos a mano, con aceites naturales y cera de abejas, para que sigan muchos años más.</p>
+                        </div>
                     </div>
                 </section>
             </div>

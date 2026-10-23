@@ -282,3 +282,43 @@ describe('Catalog — el orden en la URL (?orden=)', () => {
     expect(nombres()).toEqual(ORDEN_API);
   });
 });
+
+describe('Catálogo — selector de densidad de vista', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('aplica por defecto products-grid--normal y cambia a products-grid--large y products-grid--compact al pulsar los botones', async () => {
+    const user = userEvent.setup();
+    await montar(SIN_PRECIOS);
+
+    const grid = document.querySelector('.products-grid');
+    expect(grid).toHaveClass('products-grid--normal');
+
+    // Cambiar a vista de 2 columnas (large)
+    await user.click(screen.getByRole('button', { name: 'Vista de 2 columnas' }));
+    expect(document.querySelector('.products-grid')).toHaveClass('products-grid--large');
+    expect(document.querySelector('.products-grid')).not.toHaveClass('products-grid--normal');
+
+    // Cambiar a vista de 4 columnas (compact)
+    await user.click(screen.getByRole('button', { name: 'Vista de 4 columnas' }));
+    expect(document.querySelector('.products-grid')).toHaveClass('products-grid--compact');
+
+    // Cambiar a vista de lista (table)
+    await user.click(screen.getByRole('button', { name: 'Vista de lista' }));
+    expect(document.querySelector('.products-table')).toBeInTheDocument();
+    expect(document.querySelector('.products-grid')).toBeNull();
+
+    // Volver a vista de 3 columnas (normal)
+    await user.click(screen.getByRole('button', { name: 'Vista de 3 columnas' }));
+    expect(document.querySelector('.products-grid')).toHaveClass('products-grid--normal');
+  });
+
+  it('respeta la vista guardada en localStorage al montar', async () => {
+    localStorage.setItem('kaveCatalogView', 'grid-large');
+    await montar(SIN_PRECIOS);
+
+    expect(document.querySelector('.products-grid')).toHaveClass('products-grid--large');
+  });
+});
+

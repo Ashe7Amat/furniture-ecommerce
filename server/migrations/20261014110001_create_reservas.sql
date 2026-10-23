@@ -42,12 +42,10 @@ CREATE TABLE public.reservas (
   motivo text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-
   CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
     mueble_id WITH =,
     rango_ocupado WITH &&
   ) WHERE (estado IN ('pendiente', 'confirmada', 'en_curso', 'devuelta')),
-
   CONSTRAINT chk_reservas_alquiler CHECK (
     tipo != 'alquiler' OR (
       fecha_fin IS NOT NULL AND
@@ -95,19 +93,14 @@ CREATE TABLE public.reservas (
     estado IN ('devuelta', 'cancelada')
   )
 );
-
 CREATE UNIQUE INDEX idx_reservas_stripe_session_mueble
   ON public.reservas (stripe_session_id, mueble_id);
-
 CREATE UNIQUE INDEX idx_reservas_un_pendiente_por_cliente
   ON public.reservas (cliente_id) WHERE (estado = 'pendiente');
-
 CREATE INDEX idx_reservas_cliente_id ON public.reservas (cliente_id);
 CREATE INDEX idx_reservas_pedido_id ON public.reservas (pedido_id);
 CREATE INDEX idx_reservas_estado_fecha_inicio ON public.reservas (estado, fecha_inicio);
-
 ALTER TABLE public.reservas ENABLE ROW LEVEL SECURITY;
-
 CREATE OR REPLACE FUNCTION public.set_reservas_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -118,12 +111,10 @@ BEGIN
 END;
 $$;
 ALTER FUNCTION public.set_reservas_updated_at() SET search_path = public;
-
 CREATE TRIGGER trg_reservas_updated_at
 BEFORE UPDATE ON public.reservas
 FOR EACH ROW
 EXECUTE FUNCTION public.set_reservas_updated_at();
-
 CREATE OR REPLACE FUNCTION public.sincronizar_fin_ocupacion_devuelta()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -138,7 +129,6 @@ BEGIN
 END;
 $$;
 ALTER FUNCTION public.sincronizar_fin_ocupacion_devuelta() SET search_path = public;
-
 CREATE TRIGGER trg_sincronizar_fin_ocupacion_devuelta
 BEFORE UPDATE OF estado, devuelta_en ON public.reservas
 FOR EACH ROW

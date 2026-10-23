@@ -104,3 +104,29 @@ describe('lecturas del catálogo: con caché para el público, "frescas" para el
     expect(await lectura({ fresco: true })).toEqual([]);
   });
 });
+
+describe('getAjustesHome: lectura de portada sin caché', () => {
+  it('hace fetch a /ajustes/home con cache: no-store para evitar caché del navegador o CDN', async () => {
+    const mockAjustes = { hero_imagenes: [], productos_destacados: ['m1'] };
+    fetch.mockResolvedValueOnce(respuestaOk(mockAjustes));
+
+    const { getAjustesHome } = await import('./api');
+    const resultado = await getAjustesHome();
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][0]).toMatch(/\/ajustes\/home$/);
+    expect(fetch.mock.calls[0][1]).toEqual({ cache: 'no-store' });
+    expect(resultado).toEqual(mockAjustes);
+  });
+
+  it('devuelve null y captura el error si la petición falla', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    fetch.mockRejectedValueOnce(new Error('Fallo de red'));
+
+    const { getAjustesHome } = await import('./api');
+    const resultado = await getAjustesHome();
+
+    expect(resultado).toBeNull();
+  });
+});
+

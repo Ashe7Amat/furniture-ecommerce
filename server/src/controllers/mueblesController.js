@@ -2,11 +2,19 @@ const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
 const stripeUtil = require('../utils/stripe');
 const pagos = require('../utils/pagos');
+const reservas = require('../utils/reservas');
 const { construirMetadataPago } = require('../utils/metadataStripe');
 const { ErrorValidacion } = require('../utils/errores');
+const {
+  leerOcupacionParaCompra,
+  cancelarVentasDeLaPieza,
+  CODIGO_CLAVE_AJENA
+} = require('../utils/calendarioReservas');
+const { fechaLegible, sumarDias } = require('../utils/fechasMadrid');
 const { escaparIlike } = require('../utils/ilike');
 const { insertarMuebleConReferencia } = require('../utils/altaMueble');
 const { preciosVisibles, paraElPublico, MENSAJE_COMPRA_CERRADA } = require('../utils/precios');
+const { registrarActividad } = require('../utils/audit');
 
 // Migración A (ver docs/tarea3-diseno.md): doble escritura de categoria_id junto a categoria
 // (texto) durante la transición. Si no se resuelve ningún id (nombre sin categoría real, typo,
@@ -155,6 +163,13 @@ const crearMueble = async (req, res) => {
       estado: estado || 'disponible'
     });
 
+    const muebleCreado = Array.isArray(data) ? data[0] : data;
+    try {
+      await registrarActividad(req, 'crear', 'muebles', muebleCreado?.id, null, muebleCreado);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al crear mueble:', errAudit.message);
+    }
+
     res.status(201).json({ success: true, message: 'Mueble creado con éxito', data });
   } catch (error) {
     console.error('Error al crear mueble:', error.message);
@@ -232,9 +247,31 @@ const editarMueble = async (req, res) => {
       updateData.imagenes = imagenesFinales;
     }
 
+    // Leemos los campos a modificar para cancelar ventas si pasa a disponible y para registrar la auditoría
+    const camposALeer =
+      Object.keys(updateData).length > 0 ? Object.keys(updateData).join(',') : 'id';
+    const { data: dataAntes, error: errorAntes } = await supabase
+      .from('muebles')
+      .select(camposALeer)
+      .eq('id', id)
+      .maybeSingle();
+    if (errorAntes) throw errorAntes;
+    const muebleAntes = dataAntes ? { ...dataAntes } : null;
+
+    if (estado === 'disponible' && muebleAntes?.estado === 'vendido') {
+      await cancelarVentasDeLaPieza(id);
+    }
+
     const { data, error } = await supabase.from('muebles').update(updateData).eq('id', id).select();
 
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'editar', 'muebles', id, muebleAntes, updateData);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al editar mueble:', errAudit.message);
+    }
+
     res.status(200).json({ success: true, message: 'Mueble editado con éxito', data });
   } catch (error) {
     console.error('Error al editar mueble:', error.message);
@@ -246,14 +283,100 @@ const editarMueble = async (req, res) => {
 const eliminarMueble = async (req, res) => {
   try {
     const { id } = req.params;
+    const { data: muebleAntes } = await supabase
+      .from('muebles')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase.from('muebles').delete().eq('id', id);
+    // Las filas del calendario (reservas, ventas, bloqueos; también las canceladas) se guardan como
+    // historial y no dejan borrar su pieza (ON DELETE RESTRICT, docs/reservas-diseno.md).
+    if (error?.code === CODIGO_CLAVE_AJENA) {
+      return res.status(409).json({
+        error:
+          'No se puede borrar: esta pieza tiene ventas o reservas registradas en el calendario, y se guardan como historial.'
+      });
+    }
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'eliminar', 'muebles', id, muebleAntes, null);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al eliminar mueble:', errAudit.message);
+    }
+
     res
       .status(200)
       .json({ success: true, message: 'Mueble eliminado con éxito de la base de datos.' });
   } catch (error) {
     console.error('Error al eliminar mueble:', error.message);
     res.status(500).json({ error: 'Error interno del servidor al intentar borrar el mueble.' });
+  }
+};
+
+// 5b. Duplicar un mueble (POST /api/muebles/:id/duplicar, solo administradores). La copia lleva los
+// mismos datos que la original (nombre con " (Copia)", categoría, descripción y los dos precios), en
+// `disponible` y sin fotos: las de la original son de esa pieza, y las nuevas se suben al editar la
+// copia. La referencia es nueva y la pone insertarMuebleConReferencia, igual que al crear (MAX + 1 de
+// la categoría). La original no se toca: solo se lee.
+const COLUMNAS_A_DUPLICAR =
+  'nombre, categoria, categoria_id, descripcion, precio_venta, precio_alquiler_dia';
+const SUFIJO_COPIA = ' (Copia)';
+
+const duplicarMueble = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: original, error: errorLectura } = await supabase
+      .from('muebles')
+      .select(COLUMNAS_A_DUPLICAR)
+      .eq('id', id)
+      .maybeSingle();
+    if (errorLectura) throw errorLectura;
+    if (!original) return res.status(404).json({ error: 'Mueble no encontrado.' });
+
+    const data = await insertarMuebleConReferencia(
+      {
+        nombre: `${original.nombre}${SUFIJO_COPIA}`,
+        categoria: original.categoria,
+        // Una pieza antigua sin categoria_id: se resuelve por el nombre, como en crearMueble.
+        categoria_id:
+          original.categoria_id ?? (await resolverCategoriaIdPorNombre(original.categoria)),
+        descripcion: original.descripcion,
+        precio_venta: original.precio_venta,
+        precio_alquiler_dia: original.precio_alquiler_dia,
+        imagenes: [],
+        estado: 'disponible'
+      },
+      { origen: 'duplicarMueble' }
+    );
+
+    const muebleDuplicado = Array.isArray(data) ? data[0] : data;
+    try {
+      await registrarActividad(
+        req,
+        'duplicar',
+        'muebles',
+        muebleDuplicado?.id,
+        null,
+        muebleDuplicado
+      );
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al duplicar mueble:', errAudit.message);
+    }
+
+    res.status(201).json({ success: true, message: 'Mueble duplicado con éxito', data });
+  } catch (error) {
+    console.error('Error al duplicar mueble:', error.message);
+    // 23505 en la referencia con los reintentos agotados: otros administradores estaban dando de
+    // alta piezas de la misma categoría a la vez. Se puede volver a intentar.
+    if (error.code === '23505' && error.message?.includes('referencia')) {
+      return res.status(409).json({
+        error:
+          'No se pudo dar una referencia nueva a la copia porque se estaban creando otras piezas a la vez. Vuelve a intentarlo.'
+      });
+    }
+    res.status(500).json({ error: 'Error al duplicar el mueble.' });
   }
 };
 
@@ -326,7 +449,31 @@ const construirLineasDesdeCarrito = async (items) => {
       precio: precioReal
     });
   }
+  await comprobarCalendarioDeCompras(lineas);
   return lineas;
+};
+
+// Reservas por fechas (docs/reservas-diseno.md, 6.7): no se cobra la compra de una pieza que tiene
+// algo en el calendario de hoy en adelante (un alquiler, un bloqueo o una venta). La ficha ya quita
+// el botón de compra, pero la API es pública. Si alguien la reserva entre este momento y el pago, lo
+// detecta la confirmación (utils/pagos.js) y avisa al administrador.
+const comprobarCalendarioDeCompras = async (lineas) => {
+  const compras = lineas.filter((l) => l.modalidad === 'compra');
+  if (compras.length === 0) return;
+  const ocupacion = await leerOcupacionParaCompra(compras.map((l) => l.productId));
+  for (const linea of compras) {
+    const ocupada = ocupacion.get(linea.productId);
+    if (!ocupada) continue;
+    if (ocupada.vendida || ocupada.hasta === null) {
+      throw new ErrorValidacion(
+        `Lo sentimos, la pieza única "${linea.nombre}" ya ha sido vendida.`
+      );
+    }
+    // `hasta` es el primer día libre: el último ocupado es el anterior.
+    throw new ErrorValidacion(
+      `"${linea.nombre}" tiene reservas o está bloqueada hasta el ${fechaLegible(sumarDias(ocupada.hasta, -1))}; no se puede comprar ahora.`
+    );
+  }
 };
 
 // 7. Crear una sesión de pago real con Stripe (modo test o real según la clave configurada)
@@ -393,6 +540,17 @@ const crearSesionPago = async (req, res) => {
   }
 };
 
+const MENSAJES_RESERVA_PAGADA = {
+  // La página de éxito pone el título (Reserva confirmada, Esas fechas ya no estaban libres, Pago
+  // recibido): el mensaje no lo repite (19 oct).
+  confirmada: 'Te hemos enviado los detalles por email.',
+  conflicto:
+    'Hemos recibido tu pago, pero se ocuparon mientras pagabas. Te devolveremos el importe y te escribiremos por email.',
+  procesando: 'Estamos confirmando tu reserva y te llegará un email en cuanto esté.',
+  // Pagada, confirmada y cancelada después desde el panel (19 oct): ni conflicto ni otro email.
+  cancelada: 'Esta reserva está cancelada. Si tienes cualquier duda, escríbenos.'
+};
+
 // 8. Confirmar una sesión de Stripe al volver del pago. Es el respaldo del webhook
 // (POST /api/stripe/webhook), que es quien normalmente registra la venta: si el webhook ya
 // la registró, o llega mientras tanto, procesarSesionPagada lo detecta y no repite nada.
@@ -420,8 +578,12 @@ const confirmarSesion = async (req, res) => {
     // base de datos falla un momento), al comprador no se le dice que su pago ha fallado.
     // Si hay webhook configurado, Stripe volverá a intentarlo solo; si no lo hay, nadie lo
     // reintentará, así que se avisa por email al administrador para que lo registre a mano.
+    const esReserva = session.metadata?.tipo === 'reserva';
+    let resultado = null;
     try {
-      await pagos.procesarSesionPagada(session);
+      resultado = esReserva
+        ? await reservas.procesarReservaPagada(session)
+        : await pagos.procesarSesionPagada(session);
     } catch (error) {
       console.error(
         `No se pudo registrar el pedido de la sesión ${session.id} al confirmarla:`,
@@ -432,10 +594,26 @@ const confirmarSesion = async (req, res) => {
       }
     }
 
+    const total = (session.amount_total || 0) / 100;
+    if (esReserva) {
+      // Reservas por fechas (6.4): la página de éxito necesita saber si las fechas son suyas, si
+      // el pago llegó cuando ya eran de otra persona (se le devolverá) o si ya se canceló.
+      const estado = ['confirmada', 'conflicto', 'cancelada'].includes(resultado?.estado)
+        ? resultado.estado
+        : 'procesando';
+      return res.status(200).json({
+        success: true,
+        tipo: 'reserva',
+        estado,
+        message: MENSAJES_RESERVA_PAGADA[estado],
+        total
+      });
+    }
+
     res.status(200).json({
       success: true,
       message: 'Pago confirmado. El catálogo ha sido actualizado.',
-      total: (session.amount_total || 0) / 100
+      total
     });
   } catch (error) {
     console.error('Error al confirmar la sesión de pago:', error.message);
@@ -450,6 +628,7 @@ module.exports = {
   crearMueble,
   editarMueble,
   eliminarMueble,
+  duplicarMueble,
   buscarMuebles,
   crearSesionPago,
   confirmarSesion

@@ -6,6 +6,9 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { getMuebles, updateProfile, getMisPedidos, reenviarVerificacion } from '../services/api';
+// Reservas por fechas (al final del archivo)
+import { afterEach } from 'vitest';
+import { getMisReservas } from '../services/api';
 
 vi.mock('../services/api');
 
@@ -402,5 +405,167 @@ describe('Profile — favoritos', () => {
     expect(screen.getByRole('heading', { name: 'Tus Piezas Favoritas' })).toBeInTheDocument();
     await act(async () => {});
     expect(getMuebles).toHaveBeenCalled();
+  });
+});
+
+// Reservas por fechas (docs/reservas-diseno.md): la pestaña "Mis Reservas", solo con el interruptor
+// VITE_RESERVAS_ACTIVAS encendido. La lista en sí se prueba en components/reservas/MisReservas.test.jsx.
+describe('Profile — mis reservas', () => {
+  const RESERVA = {
+    id: 'r1',
+    referencia: 'A1B2C3D4',
+    estado: 'confirmada',
+    pieza: { id: 'm1', nombre: 'Aparador de roble', imagen: null },
+    fecha_inicio: '2026-11-04',
+    hora_entrega: '10:00',
+    fecha_fin: '2026-11-07',
+    hora_recogida: '12:30',
+    modo_entrega: 'domicilio',
+    modo_devolucion: 'tienda',
+    direccion_entrega: 'Calle Mayor 1',
+    dias: 4,
+    importe_total_centimos: 13000,
+    cancelacion_solicitada: false,
+    puede_solicitar_cancelacion: true
+  };
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('con el interruptor apagado no hay pestaña, y ?tab=reservas no enseña nada ni pide nada', async () => {
+    abrir({ ruta: '/cuenta?tab=reservas' });
+    await act(async () => {});
+
+    expect(screen.queryByRole('button', { name: 'Mis Reservas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tus Reservas' })).not.toBeInTheDocument();
+    expect(getMisReservas).not.toHaveBeenCalled();
+  });
+
+  it('con el interruptor encendido, la pestaña va después de las de siempre y enseña las reservas', async () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    getMisReservas.mockResolvedValue({ data: [RESERVA], error: null, status: 200 });
+    abrir();
+
+    const pestanas = within(document.querySelector('.profile-tabs-menu')).getAllByRole('button');
+    expect(pestanas.map((b) => b.textContent)).toEqual([
+      'Mis Datos',
+      'Mis Favoritos (0)',
+      'Historial de Pedidos',
+      'Mis Reservas'
+    ]);
+    expect(getMisReservas).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mis Reservas' }));
+
+    expect(screen.getByRole('button', { name: 'Mis Reservas' })).toHaveClass('active');
+    expect(screen.getByRole('heading', { level: 2, name: 'Tus Reservas' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Aparador de roble' })).toHaveAttribute('href', '/mueble/m1');
+    expect(screen.getByText('Reserva A1B2C3D4')).toBeInTheDocument();
+    expect(getMisReservas).toHaveBeenCalledTimes(1);
+  });
+
+  it('con ?tab=reservas se abre directamente; sin reservas lo dice', async () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+    abrir({ ruta: '/cuenta?tab=reservas' });
+
+    expect(screen.getByRole('heading', { name: 'Tus Reservas' })).toBeInTheDocument();
+    expect(await screen.findByText('Todavía no tienes reservas.')).toBeInTheDocument();
+  });
+
+  it('sin el email confirmado, el aviso en vez de la lista, y no las pide', () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    abrir({ user: { ...ANA, email_verificado: false }, ruta: '/cuenta?tab=reservas' });
+
+    expect(screen.getByText('Confirma tu email para ver tus reservas.')).toBeInTheDocument();
+    expect(getMisReservas).not.toHaveBeenCalled();
+  });
+
+  it('el aviso de confirmar el email nombra también las reservas, y solo con el interruptor encendido', () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    abrir({ user: { ...ANA, email_verificado: false } });
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Confirma tu email, ana@correo.es, para ver tus pedidos y tus reservas. Si no tienes el correo con el enlace, te mandamos uno nuevo.'
+    );
+  });
+
+  // En el móvil las pestañas van en una fila con desplazamiento: la activa tiene que quedar a la vista.
+  // jsdom no calcula medidas, así que se fijan a mano las de la fila y las de la pestaña.
+  describe('la pestaña activa queda a la vista en la fila del móvil', () => {
+    const medir = (menu) => {
+      Object.defineProperty(menu, 'scrollWidth', { configurable: true, value: 700 });
+      Object.defineProperty(menu, 'clientWidth', { configurable: true, value: 300 });
+      menu.getBoundingClientRect = () => ({ left: 10 });
+      menu.scrollLeft = 0;
+      for (const boton of menu.querySelectorAll('button')) {
+        Object.defineProperty(boton, 'offsetWidth', { configurable: true, value: 120 });
+        boton.getBoundingClientRect = () => ({ left: boton.textContent === 'Mis Reservas' ? 560 : 10 });
+      }
+    };
+
+    it('al elegir una pestaña, la fila se desplaza hasta centrarla', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      abrir();
+      const menu = document.querySelector('.profile-tabs-menu');
+      medir(menu);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mis Reservas' }));
+
+      // posición de la pestaña dentro de la fila (560 - 10 + 0) menos el hueco a cada lado ((300 - 120) / 2)
+      expect(menu.scrollLeft).toBe(460);
+      await act(async () => {});
+    });
+
+    it('si todas las pestañas caben (escritorio), no se mueve nada', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      abrir();
+      const menu = document.querySelector('.profile-tabs-menu');
+      medir(menu);
+      Object.defineProperty(menu, 'scrollWidth', { configurable: true, value: 300 });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Mis Reservas' }));
+
+      expect(menu.scrollLeft).toBe(0);
+      await act(async () => {});
+    });
+
+    it('al entrar con ?tab=reservas la pestaña ya sale centrada, sin tocar nada', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+      getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+      const proto = HTMLElement.prototype;
+      Object.defineProperty(proto, 'scrollWidth', { configurable: true, get: () => 700 });
+      Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => 300 });
+      Object.defineProperty(proto, 'offsetWidth', { configurable: true, get: () => 120 });
+      const rect = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function () {
+        return { left: this.textContent === 'Mis Reservas' && this.tagName === 'BUTTON' ? 560 : 10 };
+      };
+      try {
+        abrir({ ruta: '/cuenta?tab=reservas' });
+        await act(async () => {});
+        expect(document.querySelector('.profile-tabs-menu').scrollLeft).toBe(460);
+      } finally {
+        Element.prototype.getBoundingClientRect = rect;
+        delete proto.scrollWidth;
+        delete proto.clientWidth;
+        delete proto.offsetWidth;
+      }
+    });
+  });
+
+  it('las demás pestañas siguen igual con el interruptor encendido', async () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    getMisPedidos.mockResolvedValue([]);
+    getMisReservas.mockResolvedValue({ data: [], error: null, status: 200 });
+    abrir({ ruta: '/cuenta?tab=reservas' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Historial de Pedidos' }));
+
+    expect(screen.queryByRole('heading', { name: 'Tus Reservas' })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Todavía no has hecho ninguna compra/)).toBeInTheDocument();
   });
 });

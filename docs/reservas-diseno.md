@@ -1,15 +1,69 @@
 # Reservas por fechas — Diseño
 
-> **Estado: BORRADOR — pendiente de confirmación del cliente** (23 sep 2026). Primera revisión técnica hecha y
-> sus cambios incorporados, y segunda revisión (secciones 3, 4 y 6) con sus cambios también incorporados. **No se
-> implementa nada hasta tener las cuatro decisiones bloqueantes del cliente** (10.1: modelo de fianza, sesión
-> obligatoria y alquiler fuera de la cesta, cómo se cuentan los días y si hay alquileres de menos de un día)
-> **y hasta cerrar la tarea 3.**
+> **Estado: EN IMPLEMENTACIÓN desde el 13 oct 2026.** El propietario decidió empezar sin esperar al cliente y
+> contestó él mismo las cuatro preguntas bloqueantes de diseño (10.1) el 13 oct:
+> 1. **Fianza: A**, cobrarla y devolverla. Solo afecta a R-e, que sigue esperando la confirmación por escrito
+>    del soporte de Stripe de que se puede reembolsar un pago con tarjeta unos 194 días después (6.6).
+> 2. **Reservar exige iniciar sesión, y el alquiler no pasa por la cesta** (T8 y T9, tal cual).
+> 3. **Días facturados en bloques de 24 h desde la hora de entrega**: del lunes 1 por la mañana al miércoles 3
+>    a la misma hora son 2 días; si la recogida es más tarde que esa hora, 3. **Cambia T3:** cada alquiler
+>    guarda su hora de entrega y de recogida (`hora_entrega`, `hora_recogida`), que solo cuentan para el precio;
+>    el calendario se sigue ocupando por días (T2).
+> 4. **No hay alquileres de menos de un día.** El modelo por días se queda; si un día hace falta para rodajes,
+>    se añade granularidad horaria.
+>
+> Hecho del bloque R-a: los pasos 5 y 6 (reglas, fechas en hora de Madrid, cálculo del precio y los endpoints
+> de disponibilidad y presupuesto, solo lectura) y el SQL de R1 y R2, con su prueba desechable comprobada en
+> local (`docs/reservas-sql/`). Los endpoints leen la tabla `reservas`: no pueden llegar a `main` antes que la
+> migración R2. **R2 está aplicada en producción desde el 19 oct 2026** (el OK escrito del propietario; la base
+> ya tenía un borrador antiguo de la tabla, que se renombró a `reservas_borrador`: ver `docs/reservas-sql/README.md`).
+>
+> Hecho del bloque R-b: el paso 7, `POST /api/reservas/sesion-pago` (6.3), detrás de `RESERVAS_ACTIVAS`. Dos
+> cosas que el 6.3 no decía: la sesión de Stripe dura 31 minutos y no 30 (Stripe cuenta el mínimo desde que
+> recibe la petición), así que la provisional caduca a los 46; y reservar exige además **el email de la cuenta
+> verificado** (H18), con el mismo criterio que "Mis pedidos". La traducción del `23P01` y del `23505` a 409 la
+> hace el controlador, como el resto de errores de negocio, y no el manejador central.
+>
+> Hecho también el paso 8 (6.4): el webhook y la página de éxito confirman la reserva, registran su pedido
+> (`metodo_entrega` según la reserva: `domicilio` o `recogida`) y envían los emails una sola vez, y
+> `checkout.session.expired` libera las fechas. Toca `email.js` (dos plantillas nuevas: confirmación y reserva que
+> no se pudo confirmar) y `pagos.js` (solo para exportar `registrarPedido` con un `metodoEntrega` opcional; la
+> compra no cambia). El aviso al administrador de una reserva nueva usa `enviarAlertaAdmin`. **Paso manual antes
+> de encender las reservas:** suscribir el evento `checkout.session.expired` en el webhook del Dashboard de
+> Stripe.
+>
+> Hecho también el paso 9 (6.7): `crear-sesion-pago` rechaza la compra de una pieza ocupada de hoy en adelante
+> (la misma definición que la ficha, `ocupacionDesdeHoy`), y al confirmar el pago cada pieza comprada deja su
+> fila de venta antes de marcarse como vendida. Si el calendario no la admite, el pedido se registra, la pieza
+> no se toca y llega un solo aviso al administrador. **Toca el flujo de compra actual** y no va detrás del
+> interruptor (9.1): desde que llegue a `main` cada compra deja su fila, así que **la migración R2 tiene que
+> estar aplicada antes**. Una corrección al 6.7: un reintento de la misma venta da `23P01`, no `23505` (ver
+> el 6.7). El resto de las preguntas de 10.1 (de la 5 en adelante) siguen pendientes del cliente o de su
+> asesor, con los valores por defecto de este documento.
+>
+> Ajustes del 20 oct 2026, tras revisar las capturas simuladas (nada de esto cambia el diseño):
+> - **Servidor, web:** `POST /api/reservas/:id/retomar-pago` devuelve la URL de la sesión de Stripe que la
+>   reserva provisional ya tiene abierta (con sesión y el email verificado; 409 si el plazo terminó o ya se
+>   pagó). Así una clienta que cerró la pestaña de pago puede seguir, en vez de ver sus propias fechas como
+>   ocupadas hasta que caduquen. `GET /api/reservas/mias` añade `pago_hasta` (hasta cuándo vale el pago de una
+>   reserva «esperando pago») y `reembolso` (el importe y el estado, en una cancelada). Un 409 de
+>   `sesion-pago` puede llevar `codigo: 'otra_reserva_en_curso'` (carrera con otra reserva a medio pagar de
+>   la misma clienta): la web conserva entonces las fechas elegidas.
+> - **Servidor, panel:** `GET /api/admin/reservas/resumen` devuelve `{ hoy, total, retrasadas, en_conflicto,
+>   reembolsos_a_medias }`: lo que pide atención, contado con las mismas consultas que las vistas
+>   «Retrasadas», «En conflicto» y «Reembolsos a medias». Alimenta la insignia de «Reservas» en el menú y los
+>   números de esas vistas. Las entregas y recogidas de hoy y mañana no cuentan: son trabajo de cada día.
+> - **Web:** el calendario distingue los días ocupados de los que no se pueden elegir por plazo (pasados,
+>   antelación mínima, más allá de 6 meses), con leyenda, la regla escrita y el motivo en cada día; una pieza
+>   marcada a mano como «Alquilado» ya no ofrece fechas; las fechas de los avisos se escriben como en el resto
+>   de la web. **Decisión pendiente de Ashe:** «alquilado» se comprueba solo en la web; el servidor sigue
+>   aceptando reservas de una pieza marcada así si no tiene reservas que choquen.
+>
+> Estado anterior (23 sep 2026): borrador con dos revisiones técnicas incorporadas, pendiente del cliente.
 
 Diseño de la nueva funcionalidad de **alquiler de muebles por rango de fechas** ("como un hotel"). Es un
-documento de diseño: no hay código, no se ha aplicado ninguna migración y no se ha tocado `main`. Vive en la
-rama `feature/reservas-diseno`, sacada de `main` para no mezclarse con las migraciones de la tarea 3, que
-siguen su propio curso en `feature/mejoras-tecnicas`.
+documento de diseño. Nació en la rama `feature/reservas-diseno` (sacada de `main` el 23 sep) y desde el 13 oct
+vive en `feature/mejoras-tecnicas`, junto al código que lo implementa.
 
 **Todo lo que este documento afirma sobre el sistema actual está comprobado, no supuesto** (23 sep 2026):
 
@@ -408,6 +462,11 @@ CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
   falla con `23P01`, igual que `pagos.js` ya se apoya en el `23505` de la clave única para su idempotencia.
 - **Dos inserciones simultáneas que se solapan:** la segunda espera a que la primera termine; si la primera
   confirma, la segunda falla con `23P01`; si la primera se deshace, la segunda entra. No hay ventana de carrera.
+  **Matiz (14 oct, revisión del paso 9):** Postgres mete la entrada del índice antes de mirar los conflictos, y
+  dos inserciones casi simultáneas pueden esperarse la una a la otra: Postgres aborta una con **`40P01`**
+  (interbloqueo). En PostgreSQL 16, con dos sesiones insertando la misma venta, pasó en unos 2 de cada 1.000
+  pares. Nada se solapa igualmente; el servidor trata el `40P01` como un `23P01` (`escribirEnCalendario` limpia y
+  reintenta una vez, y el reintento ya ve la otra escritura terminada).
 
 ### 4.2 Viabilidad en Supabase
 
@@ -469,7 +528,7 @@ CONSTRAINT reservas_sin_solape EXCLUDE USING gist (
 | Situación | Qué ocurre | Resultado |
 |---|---|---|
 | Dos clientes reservan fechas que se solapan a la vez | Las dos reservas provisionales chocan en la restricción | El segundo recibe 409 **antes de pagar** |
-| El mismo cliente pulsa dos veces "Reservar" | La segunda petición cancela primero la reserva provisional anterior del mismo cliente y caduca su sesión de Stripe (6.3, paso 4). Si las dos pasan ese paso a la vez, el índice único "una provisional por cliente" hace fallar la segunda inserción (`23505`) | Una sola sesión de pago válida; la otra pestaña recibe 409 "vuelve a intentarlo" |
+| El mismo cliente pulsa dos veces "Reservar" | La segunda petición cancela primero la reserva provisional anterior del mismo cliente y caduca su sesión de Stripe (6.3, paso 4). Si las dos pasan ese paso a la vez, el índice único "una provisional por cliente" hace fallar la segunda inserción (`23505`; con las mismas fechas, antes la exclusión, `23P01`, y se comprueba que el choque es con una provisional suya, 6.7) | Una sola sesión de pago válida; la otra pestaña recibe 409 "vuelve a intentarlo" |
 | Webhook y página de éxito confirman la misma reserva a la vez | La confirmación es un `UPDATE ... WHERE estado IN ('pendiente','expirada')` y solo una llamada lo aplica; el `INSERT` del pedido choca en su clave (`23505`, patrón actual) y la otra lo da por hecho **sin cortar el proceso** (6.4) | Un pedido, una reserva confirmada, un juego de emails (los envía quien gana la marca `confirmacion_enviada_en`) |
 | Pago que llega tarde (reserva provisional ya caducada) | Se intenta pasar `expirada` → `confirmada`; la restricción decide | Fechas libres: se confirma. Ocupadas: aviso al administrador y reembolso (6.4) |
 | Alguien compra mientras otro reserva | La venta se registra como fila `tipo = 'venta'` desde hoy y sin fin; choca con cualquier alquiler activo o futuro | Si gana la reserva, la compra termina en conflicto (aviso y reembolso o entrega diferida); si gana la compra, la reserva recibe 409 (6.7) |
@@ -869,11 +928,42 @@ dos, en el lanzamiento (commits 23 y 25), van con la segunda.
      `stripe_session_id`, mediante un **`INSERT` normal**. El `23505` (índice único `(stripe_session_id,
      mueble_id)`) se toma como "ya estaba insertada", el mismo patrón que `registrarPedido`. **Nunca con
      `upsert(..., { ignoreDuplicates: true })`** (3.2): fallaría con `42P10` o se tragaría el `23P01`.
-  3. **Solo si la inserción funcionó o dio `23505`**, `marcarPiezas` pone la pieza en `vendido`, como hoy. **Con
-     `23P01` no se toca `muebles.estado`**: si no, quedaría una pieza `vendido` sin fila de venta y con un alquiler
+     **Corrección (13 oct, al implementarlo):** Postgres comprueba las restricciones en el orden en que se
+     crearon, y en R2 la exclusión va antes que la unicidad. Repetir la venta de la misma sesión da **`23P01`**
+     (se solapa con su propia venta), no `23505` (comprobado en PostgreSQL 16). Así que tras un `23P01` se
+     lee la venta confirmada de la pieza (solo puede haber una: todas van sin fin). Si es de esa sesión, es "ya
+     estaba insertada"; si es de otra, es la **doble venta** de siempre (la pieza se marca `vendido`, que ya lo
+     estaba, y el aviso es el de "Posible doble venta", sin proponer entrega diferida); si no hay ninguna, el
+     choque es con un alquiler o un bloqueo y es **conflicto**. El doble de los tests comprueba las
+     restricciones en ese mismo orden. Por la misma razón, el
+     doble clic de una reserva con las mismas fechas da `23P01` y no el `23505` del índice de una provisional
+     por cliente; los dos son 409 y ninguno deja nada a medias.
+     **Matiz (19 oct):** ese doble clic recibía "esas fechas se acaban de reservar" por unas fechas que tenía él
+     mismo. Ahora, tras el `23P01`, se mira si el cliente tiene una provisional viva (después del paso 4 del 6.3
+     solo puede ser de otra petición suya a la vez) y, si la tiene, recibe el "vuelve a intentarlo" de la fila 2
+     del 4.4. El `23505` de la unicidad (sesión, pieza) solo llega cuando la venta de esa sesión existe pero ya no
+     ocupa, es decir, **cancelada** (se anuló en un intento anterior, paso 3, o el administrador volvió a poner la
+     pieza a la venta, paso 5, y Stripe reintenta después). Entonces la venta no se vuelve a dejar, la pieza no
+     se marca y el administrador recibe el aviso. `r2_pruebas.sql` (casos 6b a 6d) fija los tres códigos contra
+     Postgres de verdad.
+  3. **Salvo en conflicto**, `marcarPiezas` pone la pieza en `vendido`, como hoy. **Con un `23P01` que no es una
+     venta no se toca `muebles.estado`**: si no, quedaría una pieza `vendido` sin fila de venta y con un alquiler
      vivo, el estado incoherente que el 3.3 quiere evitar, y la migración del 9.2 le crearía después una venta que
      no existe.
-  4. Registrar el pedido y seguir como hoy.
+     **Añadido (14 oct, revisión del paso 9):** si `marcarPiezas` encuentra la pieza en **otro** estado (alquilada
+     con el alquiler por días de la cesta, o vendida a mano), es la doble venta de siempre y la fila de venta de
+     esta sesión **se cancela** (`cancelada_por = 'sistema'`, con el motivo). Si se quedara, la pieza no se
+     podría volver a vender cuando quedara libre.
+  4. Registrar el pedido y seguir como hoy. **Antes de avisar** de un conflicto se mira si la otra llamada de la
+     misma sesión (webhook o página de éxito) llegó a dejar la venta: entre una y otra el calendario puede cambiar
+     (caduca una provisional, o pasa la medianoche), y el aviso no puede decir "no se ha registrado la venta" si sí
+     se registró.
+  5. **Deshacer una venta (14 oct):** mientras `muebles.estado` se edite a mano (hasta el 3.3), cuando el
+     administrador vuelve a poner una pieza de `vendido` a `disponible` (por ejemplo, tras cancelar y reembolsar
+     la compra), su venta del calendario se cancela en la misma petición. Si no, la comprobación previa la seguiría
+     rechazando como vendida. Y como `reservas.mueble_id` es `ON DELETE RESTRICT`, una pieza con cualquier fila en
+     el calendario (también cancelada) **ya no se puede borrar** del inventario: el panel recibe un 409 que lo
+     explica.
 
   Todo esto va **antes** de registrar el pedido, en el mismo punto que `marcarPiezas` hoy. Si se insertara después,
   un fallo entre ambos pasos dejaría la venta sin registrar para siempre, porque el reintento ve el pedido y no
@@ -992,6 +1082,33 @@ legacy en revisión** (`origen = 'legacy'`).
   vista sirve para **ver** los riesgos: retrasos que se acercan a la reserva siguiente, márgenes justos y reservas
   sin fecha de entrega coordinada.
 
+**Hecho el 20 oct 2026** (detrás de los interruptores de reservas; detalle y pruebas en H7 de
+`docs/mejoras-tecnicas.md`). La pestaña «Reservas» tiene tres formas de ver: «Lista» (la de 8.1), «Calendario por
+pieza» y «Vista general». Encima de las tres, la agenda «Hoy y mañana» con los trayectos. Todo se lee de
+`GET /api/admin/reservas/calendario?desde&hasta[&mueble_id]` (como mucho 100 días seguidos y 1000 reservas;
+si no caben, `limitada` y un aviso, y faltan las más viejas) y de `GET /api/admin/reservas/agenda`.
+
+- **Cómo se distingue cada cosa** sin depender del color: alquiler = relleno verde, esperando pago = borde
+  discontinuo de 2 px, retrasada = rayas rojas, bloqueo = puntos, venta = relleno oscuro y margen = sombreado fino.
+  Cada día o barra tiene su descripción para el lector de pantalla (fecha, tipo, referencia, cliente, estado).
+- **Calendario por pieza:** se elige la pieza, se ve el mes (anterior, siguiente, «Este mes») con un resumen
+  («1 reserva en noviembre de 2026.») y al pulsar un día se abre su detalle con «Ver reserva». Una venta ocupa
+  todos los días desde su fecha.
+- **Vista general:** 30 o 60 días desde hoy, de semana en semana, una fila por pieza con barras (reserva y margen
+  pegado) y la franja «Fuera» de una retrasada. No salen las piezas vendidas antes de la ventana (no pasa nada
+  en esos días; siguen en el calendario de su pieza). Encima, «A vigilar»: una retrasada con otra reserva de la
+  misma pieza a continuación, dos alquileres seguidos sin un día de sobra y un alquiler sin hora de entrega o de
+  recogida.
+- **«Ver reserva»** (desde un día, una barra o la agenda) lleva a «Lista», busca por la referencia y deja el foco
+  en su tarjeta, donde están las acciones. Los calendarios no ofrecen acciones propias.
+- **Una retrasada** (en curso con la recogida pasada) tiene la pieza fuera: sus días de margen que ya han llegado
+  se dibujan como reservados, no como descanso, y desde que acaba su ocupación hasta hoy sale «Fuera». Cuando
+  exista la tarea diaria de R-e (que amplía la ocupación de las retrasadas hasta mañana), esa franja solo se verá
+  entre una ejecución y la siguiente.
+- **Límites conocidos:** el servidor solo añade las retrasadas cuando la ventana llega a hoy (en un mes pasado
+  no se ve que la pieza seguía fuera), y las ventas de antes de la ventana solo se ven en el calendario de su
+  pieza.
+
 ### 8.3 Acciones
 
 | Acción | Efecto | Notas |
@@ -1005,6 +1122,49 @@ legacy en revisión** (`origen = 'legacy'`).
 | Resolver la fianza | Liberar, o cobrar un importe con justificación | Depende del mecanismo (6.6); idempotente (8.6) |
 | Registrar venta fuera de la web | Inserta `tipo = 'venta'` | Sustituye a "marcar vendido" a mano (3.3) |
 | Registrar alquiler fuera de la web | Inserta `tipo = 'alquiler'`, `origen = 'manual'` (o `'legacy'` si no tiene fecha de fin firmada), con fechas, cliente y datos de contacto, sin pago de Stripe | Mismo camino que el bloqueo (limpieza, inserción, traducción del `23P01`, 4.3): si choca con una reserva web, el 409 muestra con cuál (fechas y número de pedido, sin datos personales) y el administrador decide. Sirve para alquileres pactados por teléfono o en tienda y para los contratos antiguos del 9.2 |
+
+**Ajustes (19 oct), tras revisar las acciones ya implementadas:**
+
+- **Entregar antes de tiempo** (con `antes_de_tiempo: true`): `fecha_inicio` pasa a hoy en el mismo `UPDATE`
+  guardado, porque la pieza ya no está desde hoy. Pasa por `escribirEnCalendario` (4.6), así que si esos días ya
+  son de otra reserva, 409 que la nombra y no cambia nada. La fecha prevista queda en el historial.
+- **Recoger** acepta `fecha_recogida` (AAAA-MM-DD, sin ella, hoy), para apuntar una devolución que se hizo otro día:
+  ni posterior a hoy ni anterior a la entrega (400). Un día distinto de hoy se guarda a las 12:00 de Madrid. Si la
+  pieza vuelve tarde y su margen alcanza a la reserva siguiente, **se apunta igual** (la pieza ya ha vuelto):
+  `dias_margen` se recorta a los días enteros que quedan, el original queda en el historial y la respuesta lleva un
+  `aviso`. Solo si la siguiente reserva ya había empezado cuando volvió la pieza, 409 que la nombra.
+- **Alquiler dado de alta ya entregado con la recogida pactada pasada**: `fin_ocupacion` = hoy, como un retraso sin
+  ampliar. El doble de pruebas lanza `22000` si un rango acaba antes de empezar, como Postgres.
+- **Dar por reembolsado** (`dar-por-reembolsado`): cierra un reembolso a medias que se hizo fuera, en el Dashboard de
+  Stripe. No mueve dinero; deja una línea en el historial. 409 si no está a medias. Antes **mira en Stripe** que conste
+  lo devuelto (la suma de los reembolsos del pago posteriores a la cancelación, también los del panel, sin contar los
+  fallidos ni anulados): si consta menos de lo que había que devolver, o Stripe no responde, es un 409 con
+  `codigo: 'reembolso_no_consta'` y no cambia nada. Con `aunque_no_conste: true` (un reembolso hecho por otro medio,
+  como una transferencia) se cierra igualmente, sin mirar Stripe y con otra línea en el historial.
+- **Reintentar reembolso** responde 409 si el pago ya tiene un reembolso posterior a la cancelación que no hizo el
+  panel (ni ha fallado): se avisa de la cantidad y se ofrece «Dar por reembolsado».
+- **Cancelar** con reembolso lee antes en Stripe lo que todavía deja devolver (cobrado menos devuelto, también lo
+  devuelto desde el Dashboard): pedir más es un 400 y no cambia nada. Si Stripe no responde, cancela y el tope lo
+  pone Stripe al reembolsar. Un reembolso rechazado (`StripeInvalidRequestError`) o devuelto fallido o anulado es un
+  502 con el aviso del Dashboard; al reintentar, el siguiente va con otra clave de idempotencia (`_2`, `_3`...): un
+  fallido o anulado que existe en Stripe la cambia por sí solo, y un rechazo sin reembolso deja una línea
+  `reembolso_rechazado` en el historial que el siguiente reintento cuenta (Stripe guarda el resultado de una clave
+  24 horas, así que repetirla no serviría). Si
+  el reembolso se hizo y no se pudo guardar su id, 502 que pide no repetirlo (se encuentra al reintentar).
+  Todo 502 de una acción con el reembolso a medias lleva `codigo: 'reembolso_a_medias'` (y la reserva, si se puede
+  leer), y el panel solo lo trata como tal con ese código: un 502 sin él (la pasarela, Vercel) es un error más, que
+  pudo guardarse. Se despliega primero el servidor y luego el cliente.
+- **Alquiler ya entregado** (`ya_entregado`): no puede empezar después de hoy (400): no se podría recoger hasta
+  entonces.
+- **Una provisional que ya quedó en conflicto** (`conflicto_en`) no se confirma aunque sus fechas se hayan liberado
+  después: el aviso ya dijo que se reembolsa el pago. Se sigue viendo como «No se pudo confirmar».
+- **Pago ya confirmado y cancelado después desde el panel**: si el webhook o la página de éxito vuelven a procesar
+  ese pago, no es un conflicto: `confirmar-sesion` responde `estado: 'cancelada'`, sin emails ni reembolso nuevo.
+- **Sin cubrir** (no se ha podido probar con Stripe de verdad): un reembolso que nace `pending` y falla después no se
+  vuelve a comprobar (no hay `charge.refund.updated`); y si un «Reintentar» y un «Dar por reembolsado» coinciden, el
+  reembolso se guarda y queda un `[ALERTA]` en el log para mirar el Dashboard.
+- Un cuerpo JSON que no es un objeto es un 400 en castellano, y los nombres que hereda cualquier objeto
+  (`constructor`, `__proto__`) no son acciones (404).
 
 ### 8.4 Cancelaciones y reembolsos
 
@@ -1366,8 +1526,8 @@ desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno
 15. `feat(client): lista y acciones de reservas en el panel` — **mínimo para lanzar**. Si la tarea 4 no ha
     terminado, va en un componente propio (`AdminReservas.jsx`) que `Admin.jsx` monta con una sola línea, para no
     hacer crecer el archivo de 1037 líneas; si ya terminó, es una pestaña más.
-16. `feat(client): calendario por pieza` — **tras la tarea 4**.
-17. `feat(client): vista general de reservas` — **tras la tarea 4**.
+16. `feat(client): calendario por pieza` — **tras la tarea 4**. *Hecho el 20 oct 2026 (8.2).*
+17. `feat(client): vista general de reservas` — **tras la tarea 4**. *Hecho el 20 oct 2026 (8.2).*
 
 ### Bloque R-e — Fianza y tarea diaria (≈ 2–4 días)
 

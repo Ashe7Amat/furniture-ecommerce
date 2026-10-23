@@ -10,6 +10,9 @@ const SIN_PEDIDOS = { total: 0, pagina: 1, totalPaginas: 1, pendientes: 0 };
 
 const useAdminDatos = (user, filtroEstadoPedido = '') => {
   const [muebles, setMuebles] = useState([]);
+  // true en cuanto llega la primera carga del inventario (aunque venga vacía o falle): el enlace
+  // /admin?editar={id} necesita saber si la pieza no está o si todavía no ha llegado la lista.
+  const [mueblesCargados, setMueblesCargados] = useState(false);
   const [categorias, setCategorias] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [infoPedidos, setInfoPedidos] = useState(SIN_PEDIDOS);
@@ -24,6 +27,7 @@ const useAdminDatos = (user, filtroEstadoPedido = '') => {
   const cargarMuebles = async () => {
     const data = await getMuebles({ fresco: true });
     setMuebles(data);
+    setMueblesCargados(true);
   };
 
   const cargarCategorias = async () => {
@@ -81,7 +85,7 @@ const useAdminDatos = (user, filtroEstadoPedido = '') => {
   }, [user, filtroEstadoPedido]);
 
   return {
-    muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    muebles, mueblesCargados, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
     infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
   };

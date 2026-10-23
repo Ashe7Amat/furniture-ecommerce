@@ -7,10 +7,12 @@ const {
   crearMueble,
   editarMueble,
   eliminarMueble,
+  duplicarMueble,
   buscarMuebles,
   crearSesionPago,
   confirmarSesion
 } = require('../controllers/mueblesController');
+const { obtenerDisponibilidad, obtenerPresupuesto } = require('../controllers/reservasController');
 const { upload } = require('../utils/upload');
 const { verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -104,6 +106,9 @@ router.get(
 );
 
 router.get('/:id', obtenerMueblePorId);
+// Reservas por fechas (docs/reservas-diseno.md, 7.1 y 7.2): públicas y de solo lectura.
+router.get('/:id/disponibilidad', obtenerDisponibilidad);
+router.get('/:id/presupuesto', obtenerPresupuesto);
 
 // Gestión del catálogo: solo administradores autenticados
 // validar() va DESPUÉS de upload.array(): multer es quien rellena req.body a partir del
@@ -124,5 +129,7 @@ router.put(
   editarMueble
 );
 router.delete('/:id', verificarAdmin, eliminarMueble);
+// Duplicar una pieza desde el inventario del panel: la copia sale sin fotos y con referencia nueva.
+router.post('/:id/duplicar', verificarAdmin, duplicarMueble);
 
 module.exports = router;

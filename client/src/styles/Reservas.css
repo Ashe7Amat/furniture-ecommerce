@@ -1,0 +1,713 @@
+/* Reservas por fechas (docs/reservas-diseno.md): el panel "Alquilar por fechas" de la ficha, su
+   calendario, el paso de confirmación y "Mis reservas" en Mi cuenta. Solo con las variables de
+   index.css, así que sigue al modo oscuro. */
+
+/* ─── Panel de la ficha ─── */
+.reserva-panel {
+  margin-top: 32px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--card-bg);
+}
+
+.reserva-panel-titulo {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin: 0 0 6px;
+}
+
+.reserva-panel-precio {
+  margin: 0;
+  color: var(--secondary-color);
+}
+.reserva-panel-precio strong {
+  color: var(--primary-color);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.reserva-panel-reglas,
+.reserva-panel-ayuda {
+  margin: 6px 0 18px;
+  font-size: 0.88rem;
+  color: var(--secondary-color);
+  line-height: 1.5;
+}
+.reserva-panel-ayuda {
+  margin: 10px 0 0;
+}
+
+/* ─── Calendario ─── */
+.cal-reserva {
+  margin-bottom: 18px;
+}
+
+.cal-reserva-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.cal-reserva-mes {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  text-align: center;
+}
+
+.cal-reserva-nav {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--primary-color);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.cal-reserva-nav:hover:not([aria-disabled='true']) {
+  border-color: var(--accent-color);
+}
+.cal-reserva-nav[aria-disabled='true'] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.cal-reserva-tabla {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 3px;
+}
+
+.cal-reserva-tabla th {
+  padding: 4px 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--secondary-color);
+}
+.cal-reserva-tabla abbr {
+  text-decoration: none;
+}
+
+.cal-reserva-tabla td {
+  padding: 0;
+  text-align: center;
+}
+
+.cal-reserva-dia {
+  width: 100%;
+  min-height: 36px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cal-reserva-dia:hover:not(:disabled):not([aria-disabled='true']) {
+  border-color: var(--accent-color);
+}
+/* La recogida elegida que no se puede volver a pulsar (CalendarioReserva.jsx): se ve como elegida. */
+.cal-reserva-dia[aria-disabled='true'] {
+  cursor: default;
+}
+/* Fuera de plazo (ya pasó, falta antelación, demasiado lejos...): apagado, como el cuadrito "Fuera de
+   plazo" de la leyenda. */
+.cal-reserva-dia:disabled {
+  border-color: transparent;
+  background: transparent;
+  color: var(--secondary-color);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Ocupado por otra reserva (o su margen): rayado y tachado, como el cuadrito "Ocupado" de la leyenda. */
+.cal-reserva-dia--ocupado:disabled {
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--border-color) 3px 5px);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.cal-reserva-dia--rango,
+.cal-reserva-dia--rango:disabled {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent-color) 22%, transparent);
+  color: var(--primary-color);
+  text-decoration: none;
+  opacity: 1;
+}
+.cal-reserva-dia--entrega,
+.cal-reserva-dia--recogida,
+.cal-reserva-dia--entrega:disabled,
+.cal-reserva-dia--recogida:disabled {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-weight: 600;
+  text-decoration: none;
+  opacity: 1;
+}
+
+.cal-reserva-nav:focus-visible,
+.cal-reserva-dia:focus-visible,
+.cal-reserva-borrar:focus-visible,
+.reserva-enlace:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.cal-reserva-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--secondary-color);
+}
+.cal-reserva-leyenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cal-reserva-leyenda li::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-color);
+}
+.cal-reserva-leyenda li.cal-reserva-leyenda--ocupado::before {
+  border-color: transparent;
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--border-color) 3px 5px);
+}
+.cal-reserva-leyenda li.cal-reserva-leyenda--fuera::before {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-color);
+  opacity: 0.6;
+}
+.cal-reserva-leyenda li.cal-reserva-leyenda--elegido::before {
+  border-color: var(--primary-color);
+  background: var(--primary-color);
+}
+
+.cal-reserva-reglas {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--secondary-color);
+}
+
+.cal-reserva-pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-top: 12px;
+}
+
+.cal-reserva-instrucciones {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  line-height: 1.5;
+}
+
+.cal-reserva-borrar,
+.reserva-enlace {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.reserva-enlace:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* ─── Entrega y recogida ─── */
+.reserva-trayectos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.reserva-trayecto {
+  min-width: 0;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+.reserva-trayecto legend {
+  padding: 0 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.reserva-trayecto > label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+}
+.reserva-trayecto select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--primary-color);
+  font: inherit;
+}
+
+.reserva-trayecto-modos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.reserva-trayecto-modo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  cursor: pointer;
+}
+.reserva-trayecto-modo input {
+  accent-color: var(--primary-color);
+}
+
+/* ─── Desglose ─── */
+.reserva-panel-precio-total {
+  margin-top: 18px;
+}
+
+.reserva-desglose {
+  margin: 0;
+  padding: 0;
+}
+.reserva-desglose-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--border-color);
+  font-size: 0.92rem;
+}
+.reserva-desglose-fila dt {
+  color: var(--secondary-color);
+}
+.reserva-desglose-fila dd {
+  margin: 0;
+  color: var(--primary-color);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.reserva-desglose-fila--descuento dd {
+  color: var(--success-color);
+}
+.reserva-desglose-fila--total {
+  border-bottom: none;
+  padding-top: 12px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.reserva-desglose-fila--total dt {
+  color: var(--primary-color);
+}
+.reserva-desglose-iva {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--secondary-color);
+}
+
+.reserva-cargando {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+.reserva-cliente-error {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 4px;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.reserva-cliente-error p {
+  margin: 0;
+}
+.reserva-cliente-error .reserva-enlace {
+  margin-top: 6px;
+  color: var(--danger-color);
+}
+
+/* ─── Botón y avisos ─── */
+.reserva-cta {
+  margin-top: 20px;
+}
+
+.reserva-nota {
+  margin: 10px 0 0;
+  font-size: 0.88rem;
+  color: var(--secondary-color);
+  line-height: 1.5;
+}
+
+.reserva-verificar {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--warning-color);
+  border-radius: 4px;
+  background: var(--warning-bg);
+  color: var(--primary-color);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.reserva-verificar p {
+  margin: 0 0 6px;
+}
+.reserva-verificar p:last-child {
+  margin: 6px 0 0;
+}
+
+/* ─── Paso de confirmación ─── */
+.reserva-modal-fondo {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.reserva-modal {
+  width: 100%;
+  max-width: 560px;
+  max-height: 92vh;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: var(--card-bg);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.reserva-modal-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+.reserva-modal-cabecera h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.reserva-modal-cerrar {
+  border: none;
+  background: none;
+  color: var(--secondary-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.reserva-modal-cerrar:hover:not(:disabled) {
+  color: var(--primary-color);
+}
+.reserva-modal-cerrar:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.reserva-modal-cuerpo {
+  padding: 20px 24px 28px;
+}
+
+.reserva-modal-pieza {
+  margin: 0 0 10px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.reserva-modal-fechas,
+.reserva-item-datos {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.reserva-modal-fechas div,
+.reserva-item-datos div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.reserva-modal-fechas dt,
+.reserva-item-datos dt {
+  color: var(--secondary-color);
+}
+.reserva-modal-fechas dd,
+.reserva-item-datos dd {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.reserva-modal-form h3 {
+  margin: 24px 0 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.reserva-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.reserva-campo label,
+.reserva-item-cancelar label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.reserva-campo input,
+.reserva-campo textarea,
+.reserva-item-cancelar textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-color);
+  color: var(--primary-color);
+  font: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+.reserva-campo [aria-invalid='true'] {
+  border-color: var(--danger-color);
+}
+.reserva-campo-error {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--danger-color);
+}
+
+.reserva-acepta {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 6px 0 4px;
+  font-size: 0.92rem;
+  color: var(--primary-color);
+}
+.reserva-acepta input {
+  margin-top: 3px;
+  accent-color: var(--primary-color);
+}
+.reserva-acepta a {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.reserva-modal-pagar,
+.reserva-boton {
+  border: none;
+  border-radius: 4px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.reserva-modal-pagar {
+  width: 100%;
+  margin-top: 18px;
+  padding: 14px;
+  font-size: 0.85rem;
+}
+.reserva-boton {
+  padding: 10px 18px;
+  font-size: 0.78rem;
+}
+.reserva-modal-pagar:hover:not(:disabled),
+.reserva-boton:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.reserva-modal-pagar:disabled,
+.reserva-boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.reserva-modal-nota {
+  margin: 10px 0 0;
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+  text-align: center;
+}
+
+/* ─── Mis reservas (Mi cuenta) ─── */
+.mis-reservas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reserva-item {
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--card-bg);
+}
+
+.reserva-item-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.reserva-item-foto {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--surface-alt);
+}
+
+.reserva-item-titulo {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.reserva-item-titulo h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+.reserva-item-titulo a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+.reserva-item-titulo a:hover {
+  text-decoration: underline;
+}
+
+.reserva-item-ref {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+}
+
+.reserva-item-estados {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.reserva-item-mensaje {
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border-left: 3px solid var(--success-color);
+  border-radius: 4px;
+  background: var(--success-bg);
+  color: var(--primary-color);
+  font-size: 0.9rem;
+}
+
+.reserva-item > .reserva-enlace {
+  margin-top: 6px;
+}
+
+.reserva-item-cancelar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.reserva-item-ayuda {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--secondary-color);
+}
+
+/* Una reserva a medio pagar: lo que queda de plazo y el botón para seguir, con aire entre ellos */
+.reserva-item-pago {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.reserva-item-botones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  margin-top: 4px;
+}
+
+@media (max-width: 520px) {
+  .reserva-panel {
+    padding: 18px 14px;
+  }
+  .reserva-trayectos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reserva-modal-cuerpo,
+  .reserva-modal-cabecera {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .reserva-item-estados {
+    align-items: flex-start;
+  }
+}

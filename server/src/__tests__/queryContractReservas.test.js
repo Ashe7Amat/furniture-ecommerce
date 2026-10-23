@@ -1,76 +1,104 @@
-// Test de CONTRATO para las consultas de reservas con el cliente REAL de @supabase/supabase-js.
-// Verifica cómo la librería serializa .overlaps('rango_ocupado', '[desde,hasta)') hacia PostgREST
-// y cómo PostgREST expone el código de error 23P01 (conflicto de exclusión) ante supabase-js.
-const { describe, it } = require('node:test');
+// Test de CONTRATO de las consultas de los endpoints de reservas (controllers/reservasController.js)
+// con el cliente REAL de supabase-js y un fetch falso que registra la petición exacta que saldría
+// hacia PostgREST, como queryContract.test.js. El filtro de rangos (.overlaps) es nuevo en este
+// proyecto, y el doble en memoria no comprueba cómo lo serializa la librería
+// (docs/reservas-diseno.md, 7.1).
+const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
+const request = require('supertest');
 require('./helpers/testEnv');
 
 const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../data/supabase');
+const app = require('../index');
+const { hoyEnMadrid, sumarDias } = require('../utils/fechasMadrid');
+
+const hoy = hoyEnMadrid();
+let peticiones;
 
 const json = (estado, cuerpo) =>
-  new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), {
+  new Response(JSON.stringify(cuerpo), {
     status: estado,
     headers: { 'Content-Type': 'application/json' }
   });
 
-describe('contrato de supabase-js para reservas (.overlaps y 23P01)', () => {
-  it('.overlaps serializa como ov.[desde,hasta) en la URL enviada a PostgREST', async () => {
-    let peticionRegistrada = null;
+// Responde como PostgREST: el daterange llega como texto canónico.
+const fetchFalso = async (url, init = {}) => {
+  const u = new URL(url);
+  peticiones.push({
+    metodo: (init.method || 'GET').toUpperCase(),
+    ruta: u.pathname,
+    params: Object.fromEntries(u.searchParams)
+  });
+  if (u.pathname === '/rest/v1/muebles') {
+    // maybeSingle() pide una lista y se queda con la única fila.
+    return json(200, [{ id: 'mueble-1', estado: 'disponible', precio_alquiler_dia: '25.00' }]);
+  }
+  if (u.pathname === '/rest/v1/reservas') {
+    return json(200, [
+      {
+        tipo: 'alquiler',
+        estado: 'confirmada',
+        rango_ocupado: `[${sumarDias(hoy, 10)},${sumarDias(hoy, 15)})`,
+        expira_en: null
+      },
+      {
+        tipo: 'venta',
+        estado: 'confirmada',
+        rango_ocupado: `[${sumarDias(hoy, 40)},)`,
+        expira_en: null
+      }
+    ]);
+  }
+  return json(404, { message: `Petición no prevista: ${u.pathname}` });
+};
 
-    const fetchFalso = async (url, init = {}) => {
-      const u = new URL(url);
-      peticionRegistrada = {
-        metodo: (init.method || 'GET').toUpperCase(),
-        pathname: u.pathname,
-        params: Object.fromEntries(u.searchParams)
-      };
-      return json(200, []);
-    };
+const de = (ruta) => peticiones.filter((p) => p.ruta === ruta);
 
-    const clienteReal = createClient('https://test.supabase.co', 'service-role-key', {
-      global: { fetch: fetchFalso },
-      auth: { persistSession: false }
-    });
+beforeEach(() => {
+  peticiones = [];
+  const real = createClient('https://contrato.supabase.co', 'clave-de-prueba', {
+    auth: { persistSession: false },
+    global: { fetch: fetchFalso }
+  });
+  mock.method(supabase, 'from', (tabla) => real.from(tabla));
+});
 
-    const { data, error } = await clienteReal
-      .from('reservas')
-      .select('id, rango_ocupado')
-      .eq('mueble_id', 'mueble-123')
-      .overlaps('rango_ocupado', '[2026-10-01,2026-10-15)');
+afterEach(() => mock.restoreAll());
 
-    assert.equal(error, null);
-    assert.deepEqual(data, []);
-    assert.equal(peticionRegistrada.pathname, '/rest/v1/reservas');
-    assert.equal(peticionRegistrada.params.mueble_id, 'eq.mueble-123');
-    // PostgREST utiliza el prefijo "ov." para el operador de solape de rangos (&&)
-    assert.equal(peticionRegistrada.params.rango_ocupado, 'ov.[2026-10-01,2026-10-15)');
+describe('contrato de GET /api/muebles/:id/disponibilidad con supabase-js real', () => {
+  test('lee la pieza y después sus reservas, y nada más', async () => {
+    const res = await request(app).get('/api/muebles/mueble-1/disponibilidad');
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      peticiones.map((p) => `${p.metodo} ${p.ruta}`),
+      ['GET /rest/v1/muebles', 'GET /rest/v1/reservas']
+    );
   });
 
-  it('un error HTTP 409 con código 23P01 de PostgREST se expone en error.code === "23P01"', async () => {
-    const fetchFalso = async () =>
-      json(409, {
-        code: '23P01',
-        details: 'Key (mueble_id, rango_ocupado)=(mueble-123, [2026-10-01, 2026-10-10)) conflicts with existing key.',
-        hint: null,
-        message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
-      });
+  test('la pieza: por id y solo tres columnas', async () => {
+    await request(app).get('/api/muebles/mueble-1/disponibilidad');
+    const { params } = de('/rest/v1/muebles')[0];
+    assert.equal(params.id, 'eq.mueble-1');
+    assert.deepEqual(params.select.split(','), ['id', 'estado', 'precio_alquiler_dia']);
+  });
 
-    const clienteReal = createClient('https://test.supabase.co', 'service-role-key', {
-      global: { fetch: fetchFalso },
-      auth: { persistSession: false }
-    });
+  test('las reservas: sin datos del cliente, solo las que ocupan, de hoy en adelante', async () => {
+    await request(app).get('/api/muebles/mueble-1/disponibilidad');
+    const { params } = de('/rest/v1/reservas')[0];
+    assert.deepEqual(params.select.split(','), ['tipo', 'estado', 'rango_ocupado', 'expira_en']);
+    assert.equal(params.mueble_id, 'eq.mueble-1');
+    assert.equal(params.estado, 'in.(pendiente,confirmada,en_curso,devuelta)');
+    // && con un rango abierto por arriba: "[hoy,)" en texto, como lo entiende Postgres.
+    assert.equal(params.rango_ocupado, `ov.[${hoy},)`);
+  });
 
-    const { data, error } = await clienteReal.from('reservas').insert({
-      mueble_id: 'mueble-123',
-      tipo: 'alquiler',
-      estado: 'confirmada',
-      fecha_inicio: '2026-10-01',
-      fecha_fin: '2026-10-10'
-    });
-
-    assert.equal(data, null);
-    assert.ok(error);
-    assert.equal(error.code, '23P01');
-    assert.match(error.message, /reservas_sin_solape/);
+  test('lee el rango en texto de PostgREST, también el de una venta sin fin', async () => {
+    const res = await request(app).get('/api/muebles/mueble-1/disponibilidad');
+    assert.deepEqual(res.body.ocupado, [
+      { desde: sumarDias(hoy, 10), hasta: sumarDias(hoy, 15), tipo: 'reservado' },
+      { desde: sumarDias(hoy, 40), hasta: null, tipo: 'vendido' }
+    ]);
+    assert.equal(res.body.precio_dia_centimos, 2500, 'el numeric llega como texto: "25.00"');
   });
 });

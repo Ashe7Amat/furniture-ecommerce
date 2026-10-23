@@ -193,3 +193,25 @@ describe('AuthModal — accesibilidad (H55)', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('AuthModal — mostrar y ocultar contraseña', () => {
+  it('permite alternar la visibilidad de la contraseña cambiando el tipo de input y el aria-label', () => {
+    abrir();
+    const inputPassword = screen.getByPlaceholderText('••••••••');
+    expect(inputPassword).toHaveAttribute('type', 'password');
+
+    const botonOjo = screen.getByRole('button', { name: 'Mostrar contraseña' });
+    expect(botonOjo).toHaveAttribute('tabindex', '0');
+
+    // Al pulsar el ojo, cambia a text y aria-label cambia
+    fireEvent.click(botonOjo);
+    expect(inputPassword).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Ocultar contraseña' })).toBeInTheDocument();
+
+    // Al volver a pulsar, vuelve a password
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }));
+    expect(inputPassword).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('button', { name: 'Mostrar contraseña' })).toBeInTheDocument();
+  });
+});
+

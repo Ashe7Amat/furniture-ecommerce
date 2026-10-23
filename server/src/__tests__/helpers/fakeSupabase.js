@@ -1,7 +1,7 @@
 // Doble en memoria del subconjunto de supabase-js que usan los controladores, para que los
 // tests no toquen nunca la base de datos real. Se instala con
 //   mock.method(supabase, 'from', fake.from)
-// Soporta: select / eq / neq / in / is / lt / like / ilike / contains / limit / range / order / insert /
+// Soporta: select / eq / neq / in / is / lt / lte / gte / not / or / like / ilike / contains / overlaps (rangos) / limit / range / order / insert /
 // update / delete / single / maybeSingle, y select(columnas, { count: 'exact', head }) para contar
 // (como supabase-js, devuelve `count` con el total de filas que cumplen los filtros, sin contar
 // limit ni range; con head: true, data es null). Se puede esperar (await) igual que las consultas reales. Cada consulta cede una vuelta
@@ -17,23 +17,153 @@
 //   - update() devuelve las filas afectadas para poder encadenar .select()
 //   - contains() solo acepta una cadena JSON (un array de objetos falla con 22P02) y neq()
 //     excluye las filas NULL, como SQL
+//   - lt/lte/gte, not() y or() siguen la lógica de tres valores de SQL: comparar con NULL no
+//     cumple nunca, y su NOT tampoco (not('c', 'eq', x) no devuelve las filas con c NULL); solo
+//     not('c', 'is', null) las separa. or() entiende la cadena de PostgREST ('a.neq.x,b.gte.y'),
+//     solo con condiciones simples (eq, neq, lt, lte, gt, gte, is, con o sin not.): un and()/or()
+//     anidado o un valor entre comillas lanza, para que un test no pase con una consulta que el doble
+//     no sabe leer. Los valores se comparan como texto (fechas ISO, enumerados)
 //   - en `muebles`, cada fila insertada o actualizada pasa por el equivalente del trigger
 //     trg_sync_disponible_desde_estado (BEFORE INSERT OR UPDATE): `disponible` se recalcula
 //     siempre desde `estado`, pisando lo que se haya mandado. Las filas iniciales no pasan por
 //     él, igual que las que ya están en la base de datos.
 //   - select('a, b') devuelve solo esas columnas, como PostgREST (H26: así se puede comprobar que
 //     un endpoint público no expone una columna que no ha pedido).
+//   - en `reservas`, la columna generada rango_ocupado se calcula en cada fila (también en las
+//     iniciales, porque en la base de datos siempre existe) con el mismo texto canónico que
+//     devuelve Postgres: "[inicio,fin+margen)", "[inicio,)" sin fin, o "empty" si acaba el mismo
+//     día que empieza. Si acaba ANTES de empezar (fin_ocupacion + dias_margen < fecha_inicio), la
+//     escritura falla con 22000 "range lower bound must be less than or equal to range upper
+//     bound" y no escribe nada, como Postgres (comprobado en PostgreSQL 16, 19 oct); una fila
+//     inicial así no puede existir y hace fallar el test.
+//   - en `reservas`, cada insert y cada update pasa por las restricciones de la migración R2
+//     (docs/reservas-sql/r2_crear_reservas.sql): la exclusión reservas_sin_solape (23P01: misma
+//     pieza, rangos que se solapan, las dos en un estado que ocupa), el índice de una sola
+//     provisional por cliente y UNIQUE (stripe_session_id, mueble_id) (los dos, 23505). Si una fila
+//     lo incumple no se escribe nada, como en Postgres. Las filas iniciales no se comprueban.
+//   - en `reservas`, los dos disparadores de R2: cada escritura cambia `updated_at` (las filas
+//     iniciales tienen uno fijo si no traen el suyo) y, al marcar una reserva `devuelta` con su
+//     `devuelta_en`, `fin_ocupacion` pasa a ser el día de la devolución en hora de Madrid.
 // Lo que NO comprueba: que las columnas existan ni sus tipos, ni cómo serializa la librería cada
 // filtro a la URL. Eso último lo cubre queryContract.test.js con el cliente real.
 //
 // Opciones:
 //   muebles, pedidos, categorias, clientes, refresh_tokens, mensajes_contacto,
-//   verificaciones_email  filas iniciales
+//   verificaciones_email, reservas  filas iniciales
 //   indiceUnicoStripe    emula el índice único de pedidos.stripe_session_id (código 23505)
 //   fallos               { 'tabla.accion': error | (consulta) => error|null } hace fallar esa
 //                        operación (accion: select|insert|update); es un objeto vivo, se puede
 //                        añadir y quitar durante el test para simular reintentos. Con función,
 //                        `consulta.usa` es el conjunto de métodos encadenados (p. ej. 'contains')
+const { sumarDias, hoyEnMadrid } = require('../../utils/fechasMadrid');
+
+// Copia de la columna generada reservas.rango_ocupado:
+//   daterange(fecha_inicio, fin_ocupacion + dias_margen, '[)')
+// null si el fin va antes del principio: Postgres no puede calcular la columna (ERROR_RANGO).
+const rangoOcupado = ({ fecha_inicio, fin_ocupacion, dias_margen = 0 }) => {
+  if (fin_ocupacion == null) return `[${fecha_inicio},)`;
+  const fin = sumarDias(fin_ocupacion, dias_margen);
+  if (fin < fecha_inicio) return null;
+  return fin > fecha_inicio ? `[${fecha_inicio},${fin})` : 'empty';
+};
+const ERROR_RANGO = {
+  code: '22000',
+  message: 'range lower bound must be less than or equal to range upper bound'
+};
+const rangoInicial = (fila) => {
+  const rango = rangoOcupado(fila);
+  if (rango === null) {
+    throw new Error(`Fila inicial de reservas con el fin antes del principio: ${fila.id}`);
+  }
+  return rango;
+};
+
+// Un daterange en texto ("[a,b)", "[a,)" o "empty") como { desde, hasta } (null = sin límite).
+const leerRangoTexto = (texto) => {
+  const partes = /^\[([^,]*),([^)]*)\)$/.exec(texto);
+  return partes ? { desde: partes[1] || null, hasta: partes[2] || null } : null;
+};
+const rangosSeSolapan = (a, b) =>
+  a !== null &&
+  b !== null &&
+  (a.hasta === null || b.desde === null || b.desde < a.hasta) &&
+  (b.hasta === null || a.desde === null || a.desde < b.hasta);
+
+// Una comparación de PostgREST con la lógica de tres valores de SQL: true, false o null (desconocido:
+// la columna es NULL y el operador no es IS). Los valores se comparan como texto, que basta para
+// fechas ISO y enumerados. Lo usan lte/gte, not() y or().
+const OPERADORES = ['eq', 'neq', 'lt', 'lte', 'gt', 'gte', 'is'];
+const comparar = (valor, operador, objetivo) => {
+  if (operador === 'is') return objetivo === null ? valor == null : valor === objetivo;
+  if (valor == null) return null;
+  if (operador === 'eq') return valor === objetivo;
+  if (operador === 'neq') return valor !== objetivo;
+  if (operador === 'lt') return valor < objetivo;
+  if (operador === 'lte') return valor <= objetivo;
+  if (operador === 'gt') return valor > objetivo;
+  if (operador === 'gte') return valor >= objetivo;
+  throw new Error(`Operador no previsto en el doble de Supabase: ${operador}`);
+};
+
+// Una condición de or() en el formato de PostgREST: "columna.operador.valor" o
+// "columna.not.operador.valor". Con is, "null", "true" y "false" son esos valores, no texto.
+const leerCondicionOr = (texto) => {
+  const partes = /^([a-z_][a-z0-9_]*)\.(not\.)?([a-z]+)\.(.*)$/.exec(texto);
+  if (!partes || !OPERADORES.includes(partes[3]) || /["()]/.test(partes[4])) {
+    throw new Error(`Condición de or() que el doble de Supabase no sabe leer: ${texto}`);
+  }
+  const [, columna, negada, operador, crudo] = partes;
+  const literales = { null: null, true: true, false: false };
+  const valor = operador === 'is' && crudo in literales ? literales[crudo] : crudo;
+  return { columna, negada: Boolean(negada), operador, valor };
+};
+
+// Las restricciones de la tabla `reservas` que puede incumplir una fila frente a las demás, con el
+// error que daría Postgres (o null si cumple todas). El predicado de la exclusión es el de la
+// migración: solo cuentan las filas en un estado que ocupa el calendario.
+const ESTADOS_QUE_OCUPAN = ['pendiente', 'confirmada', 'en_curso', 'devuelta'];
+const violacionReservas = (fila, otras) => {
+  const unicidad = (indice) => ({
+    code: '23505',
+    message: `duplicate key value violates unique constraint "${indice}"`
+  });
+  // En el orden en que las comprueba Postgres, que es el de creación en R2 (comprobado en
+  // PostgreSQL 16): primero la exclusión, luego la unicidad de (stripe_session_id, mueble_id) y por
+  // último el índice de una provisional por cliente. Así, repetir la venta de una sesión, o el doble
+  // clic de una reserva con las mismas fechas, da 23P01 y no 23505.
+  const ocupa = (f) => ESTADOS_QUE_OCUPAN.includes(f.estado);
+  if (
+    ocupa(fila) &&
+    otras.some(
+      (o) =>
+        ocupa(o) &&
+        o.mueble_id === fila.mueble_id &&
+        rangosSeSolapan(leerRangoTexto(o.rango_ocupado), leerRangoTexto(fila.rango_ocupado))
+    )
+  ) {
+    return {
+      code: '23P01',
+      message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
+    };
+  }
+  if (
+    fila.stripe_session_id != null &&
+    otras.some(
+      (o) => o.stripe_session_id === fila.stripe_session_id && o.mueble_id === fila.mueble_id
+    )
+  ) {
+    return unicidad('reservas_sesion_mueble_key');
+  }
+  if (
+    fila.estado === 'pendiente' &&
+    fila.cliente_id != null &&
+    otras.some((o) => o.estado === 'pendiente' && o.cliente_id === fila.cliente_id)
+  ) {
+    return unicidad('reservas_una_pendiente_por_cliente');
+  }
+  return null;
+};
+
 const crearFakeSupabase = ({
   muebles = [],
   pedidos = [],
@@ -42,7 +172,10 @@ const crearFakeSupabase = ({
   refresh_tokens = [],
   mensajes_contacto = [],
   verificaciones_email = [],
+  password_resets = [],
+  audit_log = [],
   reservas = [],
+  ajustes_home = [{ id: 1, hero_imagenes: [], productos_destacados: [] }],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -54,45 +187,27 @@ const crearFakeSupabase = ({
     refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
     mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila })),
     verificaciones_email: verificaciones_email.map((fila) => ({ ...fila })),
-    reservas: reservas.map((fila) => ({ ...fila }))
+    password_resets: password_resets.map((fila) => ({ ...fila })),
+    audit_log: audit_log.map((fila) => ({ ...fila })),
+    ajustes_home: ajustes_home.map((fila) => ({ ...fila })),
+    reservas: reservas.map((fila) => ({
+      updated_at: '2025-12-31T00:00:00.000Z',
+      ...fila,
+      rango_ocupado: rangoInicial(fila)
+    }))
   };
   const escrituras = []; // registro de inserts/updates, en orden
-  const estado = { unicidadRechazada: 0 };
+  const estado = { unicidadRechazada: 0, exclusionRechazada: 0 };
+  const rechazarEscritura = (error) => {
+    if (error.code === '23505') estado.unicidadRechazada++;
+    else estado.exclusionRechazada++;
+    return { data: null, error };
+  };
   let secuencia = 0;
+  let reloj = 0;
 
   const contiene = (elemento, patron) =>
     Object.entries(patron).every(([clave, valor]) => elemento && elemento[clave] === valor);
-
-  const sumarDiasISO = (fechaStr, dias) => {
-    if (!fechaStr || !dias) return fechaStr;
-    const [año, mes, dia] = fechaStr.split('-').map(Number);
-    const d = new Date(Date.UTC(año, mes - 1, dia + dias));
-    return d.toISOString().slice(0, 10);
-  };
-
-  const parsearRangoDaterange = (rango) => {
-    if (!rango) return null;
-    if (typeof rango === 'string') {
-      const m = rango.match(/^([[({])([^,]*),([^\])}]*)([\])}]?)$/);
-      if (!m) return null;
-      return {
-        inf: m[2].trim() || null,
-        sup: m[3].trim() || null
-      };
-    }
-    return null;
-  };
-
-  const rangosSeSolapan = (r1, r2) => {
-    const p1 = parsearRangoDaterange(r1);
-    const p2 = parsearRangoDaterange(r2);
-    if (!p1 || !p2) return false;
-    const a = p1.inf;
-    const b = p1.sup;
-    const c = p2.inf;
-    const d = p2.sup;
-    return (d === null || a < d) && (b === null || c < b);
-  };
 
   // .single()/.maybeSingle() aplican igual detrás de un update()/delete() que detrás de un
   // select() -- p. ej. `.update({...}).eq('id', id).select().single()` sobre un id que no
@@ -164,15 +279,14 @@ const crearFakeSupabase = ({
       fila.disponible = (fila.estado ?? 'disponible') === 'disponible';
     },
     reservas: (fila) => {
-      if (!fila.rango_ocupado && fila.fecha_inicio) {
-        if (fila.fin_ocupacion) {
-          const margen = Number(fila.dias_margen || 0);
-          const finConMargen = sumarDiasISO(fila.fin_ocupacion, margen);
-          fila.rango_ocupado = `[${fila.fecha_inicio},${finConMargen})`;
-        } else {
-          fila.rango_ocupado = `[${fila.fecha_inicio},)`;
-        }
+      // reservas_fin_ocupacion_al_devolver (R2), que va antes de calcular el rango.
+      if (fila.estado === 'devuelta' && fila.devuelta_en) {
+        fila.fin_ocupacion = hoyEnMadrid(new Date(fila.devuelta_en));
       }
+      fila.rango_ocupado = rangoOcupado(fila);
+      // reservas_actualizar_updated_at (R2): cada escritura cambia updated_at. Aquí basta con que
+      // sea distinto en cada una.
+      fila.updated_at = new Date(Date.UTC(2026, 0, 1) + ++reloj).toISOString();
     }
   };
   const aplicarTriggers = (nombre, fila) => triggers[nombre]?.(fila);
@@ -192,8 +306,12 @@ const crearFakeSupabase = ({
       const entrada = Array.isArray(consulta.datos) ? consulta.datos : [consulta.datos];
       const nuevasFilas = entrada.map((datos) => ({ id: `${nombre}-${++secuencia}`, ...datos }));
       nuevasFilas.forEach((fila) => aplicarTriggers(nombre, fila));
+      // La columna generada se calcula antes de mirar ninguna restricción.
+      if (nombre === 'reservas' && nuevasFilas.some((fila) => fila.rango_ocupado === null)) {
+        return { data: null, error: ERROR_RANGO };
+      }
 
-      for (const fila of nuevasFilas) {
+      for (const [i, fila] of nuevasFilas.entries()) {
         const duplicaId = filas.some((f) => f.id === fila.id);
         const duplicaSesion =
           nombre === 'pedidos' &&
@@ -201,66 +319,25 @@ const crearFakeSupabase = ({
           fila.stripe_session_id &&
           filas.some((f) => f.stripe_session_id === fila.stripe_session_id);
         if (duplicaId || duplicaSesion) {
-          estado.unicidadRechazada++;
+          return rechazarEscritura({
+            code: '23505',
+            message: 'duplicate key value violates unique constraint'
+          });
+        }
+        const violacion =
+          nombre === 'reservas' && violacionReservas(fila, [...filas, ...nuevasFilas.slice(0, i)]);
+        if (violacion) return rechazarEscritura(violacion);
+        // La clave ajena de reservas.mueble_id. Postgres la comprueba al final de la sentencia,
+        // después de las restricciones de arriba: por eso va la última.
+        if (nombre === 'reservas' && !tablas.muebles.some((m) => m.id === fila.mueble_id)) {
           return {
             data: null,
-            error: { code: '23505', message: 'duplicate key value violates unique constraint' }
+            error: {
+              code: '23503',
+              message:
+                'insert or update on table "reservas" violates foreign key constraint "reservas_mueble_id_fkey"'
+            }
           };
-        }
-
-        if (nombre === 'reservas') {
-          const estadosActivos = ['pendiente', 'confirmada', 'en_curso', 'devuelta'];
-          if (estadosActivos.includes(fila.estado)) {
-            const conflicto = filas.some(
-              (f) =>
-                f.id !== fila.id &&
-                f.mueble_id === fila.mueble_id &&
-                estadosActivos.includes(f.estado) &&
-                rangosSeSolapan(f.rango_ocupado, fila.rango_ocupado)
-            );
-            if (conflicto) {
-              return {
-                data: null,
-                error: {
-                  code: '23P01',
-                  message: 'conflicting key value violates exclusion constraint "reservas_sin_solape"'
-                }
-              };
-            }
-          }
-          if (fila.estado === 'pendiente' && fila.cliente_id) {
-            const duplicaCliente = filas.some(
-              (f) => f.id !== fila.id && f.cliente_id === fila.cliente_id && f.estado === 'pendiente'
-            );
-            if (duplicaCliente) {
-              return {
-                data: null,
-                error: {
-                  code: '23505',
-                  message:
-                    'duplicate key value violates unique constraint "idx_reservas_un_pendiente_por_cliente"'
-                }
-              };
-            }
-          }
-          if (fila.stripe_session_id && fila.mueble_id) {
-            const duplicaSesionMueble = filas.some(
-              (f) =>
-                f.id !== fila.id &&
-                f.stripe_session_id === fila.stripe_session_id &&
-                f.mueble_id === fila.mueble_id
-            );
-            if (duplicaSesionMueble) {
-              return {
-                data: null,
-                error: {
-                  code: '23505',
-                  message:
-                    'duplicate key value violates unique constraint "idx_reservas_stripe_session_mueble"'
-                }
-              };
-            }
-          }
         }
       }
 
@@ -279,6 +356,26 @@ const crearFakeSupabase = ({
 
     if (consulta.accion === 'update') {
       const afectadas = filas.filter(coincide);
+      if (nombre === 'reservas') {
+        // Se comprueba cómo quedarían las filas antes de tocar ninguna: si una incumple, no cambia
+        // nada (la sentencia entera falla).
+        const propuestas = afectadas.map((fila) => {
+          const copia = { ...fila, ...consulta.datos };
+          aplicarTriggers(nombre, copia);
+          return copia;
+        });
+        if (propuestas.some((fila) => fila.rango_ocupado === null)) {
+          return { data: null, error: ERROR_RANGO };
+        }
+        const resto = filas.filter((fila) => !afectadas.includes(fila));
+        for (const [i, propuesta] of propuestas.entries()) {
+          const violacion = violacionReservas(propuesta, [
+            ...resto,
+            ...propuestas.filter((_, j) => j !== i)
+          ]);
+          if (violacion) return rechazarEscritura(violacion);
+        }
+      }
       afectadas.forEach((fila) => {
         Object.assign(fila, consulta.datos);
         aplicarTriggers(nombre, fila);
@@ -299,6 +396,21 @@ const crearFakeSupabase = ({
 
     if (consulta.accion === 'delete') {
       const aBorrar = filas.filter(coincide);
+      // reservas.mueble_id es ON DELETE RESTRICT: una pieza con filas en el calendario (de cualquier
+      // estado) no se puede borrar, y no se borra nada.
+      if (
+        nombre === 'muebles' &&
+        aBorrar.some((m) => (tablas.reservas || []).some((r) => r.mueble_id === m.id))
+      ) {
+        return {
+          data: null,
+          error: {
+            code: '23503',
+            message:
+              'update or delete on table "muebles" violates foreign key constraint "reservas_mueble_id_fkey" on table "reservas"'
+          }
+        };
+      }
       aBorrar.forEach((fila) => {
         const idx = filas.indexOf(fila);
         if (idx !== -1) filas.splice(idx, 1);
@@ -420,29 +532,32 @@ const crearFakeSupabase = ({
         return usar('lt');
       },
       lte: (columna, valor) => {
-        consulta.filtros.push(
-          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) <= valor
-        );
+        consulta.filtros.push((f) => comparar(valorDeColumna(f, columna), 'lte', valor) === true);
         return usar('lte');
       },
-      gt: (columna, valor) => {
-        consulta.filtros.push(
-          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) > valor
-        );
-        return usar('gt');
-      },
       gte: (columna, valor) => {
-        consulta.filtros.push(
-          (f) => valorDeColumna(f, columna) != null && valorDeColumna(f, columna) >= valor
-        );
+        consulta.filtros.push((f) => comparar(valorDeColumna(f, columna), 'gte', valor) === true);
         return usar('gte');
       },
-      overlaps: (columna, patron) => {
-        consulta.filtros.push((f) => {
-          const rangoFila = valorDeColumna(f, columna);
-          return rangosSeSolapan(rangoFila, patron);
-        });
-        return usar('overlaps');
+      // NOT de un operador, como el filtro "not.<op>" de PostgREST: not('c', 'is', null) es
+      // "c IS NOT NULL". Como SQL, NOT de una comparación desconocida (columna NULL) tampoco cumple.
+      not: (columna, operador, valor) => {
+        consulta.filtros.push(
+          (f) => comparar(valorDeColumna(f, columna), operador, valor) === false
+        );
+        return usar('not');
+      },
+      // OR de condiciones simples, con la cadena de PostgREST: or('tipo.neq.venta,fecha.gte.2026-01-01').
+      // Una fila cumple si alguna condición da true (las desconocidas no cuentan).
+      or: (texto) => {
+        const condiciones = String(texto).split(',').map(leerCondicionOr);
+        consulta.filtros.push((f) =>
+          condiciones.some(({ columna, negada, operador, valor }) => {
+            const resultado = comparar(valorDeColumna(f, columna), operador, valor);
+            return negada ? resultado === false : resultado === true;
+          })
+        );
+        return usar('or');
       },
       // LIKE: los mismos comodines que ILIKE, pero distinguiendo mayúsculas, como en Postgres. Lo
       // usa utils/referencia.js para buscar la última referencia de un código (NAV-SIL-%).
@@ -489,6 +604,12 @@ const crearFakeSupabase = ({
             );
         }
         return usar('contains');
+      },
+      // && de rangos: como el filtro "ov" de PostgREST con un rango en texto ("[a,b)" o "[a,)").
+      overlaps: (columna, rango) => {
+        const buscado = leerRangoTexto(rango);
+        consulta.filtros.push((f) => rangosSeSolapan(leerRangoTexto(f[columna] ?? ''), buscado));
+        return usar('overlaps');
       },
       insert: (datos) => {
         consulta.accion = 'insert';

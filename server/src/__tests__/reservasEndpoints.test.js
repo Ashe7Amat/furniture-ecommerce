@@ -1,4 +1,7 @@
-const { describe, it, beforeEach, afterEach, mock } = require('node:test');
+// Tests de los endpoints de solo lectura de las reservas por fechas (controllers/reservasController.js,
+// docs/reservas-diseno.md 7.1 y 7.2), con el doble de Supabase. Las fechas van relativas a hoy en
+// Madrid, porque los endpoints usan el reloj de verdad.
+const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 require('./helpers/testEnv');
@@ -6,273 +9,233 @@ require('./helpers/testEnv');
 const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
-const { hoyEnMadrid, sumarDias } = require('../utils/reservas');
+const { hoyEnMadrid, sumarDias } = require('../utils/fechasMadrid');
+const { MENSAJE_ALQUILER_CERRADO } = require('../controllers/reservasController');
+
+const hoy = hoyEnMadrid();
+const dia = (n) => sumarDias(hoy, n);
 
 let fake;
-afterEach(() => mock.restoreAll());
+const instalar = (opciones = {}) => {
+  fake = crearFakeSupabase({
+    muebles: [
+      { id: 'm1', nombre: 'Silla', estado: 'disponible', precio_alquiler_dia: 25 },
+      { id: 'm2', nombre: 'Mesa', estado: 'vendido', precio_alquiler_dia: 40 },
+      { id: 'm3', nombre: 'Banco', estado: 'disponible', precio_alquiler_dia: null }
+    ],
+    ...opciones
+  });
+  mock.method(supabase, 'from', fake.from);
+};
+
+afterEach(() => {
+  mock.restoreAll();
+  process.env.MOSTRAR_PRECIOS = 'true';
+});
 
 describe('GET /api/muebles/:id/disponibilidad', () => {
-  const hoy = hoyEnMadrid();
-  const inicioFuturo = sumarDias(hoy, 10);
-  const finFuturo = sumarDias(hoy, 15);
-
-  beforeEach(() => {
-    fake = crearFakeSupabase({
-      muebles: [
-        {
-          id: 'mueble-1',
-          nombre: 'Silla Vintage',
-          estado: 'disponible',
-          precio_alquiler_dia: 15.0
-        },
-        {
-          id: 'mueble-sin-alquiler',
-          nombre: 'Mesa Rústica',
-          estado: 'disponible',
-          precio_alquiler_dia: null
-        },
-        {
-          id: 'mueble-vendido',
-          nombre: 'Aparador Mid-Century',
-          estado: 'vendido',
-          precio_alquiler_dia: 30.0
-        }
-      ],
+  beforeEach(() =>
+    instalar({
       reservas: [
+        // Ocupa del día 10 al 15 (fin 13 + 2 de margen).
         {
-          id: 'res-1',
-          mueble_id: 'mueble-1',
+          id: 'r1',
+          mueble_id: 'm1',
           tipo: 'alquiler',
           estado: 'confirmada',
-          fecha_inicio: inicioFuturo,
-          fecha_fin: finFuturo,
-          fin_ocupacion: finFuturo,
+          fecha_inicio: dia(10),
+          fecha_fin: dia(13),
+          fin_ocupacion: dia(13),
           dias_margen: 2,
-          rango_ocupado: `[${inicioFuturo},${sumarDias(finFuturo, 2)})`
+          cliente_id: 'c1',
+          datos_contacto: { nombre: 'Ana', email: 'ana@ejemplo.com' }
+        },
+        // Ya pasado: no sale.
+        {
+          id: 'r2',
+          mueble_id: 'm1',
+          tipo: 'alquiler',
+          estado: 'devuelta',
+          fecha_inicio: dia(-20),
+          fecha_fin: dia(-10),
+          fin_ocupacion: dia(-10),
+          dias_margen: 2
+        },
+        // Cancelada: no ocupa.
+        {
+          id: 'r3',
+          mueble_id: 'm1',
+          tipo: 'alquiler',
+          estado: 'cancelada',
+          fecha_inicio: dia(30),
+          fecha_fin: dia(33),
+          fin_ocupacion: dia(33),
+          dias_margen: 2
+        },
+        // De otra pieza: no sale.
+        {
+          id: 'r4',
+          mueble_id: 'm3',
+          tipo: 'bloqueo',
+          estado: 'confirmada',
+          fecha_inicio: dia(5),
+          fecha_fin: dia(8),
+          fin_ocupacion: dia(8),
+          dias_margen: 0
         }
       ]
-    });
-    mock.method(supabase, 'from', fake.from);
+    })
+  );
+
+  test('devuelve lo ocupado de esa pieza, con margen, sin datos del cliente y sin caché', async () => {
+    const res = await request(app).get('/api/muebles/m1/disponibilidad');
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['cache-control'], 'no-store');
+    assert.equal(res.body.hoy, hoy);
+    assert.equal(res.body.desde, hoy);
+    assert.deepEqual(res.body.ocupado, [{ desde: dia(10), hasta: dia(15), tipo: 'reservado' }]);
+    assert.equal(res.body.alquilable, true);
+    assert.equal(res.body.comprable, false);
+    assert.equal(res.body.comprable_desde, dia(15));
+    assert.equal(res.body.precio_dia_centimos, 2500);
+    assert.doesNotMatch(JSON.stringify(res.body), /Ana|ana@ejemplo|c1|r1/);
   });
 
-  it('devuelve 404 si el mueble no existe', async () => {
-    const res = await request(app).get('/api/muebles/inexistente/disponibilidad');
+  test('solo lee: no escribe nada en ninguna tabla', async () => {
+    await request(app).get('/api/muebles/m1/disponibilidad');
+    assert.deepEqual(fake.escrituras, []);
+  });
+
+  test('con ?desde y ?hasta, el calendario enseña solo esa ventana', async () => {
+    const res = await request(app).get(
+      `/api/muebles/m1/disponibilidad?desde=${dia(20)}&hasta=${dia(40)}`
+    );
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.ocupado, []);
+    assert.equal(res.body.comprable, false, 'la compra sigue mirando todo lo futuro');
+  });
+
+  test('un bloqueo futuro también impide comprar, y no hace falta precio para verlo', async () => {
+    const res = await request(app).get('/api/muebles/m3/disponibilidad');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.comprable, false);
+    assert.equal(res.body.comprable_desde, dia(8));
+    assert.equal(res.body.alquilable, false, 'sin precio de alquiler');
+    assert.deepEqual(res.body.ocupado, [{ desde: dia(5), hasta: dia(8), tipo: 'bloqueado' }]);
+  });
+
+  test('una pieza sin nada de hoy en adelante se puede comprar', async () => {
+    const res = await request(app).get('/api/muebles/m2/disponibilidad');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.comprable, false, 'm2 está marcada como vendida');
+    fake.tablas.muebles.find((m) => m.id === 'm2').estado = 'disponible';
+    const otra = await request(app).get('/api/muebles/m2/disponibilidad');
+    assert.equal(otra.body.comprable, true);
+    assert.deepEqual(otra.body.ocupado, []);
+  });
+
+  test('con los precios ocultos no enseña el precio por día', async () => {
+    process.env.MOSTRAR_PRECIOS = 'false';
+    const res = await request(app).get('/api/muebles/m1/disponibilidad');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.precio_dia_centimos, null);
+  });
+
+  test('una pieza que no existe: 404', async () => {
+    const res = await request(app).get('/api/muebles/no-existe/disponibilidad');
     assert.equal(res.status, 404);
     assert.equal(res.body.error, 'Mueble no encontrado.');
   });
 
-  it('devuelve la disponibilidad y reglas de un mueble con Cache-Control: no-store', async () => {
-    const res = await request(app).get('/api/muebles/mueble-1/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.headers['cache-control'], 'no-store');
-    assert.equal(res.body.mueble_id, 'mueble-1');
-    assert.equal(res.body.alquilable, true);
-    // Regla de negocio: con reservas activas o futuras, la compra inmediata está bloqueada
-    assert.equal(res.body.comprable, false);
-    assert.equal(res.body.motivo_no_comprable, 'reservas_activas');
-    assert.equal(res.body.comprable_desde, sumarDias(finFuturo, 2));
-    assert.equal(res.body.precio_dia, 15);
-    assert.equal(res.body.reglas.duracion_min_dias, 1);
-    assert.equal(res.body.reglas.dias_margen, 2);
-    assert.equal(res.body.ocupado.length, 1);
-    assert.equal(res.body.ocupado[0].desde, inicioFuturo);
-    assert.equal(res.body.ocupado[0].hasta, sumarDias(finFuturo, 2));
-    assert.equal(res.body.ocupado[0].tipo, 'reservado');
+  test('fechas mal escritas: 400 con el motivo', async () => {
+    const res = await request(app).get('/api/muebles/m1/disponibilidad?hasta=31/12/2026');
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Las fechas tienen que ir en formato AAAA-MM-DD.');
   });
 
-  it('un mueble sin reservas es comprable y alquilable inmediatamente', async () => {
-    fake = crearFakeSupabase({
-      muebles: [
-        {
-          id: 'mueble-libre',
-          nombre: 'Mesa Tulip',
-          estado: 'disponible',
-          precio_alquiler_dia: 25
-        }
-      ],
-      reservas: []
-    });
-    mock.method(supabase, 'from', fake.from);
-
-    const res = await request(app).get('/api/muebles/mueble-libre/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.alquilable, true);
-    assert.equal(res.body.comprable, true);
-    assert.equal(res.body.motivo_no_comprable, null);
-    assert.equal(res.body.comprable_desde, null);
-    assert.equal(res.body.ocupado.length, 0);
-  });
-
-  it('marca una pieza como no comprable si tiene una ocupación activa desde hoy', async () => {
-    const inicioHoy = hoy;
-    const finSemana = sumarDias(hoy, 5);
-
-    fake = crearFakeSupabase({
-      muebles: [
-        {
-          id: 'mueble-en-uso',
-          nombre: 'Lámpara Fase',
-          estado: 'disponible',
-          precio_alquiler_dia: 10
-        }
-      ],
-      reservas: [
-        {
-          id: 'res-hoy',
-          mueble_id: 'mueble-en-uso',
-          tipo: 'alquiler',
-          estado: 'en_curso',
-          fecha_inicio: inicioHoy,
-          fecha_fin: finSemana,
-          fin_ocupacion: finSemana,
-          dias_margen: 2,
-          rango_ocupado: `[${inicioHoy},${sumarDias(finSemana, 2)})`
-        }
-      ]
-    });
-    mock.method(supabase, 'from', fake.from);
-
-    const res = await request(app).get('/api/muebles/mueble-en-uso/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.comprable, false);
-    assert.equal(res.body.motivo_no_comprable, 'reservas_activas');
-    assert.equal(res.body.comprable_desde, sumarDias(finSemana, 2));
-  });
-
-  it('una pieza vendida devuelve comprable: false y alquilable: false', async () => {
-    const res = await request(app).get('/api/muebles/mueble-vendido/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.alquilable, false);
-    assert.equal(res.body.comprable, false);
-    assert.equal(res.body.motivo_no_comprable, 'vendido');
-    assert.equal(res.body.comprable_desde, null);
-    assert.ok(res.body.ocupado.some((o) => o.tipo === 'vendido'));
-  });
-
-  it('una pieza sin precio_alquiler_dia devuelve alquilable: false', async () => {
-    const res = await request(app).get('/api/muebles/mueble-sin-alquiler/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.alquilable, false);
-    assert.equal(res.body.precio_dia, null);
-  });
-
-  it('ignora reservas provisionales que ya han expirado', async () => {
-    const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    fake = crearFakeSupabase({
-      muebles: [
-        {
-          id: 'mueble-caducado',
-          nombre: 'Espejo Sol',
-          estado: 'disponible',
-          precio_alquiler_dia: 12
-        }
-      ],
-      reservas: [
-        {
-          id: 'res-caducada',
-          mueble_id: 'mueble-caducado',
-          tipo: 'alquiler',
-          estado: 'pendiente',
-          fecha_inicio: sumarDias(hoy, 3),
-          fecha_fin: sumarDias(hoy, 6),
-          fin_ocupacion: sumarDias(hoy, 6),
-          dias_margen: 2,
-          expira_en: haceUnaHora,
-          rango_ocupado: `[${sumarDias(hoy, 3)},${sumarDias(hoy, 8)})`
-        }
-      ]
-    });
-    mock.method(supabase, 'from', fake.from);
-
-    const res = await request(app).get('/api/muebles/mueble-caducado/disponibilidad');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.ocupado.length, 0);
-  });
-
-  it('valida que hasta no sea anterior a desde y que el rango no supere 12 meses', async () => {
-    const res1 = await request(app).get(
-      `/api/muebles/mueble-1/disponibilidad?desde=${sumarDias(hoy, 10)}&hasta=${sumarDias(hoy, 5)}`
-    );
-    assert.equal(res1.status, 400);
-    assert.match(res1.body.error, /no puede ser anterior/);
-
-    const res2 = await request(app).get(
-      `/api/muebles/mueble-1/disponibilidad?desde=${hoy}&hasta=${sumarDias(hoy, 400)}`
-    );
-    assert.equal(res2.status, 400);
-    assert.match(res2.body.error, /no puede superar los 12 meses/);
+  test('un error de la base de datos: 500 sin detalles', async () => {
+    fake.fallos['reservas.select'] = { message: 'relation "public.reservas" does not exist' };
+    mock.method(console, 'error', () => {});
+    const res = await request(app).get('/api/muebles/m1/disponibilidad');
+    assert.equal(res.status, 500);
+    assert.equal(res.body.error, 'Error interno al consultar la disponibilidad.');
   });
 });
 
 describe('GET /api/muebles/:id/presupuesto', () => {
-  const hoy = hoyEnMadrid();
-  const inicioValido = sumarDias(hoy, 5);
-  const finValido = sumarDias(hoy, 12); // 7 días
+  beforeEach(() => instalar());
 
-  beforeEach(() => {
-    fake = crearFakeSupabase({
-      muebles: [
-        {
-          id: 'mueble-1',
-          nombre: 'Silla Thonet',
-          estado: 'disponible',
-          precio_alquiler_dia: 20.0
-        },
-        {
-          id: 'mueble-sin-alquiler',
-          nombre: 'Escultura',
-          estado: 'disponible',
-          precio_alquiler_dia: null
-        }
-      ]
-    });
-    mock.method(supabase, 'from', fake.from);
+  const url = (id, consulta) => `/api/muebles/${id}/presupuesto?${new URLSearchParams(consulta)}`;
+  const valida = {
+    fecha_inicio: dia(10),
+    hora_entrega: '10:00',
+    fecha_fin: dia(13),
+    hora_recogida: '10:00',
+    entrega: 'domicilio',
+    recogida: 'tienda'
+  };
+
+  test('devuelve el presupuesto en céntimos, sin caché', async () => {
+    const res = await request(app).get(url('m1', valida));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['cache-control'], 'no-store');
+    assert.equal(res.body.mueble_id, 'm1');
+    assert.equal(res.body.dias, 3);
+    assert.equal(res.body.importe_total_centimos, 7500);
+    assert.deepEqual(
+      res.body.lineas.map((l) => l.concepto),
+      ['alquiler', 'entrega', 'recogida']
+    );
   });
 
-  it('devuelve 404 si el mueble no existe', async () => {
-    const res = await request(app).get(
-      `/api/muebles/inexistente/presupuesto?fecha_inicio=${inicioValido}&fecha_fin=${finValido}`
-    );
+  test('una regla incumplida: 400 con el motivo', async () => {
+    const res = await request(app).get(url('m1', { ...valida, fecha_inicio: hoy }));
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /^La entrega más temprana posible es el \d{2}\/\d{2}\/\d{4}\.$/);
+  });
+
+  test('sin fechas: 400', async () => {
+    const res = await request(app).get('/api/muebles/m1/presupuesto');
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Elige las fechas de entrega y de recogida.');
+  });
+
+  test('una pieza vendida o sin precio de alquiler no se puede alquilar', async () => {
+    for (const id of ['m2', 'm3']) {
+      const res = await request(app).get(url(id, valida));
+      assert.equal(res.status, 400, id);
+      assert.equal(res.body.error, 'Esta pieza no se puede alquilar.', id);
+    }
+  });
+
+  test('una pieza que no existe: 404', async () => {
+    const res = await request(app).get(url('no-existe', valida));
     assert.equal(res.status, 404);
   });
 
-  it('devuelve 400 si el mueble no tiene precio de alquiler', async () => {
-    const res = await request(app).get(
-      `/api/muebles/mueble-sin-alquiler/presupuesto?fecha_inicio=${inicioValido}&fecha_fin=${finValido}`
-    );
-    assert.equal(res.status, 400);
-    assert.match(res.body.error, /no está disponible para alquiler/);
+  test('con los precios ocultos no da presupuestos: 403', async () => {
+    process.env.MOSTRAR_PRECIOS = 'false';
+    const res = await request(app).get(url('m1', valida));
+    assert.equal(res.status, 403);
+    assert.equal(res.body.error, MENSAJE_ALQUILER_CERRADO);
   });
 
-  it('devuelve 400 si faltan fechas o el rango no cumple las reglas', async () => {
-    const resFaltaFecha = await request(app).get(
-      `/api/muebles/mueble-1/presupuesto?fecha_inicio=${inicioValido}`
-    );
-    assert.equal(resFaltaFecha.status, 400);
-
-    // Antelación insuficiente (mañana, cuando el mínimo son 2 días)
-    const manana = sumarDias(hoy, 1);
-    const resAntelacion = await request(app).get(
-      `/api/muebles/mueble-1/presupuesto?fecha_inicio=${manana}&fecha_fin=${sumarDias(manana, 3)}`
-    );
-    assert.equal(resAntelacion.status, 400);
-    assert.match(resAntelacion.body.error, /al menos 2 días de antelación/);
+  test('un error de la base de datos al leer la pieza: 404, como la ficha', async () => {
+    fake.fallos['muebles.select'] = {
+      code: '22P02',
+      message: 'invalid input syntax for type uuid'
+    };
+    const res = await request(app).get(url('m1', valida));
+    assert.equal(res.status, 404);
   });
 
-  it('calcula y devuelve el presupuesto desglosado con Cache-Control: no-store', async () => {
-    const res = await request(app).get(
-      `/api/muebles/mueble-1/presupuesto?fecha_inicio=${inicioValido}&fecha_fin=${finValido}`
-    );
-    assert.equal(res.status, 200);
-    assert.equal(res.headers['cache-control'], 'no-store');
-    assert.equal(res.body.mueble_id, 'mueble-1');
-    assert.equal(res.body.dias, 7);
-    assert.equal(res.body.subtotal, 140); // 7 * 20
-    assert.equal(res.body.descuento_porcentaje, 10); // tramo 7 días: 10%
-    assert.equal(res.body.descuento, 14);
-    assert.equal(res.body.importe_alquiler, 126);
-    assert.equal(res.body.importe_total, 126);
-    assert.equal(res.body.iva_incluido, true);
-    assert.ok(Array.isArray(res.body.lineas));
+  test('un error inesperado: 500 sin detalles', async () => {
+    mock.method(supabase, 'from', () => {
+      throw new Error('caída');
+    });
+    mock.method(console, 'error', () => {});
+    const res = await request(app).get(url('m1', valida));
+    assert.equal(res.status, 500);
+    assert.equal(res.body.error, 'Error interno al calcular el presupuesto.');
   });
 });

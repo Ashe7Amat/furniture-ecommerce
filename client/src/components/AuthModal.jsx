@@ -1,12 +1,17 @@
-// client/src/components/AuthModal.jsx
 import { useState, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
+import { EyeIcon, EyeOffIcon } from './EyeIcons';
 import '../styles/AuthModal.css';
 
-const AuthModal = ({ isOpen, onClose, onSuccess }) => {
+// `descripcion` y `textoEntrar` son los textos del acceso, para quien no viene de la cesta (la reserva por
+// fechas): sin ellos, los de siempre.
+const DESCRIPCION_ACCESO = 'Accede a tu perfil para finalizar la compra de tus piezas únicas.';
+const TEXTO_ENTRAR = 'Entrar y continuar pedido';
+
+const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCESO, textoEntrar = TEXTO_ENTRAR }) => {
   const { login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
 
@@ -14,6 +19,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const dialogoRef = useRef(null);
@@ -73,6 +79,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
       setNombre('');
       setEmail('');
       setPassword('');
+      setMostrarPassword(false);
       setError('');
     }, 300);
   };
@@ -83,6 +90,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
     setNombre('');
     setEmail('');
     setPassword('');
+    setMostrarPassword(false);
   };
 
   return (
@@ -108,7 +116,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
           <p className="auth-sub-desc">
             {isRegister 
               ? 'Únete a nuestra comunidad de diseño slow y piezas con historia.' 
-              : 'Accede a tu perfil para finalizar la compra de tus piezas únicas.'}
+              : descripcion}
           </p>
 
           <form onSubmit={handleSubmit} className="auth-form">
@@ -138,13 +146,24 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
 
             <div className="auth-input-group">
               <label>Contraseña</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                required
-              />
+              <div className="auth-password-wrapper">
+                <input 
+                  type={mostrarPassword ? 'text' : 'password'} 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required
+                />
+                <button
+                  type="button"
+                  className="auth-toggle-password-btn"
+                  onClick={() => setMostrarPassword((prev) => !prev)}
+                  aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  tabIndex={0}
+                >
+                  {mostrarPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
 
             {error && <span className="auth-error-msg">{error}</span>}
@@ -158,7 +177,7 @@ const AuthModal = ({ isOpen, onClose, onSuccess }) => {
                 ? 'Conectando...' 
                 : isRegister 
                   ? 'Crear mi cuenta' 
-                  : 'Entrar y continuar pedido'}
+                  : textoEntrar}
             </button>
           </form>
 

@@ -1,225 +1,410 @@
+// Reservas por fechas (docs/reservas-diseno.md). Bloque R-a: los dos endpoints públicos de solo
+// lectura (7.1 y 7.2). Bloque R-b: la reserva provisional y su sesión de pago (6.3), detrás del
+// interruptor RESERVAS_ACTIVAS. La tabla `reservas` (migración R2) está aplicada en producción desde el
+// 19 oct 2026 (docs/reservas-sql/README.md).
 const supabase = require('../data/supabase');
+const stripeUtil = require('../utils/stripe');
+const email = require('../utils/email');
 const {
-  CONFIG_RESERVAS,
-  hoyEnMadrid,
-  diasEntreFechas,
-  sumarDias,
-  sumarMeses,
-  validarRangoReserva,
-  calcularPrecioReserva
+  ErrorValidacion,
+  ErrorConflicto,
+  ErrorReintentable,
+  ErrorNoEncontrado
+} = require('../utils/errores');
+const { preciosVisibles } = require('../utils/precios');
+const { buscarCuentaVerificada } = require('../utils/cuentaVerificada');
+const {
+  iniciarPagoDeReserva,
+  retomarPagoDeReserva,
+  pagoHastaDe,
+  MENSAJE_RESERVA_NO_ENCONTRADA
 } = require('../utils/reservas');
+const { hoyEnMadrid, fechaLegible } = require('../utils/fechasMadrid');
+const {
+  referenciaDeReserva,
+  horaCorta,
+  actualizarReserva
+} = require('../utils/calendarioReservas');
+const { enviarTodos } = require('../utils/enviarTodos');
+const { calcularPrecioReserva } = require('../utils/precioReserva');
+const {
+  ESTADOS_QUE_OCUPAN,
+  ventanaDeConsulta,
+  calcularDisponibilidad
+} = require('../utils/disponibilidad');
 
-/**
- * Consulta pública de disponibilidad de una pieza (docs/reservas-diseno.md, sección 7.1).
- * Devuelve el calendario de ocupación, límites y si la pieza es comprable/alquilable hoy.
- */
-async function obtenerDisponibilidad(req, res) {
+const MENSAJE_ALQUILER_CERRADO =
+  'El alquiler online no está disponible en este momento. Pregúntanos por la pieza en la página de contacto.';
+
+// Sin caché (T11, 7.3): la disponibilidad cambia con cada reserva, y un calendario desfasado solo
+// trae dudas y conflictos evitables. Lo que garantiza que no se solapen es la base de datos.
+const SIN_CACHE = 'no-store';
+
+// La pieza, o null si no existe (un id que no es un uuid también da error: es "no encontrada").
+const leerMueble = async (id) => {
+  const { data, error } = await supabase
+    .from('muebles')
+    .select('id, estado, precio_alquiler_dia')
+    .eq('id', id)
+    .maybeSingle();
+  return error ? null : data;
+};
+
+// GET /api/muebles/:id/disponibilidad?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+const obtenerDisponibilidad = async (req, res) => {
   try {
-    const { id } = req.params;
+    const ahora = new Date();
+    const hoy = hoyEnMadrid(ahora);
+    const { desde, hasta } = ventanaDeConsulta({
+      desde: req.query.desde,
+      hasta: req.query.hasta,
+      hoy
+    });
 
-    const { data: mueble, error: errMueble } = await supabase
+    const mueble = await leerMueble(req.params.id);
+    if (!mueble) return res.status(404).json({ error: 'Mueble no encontrado.' });
+
+    // Todo lo que ocupa la pieza de hoy en adelante: hace falta entero para saber si se puede
+    // comprar (6.7), aunque el calendario solo enseñe la ventana pedida. Son pocas filas por pieza.
+    const { data: filas, error } = await supabase
+      .from('reservas')
+      .select('tipo, estado, rango_ocupado, expira_en')
+      .eq('mueble_id', mueble.id)
+      .in('estado', ESTADOS_QUE_OCUPAN)
+      .overlaps('rango_ocupado', `[${hoy},)`);
+    if (error) throw error;
+
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json(
+      calcularDisponibilidad({
+        mueble,
+        filas,
+        hoy,
+        ahora,
+        desde,
+        hasta,
+        mostrarPrecio: preciosVisibles()
+      })
+    );
+  } catch (error) {
+    if (error instanceof ErrorValidacion) return res.status(400).json({ error: error.message });
+    console.error('Error al obtener la disponibilidad:', error.message);
+    res.status(500).json({ error: 'Error interno al consultar la disponibilidad.' });
+  }
+};
+
+// GET /api/muebles/:id/presupuesto?fecha_inicio=&hora_entrega=&fecha_fin=&hora_recogida=&entrega=&recogida=
+// Solo el precio (5.1): si las fechas están libres lo dice la disponibilidad, y lo garantizará la
+// base de datos al reservar.
+const obtenerPresupuesto = async (req, res) => {
+  try {
+    // Con los precios ocultos (MOSTRAR_PRECIOS, fase C), un presupuesto los revelaría.
+    if (!preciosVisibles()) return res.status(403).json({ error: MENSAJE_ALQUILER_CERRADO });
+
+    const mueble = await leerMueble(req.params.id);
+    if (!mueble) return res.status(404).json({ error: 'Mueble no encontrado.' });
+    if (mueble.estado === 'vendido') {
+      throw new ErrorValidacion('Esta pieza no se puede alquilar.');
+    }
+
+    const { fecha_inicio, hora_entrega, fecha_fin, hora_recogida, entrega, recogida } = req.query;
+    const presupuesto = calcularPrecioReserva({
+      precioDia: mueble.precio_alquiler_dia,
+      fechaInicio: fecha_inicio,
+      horaEntrega: hora_entrega,
+      fechaFin: fecha_fin,
+      horaRecogida: hora_recogida,
+      entrega,
+      recogida,
+      hoy: hoyEnMadrid()
+    });
+
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json({ mueble_id: mueble.id, ...presupuesto });
+  } catch (error) {
+    if (error instanceof ErrorValidacion) return res.status(400).json({ error: error.message });
+    console.error('Error al calcular el presupuesto:', error.message);
+    res.status(500).json({ error: 'Error interno al calcular el presupuesto.' });
+  }
+};
+
+// POST /api/reservas/sesion-pago -- exige sesión y el email de la cuenta verificado (T8). Crea la
+// reserva provisional y devuelve la URL de pago de Stripe, { url }, como crear-sesion-pago.
+const crearSesionPagoReserva = async (req, res) => {
+  try {
+    if (!preciosVisibles()) return res.status(403).json({ error: MENSAJE_ALQUILER_CERRADO });
+
+    const stripe = stripeUtil.getStripe();
+    if (!stripe) {
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+    }
+
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      columnas: 'id, email',
+      mensajeSinVerificar: 'Confirma tu email para poder reservar.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const { data: mueble, error } = await supabase
       .from('muebles')
       .select('id, nombre, estado, precio_alquiler_dia')
-      .eq('id', id)
+      .eq('id', req.body.mueble_id)
       .maybeSingle();
+    if (error) throw error;
+    if (!mueble) return res.status(404).json({ error: 'Mueble no encontrado.' });
 
-    if (errMueble) {
-      console.error('Error al consultar mueble para disponibilidad:', errMueble);
-      return res.status(500).json({ error: 'Error al consultar disponibilidad.' });
-    }
-
-    if (!mueble) {
-      return res.status(404).json({ error: 'Mueble no encontrado.' });
-    }
-
-    const hoy = hoyEnMadrid();
-    const desde = req.query.desde || hoy;
-    const hastaPorDefecto = sumarDias(
-      sumarMeses(hoy, CONFIG_RESERVAS.antelacionMaxMeses),
-      CONFIG_RESERVAS.duracionMaxDias
-    );
-    const hasta = req.query.hasta || hastaPorDefecto;
-
-    if (hasta < desde) {
+    const { url } = await iniciarPagoDeReserva({ stripe, cuenta, mueble, datos: req.body });
+    res.status(200).json({ url });
+  } catch (error) {
+    // ErrorConflicto es un ErrorValidacion: va primero. Su código, si lo tiene, deja a la web decidir sin
+    // leer el texto (las fechas siguen libres: no hay que borrarlas).
+    if (error instanceof ErrorConflicto) {
       return res
-        .status(400)
-        .json({ error: 'La fecha "hasta" no puede ser anterior a la fecha "desde".' });
+        .status(409)
+        .json({ error: error.message, ...(error.codigo && { codigo: error.codigo }) });
     }
+    if (error instanceof ErrorValidacion) return res.status(400).json({ error: error.message });
+    if (error instanceof ErrorReintentable) return res.status(503).json({ error: error.message });
+    console.error('Error al crear la sesión de pago de una reserva:', error.message || error);
+    res.status(500).json({ error: 'No se pudo iniciar el proceso de pago.' });
+  }
+};
 
-    if (diasEntreFechas(desde, hasta) > 366) {
-      return res
-        .status(400)
-        .json({ error: 'El rango de consulta no puede superar los 12 meses.' });
-    }
+// ─── Mis reservas (bloque R-c, commit 13) ────────────────────────────────────────────────────────
 
-    // Consultar ocupaciones activas en el rango pedido
-    const { data: filasReservas, error: errReservas } = await supabase
+const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Lo que lee "Mis reservas". Nunca datos de Stripe, el historial entero ni nada interno: se arma la
+// respuesta campo a campo (H36).
+const COLUMNAS_MIS_RESERVAS =
+  'id, pedido_id, mueble_id, estado, fecha_inicio, hora_entrega, fecha_fin, hora_recogida, ' +
+  'modo_entrega, modo_devolucion, direccion_entrega, importe_total, precio_desglose, ' +
+  'stripe_payment_intent_id, expira_en, conflicto_en, historial, ' +
+  'reembolso_solicitado_en, reembolso_importe, stripe_refund_id';
+
+const cancelacionSolicitada = (fila) =>
+  (fila.historial || []).some((linea) => linea.tipo === 'cancelacion_solicitada');
+
+// El estado que ve el cliente. null = no se enseña: una reserva que nunca llegó a pagarse (caducó, o
+// el cliente empezó otra) no es una reserva para él. Una pagada que no se pudo confirmar sí se
+// enseña, porque se le va a devolver el dinero.
+const estadoParaElCliente = (fila, ahora) => {
+  if (fila.conflicto_en) return 'no_confirmada';
+  if (fila.estado === 'pendiente') {
+    return new Date(fila.expira_en) > ahora ? 'esperando_pago' : null;
+  }
+  if (fila.estado === 'cancelada') return fila.stripe_payment_intent_id ? 'cancelada' : null;
+  if (['confirmada', 'en_curso', 'devuelta'].includes(fila.estado)) return fila.estado;
+  return null;
+};
+
+// GET /api/reservas/mias -- las reservas de alquiler de la cuenta (por cliente_id, como "Mis pedidos"
+// desde H18), con el email verificado. Las más lejanas en el calendario primero.
+const obtenerMisReservas = async (req, res) => {
+  try {
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      mensajeSinVerificar: 'Confirma tu email para ver tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const { data: filas, error } = await supabase
       .from('reservas')
-      .select(
-        'id, tipo, estado, fecha_inicio, fecha_fin, fin_ocupacion, dias_margen, rango_ocupado, expira_en'
-      )
-      .eq('mueble_id', id)
-      .in('estado', ['pendiente', 'confirmada', 'en_curso', 'devuelta'])
-      .overlaps('rango_ocupado', `[${desde},${hasta})`);
-
-    if (errReservas) {
-      console.error('Error al consultar reservas de la pieza:', errReservas);
-      return res.status(500).json({ error: 'Error al consultar disponibilidad.' });
-    }
+      .select(COLUMNAS_MIS_RESERVAS)
+      .eq('cliente_id', cuenta.id)
+      .eq('tipo', 'alquiler')
+      .order('fecha_inicio', { ascending: false });
+    if (error) throw error;
 
     const ahora = new Date();
-    const reservasValidas = (filasReservas || []).filter((r) => {
-      // Ignorar reservas provisionales ya caducadas
-      if (r.estado === 'pendiente' && r.expira_en && new Date(r.expira_en) < ahora) {
-        return false;
-      }
-      return true;
-    });
+    const visibles = filas
+      .map((fila) => ({ fila, estado: estadoParaElCliente(fila, ahora) }))
+      .filter(({ estado }) => estado !== null);
 
-    const ocupado = reservasValidas.map((r) => {
-      let finConMargen = null;
-      if (r.fin_ocupacion) {
-        finConMargen = sumarDias(r.fin_ocupacion, Number(r.dias_margen || 0));
-      }
-
-      let tipoVisual = 'reservado';
-      if (r.tipo === 'venta') tipoVisual = 'vendido';
-      else if (r.tipo === 'bloqueo') tipoVisual = 'bloqueado';
-
-      return {
-        desde: r.fecha_inicio,
-        hasta: finConMargen,
-        tipo: tipoVisual
-      };
-    });
-
-    if (mueble.estado === 'vendido') {
-      const yaConstaVendido = ocupado.some((o) => o.tipo === 'vendido');
-      if (!yaConstaVendido) {
-        ocupado.push({ desde: hoy, hasta: null, tipo: 'vendido' });
-      }
+    const ids = [...new Set(visibles.map(({ fila }) => fila.mueble_id))];
+    let piezas = [];
+    if (ids.length > 0) {
+      const { data, error: errorPiezas } = await supabase
+        .from('muebles')
+        .select('id, nombre, imagenes')
+        .in('id', ids);
+      if (errorPiezas) throw errorPiezas;
+      piezas = data;
     }
 
-    // Definición compartida de "ocupada desde hoy" (sección 858):
-    // Una pieza no es comprable si ya está vendida o si existe una fila activa cuyo rango llega a hoy o más allá.
-    let comprable = true;
-    let motivoNoComprable = null;
-    let comprableDesde = null;
-
-    if (mueble.estado === 'vendido') {
-      comprable = false;
-      motivoNoComprable = 'vendido';
-      comprableDesde = null;
-    } else {
-      const ocupacionesDesdeHoy = ocupado.filter((o) => o.hasta === null || o.hasta > hoy);
-      if (ocupacionesDesdeHoy.length > 0) {
-        comprable = false;
-        motivoNoComprable = 'reservas_activas';
-        const tieneFinAbierto = ocupacionesDesdeHoy.some((o) => o.hasta === null);
-        if (tieneFinAbierto) {
-          comprableDesde = null;
-        } else {
-          // Tomar el límite superior máximo como primer día comprable
-          const limites = ocupacionesDesdeHoy.map((o) => o.hasta).sort();
-          comprableDesde = limites[limites.length - 1];
-        }
-      }
-    }
-
-    const tienePrecioAlquiler =
-      mueble.precio_alquiler_dia != null && Number(mueble.precio_alquiler_dia) > 0;
-    const alquilable = mueble.estado !== 'vendido' && tienePrecioAlquiler;
-
-    res.set('Cache-Control', 'no-store');
-    return res.json({
-      mueble_id: mueble.id,
-      zona_horaria: 'Europe/Madrid',
-      hoy,
-      alquilable,
-      comprable,
-      motivo_no_comprable: motivoNoComprable,
-      comprable_desde: comprableDesde,
-      precio_dia: tienePrecioAlquiler ? Number(mueble.precio_alquiler_dia) : null,
-      reglas: {
-        duracion_min_dias: CONFIG_RESERVAS.duracionMinDias,
-        duracion_max_dias: CONFIG_RESERVAS.duracionMaxDias,
-        antelacion_min_dias: CONFIG_RESERVAS.antelacionMinDias,
-        antelacion_max_meses: CONFIG_RESERVAS.antelacionMaxMeses,
-        dias_margen: CONFIG_RESERVAS.diasMargen,
-        tramos_descuento: CONFIG_RESERVAS.tramosDescuento.map((t) => ({
-          desde_dias: t.desdeDias,
-          porcentaje: t.porcentaje
-        }))
-      },
-      primer_inicio_posible: sumarDias(hoy, CONFIG_RESERVAS.antelacionMinDias),
-      ultimo_inicio_posible: sumarMeses(hoy, CONFIG_RESERVAS.antelacionMaxMeses),
-      ocupado
-    });
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json(
+      visibles.map(({ fila, estado }) => {
+        const pieza = piezas.find((p) => p.id === fila.mueble_id);
+        const solicitada = cancelacionSolicitada(fila);
+        // Lo único que sale del reembolso: cuánto y si ya se hizo en Stripe (no su id).
+        const reembolso =
+          estado === 'cancelada' && fila.reembolso_solicitado_en
+            ? {
+                importe_centimos: Math.round(Number(fila.reembolso_importe) * 100),
+                hecho: Boolean(fila.stripe_refund_id)
+              }
+            : null;
+        return {
+          id: fila.id,
+          referencia: referenciaDeReserva(fila),
+          estado,
+          pieza: {
+            id: fila.mueble_id,
+            nombre: pieza ? pieza.nombre : 'Pieza retirada del catálogo',
+            imagen: pieza?.imagenes?.[0] || null
+          },
+          fecha_inicio: fila.fecha_inicio,
+          hora_entrega: horaCorta(fila.hora_entrega),
+          fecha_fin: fila.fecha_fin,
+          hora_recogida: horaCorta(fila.hora_recogida),
+          modo_entrega: fila.modo_entrega,
+          modo_devolucion: fila.modo_devolucion,
+          direccion_entrega: fila.direccion_entrega,
+          dias: fila.precio_desglose?.dias ?? null,
+          importe_total_centimos:
+            fila.importe_total === null ? null : Math.round(Number(fila.importe_total) * 100),
+          cancelacion_solicitada: solicitada,
+          puede_solicitar_cancelacion: estado === 'confirmada' && !solicitada,
+          // Hasta cuándo se puede pagar una reserva que espera el pago (la web lo enseña y ofrece seguir).
+          pago_hasta: estado === 'esperando_pago' ? pagoHastaDe(fila) : null,
+          reembolso
+        };
+      })
+    );
   } catch (error) {
-    console.error('Error inesperado en obtenerDisponibilidad:', error);
-    return res.status(500).json({ error: 'Error interno del servidor.' });
+    console.error('Error al obtener mis reservas:', error.message || error);
+    res.status(500).json({ error: 'Error interno al obtener tus reservas.' });
   }
-}
+};
 
-/**
- * Consulta pública de presupuesto de alquiler (docs/reservas-diseno.md, sección 7.2).
- * Calcula el desglose en vivo a partir de las fechas y opciones de entrega.
- */
-async function obtenerPresupuesto(req, res) {
+// POST /api/reservas/:id/solicitar-cancelacion -- en la primera versión cancela siempre el
+// administrador (8.4, T13): el cliente solo lo pide. La solicitud queda en el historial de la reserva
+// (el panel la enseña aunque el email se pierda) y se avisa al administrador por email.
+const solicitarCancelacionReserva = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { fecha_inicio, fecha_fin, entrega = 'tienda', recogida = 'tienda' } = req.query;
+    if (!FORMATO_UUID.test(req.params.id)) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      columnas: 'id, email',
+      mensajeSinVerificar: 'Confirma tu email para gestionar tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
 
-    const { data: mueble, error: errMueble } = await supabase
+    const motivo = req.body.motivo || '';
+    let resultado;
+    try {
+      resultado = await actualizarReserva(req.params.id, {
+        columnas:
+          'cliente_id, tipo, estado, conflicto_en, pedido_id, fecha_inicio, hora_entrega, ' +
+          'fecha_fin, hora_recogida, datos_contacto, importe_total',
+        decidir: (fila) => {
+          // La de otro cliente, igual que si no existiera.
+          if (fila.cliente_id !== cuenta.id || fila.tipo !== 'alquiler') {
+            throw new ErrorNoEncontrado(MENSAJE_RESERVA_NO_ENCONTRADA);
+          }
+          if (cancelacionSolicitada(fila)) {
+            throw new ErrorConflicto(
+              'Ya nos has pedido cancelar esta reserva. Te escribiremos pronto.'
+            );
+          }
+          if (fila.estado !== 'confirmada' || fila.conflicto_en) {
+            throw new ErrorConflicto(
+              'Esta reserva ya no se puede cancelar desde aquí. Escríbenos y lo vemos.'
+            );
+          }
+          return {
+            cambios: {},
+            entrada: {
+              tipo: 'cancelacion_solicitada',
+              detalle: motivo || 'Sin motivo.',
+              por: 'cliente'
+            }
+          };
+        }
+      });
+    } catch (error) {
+      if (error instanceof ErrorNoEncontrado) {
+        return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+      }
+      throw error;
+    }
+    const { reserva } = resultado;
+
+    const { data: mueble, error: errorMueble } = await supabase
       .from('muebles')
-      .select('id, nombre, estado, precio_alquiler_dia')
-      .eq('id', id)
+      .select('nombre')
+      .eq('id', reserva.mueble_id)
       .maybeSingle();
+    if (errorMueble) console.error('No se pudo leer la pieza de la reserva:', errorMueble.message);
+    const contacto = reserva.datos_contacto || {};
+    await enviarTodos([
+      () =>
+        email.enviarAlertaAdmin({
+          asunto: 'Solicitud de cancelación de una reserva',
+          detalles: [
+            `Reserva #${referenciaDeReserva(reserva)} de ${mueble?.nombre || 'una pieza'} (${reserva.mueble_id})`,
+            `Entrega: ${fechaLegible(reserva.fecha_inicio)} a las ${horaCorta(reserva.hora_entrega)}`,
+            `Recogida: ${fechaLegible(reserva.fecha_fin)} a las ${horaCorta(reserva.hora_recogida)}`,
+            `Cliente: ${contacto.nombre || 'sin nombre'} <${contacto.email || cuenta.email}> · ${contacto.telefono || 'sin teléfono'}`,
+            `Motivo: ${motivo || 'no lo ha indicado'}`,
+            `Importe pagado: ${reserva.importe_total === null ? 'desconocido' : `${Number(reserva.importe_total).toFixed(2)} €`}`,
+            'La política de cancelación es manual: decide el reembolso y cancela la reserva desde el panel (Reservas).'
+          ]
+        })
+    ]);
 
-    if (errMueble) {
-      console.error('Error al consultar mueble para presupuesto:', errMueble);
-      return res.status(500).json({ error: 'Error al calcular presupuesto.' });
-    }
-
-    if (!mueble) {
-      return res.status(404).json({ error: 'Mueble no encontrado.' });
-    }
-
-    if (!mueble.precio_alquiler_dia || Number(mueble.precio_alquiler_dia) <= 0) {
-      return res
-        .status(400)
-        .json({ error: 'Esta pieza no está disponible para alquiler.' });
-    }
-
-    const validacion = validarRangoReserva({
-      fechaInicio: fecha_inicio,
-      fechaFin: fecha_fin
-    });
-
-    if (!validacion.valido) {
-      return res.status(400).json({ error: validacion.error });
-    }
-
-    const presupuesto = calcularPrecioReserva({
-      precioAlquilerDia: mueble.precio_alquiler_dia,
-      fechaInicio: fecha_inicio,
-      fechaFin: fecha_fin,
-      modoEntrega: entrega,
-      modoDevolucion: recogida
-    });
-
-    res.set('Cache-Control', 'no-store');
-    return res.json({
-      mueble_id: mueble.id,
-      ...presupuesto
+    res.status(200).json({
+      mensaje:
+        'Hemos recibido tu solicitud. Te escribiremos para confirmar la cancelación y el reembolso.'
     });
   } catch (error) {
-    console.error('Error inesperado en obtenerPresupuesto:', error);
-    return res.status(500).json({ error: 'Error interno del servidor.' });
+    if (error instanceof ErrorConflicto) return res.status(409).json({ error: error.message });
+    console.error('Error al solicitar la cancelación de una reserva:', error.message || error);
+    res.status(500).json({ error: 'No hemos podido enviar tu solicitud. Inténtalo de nuevo.' });
   }
-}
+};
+
+// POST /api/reservas/:id/retomar-pago -- la página de pago de una reserva provisional que sigue abierta
+// (la clienta cerró Stripe sin pagar). Mismas condiciones que crear la reserva: sesión, email verificado.
+const retomarPagoReserva = async (req, res) => {
+  try {
+    if (!preciosVisibles()) return res.status(403).json({ error: MENSAJE_ALQUILER_CERRADO });
+    if (!FORMATO_UUID.test(req.params.id)) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+    const stripe = stripeUtil.getStripe();
+    if (!stripe) {
+      return res
+        .status(503)
+        .json({ error: 'Los pagos con tarjeta todavía no están configurados en el servidor.' });
+    }
+    const { cuenta, rechazo } = await buscarCuentaVerificada(req.usuario, {
+      columnas: 'id, email',
+      mensajeSinVerificar: 'Confirma tu email para gestionar tus reservas.'
+    });
+    if (rechazo) return res.status(rechazo.status).json(rechazo.cuerpo);
+
+    const { url } = await retomarPagoDeReserva({ stripe, cuenta, id: req.params.id });
+    res.set('Cache-Control', SIN_CACHE);
+    res.status(200).json({ url });
+  } catch (error) {
+    if (error instanceof ErrorNoEncontrado) return res.status(404).json({ error: error.message });
+    if (error instanceof ErrorConflicto) return res.status(409).json({ error: error.message });
+    if (error instanceof ErrorReintentable) return res.status(503).json({ error: error.message });
+    console.error('Error al retomar el pago de una reserva:', error.message || error);
+    res.status(500).json({ error: 'No se pudo retomar el pago. Inténtalo de nuevo.' });
+  }
+};
 
 module.exports = {
   obtenerDisponibilidad,
-  obtenerPresupuesto
+  obtenerPresupuesto,
+  crearSesionPagoReserva,
+  retomarPagoReserva,
+  obtenerMisReservas,
+  solicitarCancelacionReserva,
+  MENSAJE_ALQUILER_CERRADO
 };

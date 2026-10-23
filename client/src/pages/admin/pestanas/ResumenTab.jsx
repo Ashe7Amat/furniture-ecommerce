@@ -1,17 +1,26 @@
-import { useContext, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import Icon from '../Icon';
 import { ToastContext } from '../../../context/ToastContext';
-import { exportarClientesCsv } from '../../../services/api';
+import { exportarClientesCsv, getMetricasDashboard } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
 import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
+import { formatearImporte } from '../dashboard';
+
+// Recharts pesa bastante: los gráficos se bajan aparte, solo al entrar en el Resumen.
+const GraficosDashboard = lazy(() => import('../GraficosDashboard'));
 
 // Pestaña "Resumen": contadores del catálogo, avisos de piezas sin fotos o sin categoría, el
 // bloque "Avisos / Últimas Ventas" (que sale del `estado` de los muebles, no de los pedidos) y
 // la exportación de las cuentas de clientes a CSV (el panel no tiene pestaña de clientes).
+// Las métricas (ticket medio, gráficos) vienen de GET /api/admin/dashboard/metricas.
 const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   const { showToast } = useContext(ToastContext);
   const [exportandoClientes, setExportandoClientes] = useState(false);
+  // 'cargando' | 'listo' | 'error'. Sin métricas, las tarjetas nuevas enseñan "—" y no se inventa nada.
+  const [metricas, setMetricas] = useState(null);
+  const [estadoMetricas, setEstadoMetricas] = useState('cargando');
+  const [intento, setIntento] = useState(0);
   const totalMuebles = muebles.length;
   const disponibles = muebles.filter(m => m.estado === 'disponible' || !m.estado);
   const vendidos = muebles.filter(m => m.estado === 'vendido').length;
@@ -19,6 +28,25 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   const valorDisponible = disponibles.reduce((acc, m) => acc + (Number(m.precio_venta) || 0), 0);
   const sinImagen = muebles.filter(m => !m.imagenes || m.imagenes.length === 0).length;
   const sinCategoria = muebles.filter(m => !m.categoria).length;
+
+  useEffect(() => {
+    let activo = true;
+    const cargar = async () => {
+      const datos = await getMetricasDashboard();
+      if (!activo) return;
+      setMetricas(datos || null);
+      setEstadoMetricas(datos ? 'listo' : 'error');
+    };
+    cargar();
+    return () => {
+      activo = false;
+    };
+  }, [intento]);
+
+  const reintentarMetricas = () => {
+    setEstadoMetricas('cargando');
+    setIntento(n => n + 1);
+  };
 
   const handleExportarClientes = async () => {
     setExportandoClientes(true);
@@ -42,7 +70,14 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           <h3>{totalMuebles}</h3>
           <p>Total Catálogo</p>
         </div>
-        <div className="resumen-card accent-success">
+        <div
+          className="resumen-card accent-success resumen-card-clickable"
+          role="button"
+          tabIndex={0}
+          onClick={() => irA('inventario')}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('inventario')}
+          aria-label="Ver piezas disponibles en inventario"
+        >
           <h3>{disponibles.length}</h3>
           <p>Disponibles</p>
         </div>
@@ -58,11 +93,61 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
           <h3>{formatPrice(valorDisponible)} €</h3>
           <p>Valor en stock</p>
         </div>
-        <div className="resumen-card accent-warning">
+        <div
+          className={`resumen-card ${pedidosPendientes > 0 ? 'accent-warning semaforo-alerta' : 'accent-success semaforo-ok'} resumen-card-clickable`}
+          role="button"
+          tabIndex={0}
+          onClick={() => irA('pedidos', 'procesando')}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('pedidos', 'procesando')}
+          aria-label="Ver pedidos pendientes de procesar"
+        >
           <h3>{pedidosPendientes}</h3>
           <p>Pedidos por procesar</p>
         </div>
+        <div className="resumen-card accent-brand">
+          <h3>{metricas ? formatearImporte(metricas.ticketMedio) : '—'}</h3>
+          <p>Ticket Medio</p>
+        </div>
+        <div className="resumen-card">
+          <h3>{metricas ? formatearImporte(metricas.ingresosAlquiler) : '—'}</h3>
+          <p>Ingresos Alquiler/mes</p>
+        </div>
+        <div
+          className="resumen-card resumen-card-clickable"
+          role="button"
+          tabIndex={0}
+          onClick={handleExportarClientes}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleExportarClientes()}
+          aria-label="Exportar clientes en CSV"
+        >
+          <h3>{metricas?.clientes ? metricas.clientes.nuevosEsteMes + metricas.clientes.recurrentes : '—'}</h3>
+          <p>Clientes</p>
+          {metricas?.clientes && (
+            <span className="resumen-card-subtexto">
+              {metricas.clientes.nuevosEsteMes} nuevos este mes · {metricas.clientes.recurrentes} recurrentes
+            </span>
+          )}
+        </div>
       </div>
+
+      {estadoMetricas === 'error' && (
+        <div className="admin-alerts">
+          <div className="admin-alert" role="alert">
+            <Icon name="warning" />
+            No se pudieron cargar las métricas de ventas.
+            <button onClick={reintentarMetricas}>Reintentar</button>
+          </div>
+        </div>
+      )}
+
+      {metricas && (
+        <Suspense fallback={<p className="admin-empty-note">Cargando gráficos…</p>}>
+          <GraficosDashboard
+            ventasPorMes={metricas.ventasPorMes}
+            topCategorias={metricas.topCategorias}
+          />
+        </Suspense>
+      )}
 
       {(sinImagen > 0 || sinCategoria > 0) && (
         <div className="admin-alerts">
@@ -93,7 +178,15 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
               <div key={m.id} className="sale-row">
                 <div className="sale-row-info">
                   <div className="sale-thumb">
-                    <img src={m.imagenes?.[0] || PLACEHOLDER_IMG} alt={m.nombre} loading="lazy" decoding="async" />
+                    <img
+                      src={m.imagenes?.[0] || PLACEHOLDER_IMG}
+                      alt={m.nombre}
+                      width="40"
+                      height="40"
+                      className="sale-thumb-img"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <div>
                     <h4 className="sale-name">{m.nombre}</h4>
@@ -115,6 +208,11 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
       <section className="resumen-clientes" aria-labelledby="resumen-clientes-titulo">
         <h3 id="resumen-clientes-titulo" className="admin-section-title"><Icon name="mail" /> Clientes</h3>
         <p>Las cuentas registradas en la tienda, en un CSV para Excel: email, nombre, rol y fecha de alta. Nunca la contraseña.</p>
+        {metricas?.clientes && (
+          <p className="resumen-clientes-subtexto">
+            {metricas.clientes.nuevosEsteMes} nuevos este mes · {metricas.clientes.recurrentes} recurrentes
+          </p>
+        )}
         <button className="admin-btn-ghost" onClick={handleExportarClientes} disabled={exportandoClientes}>
           {exportandoClientes ? 'Exportando…' : 'Exportar clientes (CSV)'}
         </button>

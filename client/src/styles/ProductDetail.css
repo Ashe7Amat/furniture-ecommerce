@@ -1,13 +1,19 @@
+/* ==========================================================================
+   ProductDetail — Rediseño Interior Premium (Nave 5 Barcelona)
+   ========================================================================== */
+
 .pd-container {
-  max-width: 1200px;
+  max-width: 1360px;
   margin: 0 auto;
-  padding: 40px 4vw;
+  padding: 32px 4vw 80px;
   background-color: var(--bg-color);
+  box-sizing: border-box;
 }
 
-.pd-breadcrumb {
-  margin-bottom: 30px;
+.pd-top-nav {
+  margin-bottom: 24px;
 }
+
 .pd-back-link {
   background: none;
   border: none;
@@ -15,32 +21,40 @@
   font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 0;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: color 0.2s ease;
-}
-.pd-back-link:hover {
-  color: var(--primary-color);
+  letter-spacing: 0.8px;
+  transition: color 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
+.pd-back-link:hover {
+  color: var(--primary-color);
+  transform: translateX(-2px);
+}
+
+/* 1. LAYOUT ESCRITORIO (60% Galería / 40% Info) */
 .pd-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  grid-template-columns: 6fr 4fr;
+  gap: 56px;
   align-items: start;
 }
+
 @media (max-width: 992px) {
   .pd-grid {
     grid-template-columns: 1fr;
-    gap: 40px;
+    gap: 36px;
   }
 }
 
+/* 2. GALERÍA (Izquierda) */
 .pd-gallery {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   width: 100%;
 }
 
@@ -49,17 +63,25 @@
   aspect-ratio: 4 / 5;
   background-color: var(--surface-alt);
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 12px;
   border: 1px solid var(--border-color);
   position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pd-main-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s ease, filter 0.3s ease;
   animation: pdFadeIn 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.pd-main-image--sold {
+  filter: grayscale(85%);
 }
 
 @keyframes pdFadeIn {
@@ -78,23 +100,24 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  padding: 18px 0;
+  padding: 16px 0;
   text-align: center;
-  color: var(--bg-color);
+  color: #F7F4EE;
   text-transform: uppercase;
   font-weight: 600;
   font-size: 0.85rem;
   letter-spacing: 3px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 5;
 }
 
 .pd-status-banner.sold {
-  background: color-mix(in srgb, var(--danger-color) 85%, transparent);
+  background: rgba(184, 50, 50, 0.85);
 }
 
 .pd-status-banner.rented {
-  background: color-mix(in srgb, var(--warning-color) 85%, transparent);
+  background: rgba(194, 120, 24, 0.85);
 }
 
 .pd-thumbnails {
@@ -107,13 +130,8 @@
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar for thumbnails */
 .pd-thumbnails::-webkit-scrollbar {
   height: 4px;
-}
-
-.pd-thumbnails::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 .pd-thumbnails::-webkit-scrollbar-thumb {
@@ -121,13 +139,9 @@
   border-radius: 10px;
 }
 
-.pd-thumbnails::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-color);
-}
-
 .pd-thumbnail-btn {
-  background: none;
-  border: 1px solid var(--border-color);
+  background: var(--surface-alt);
+  border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
   width: 80px;
@@ -135,7 +149,7 @@
   flex-shrink: 0;
   opacity: 0.75;
   transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
   position: relative;
@@ -151,9 +165,8 @@
 .pd-thumbnail-btn.active {
   opacity: 1;
   border-color: var(--primary-color);
-  border-width: 2px;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
 .pd-thumbnail-img {
@@ -167,60 +180,177 @@
   transform: scale(1.05);
 }
 
+/* 3. INFORMACIÓN (Derecha) */
 .pd-info {
   display: flex;
   flex-direction: column;
-  padding-top: 10px;
 }
 
-.pd-category {
-  font-size: 0.75rem;
-  color: var(--secondary-color);
+/* Breadcrumbs */
+.pd-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  margin-bottom: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.pd-breadcrumb-link {
+  color: var(--secondary-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.pd-breadcrumb-link:hover {
+  color: var(--primary-color);
+}
+
+.pd-breadcrumb-sep {
+  color: var(--border-color);
+  opacity: 0.7;
+}
+
+.pd-breadcrumb-current {
+  color: var(--primary-color);
   font-weight: 600;
+}
+
+/* Cabecera del título y Favorito */
+.pd-title-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
 }
 
 .pd-title {
   font-family: var(--font-display);
-  font-size: 2.3rem;
+  font-size: 2.6rem;
   font-weight: 500;
   color: var(--primary-color);
-  margin: 0 0 15px 0;
+  margin: 0;
   line-height: 1.1;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   text-wrap: balance;
 }
 
+@media (max-width: 600px) {
+  .pd-title {
+    font-size: 2.1rem;
+  }
+}
+
+.pd-fav-btn {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--primary-color);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.pd-fav-btn:hover {
+  transform: scale(1.08);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.pd-ref {
+  margin: 0 0 16px 0;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  color: var(--secondary-color);
+}
+
 .pd-price {
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.8rem;
   font-weight: 500;
   color: var(--primary-color);
-  margin: 0 0 30px 0;
+  margin: 0 0 24px 0;
   font-variant-numeric: tabular-nums;
 }
 
-.pd-description {
-  font-size: 1rem;
-  line-height: 1.7;
-  color: var(--secondary-color);
-  margin-bottom: 40px;
-}
-
+/* CTA Principal y Formulario de Acciones */
 .pd-actions-form {
   display: flex;
   flex-direction: column;
-  gap: 30px;
-  margin-bottom: 50px;
+  gap: 18px;
+  margin-bottom: 32px;
 }
 
+.pd-cta-btn {
+  width: 100%;
+  height: 56px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Botón negro grande y elegante */
+.pd-cta-solicitar,
+.pd-cta-comprar {
+  background-color: #1A1510;
+  color: #F7F4EE;
+  box-shadow: 0 4px 16px rgba(26, 21, 16, 0.18);
+}
+
+.pd-cta-solicitar:hover:not(:disabled),
+.pd-cta-comprar:hover:not(:disabled) {
+  background-color: #2E251E;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(26, 21, 16, 0.25);
+}
+
+.pd-cta-secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+}
+
+.pd-cta-secondary:hover {
+  background: var(--surface-alt);
+  border-color: var(--accent-color);
+}
+
+.pd-cta-sold,
+.pd-cta-rented,
+.pd-cta-btn:disabled {
+  background-color: var(--surface-alt);
+  color: var(--secondary-color);
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Selector de cantidad y opciones */
 .pd-label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--primary-color);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -229,155 +359,347 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  height: 48px;
+  border-radius: 6px;
+  height: 44px;
 }
+
 .pd-qty-btn {
   background: none;
   border: none;
-  width: 48px;
+  width: 44px;
   height: 100%;
   font-size: 1.2rem;
   cursor: pointer;
   color: var(--primary-color);
   transition: background 0.2s;
 }
+
 .pd-qty-btn:disabled {
   color: var(--secondary-color);
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
+
 .pd-qty-val {
   width: 40px;
   text-align: center;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--primary-color);
 }
 
 .pd-options-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 15px;
+  gap: 12px;
 }
+
 .pd-option-btn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--border-color);
-  background: var(--card-bg);
+  background: var(--card-bg, var(--surface-alt));
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   transition: all 0.2s ease;
   text-align: left;
 }
+
 .pd-option-btn.active {
   border-color: var(--primary-color);
   background-color: var(--surface-alt);
   box-shadow: inset 0 0 0 1px var(--primary-color);
 }
-.pd-option-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: var(--surface-alt);
-}
+
 .pd-opt-title {
   font-weight: 500;
-  font-size: 0.95rem;
-  margin-bottom: 5px;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
   color: var(--primary-color);
 }
+
 .pd-opt-price {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--secondary-color);
   font-variant-numeric: tabular-nums;
 }
 
-.pd-cta-btn {
-  width: 100%;
-  background-color: var(--primary-color);
-  color: var(--bg-color);
-  border: none;
-  height: 56px;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
+/* Iconos de confianza */
+.pd-trust-badges {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 12px 0 28px 0;
+  padding: 18px 16px;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
 }
-/* "Preguntar por esta pieza" (C3) es un enlace con el aspecto del botón */
-.pd-cta-link {
+
+@media (max-width: 640px) {
+  .pd-trust-badges {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.pd-trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pd-trust-icon {
+  color: var(--accent-color);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
-}
-.pd-cta-btn:hover:not(:disabled) {
-  background-color: var(--accent-hover);
-}
-.pd-cta-btn:disabled {
-  background-color: var(--surface-alt);
-  color: var(--secondary-color);
-  cursor: not-allowed;
 }
 
+.pd-trust-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pd-trust-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.pd-trust-desc {
+  font-size: 0.72rem;
+  color: var(--secondary-color);
+  line-height: 1.3;
+}
+
+/* Descripción */
+.pd-description {
+  font-size: 1.02rem;
+  line-height: 1.75;
+  color: var(--secondary-color);
+  margin-bottom: 32px;
+}
+
+/* Detalles Técnicos y Acordeón */
 .pd-accordion-container {
   border-top: 1px solid var(--border-color);
   margin-bottom: 30px;
 }
+
 .pd-accordion-item {
   border-bottom: 1px solid var(--border-color);
 }
+
 .pd-accordion-header {
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 0;
+  padding: 18px 0;
   background: none;
   border: none;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-family: inherit;
   font-weight: 500;
   color: var(--primary-color);
   cursor: pointer;
+  transition: color 0.2s ease;
 }
+
+.pd-accordion-header:hover {
+  color: var(--accent-color);
+}
+
 .pd-accordion-icon {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 300;
   color: var(--secondary-color);
 }
+
 .pd-accordion-content {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease, padding 0.3s ease;
+  transition: max-height 0.35s ease, padding 0.3s ease;
   color: var(--secondary-color);
   font-size: 0.95rem;
   line-height: 1.6;
 }
+
 .pd-accordion-content.open {
-  max-height: 300px;
-  padding-bottom: 20px;
+  max-height: 500px;
+  padding-bottom: 22px;
 }
 
-.pd-ref {
-  margin: -4px 0 12px;
-  font-size: 0.8rem;
+.pd-tech-specs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 14px;
 }
 
+.pd-tech-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.88rem;
+}
+
+.pd-tech-label {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.pd-tech-val {
+  color: var(--secondary-color);
+  text-align: right;
+}
+
+.pd-tech-p {
+  margin: 0;
+}
+
+/* 4. BARRA STICKY INFERIOR (Abajo) */
+.pd-sticky-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 850;
+  background-color: var(--surface-alt);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: pdSlideUpSticky 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 12px 4vw;
+}
+
+@keyframes pdSlideUpSticky {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.pd-sticky-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.pd-sticky-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.pd-sticky-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+}
+
+.pd-sticky-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pd-sticky-nombre {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pd-sticky-ref {
+  font-size: 0.76rem;
+  font-family: var(--font-mono);
+  color: var(--secondary-color);
+}
+
+.pd-sticky-actions {
+  flex-shrink: 0;
+}
+
+.pd-sticky-btn {
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.pd-sticky-btn-primary {
+  background-color: #1A1510;
+  color: #F7F4EE;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pd-sticky-btn-primary:hover {
+  background-color: #2E251E;
+  transform: translateY(-1px);
+}
+
+.pd-sticky-btn:disabled {
+  background-color: var(--border-color);
+  color: var(--secondary-color);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 5. COORDINACIÓN CON MODO ADMIN */
+.pd-container.con-barra-sticky.con-barra-admin .barra-admin {
+  bottom: calc(16px + var(--alto-barra-sticky, 72px) + var(--alto-aviso-cookies, 0px));
+}
+
+.pd-container.con-barra-sticky {
+  padding-bottom: 96px;
+}
+
+.pd-container.con-barra-admin.con-barra-sticky {
+  padding-bottom: 160px;
+}
+
+/* Estados de carga y error */
 .pd-loading-container {
   height: 70vh;
   display: flex;
   justify-content: center;
   align-items: center;
 }
+
 .pd-loader {
   border: 2px solid var(--surface-alt);
   border-top: 2px solid var(--accent-color);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   animation: spin 1s linear infinite;
 }
 
@@ -391,25 +713,39 @@
   padding: 100px 20px;
   color: var(--primary-color);
 }
+
 .pd-btn-back {
   margin-top: 20px;
-  padding: 10px 20px;
+  padding: 10px 22px;
   background: var(--primary-color);
   color: var(--bg-color);
   border: none;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
   font-family: inherit;
+  font-weight: 500;
   transition: background-color 0.2s ease;
 }
+
 .pd-btn-back:hover {
   background: var(--accent-hover);
 }
 
-/* H35: aviso de cesta llena bajo el botón (el máximo es de 20 piezas por pedido). */
 .pd-cesta-llena {
   margin: 10px 0 0;
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--secondary-color);
+}
+
+.pd-aviso-reservas {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--secondary-color);
+}
+
+.pd-aviso-reservas a {
+  color: var(--accent-text);
+  font-weight: 600;
 }

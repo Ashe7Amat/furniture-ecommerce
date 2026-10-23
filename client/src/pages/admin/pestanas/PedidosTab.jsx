@@ -1,7 +1,8 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { actualizarEstadoPedido } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
+import AlbaranPedido from '../AlbaranPedido';
 
 const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
 const ETIQUETA_ESTADO_PEDIDO = { procesando: 'Procesando', enviado: 'Enviado', entregado: 'Entregado', cancelado: 'Cancelado' };
@@ -10,8 +11,9 @@ const ETIQUETA_ESTADO_PEDIDO = { procesando: 'Procesando', enviado: 'Enviado', e
 // de pestaña. H37: la lista es una página (20 pedidos) que el servidor ya ha filtrado por estado;
 // `infoPedidos` trae el total de ese filtro y la página. El filtro se aplica también aquí para que
 // un pedido que cambia a otro estado salga de la lista al momento, sin recargar.
-const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstado, filtroEstadoPedido, setFiltroEstadoPedido, cargarPedidos }) => {
+const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstado, filtroEstadoPedido, setFiltroEstadoPedido, cargarPedidos, muebles = [] }) => {
   const { showToast } = useContext(ToastContext);
+  const [pedidoAlbaran, setPedidoAlbaran] = useState(null);
   const pedidosFiltrados = filtroEstadoPedido ? pedidos.filter(p => p.estado === filtroEstadoPedido) : pedidos;
 
   const handleCambiarEstadoPedido = async (id, nuevoEstado) => {
@@ -65,15 +67,24 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                     <span className="pedido-fecha">{fecha}</span>
                     <span className="pedido-id">Ref. {pedido.id.slice(0, 8).toUpperCase()}</span>
                   </div>
-                  <select
-                    value={pedido.estado}
-                    onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
-                    className={`pedido-estado-select estado-${pedido.estado}`}
-                  >
-                    {ESTADOS_PEDIDO.map(estado => (
-                      <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-                    ))}
-                  </select>
+                  <div className="pedido-card-acciones">
+                    <button
+                      type="button"
+                      className="admin-btn-ghost pedido-btn-albaran"
+                      onClick={() => setPedidoAlbaran(pedido)}
+                    >
+                      Imprimir albarán
+                    </button>
+                    <select
+                      value={pedido.estado}
+                      onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
+                      className={`pedido-estado-select estado-${pedido.estado}`}
+                    >
+                      {ESTADOS_PEDIDO.map(estado => (
+                        <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="pedido-card-body">
@@ -113,6 +124,14 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
           <span>Página {infoPedidos.pagina} de {infoPedidos.totalPaginas}</span>
           <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
         </div>
+      )}
+
+      {pedidoAlbaran && (
+        <AlbaranPedido
+          pedido={pedidoAlbaran}
+          muebles={muebles}
+          onCerrar={() => setPedidoAlbaran(null)}
+        />
       )}
     </div>
   );
