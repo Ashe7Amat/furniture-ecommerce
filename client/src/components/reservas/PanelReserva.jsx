@@ -23,22 +23,44 @@ const SIN_FECHAS = { inicio: null, fin: null };
 const Trayecto = ({ id, titulo, hora, onHora, modo, onModo }) => (
   <fieldset className="reserva-trayecto">
     <legend>{titulo}</legend>
-    <label htmlFor={`${id}-hora`}>Hora de {titulo.toLowerCase()}</label>
-    <select id={`${id}-hora`} value={hora} onChange={(e) => onHora(e.target.value)}>
-      {HORAS_TRAYECTO.map((h) => (
-        <option key={h} value={h}>
-          {h}
-        </option>
-      ))}
-    </select>
+    <div className="reserva-trayecto-campo">
+      <label htmlFor={`${id}-hora`}>Hora de {titulo.toLowerCase()}</label>
+      <div className="reserva-select-wrapper">
+        <select id={`${id}-hora`} value={hora} onChange={(e) => onHora(e.target.value)}>
+          {HORAS_TRAYECTO.map((h) => (
+            <option key={h} value={h}>
+              {h}
+            </option>
+          ))}
+        </select>
+        <span className="reserva-select-icon" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </div>
+    </div>
     <div className="reserva-trayecto-modos">
       {[
         ['domicilio', 'A domicilio'],
         ['tienda', 'En la tienda']
       ].map(([valor, texto]) => (
-        <label key={valor} className="reserva-trayecto-modo">
+        <label key={valor} className={`reserva-trayecto-modo ${modo === valor ? 'activo' : ''}`}>
           <input type="radio" name={`${id}-modo`} value={valor} checked={modo === valor} onChange={() => onModo(valor)} />
-          {texto}
+          {valor === 'domicilio' ? (
+            <svg className="reserva-modo-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1 3h15v13H1z" />
+              <path d="M16 8h4l3 3v5h-7V8z" />
+              <circle cx="5.5" cy="18.5" r="2.5" />
+              <circle cx="18.5" cy="18.5" r="2.5" />
+            </svg>
+          ) : (
+            <svg className="reserva-modo-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+          )}
+          <span>{texto}</span>
         </label>
       ))}
     </div>
