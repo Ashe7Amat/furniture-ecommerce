@@ -44,6 +44,11 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
 
   const conDireccion = seleccion.entrega === 'domicilio' || seleccion.recogida === 'domicilio';
 
+  // El aviso rojo de un campo se quita en cuanto el campo se arregla, sin esperar a pulsar Pagar otra vez.
+  const quitarError = (campo, arreglado) => {
+    if (arreglado) setErrores((e) => (e[campo] ? { ...e, [campo]: undefined } : e));
+  };
+
   const validar = () => {
     const nuevos = {};
     if (!nombre.trim()) nuevos.nombre = 'Escribe tu nombre.';
@@ -84,7 +89,7 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
     setEnviando(false);
     if (status === 409) {
       // Las fechas se acaban de ocupar (o hay otra reserva sin pagar): la ficha recarga el calendario.
-      onConflicto(error);
+      onConflicto(error, codigo);
       return;
     }
     if (status === 401) {
@@ -170,7 +175,10 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
                 autoComplete="name"
                 maxLength={MAX.nombre}
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => {
+                  setNombre(e.target.value);
+                  quitarError('nombre', e.target.value.trim());
+                }}
               />
             ))}
             {campo('telefono', 'Teléfono', (props) => (
@@ -180,7 +188,10 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
                 autoComplete="tel"
                 maxLength={MAX.telefono}
                 value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
+                onChange={(e) => {
+                  setTelefono(e.target.value);
+                  quitarError('telefono', e.target.value.trim());
+                }}
               />
             ))}
             {conDireccion &&
@@ -191,7 +202,10 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
                   autoComplete="street-address"
                   maxLength={MAX.direccion}
                   value={direccion}
-                  onChange={(e) => setDireccion(e.target.value)}
+                  onChange={(e) => {
+                    setDireccion(e.target.value);
+                    quitarError('direccion', e.target.value.trim());
+                  }}
                 />
               ))}
             <div className="reserva-campo">
@@ -212,7 +226,10 @@ const ReservaModal = ({ mueble, seleccion, presupuesto, user, onClose, onConflic
                 type="checkbox"
                 ref={refs.acepta}
                 checked={acepta}
-                onChange={(e) => setAcepta(e.target.checked)}
+                onChange={(e) => {
+                  setAcepta(e.target.checked);
+                  quitarError('acepta', e.target.checked);
+                }}
                 aria-invalid={errores.acepta ? true : undefined}
                 aria-describedby={errorAcepta}
               />

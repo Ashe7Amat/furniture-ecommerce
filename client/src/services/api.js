@@ -212,6 +212,13 @@ export const updateMueble = (id, muebleData) =>
 export const deleteMueble = (id) =>
   escrituraContratoA('deleteMueble', `${API_URL}/muebles/${id}`, { method: 'DELETE' }, 'Error al eliminar mueble');
 
+// Duplicar una pieza desde el inventario (POST /api/muebles/:id/duplicar, con sesión de
+// administrador). Ya con el formato de peticion.js, { data, error, status }, para que el panel
+// pueda enseñar el motivo del servidor (p. ej. el 409 de la referencia): la pieza nueva viene en
+// data.data[0].
+export const duplicarMueble = (id) =>
+  peticion(apiFetch, `${API_URL}/muebles/${id}/duplicar`, { method: 'POST' }, 'No se pudo duplicar la pieza.');
+
 // Un CSV del panel, para Excel (GET a una ruta de /api/admin, con sesión de administrador).
 // Devuelve { blob, nombreArchivo } y lanza si el servidor responde con error. El nombre lo pone el
 // servidor (<prefijo>-AAAA-MM-DD.csv), pero entre dominios distintos el navegador no deja leer esa
@@ -370,6 +377,39 @@ export const reenviarVerificacion = async () => {
     return { error: error.message };
   }
 };
+
+export const solicitarRecuperacionPassword = async (email) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al solicitar recuperación de contraseña.');
+    return data;
+  } catch (error) {
+    console.error('Error en solicitarRecuperacionPassword:', error);
+    return { error: error.message };
+  }
+};
+
+export const restablecerPassword = async (token, newPassword) => {
+  try {
+    const response = await fetch(`${API_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Error al restablecer contraseña.');
+    return data;
+  } catch (error) {
+    console.error('Error en restablecerPassword:', error);
+    return { error: error.message };
+  }
+};
+
 
 // Crea una sesión de pago real de Stripe (modo test o real, según la clave del servidor)
 // y devuelve la URL a la que hay que redirigir al comprador.
@@ -558,6 +598,15 @@ export const getPresupuestoReserva = (muebleId, seleccion) =>
 export const crearSesionPagoReserva = (datos) =>
   conCodigo(`${API_URL}/reservas/sesion-pago`, jsonPost(datos), 'No se pudo iniciar el pago.');
 
+// Sigue con el pago de una reserva a medio pagar: la URL de la página de pago que ya tenía abierta (con
+// sesión y el email confirmado). Con 409 ya no se puede pagar (plazo terminado o pago recibido).
+export const retomarPagoReserva = (id) =>
+  conCodigo(
+    `${API_URL}/reservas/${encodeURIComponent(id)}/retomar-pago`,
+    jsonPost({}),
+    'No se pudo retomar el pago.'
+  );
+
 // Las reservas del cliente, para "Mis reservas" (con sesión y el email confirmado).
 export const getMisReservas = () =>
   conCodigo(`${API_URL}/reservas/mias`, { cache: 'no-store' }, 'No se han podido cargar tus reservas.');
@@ -571,13 +620,46 @@ export const solicitarCancelacionReserva = (id, motivo) =>
   );
 
 // Panel: la lista de reservas de una vista (proximas, entregas, recogidas, retrasadas, conflicto,
-// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger.
-export const getReservasAdmin = ({ vista = 'proximas', muebleId } = {}) =>
+// legacy o todas), con los datos de contacto que hacen falta para entregar y recoger. Con `q` (cliente,
+// pieza o referencia) o con `desde` y `hasta` (AAAA-MM-DD) es una búsqueda en todas las reservas, y la
+// vista no cuenta.
+export const getReservasAdmin = ({ vista = 'proximas', muebleId, q, desde, hasta } = {}) =>
   peticion(
     apiFetch,
-    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId })}`,
+    `${API_URL}/admin/reservas${consulta({ vista, mueble_id: muebleId, q, desde, hasta })}`,
     { cache: 'no-store' },
     'No se han podido cargar las reservas.'
+  );
+
+// Panel: cuántas reservas piden atención (retrasadas, pagadas sin confirmar y reembolsos a medias),
+// para la insignia del menú: { hoy, total, retrasadas, en_conflicto, reembolsos_a_medias }.
+export const getResumenReservasAdmin = () =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/resumen`,
+    { cache: 'no-store' },
+    'No se han podido cargar los avisos de reservas.'
+  );
+
+// Panel: las entregas y recogidas de hoy y mañana en una sola lista por día y hora, para organizar la
+// ruta y llamar sin abrir cada reserva: { hoy, manana, trayectos }.
+export const getAgendaReservasAdmin = () =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/agenda`,
+    { cache: 'no-store' },
+    'No se ha podido cargar la agenda de hoy y mañana.'
+  );
+
+// Panel: lo que ocupa las piezas entre dos días (AAAA-MM-DD, los dos incluidos, hasta 100 días), con el
+// margen, y las retrasadas, para el calendario de una pieza y la vista general:
+// { hoy, desde, hasta, reservas, limitada }.
+export const getCalendarioReservasAdmin = ({ desde, hasta, muebleId } = {}) =>
+  peticion(
+    apiFetch,
+    `${API_URL}/admin/reservas/calendario${consulta({ desde, hasta, mueble_id: muebleId })}`,
+    { cache: 'no-store' },
+    'No se ha podido cargar el calendario de reservas.'
   );
 
 // Panel: una acción sobre una reserva (entregar, recoger, ampliar, cancelar, reintentar-reembolso,
@@ -600,3 +682,88 @@ export const crearEnCalendarioAdmin = (tipo, datos) =>
     jsonPost(datos),
     'No se ha podido guardar en el calendario.'
   );
+
+// Panel: consulta del registro de actividad (audit log) con filtros y paginación
+export const getAuditLogs = async ({ entidad = '', accion = '', admin_email = '', fecha = '', page = 1, limit = 50 } = {}) => {
+  try {
+    const params = new URLSearchParams();
+    if (entidad) params.set('entidad', entidad);
+    if (accion) params.set('accion', accion);
+    if (admin_email) params.set('admin_email', admin_email);
+    if (fecha) params.set('fecha', fecha);
+    if (page) params.set('page', String(page));
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_URL}/admin/audit-log${qs}`);
+    if (!response.ok) throw new Error('Error al obtener registro de actividad');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getAuditLogs:', error);
+    return null;
+  }
+};
+
+// Panel: las métricas del dashboard (GET /api/admin/dashboard/metricas): ticket medio, ventas de los
+// últimos 6 meses, top de categorías y clientes. El objeto del servidor, o null si falla.
+export const getMetricasDashboard = async () => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/dashboard/metricas`);
+    if (!response.ok) throw new Error('Error al obtener las métricas del dashboard');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getMetricasDashboard:', error);
+    return null;
+  }
+};
+
+// Ajustes de portada (Hero y Destacados)
+export const getAjustesHome = async () => {
+  try {
+    const response = await fetch(`${API_URL}/ajustes/home`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Error al obtener ajustes de portada');
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getAjustesHome:', error);
+    return null;
+  }
+};
+
+export const actualizarAjustesHome = async (datos) => {
+  try {
+    const response = await apiFetch(`${API_URL}/admin/ajustes/home`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos)
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Error al actualizar ajustes de portada');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error en actualizarAjustesHome:', error);
+    return null;
+  }
+};
+
+export const subirImagenHero = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('imagen', file);
+    const response = await apiFetch(`${API_URL}/admin/ajustes/home/imagen`, {
+      method: 'POST',
+      body: formData
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || 'Error al subir imagen de portada');
+    }
+    const data = await response.json();
+    return typeof data?.url === 'string' ? data.url : (data || null);
+  } catch (error) {
+    console.error('Error en subirImagenHero:', error);
+    return null;
+  }
+};
+
+

@@ -137,10 +137,14 @@ process.on('SIGINT', () => {
 const correrTest = (test) => {
   let salida;
   try {
+    // Un mutante que rompe muchos tests escribe un volcado del DOM por cada uno, y pasa fácil de 1 MB (el
+    // tope por defecto de execSync): se corta la salida, el resumen del final no llega y el mutante
+    // saldría como superviviente sin serlo (20 oct 2026, al mutar ReservasTab.jsx).
     salida = execSync(`npx vitest run ${test}`, {
       cwd: CLIENT,
       encoding: 'utf8',
       stdio: 'pipe',
+      maxBuffer: 1024 * 1024 * 1024,
       env: { ...process.env, NO_COLOR: '1' }
     });
   } catch (e) {

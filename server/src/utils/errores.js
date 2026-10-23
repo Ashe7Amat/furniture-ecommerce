@@ -18,9 +18,11 @@ class ErrorValidacion extends Error {
 // también se puede enseñar tal cual, pero se responde 409 y no 400: así la web sabe que no es un dato
 // mal escrito y puede volver a cargar la disponibilidad.
 class ErrorConflicto extends ErrorValidacion {
-  constructor(mensaje) {
+  constructor(mensaje, codigo) {
     super(mensaje);
     this.name = 'ErrorConflicto';
+    // Opcional: un código para que la web reaccione sin leer el texto (p. ej. no borrar las fechas elegidas).
+    if (codigo) this.codigo = codigo;
   }
 }
 

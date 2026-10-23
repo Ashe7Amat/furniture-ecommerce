@@ -153,4 +153,53 @@ describe('ProductCard', () => {
     expect(dialogo).toBeInTheDocument();
     expect(within(dialogo).getByRole('heading', { name: 'Butaca' })).toBeInTheDocument();
   });
+
+  describe('Rediseño premium (Fase 1)', () => {
+    it('muestra el badge "Pieza Única" y el CTA "Solicitar información →" en una pieza disponible', () => {
+      renderProductCard({
+        id: '10',
+        nombre: 'Mesa de centro',
+        referencia: 'NAV-MES-010',
+        estado: 'disponible',
+      });
+
+      expect(screen.getByText('Pieza Única')).toBeInTheDocument();
+      expect(screen.getByText('Pieza Única')).toHaveClass('product-badge--unique');
+      expect(screen.getByText('Solicitar información →')).toBeInTheDocument();
+      expect(screen.getByText('Ref. NAV-MES-010')).toBeInTheDocument();
+    });
+
+    it('en una pieza vendida, muestra el badge "Vendido", la imagen en escala de grises y el CTA "Ver detalles →"', () => {
+      renderProductCard({
+        id: '11',
+        nombre: 'Aparador Mid-Century',
+        estado: 'vendido',
+        imagenes: ['aparador.jpg']
+      });
+
+      expect(screen.getByText('Vendido')).toHaveClass('product-badge--sold');
+      expect(screen.getByAltText('Aparador Mid-Century')).toHaveClass('product-image--sold');
+      expect(screen.getByText('Ver detalles →')).toBeInTheDocument();
+    });
+
+    it('el badge tiene las clases correctas y el contenedor product-footer no desborda', () => {
+      renderProductCard({
+        id: '12',
+        nombre: 'Silla Windsor restaurada',
+        estado: 'disponible',
+        precio_venta: 180
+      });
+
+      const badge = screen.getByText('Pieza Única');
+      expect(badge).toHaveClass('product-badge', 'product-badge--unique');
+
+      const footer = document.querySelector('.product-footer');
+      expect(footer).toBeInTheDocument();
+      expect(footer).toContainElement(screen.getByText('180 €'));
+      expect(footer).toContainElement(screen.getByText('Solicitar información →'));
+    });
+  });
 });
+
+
+

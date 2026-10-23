@@ -1,4 +1,4 @@
-// Las 8 funciones de reservas por fechas de api.js (docs/reservas-diseno.md): qué piden al servidor
+// Las 10 funciones de reservas por fechas de api.js (docs/reservas-diseno.md): qué piden al servidor
 // (URL, método, cabeceras, cuerpo y parámetros) y qué devuelven ({ data, error, status }, sin lanzar
 // nunca: services/peticion.js; las del cliente con sesión, también el `codigo` de un error que lo
 // trae). fetch se sustituye por un doble, como en api.contratos.test.js.
@@ -7,9 +7,12 @@ import {
   getDisponibilidad,
   getPresupuestoReserva,
   crearSesionPagoReserva,
+  retomarPagoReserva,
   getMisReservas,
   solicitarCancelacionReserva,
   getReservasAdmin,
+  getCalendarioReservasAdmin,
+  getResumenReservasAdmin,
   accionReservaAdmin,
   crearEnCalendarioAdmin
 } from './api';
@@ -50,9 +53,16 @@ const FUNCIONES = [
     'No se ha podido calcular el precio.'
   ],
   ['crearSesionPagoReserva', () => crearSesionPagoReserva({ mueble_id: 'm1' }), 'No se pudo iniciar el pago.'],
+  ['retomarPagoReserva', () => retomarPagoReserva('r1'), 'No se pudo retomar el pago.'],
   ['getMisReservas', () => getMisReservas(), 'No se han podido cargar tus reservas.'],
   ['solicitarCancelacionReserva', () => solicitarCancelacionReserva('r1'), 'No se ha podido enviar la solicitud.'],
   ['getReservasAdmin', () => getReservasAdmin(), 'No se han podido cargar las reservas.'],
+  ['getCalendarioReservasAdmin', () => getCalendarioReservasAdmin({}), 'No se ha podido cargar el calendario de reservas.'],
+  [
+    'getResumenReservasAdmin',
+    () => getResumenReservasAdmin(),
+    'No se han podido cargar los avisos de reservas.'
+  ],
   ['accionReservaAdmin', () => accionReservaAdmin('r1', 'recoger', {}), 'No se ha podido completar la acción.'],
   ['crearEnCalendarioAdmin', () => crearEnCalendarioAdmin('bloqueo', {}), 'No se ha podido guardar en el calendario.']
 ];
@@ -175,6 +185,7 @@ describe('del cliente, con sesión', () => {
   });
 
   it.each([
+    ['retomarPagoReserva', () => retomarPagoReserva('r1')],
     ['getMisReservas', () => getMisReservas()],
     ['solicitarCancelacionReserva', () => solicitarCancelacionReserva('r1')]
   ])('%s: un error con código lo trae; uno con un código vacío o que no es texto, no', async (_nombre, llamar) => {
@@ -195,6 +206,7 @@ describe('del cliente, con sesión', () => {
 
   it.each([
     ['crearSesionPagoReserva', () => crearSesionPagoReserva({})],
+    ['retomarPagoReserva', () => retomarPagoReserva('r1')],
     ['getMisReservas', () => getMisReservas()],
     ['solicitarCancelacionReserva', () => solicitarCancelacionReserva('r1')]
   ])('%s: sin código si va bien, si el error no es JSON o si falla la red', async (_nombre, llamar) => {
@@ -206,6 +218,28 @@ describe('del cliente, con sesión', () => {
 
     fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     expect(await llamar()).toStrictEqual({ data: null, error: SIN_CONEXION, status: 0 });
+  });
+
+  it('retomarPagoReserva: POST a la reserva (id codificado), con sesión y cuerpo vacío; devuelve la url de pago', async () => {
+    fetch.mockResolvedValue(respuesta(200, { url: 'https://checkout.stripe.com/c/pay/cs_1' }));
+    const res = await retomarPagoReserva('r/1');
+
+    expect(res).toEqual({ data: { url: 'https://checkout.stripe.com/c/pay/cs_1' }, error: null, status: 200 });
+    const p = peticion();
+    expect(p.url).toBe(`${API}/reservas/r%2F1/retomar-pago`);
+    expect(p.method).toBe('POST');
+    expect(p.headers).toEqual({ 'Content-Type': 'application/json', Authorization: 'Bearer tk-1' });
+    expect(p.body).toBe('{}');
+  });
+
+  it('retomarPagoReserva: el 409 del plazo terminado llega con su código', async () => {
+    fetch.mockResolvedValue(respuesta(409, { error: 'El plazo para pagar ha terminado.', codigo: 'plazo_terminado' }));
+    expect(await retomarPagoReserva('r1')).toStrictEqual({
+      data: null,
+      error: 'El plazo para pagar ha terminado.',
+      status: 409,
+      codigo: 'plazo_terminado'
+    });
   });
 
   it('getMisReservas: GET con la sesión y sin caché', async () => {
@@ -275,6 +309,48 @@ describe('del panel, con sesión de administrador', () => {
     fetch.mockResolvedValue(respuesta(200, {}));
     await getReservasAdmin({ vista: 'retrasadas', muebleId: 'm 1' });
     expect(peticion().url).toBe(`${API}/admin/reservas?vista=retrasadas&mueble_id=m+1`);
+  });
+
+  it('getReservasAdmin: una búsqueda manda el texto y las fechas, bien codificados', async () => {
+    fetch.mockResolvedValue(respuesta(200, {}));
+    await getReservasAdmin({ q: 'ana pérez & co', desde: '2026-11-02', hasta: '2026-11-09' });
+    expect(peticion().url).toBe(
+      `${API}/admin/reservas?vista=proximas&q=ana+p%C3%A9rez+%26+co&desde=2026-11-02&hasta=2026-11-09`
+    );
+  });
+
+  it('getReservasAdmin: lo que está vacío no se manda', async () => {
+    fetch.mockResolvedValue(respuesta(200, {}));
+    await getReservasAdmin({ q: '', desde: '', hasta: undefined });
+    expect(peticion().url).toBe(`${API}/admin/reservas?vista=proximas`);
+  });
+
+  it('getCalendarioReservasAdmin: los dos días, y la pieza si hay', async () => {
+    fetch.mockResolvedValue(respuesta(200, { reservas: [] }));
+    await getCalendarioReservasAdmin({ desde: '2026-11-01', hasta: '2026-11-30', muebleId: 'm 1' });
+
+    const p = peticion();
+    expect(p.url).toBe(`${API}/admin/reservas/calendario?desde=2026-11-01&hasta=2026-11-30&mueble_id=m+1`);
+    expect(p.cache).toBe('no-store');
+    expect(p.headers).toEqual({ Authorization: 'Bearer tk-1' });
+  });
+
+  it('getCalendarioReservasAdmin: sin pieza no manda mueble_id', async () => {
+    fetch.mockResolvedValue(respuesta(200, { reservas: [] }));
+    await getCalendarioReservasAdmin({ desde: '2026-11-01', hasta: '2026-12-12' });
+    expect(peticion().url).toBe(`${API}/admin/reservas/calendario?desde=2026-11-01&hasta=2026-12-12`);
+  });
+
+  it('getResumenReservasAdmin: GET con sesión y sin caché', async () => {
+    const resumen = { hoy: '2026-11-02', total: 3, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 0 };
+    fetch.mockResolvedValue(respuesta(200, resumen));
+    expect(await getResumenReservasAdmin()).toEqual({ data: resumen, error: null, status: 200 });
+
+    const p = peticion();
+    expect(p.url).toBe(`${API}/admin/reservas/resumen`);
+    expect(p.method).toBeUndefined();
+    expect(p.cache).toBe('no-store');
+    expect(p.headers).toEqual({ Authorization: 'Bearer tk-1' });
   });
 
   it('accionReservaAdmin: POST a la acción de la reserva, con sus datos', async () => {

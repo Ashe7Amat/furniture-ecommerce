@@ -1338,6 +1338,86 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a
   intentarlo" y no "esas fechas se acaban de reservar". Tests nuevos que fijan el "hoy" de Madrid pasada la
   medianoche y el caso de una pieza borrada, y tres casos más en `r2_pruebas.sql` (6b a 6d).
+- Revisión de las capturas simuladas (20 oct 2026, a petición de Ashe: «arregla todo lo que has visto»). Las
+  capturas se hicieron con el código de `main`, una API simulada y datos inventados (galería privada; las
+  imágenes están en `reservas-capturas/` del proyecto). Lo que se arregló, siempre detrás de los interruptores
+  de reservas (apagados en producción):
+  - **Calendario:** los días pasados, sin antelación o fuera del máximo ya no se ven como ocupados: tienen su
+    propio estilo, una leyenda (Libre, Ocupado, Fuera de plazo, Tus fechas), la regla escrita y el motivo en
+    cada día para el lector de pantalla.
+  - **Reservar:** los avisos rojos de un campo desaparecen al corregirlo; una carrera con otra reserva a medio
+    pagar de la misma clienta ya no borra las fechas elegidas.
+  - **Mis reservas:** «Esperando pago» dice hasta qué hora vale y deja «Seguir con el pago» (endpoint nuevo
+    `retomar-pago`); «No se pudo confirmar» explica qué pasa con el dinero; una cancelada dice cuánto se
+    devuelve; si la lista falla se puede reintentar.
+  - **Página de éxito:** si faltan los datos del pago, dice qué hacer en vez de un error seco.
+  - **Ficha:** una pieza marcada a mano como «Alquilado» no ofrece calendario (invita a preguntar); el precio
+    por día no se repite; las fechas del aviso de una pieza ocupada se escriben igual que en el resto de la web.
+  - **Mi cuenta:** en el móvil la pestaña activa se ve (la fila se desplaza hasta ella), y con las reservas
+    encendidas el aviso de confirmar el email nombra también las reservas.
+  - **Panel:** el fondo de las ventanas ya mide lo que la pantalla (medía 40 px más y la ventana quedaba 20 px
+    descentrada; era un fallo de todas las ventanas del panel), «Reservas» tiene su insignia de avisos y las
+    vistas de aviso su número (`GET /api/admin/reservas/resumen`), cada vista dice qué contiene, tras una
+    acción la lista avisa de que puede haber cambiado, y los botones de confirmar de estas ventanas van en
+    frase como el botón de la tarjeta que los abre.
+  - **No cambiado:** el botón de la música, con el aviso de cookies abierto, tapa un trozo del pie de página
+    (con las cookies ya contestadas no hay solapamiento, medido a 1440 y 1100 px); es la primera visita y la
+    música no suena sola. Las vistas del panel que se solapan por diseño («Próximas» incluye lo retrasado) se
+    explican ahora con su descripción.
+  - **Tests:** cliente 1342 → 1415, servidor 1182 → 1207. Mutantes del panel: 172 → 199 (27 nuevos, para la
+    insignia, el hook de avisos, los números de las vistas y los textos), todos detectados salvo el 1
+    esperado de siempre (el caso B de la categoría, que cubre `Admin.navegacion.test.jsx`). Sin tocar
+    ningún `Admin.*.test.jsx` congelado.
+- Mejoras del panel de Reservas (20 oct 2026, tras el «Aprobado» de Ashe a las ideas de
+  `reservas-capturas-despues/ideas-panel.md`; las cuatro primeras, la quinta —una vista previa en vivo— espera
+  el OK escrito de Ashe). Todo detrás de los interruptores de reservas (apagados en producción) y sin ningún
+  cambio de base de datos:
+  - **«Hoy y mañana»:** encima de las vistas, los trayectos de hoy y mañana (entregas y recogidas, con hora,
+    pieza, cliente, teléfono y dirección), de `GET /api/admin/reservas/agenda`, que sale de las mismas consultas
+    que las vistas de entregas y recogidas para que nunca se contradigan. Las retrasadas no están: tienen su vista.
+  - **Buscador:** `GET /api/admin/reservas?q&desde&hasta` busca en todas las reservas (también canceladas y
+    devueltas) por cliente, pieza, referencia, teléfono, email, dirección o motivo, sin acentos ni mayúsculas y
+    con todas las palabras en cualquier orden; las fechas son los días en que la reserva tenía algo. Las notas del
+    cliente no se buscan. Mira las 1000 más recientes y, si no cabe, avisa («limitada»).
+  - **Calendario por pieza y vista general** (8.2 del diseño; pasos 16 y 17 del bloque R-d):
+    `GET /api/admin/reservas/calendario?desde&hasta[&mueble_id]` (como mucho 100 días y 1000 reservas) y tres
+    formas de ver en la pestaña: «Lista», «Calendario por pieza» y «Vista general», con «Ver reserva» que lleva a
+    la tarjeta de la lista, donde están las acciones. Los estados se distinguen por dibujo y no solo por color,
+    y la vista general trae «A vigilar» con los tres riesgos del diseño (retraso con otra reserva detrás,
+    alquileres seguidos sin un día de sobra y alquiler sin hora). Textos nuevos, con su singular: «Ninguna
+    reserva en octubre de 2026.» / «1 reserva en …» / «N reservas en …»; «Ninguna pieza tiene reservas en los N días
+    que se ven.» / «1 pieza tiene …» / «N piezas tienen …»; «Calendario por pieza», «Vista general», «Cómo ver las
+    reservas», «A vigilar».
+  - **El panel en el móvil** (repaso de las siete pestañas, de 320 a 768 px, con la API simulada): el inventario
+    se desliza de lado y dejaba «Editar» y «Eliminar» fuera de la pantalla (ahora cada producto es una tarjeta),
+    los mensajes eran una tabla apretada (ahora tarjetas), los botones y selectores de 20 px miden 44 px, el
+    Resumen se salía de la pantalla a 320 px y las insignias y estados de menos de 12 px pasan a 12 px. Entre 769 y 900 px el
+    inventario conserva su ancho mínimo de 560 px para que el nombre se lea (la tabla se desliza si no cabe).
+  - **Tres revisiones independientes** (servidor, lógica del cliente y accesibilidad/CSS) encontraron, y se
+    arreglaron: un año como 9999 en las fechas daba un 500 en vez de un 400 (ahora las fechas valen de 2000 a
+    2100); con más de 1000 reservas el calendario perdía las que estaban por llegar antes que las ventas viejas
+    (ahora se leen las más recientes primero); el margen de una retrasada que ya ha llegado se veía como descanso
+    (ahora cuenta como pieza fuera); cambiar entre 30 y 60 días dejaba el detalle abierto y le robaba el foco al
+    volver los datos; la vista general ya no enseña las piezas vendidas antes de la ventana; lo escrito en el
+    buscador se perdía al ir a un calendario; el título del mes era una zona viva que se decía dos veces (ahora un
+    solo aviso de estado que cambia de texto); «Hoy» y «Este mes» ya no se desactivan con el foco puesto (se
+    apagan con `aria-disabled`); la referencia sobre rayas y puntos, la marca «!» y «Esperando pago» se leen
+    mejor; el foco no se esconde bajo la columna de la pieza.
+  - **Herramienta de mutantes:** `client/scripts/mutantes-panel.js` leía la salida de Vitest con un búfer de
+    1 MB, y un mutante que rompía muchas pruebas la desbordaba y salía como superviviente sin serlo; ahora el
+    búfer es de 1 GB.
+  - **Tests:** cliente 1415 → 1739, servidor 1207 → 1315. Mutantes del panel: 199 → 705 (506 nuevos: agenda,
+    buscador, hook y cálculo de ocupación, calendario por pieza, vista general, detalle y la pestaña). La pasada
+    final los detectó todos salvo el 1 esperado de siempre (el caso B de la categoría): salieron 4 supervivientes
+    en la lista de la pestaña (elegir la vista ya elegida sin búsqueda, buscar con una tarjeta de la agenda
+    pendiente, `limitada` ausente y «las más recientes» en otras vistas) y un mutante con el texto viejo; se
+    cerraron con 6 pruebas y 3 mutantes más sobre «las más recientes» y se repitieron. Sin tocar ningún
+    `Admin.*.test.jsx` congelado.
+  - **No cambiado a propósito / límites:** las piezas marcadas a mano como «Alquilado» se bloquean solo en la web,
+    no en el servidor (decide Ashe); el servidor solo añade las retrasadas cuando la ventana llega a hoy; el
+    botón de la música sigue tapando un trozo del pie mientras está abierto el aviso de cookies; las casillas
+    nativas de «Seleccionar» miden 24 px; la tabla de mensajes se convierte en tarjetas con CSS
+    (`display: block`), no con otro marcado.
 
 ### H10 · BAJA · CERRADO EN LA RAMA (28 sep 2026; sin desplegar) · `display: contents` en la vista de tabla del catálogo puede perder roles ARIA en algunos lectores de pantalla
 
@@ -2998,6 +3078,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   cambiar la URL en la base de datos), descartada. Desde el despliegue de `d379a18`, las fotos que se suban se
   guardan con el límite nuevo. **Comprobación en producción pendiente del usuario:** subir una foto vertical a una
   pieza de prueba y mirar en Storage que el lado mayor es de 1600 px o menos.
+
+### H63 · MEDIA · PANEL · PENDIENTE: NUEVA FUNCIONALIDAD (anotada el 21 oct 2026) · Registro de actividad de administradores (Audit Log)
+
+- **Problema:** Hubo un borrado misterioso (NAV-SIL-013) que no se pudo rastrear. Hay 2 administradores (el usuario y Hervé) y cualquier cambio en precios, inventario o pedidos se hace sin dejar rastro.
+- **Solución propuesta:**
+  - Tabla `audit_log` en BD (id, admin_id, admin_email, accion, entidad, entidad_id, datos_anteriores jsonb, datos_nuevos jsonb, created_at).
+  - Helper en el servidor para registrar mutaciones (crear, editar, borrar, cambiar estado/precio).
+  - Pestaña "Actividad" en el panel admin con filtros por fecha, admin y acción.
+  - Modal de diff visual (antes/después).
+- **Decisiones a tomar antes de implementar:** retención de datos (ej. 90 días), si guardar IP (GDPR), quién puede ver el log.
+- **Cuándo:** En una sesión aparte, después de terminar las features 5 y 6 del panel admin.
+- **Esfuerzo estimado:** 2-3 días.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

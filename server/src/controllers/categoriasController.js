@@ -1,5 +1,6 @@
 const supabase = require('../data/supabase');
 const { uploadToSupabase } = require('../utils/upload');
+const { registrarActividad } = require('../utils/audit');
 
 // Columnas que devuelve la lectura pública de categorías (H26): las cuatro que tiene hoy la tabla y
 // que usa la web. Explícitas, para que una columna nueva no salga al público sin decidirlo.
@@ -141,6 +142,14 @@ const crearCategoria = async (req, res) => {
       .select();
 
     if (error) throw error;
+    const catCreada = data?.[0] || data;
+
+    try {
+      await registrarActividad(req, 'crear', 'categorias', catCreada?.id, null, catCreada);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al crear categoría:', errAudit.message);
+    }
+
     res.status(201).json({ success: true, data });
   } catch (error) {
     if (esCodigoRepetido(error)) return res.status(400).json({ error: MENSAJE_CODIGO_REPETIDO });
@@ -180,6 +189,15 @@ const editarCategoria = async (req, res) => {
       updateData.codigo = codigo;
     }
 
+    const camposALeer =
+      Object.keys(updateData).length > 0 ? Object.keys(updateData).join(',') : 'id';
+    const { data: dataAntes } = await supabase
+      .from('categorias')
+      .select(camposALeer)
+      .eq('id', id)
+      .maybeSingle();
+    const catAntes = dataAntes ? { ...dataAntes } : null;
+
     const { data, error } = await supabase
       .from('categorias')
       .update(updateData)
@@ -187,6 +205,13 @@ const editarCategoria = async (req, res) => {
       .select();
 
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'editar', 'categorias', id, catAntes, updateData);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al editar categoría:', errAudit.message);
+    }
+
     res.status(200).json({ success: true, data });
   } catch (error) {
     if (esCodigoRepetido(error)) return res.status(400).json({ error: MENSAJE_CODIGO_REPETIDO });
@@ -199,8 +224,21 @@ const editarCategoria = async (req, res) => {
 const eliminarCategoria = async (req, res) => {
   try {
     const { id } = req.params;
+    const { data: catAntes } = await supabase
+      .from('categorias')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase.from('categorias').delete().eq('id', id);
     if (error) throw error;
+
+    try {
+      await registrarActividad(req, 'eliminar', 'categorias', id, catAntes, null);
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al eliminar categoría:', errAudit.message);
+    }
+
     res.status(200).json({ success: true, message: 'Categoría eliminada.' });
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar la categoría.' });

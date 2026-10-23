@@ -149,10 +149,11 @@ export const MUTANTES = [
     reemplazo: "value={m.estado || 'vendido'}"
   },
   {
+    // Desde la edición rápida de precios (21 oct 2026), el precio de la fila lo pinta PrecioEditable.
     nombre: 'el precio de la fila con un espacio antes del €',
-    archivo: 'src/pages/admin/pestanas/InventarioTab.jsx',
-    buscar: '`${formatPrice(m.precio_venta)}€`',
-    reemplazo: '`${formatPrice(m.precio_venta)} €`'
+    archivo: 'src/pages/admin/PrecioEditable.jsx',
+    buscar: '`${formatoPrecio(actual)}€${sufijo}`',
+    reemplazo: '`${formatoPrecio(actual)} €${sufijo}`'
   },
   {
     nombre: 'una pieza sin categoría no enseña la raya',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import InfoPageLayout from '../components/InfoPageLayout';
+import EnlaceComoLlegar from '../components/EnlaceComoLlegar';
 import { enviarContacto } from '../services/api';
 import { mensajeSobrePieza } from '../utils/preguntarPorPieza';
 
@@ -59,6 +60,7 @@ const Contact = () => {
               08038 Barcelona
             </p>
             <p className="contact-detail-note">*Acceso por el callejón interior privado.</p>
+            <EnlaceComoLlegar className="contact-como-llegar" />
           </div>
 
           <div className="contact-detail-block">

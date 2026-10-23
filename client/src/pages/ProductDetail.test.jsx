@@ -5,6 +5,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
 import ProductDetail from './ProductDetail';
+import { extraerMedidas } from '../utils/medidas';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { getMuebleById } from '../services/api';
@@ -246,40 +247,47 @@ describe('ProductDetail', () => {
   });
 });
 
-// C3: sin precios a la vista, la ficha no vende: pregunta.
-describe('ProductDetail — sin precios, "Preguntar por esta pieza" (fase C)', () => {
+// CAMBIADO A PROPÓSITO (rediseño premium, 22 oct 2026): sin precios a la vista, el CTA principal es
+// el botón negro "Solicitar información", que abre el modal de contacto con la referencia pre-rellenada.
+describe('ProductDetail — sin precios, "Solicitar información" (rediseño premium)', () => {
   const SIN_PRECIOS = { ...MUEBLE, precio_venta: null, precio_alquiler_dia: null };
 
-  it('enlace a contacto con la pieza, sin "Añadir a mi cesta" ni las opciones de cantidad y modalidad', async () => {
+  it('botón para solicitar información, sin "Añadir a mi cesta" ni las opciones de cantidad y modalidad', async () => {
     await montar(SIN_PRECIOS);
 
-    const enlace = screen.getByRole('link', { name: 'Preguntar por esta pieza' });
-    expect(enlace).toHaveAttribute('href', '/contacto?pieza=Aparador+de+roble&ref=NAV-MES-004');
-    expect(enlace).toHaveClass('pd-cta-btn');
+    const boton = screen.getByRole('button', { name: 'Solicitar información' });
+    expect(boton).toBeInTheDocument();
+    expect(boton).toHaveClass('pd-cta-solicitar');
     expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
     expect(screen.queryByText('Modalidad')).not.toBeInTheDocument();
     expect(screen.queryByText('Cantidad')).not.toBeInTheDocument();
     expect(document.querySelector('.pd-price')).toHaveTextContent('Consultar precio');
   });
 
-  it('pulsarlo lleva a contacto y no añade nada a la cesta', async () => {
+  it('pulsarlo abre el modal de contacto con la pieza y referencia pre-rellenadas', async () => {
     const { user, addToCart } = await montar(SIN_PRECIOS);
-    await user.click(screen.getByRole('link', { name: 'Preguntar por esta pieza' }));
+    await user.click(screen.getByRole('button', { name: 'Solicitar información' }));
 
-    expect(screen.getByText('Página de contacto')).toBeInTheDocument();
+    const modal = screen.getByRole('dialog', { name: 'Solicitar información' });
+    expect(modal).toBeInTheDocument();
+    expect(within(modal).getByText('Aparador de roble')).toBeInTheDocument();
+    expect(within(modal).getByText('Ref. NAV-MES-004')).toBeInTheDocument();
+    expect(within(modal).getByLabelText('Mensaje')).toHaveValue(
+      'Hola, me interesa la pieza "Aparador de roble" (ref. NAV-MES-004). ¿Me podéis dar más información?'
+    );
     expect(addToCart).not.toHaveBeenCalled();
   });
 
-  it('vendida sin precios: "Agotado", no se pregunta', async () => {
+  it('vendida sin precios: "Agotado", no se solicita información', async () => {
     await montar({ ...SIN_PRECIOS, estado: 'vendido' });
     expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
-    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Solicitar información' })).not.toBeInTheDocument();
   });
 
-  it('con precios (MOSTRAR_PRECIOS=true), "Añadir a mi cesta" como siempre', async () => {
+  it('con precios (MOSTRAR_PRECIOS=true), "Añadir a mi cesta" como compra principal y opción de solicitar información', async () => {
     await montar();
     expect(screen.getByRole('button', { name: 'Añadir a mi cesta' })).toBeEnabled();
-    expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Solicitar información' })).toBeInTheDocument();
   });
 });
 
@@ -473,9 +481,9 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
     );
     await montar();
 
-    const aviso = await screen.findByText(/Esta pieza tiene reservas hasta el 19\/11\/2026\./);
+    const aviso = await screen.findByText(/Esta pieza tiene reservas hasta el 19 de noviembre de 2026\./);
     expect(aviso).toHaveTextContent(
-      'Esta pieza tiene reservas hasta el 19/11/2026. Si quieres comprarla, pregúntanos. Preguntar por esta pieza'
+      'Esta pieza tiene reservas hasta el 19 de noviembre de 2026. Si quieres comprarla, pregúntanos. Preguntar por esta pieza'
     );
     expect(within(aviso).getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveAttribute(
       'href',
@@ -483,7 +491,7 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
     );
     const boton = screen.getByRole('button', { name: 'Añadir a mi cesta' });
     expect(boton).toBeDisabled();
-    expect(boton).toHaveAccessibleDescription(/Esta pieza tiene reservas hasta el 19\/11\/2026/);
+    expect(boton).toHaveAccessibleDescription(/Esta pieza tiene reservas hasta el 19 de noviembre de 2026/);
     // El alquiler sigue disponible
     expect(panel()).toBeInTheDocument();
   });
@@ -534,15 +542,17 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
       expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
     });
 
-    it('mientras llega la disponibilidad no ofrece nada; si falla o no se puede alquilar, "Preguntar"', async () => {
+    // CAMBIADO A PROPÓSITO (rediseño premium, 22 oct 2026): si falla la disponibilidad o no se puede alquilar,
+    // se ofrece el botón "Solicitar información".
+    it('mientras llega la disponibilidad no ofrece nada; si falla o no se puede alquilar, "Solicitar información"', async () => {
       let responder;
       getDisponibilidad.mockReturnValue(new Promise((r) => (responder = r)));
       await montar(SOLO_ALQUILER);
-      expect(screen.queryByRole('link', { name: 'Preguntar por esta pieza' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Solicitar información' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Añadir a mi cesta' })).not.toBeInTheDocument();
 
       await act(async () => responder(FALLO));
-      expect(screen.getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveClass('pd-cta-btn');
+      expect(screen.getByRole('button', { name: 'Solicitar información' })).toHaveClass('pd-cta-btn');
       expect(panel()).not.toBeInTheDocument();
     });
 
@@ -550,6 +560,56 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
       getDisponibilidad.mockResolvedValue(disponibilidad({ alquilable: false }));
       await montar({ ...SOLO_ALQUILER, estado: 'vendido' });
       expect(screen.getByRole('button', { name: 'Agotado' })).toBeDisabled();
+    });
+
+    it('el precio por día sale una sola vez, arriba; el cuadro de alquiler no lo repite con otro formato', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar(SOLO_ALQUILER);
+
+      await screen.findByRole('region', { name: 'Alquilar por fechas' });
+      expect(document.querySelector('.pd-price')).toHaveTextContent('40 €/día');
+      expect(document.querySelector('.reserva-panel-precio')).not.toBeInTheDocument();
+      // Las reglas del alquiler siguen en el cuadro
+      expect(screen.getByText(/^Mínimo 1 día, máximo 30 días\./)).toBeInTheDocument();
+    });
+
+    it('una pieza con precio de venta sí enseña el precio por día en el cuadro (arriba va el de venta)', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar();
+
+      await screen.findByRole('region', { name: 'Alquilar por fechas' });
+      expect(document.querySelector('.reserva-panel-precio')).toHaveTextContent('al día');
+    });
+  });
+
+  describe('una pieza marcada a mano como alquilada', () => {
+    const ALQUILADA = { ...MUEBLE, estado: 'alquilado' };
+
+    it('no ofrece fechas libres: dice que está alquilada y deja preguntar', async () => {
+      getDisponibilidad.mockResolvedValue(disponibilidad());
+      await montar(ALQUILADA);
+      await waitFor(() => expect(getDisponibilidad).toHaveBeenCalled());
+      await act(async () => {});
+
+      expect(panel()).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Actualmente alquilado' })).toBeDisabled();
+      const aviso = screen.getByText(/^Ahora mismo está alquilada\./);
+      expect(aviso).toHaveTextContent(
+        'Ahora mismo está alquilada. Si te interesa, pregúntanos cuándo estará libre. Preguntar por esta pieza'
+      );
+      expect(within(aviso).getByRole('link', { name: 'Preguntar por esta pieza' })).toHaveAttribute(
+        'href',
+        '/contacto?pieza=Aparador+de+roble&ref=NAV-MES-004'
+      );
+    });
+
+    it('con las reservas apagadas, la ficha es la de siempre: sin ese aviso', async () => {
+      vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'false');
+      await montar(ALQUILADA);
+      await act(async () => {});
+
+      expect(screen.queryByText(/Ahora mismo está alquilada/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Actualmente alquilado' })).toBeDisabled();
     });
   });
 
@@ -654,7 +714,7 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
       expect(screen.getByRole('alert')).toHaveTextContent('Esas fechas se acaban de reservar.');
       await waitFor(() => expect(getDisponibilidad).toHaveBeenCalledTimes(2));
       expect(
-        await screen.findByRole('button', { name: 'miércoles, 4 de noviembre de 2026, no disponible' })
+        await screen.findByRole('button', { name: 'miércoles, 4 de noviembre de 2026, no disponible: ocupado' })
       ).toBeDisabled();
     });
 
@@ -669,3 +729,70 @@ describe('ProductDetail — reservas por fechas, con el interruptor encendido', 
     });
   });
 });
+
+describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
+  it('extraerMedidas detecta dimensiones compuestas, simples o devuelve texto por defecto', () => {
+    expect(extraerMedidas('Aparador vintage de roble. Medidas: 120 x 45 x 85 cm en perfecto estado.')).toBe('120 x 45 x 85 cm');
+    expect(extraerMedidas('Mesa de centro 80×50 cm restaurada.')).toBe('80×50 cm');
+    expect(extraerMedidas('Espejo dorado de 90 cm de diámetro.')).toBe('90 cm');
+    expect(extraerMedidas('Silla sin detalles específicos.')).toBe('Medidas bajo consulta');
+    expect(extraerMedidas(null)).toBe('Medidas bajo consulta');
+  });
+
+  it('renderiza breadcrumbs elegantes con Inicio, Catálogo y la Categoría', async () => {
+    await montar({ ...MUEBLE, categoria: 'Iluminación y lámparas' });
+
+    const breadcrumbs = screen.getByRole('navigation', { name: 'Migas de pan' });
+    expect(within(breadcrumbs).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/');
+    expect(within(breadcrumbs).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/#catalogo');
+    expect(within(breadcrumbs).getByText('Iluminación y lámparas')).toBeInTheDocument();
+  });
+
+  it('muestra los tres sellos de confianza de Nave 5', async () => {
+    await montar();
+
+    expect(screen.getByText('Pieza Única')).toBeInTheDocument();
+    expect(screen.getByText('Restaurado a mano')).toBeInTheDocument();
+    expect(screen.getByText('Envío desde Barcelona')).toBeInTheDocument();
+  });
+
+  it('muestra detalles técnicos en el acordeón incluyendo medidas extraídas', async () => {
+    const { user } = await montar({
+      ...MUEBLE,
+      descripcion: 'Aparador restaurado. Dimensiones 140 x 50 x 90 cm. Madera de cerezo.'
+    });
+
+    const botonDetalles = screen.getByRole('button', { name: /Detalles del artículo/ });
+    await user.click(botonDetalles);
+
+    expect(screen.getByText('140 x 50 x 90 cm')).toBeInTheDocument();
+    expect(screen.getByText('Madera noble restaurada · Excelente conservación')).toBeInTheDocument();
+    expect(screen.getByText(/Mediados del siglo XX/)).toBeInTheDocument();
+  });
+
+  it('renderiza el contenedor con estructura de grid para el layout 60/40 y galería', async () => {
+    await montar();
+
+    const grid = document.querySelector('.pd-grid');
+    expect(grid).toBeInTheDocument();
+    expect(grid.querySelector('.pd-gallery')).toBeInTheDocument();
+    expect(grid.querySelector('.pd-info')).toBeInTheDocument();
+    expect(document.querySelector('.pd-main-image-wrapper')).toBeInTheDocument();
+  });
+
+  it('permite abrir y cerrar el modal de contacto con el botón Solicitar información', async () => {
+    const { user } = await montar({ ...MUEBLE, precio_venta: null, precio_alquiler_dia: null });
+
+    const btn = screen.getByRole('button', { name: 'Solicitar información' });
+    await user.click(btn);
+
+    const dialog = screen.getByRole('dialog', { name: 'Solicitar información' });
+    expect(dialog).toBeInTheDocument();
+
+    const closeBtn = within(dialog).getByRole('button', { name: 'Cerrar ventana' });
+    await user.click(closeBtn);
+
+    expect(screen.queryByRole('dialog', { name: 'Solicitar información' })).not.toBeInTheDocument();
+  });
+});
+

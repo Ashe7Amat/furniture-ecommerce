@@ -339,6 +339,140 @@ describe('contrato de la lista: el filtro de cada vista', () => {
     assert.deepEqual(res.body, { error: 'Error interno al cargar las reservas.' });
     assert.equal(de('GET', 'muebles').length, 0, 'sin reservas no se leen piezas');
   });
+
+  test('una búsqueda lee las 1000 más recientes de todas, sin filtro de vista ni de texto, y filtra en memoria', async () => {
+    leerReservas = () => [
+      fila(),
+      fila({
+        id: OTRA,
+        datos_contacto: { nombre: 'Luis', email: 'luis@ejemplo.com', telefono: '611' }
+      })
+    ];
+
+    const res = await lista(`?q=luis&desde=${hoy}&hasta=${dia(3)}&mueble_id=${SOFA}`);
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 1);
+    assert.deepEqual(columnas(consultas[0].params), COLUMNAS_LISTA.split(', '));
+    assert.deepEqual(
+      consultas[0].pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['order', 'created_at.desc'],
+        ['limit', '1000']
+      ]
+    );
+    assert.deepEqual(
+      res.body.reservas.map((r) => r.id),
+      [OTRA]
+    );
+    assert.equal(res.body.limitada, false);
+  });
+
+  test('el calendario: lo que ocupa la ventana (con su último día incluido) y, si llega a hoy, las retrasadas', async () => {
+    leerReservas = (params) =>
+      params.estado === 'eq.en_curso'
+        ? [
+            fila({
+              id: OTRA,
+              estado: 'en_curso',
+              fecha_inicio: dia(-10),
+              fecha_fin: dia(-3),
+              fin_ocupacion: dia(-3)
+            })
+          ]
+        : [fila({ fecha_inicio: dia(5), fecha_fin: dia(8), fin_ocupacion: dia(8) })];
+
+    const res = await comoAdmin(
+      request(app).get(
+        `/api/admin/reservas/calendario?desde=${dia(0)}&hasta=${dia(30)}&mueble_id=${SOFA}`
+      )
+    );
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 2);
+    for (const consulta of consultas) {
+      assert.deepEqual(columnas(consulta.params), COLUMNAS_LISTA.split(', '));
+    }
+    const enLaVentana = consultas.find((c) => c.params.rango_ocupado);
+    assert.deepEqual(
+      enLaVentana.pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['estado', ESTADOS_QUE_OCUPAN],
+        ['rango_ocupado', `ov.[${dia(0)},${dia(31)})`],
+        // Las más recientes primero: si no caben todas, faltan las más viejas.
+        ['order', 'fecha_inicio.desc'],
+        ['limit', '1000']
+      ]
+    );
+    const retrasadas = consultas.find((c) => c !== enLaVentana);
+    assert.deepEqual(
+      retrasadas.pares.filter(([clave]) => clave !== 'select'),
+      [
+        ['mueble_id', `eq.${SOFA}`],
+        ['tipo', 'eq.alquiler'],
+        ['estado', 'eq.en_curso'],
+        ['fecha_fin', `lt.${hoy}`],
+        ['order', 'fecha_inicio.asc']
+      ]
+    );
+    assert.equal(de('GET', 'muebles').length, 1, 'las piezas de todas se leen de una vez');
+    assert.deepEqual(
+      res.body.reservas.map((r) => [r.id, r.retrasada]),
+      [
+        [OTRA, true],
+        [RESERVA, false]
+      ]
+    );
+  });
+
+  test('el calendario de unos días pasados no busca retrasadas', async () => {
+    const res = await comoAdmin(
+      request(app).get(`/api/admin/reservas/calendario?desde=${dia(-20)}&hasta=${dia(-10)}`)
+    );
+
+    assert.equal(res.status, 200);
+    assert.equal(de('GET', 'reservas').length, 1);
+  });
+
+  test('la agenda de hoy y mañana: las mismas dos consultas que «Entregas» y «Recogidas», y las piezas de las dos con una sola', async () => {
+    leerReservas = (params) =>
+      params.estado === 'eq.confirmada'
+        ? [fila()]
+        : [
+            fila({
+              id: OTRA,
+              estado: 'en_curso',
+              fecha_inicio: dia(-3),
+              fecha_fin: dia(1),
+              fin_ocupacion: dia(1)
+            })
+          ];
+
+    const res = await comoAdmin(request(app).get('/api/admin/reservas/agenda'));
+
+    assert.equal(res.status, 200);
+    const consultas = de('GET', 'reservas');
+    assert.equal(consultas.length, 2);
+    for (const consulta of consultas) {
+      assert.deepEqual(columnas(consulta.params), COLUMNAS_LISTA.split(', '));
+    }
+    const entregas = consultas.find((c) => c.params.estado === 'eq.confirmada');
+    const recogidas = consultas.find((c) => c.params.estado === 'eq.en_curso');
+    assert.equal(entregas.params.fecha_inicio, `lte.${dia(1)}`);
+    assert.equal(recogidas.params.fin_ocupacion, `lte.${dia(1)}`);
+    assert.equal(de('GET', 'muebles').length, 1, 'las piezas de la agenda se leen de una vez');
+    assert.deepEqual(
+      res.body.trayectos.map((t) => [t.tipo, t.dia, t.hora]),
+      [
+        ['entrega', hoy, '10:00'],
+        ['recogida', dia(1), '18:00']
+      ]
+    );
+  });
 });
 
 describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {

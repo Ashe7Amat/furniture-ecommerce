@@ -9,8 +9,9 @@
   /* Mientras está abierto el aviso de cookies, se sube justo encima (components/CookieConsent.jsx
      publica su alto en --alto-aviso-cookies). Antes se escondía mientras el aviso estuviera en la
      página, y quien tiene un bloqueador de avisos de cookies (uBlock, Brave, AdGuard…) nunca veía el
-     botón: el aviso seguía ahí, oculto, y nunca se cerraba. Si el aviso está oculto, mide 0. */
-  bottom: calc(24px + var(--alto-aviso-cookies, 0px));
+     botón: el aviso seguía ahí, oculto, y nunca se cerraba. Si el aviso está oculto, mide 0.
+     También se sube encima de la barra de modo admin de la ficha (BarraAdmin.jsx, --alto-barra-admin). */
+  bottom: calc(24px + var(--alto-aviso-cookies, 0px) + var(--alto-barra-admin, 0px));
   /* Por encima de la cabecera (100-200) y las tarjetas; por debajo de la vista rápida (1000), el
      carrito (1999), los demás modales y el aviso de cookies (5000), que así lo tapan y oscurecen. */
   z-index: 900;
@@ -255,7 +256,7 @@ button.musica-boton:focus-visible {
   .musica-boton,
   .musica-panel {
     left: 16px;
-    bottom: calc(16px + var(--alto-aviso-cookies, 0px));
+    bottom: calc(16px + var(--alto-aviso-cookies, 0px) + var(--alto-barra-admin, 0px));
   }
 
   .musica-panel {

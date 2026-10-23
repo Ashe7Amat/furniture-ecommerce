@@ -9,9 +9,16 @@ const {
 } = require('../controllers/catalogoCsvController');
 const { exportarClientesCsv } = require('../controllers/clientesCsvController');
 const { obtenerMensajes, marcarLeido } = require('../controllers/mensajesController');
+const { obtenerAuditLogs } = require('../controllers/auditLogController');
+const { obtenerMetricasDashboard } = require('../controllers/dashboardController');
+const { upload } = require('../utils/upload');
+const { actualizarAjustesHome, subirImagenHero } = require('../controllers/ajustesController');
 const {
   exigirObjeto,
   listarReservasAdmin,
+  resumenReservasAdmin,
+  agendaReservasAdmin,
+  calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
   crearBloqueoAdmin,
@@ -23,10 +30,21 @@ const { validar } = require('../middleware/validar');
 const { reservasActivas } = require('../utils/reservas');
 const {
   schemaListaReservas,
+  schemaCalendarioReservas,
   schemaBloqueo,
   schemaAlquilerFueraDeLaWeb,
   schemaVentaFueraDeLaWeb
 } = require('../schemas/adminReservas');
+const { schemaActualizarAjustesHome } = require('../schemas/ajustesHome');
+
+// Ajustes de portada (hero y destacados)
+router.put(
+  '/ajustes/home',
+  verificarAdmin,
+  validar(schemaActualizarAjustesHome),
+  actualizarAjustesHome
+);
+router.post('/ajustes/home/imagen', verificarAdmin, upload.single('imagen'), subirImagenHero);
 
 // Lecturas que solo necesita el panel de administración (H26): lo que no debe salir en las rutas
 // públicas. Todas piden sesión de administrador.
@@ -63,6 +81,12 @@ router.get('/clientes/export', verificarAdmin, exportarClientesCsv);
 router.get('/mensajes', verificarAdmin, obtenerMensajes);
 router.patch('/mensajes/:id/leido', verificarAdmin, marcarLeido);
 
+// Registro de actividad (audit log)
+router.get('/audit-log', verificarAdmin, obtenerAuditLogs);
+
+// Métricas del dashboard (ticket medio, ventas por mes, top de categorías, clientes)
+router.get('/dashboard/metricas', verificarAdmin, obtenerMetricasDashboard);
+
 // Reservas por fechas (docs/reservas-diseno.md, 8.1 y 8.3; bloque R-d): la lista por vistas, las
 // acciones sobre cada reserva y las altas sin pago web. Primero la sesión de administrador y después
 // el interruptor RESERVAS_ACTIVAS (9.1): apagado, responden 403 sin tocar la base de datos.
@@ -73,6 +97,17 @@ const exigirReservasActivas = (req, res, next) =>
 const reservas = [verificarAdmin, exigirReservasActivas];
 
 router.get('/reservas', ...reservas, validar(schemaListaReservas, 'query'), listarReservasAdmin);
+// La insignia del menú: cuántas reservas piden atención (retrasadas, sin confirmar, reembolsos a medias).
+router.get('/reservas/resumen', ...reservas, resumenReservasAdmin);
+// Las entregas y recogidas de hoy y mañana, en una sola lista por hora, para organizar la ruta.
+router.get('/reservas/agenda', ...reservas, agendaReservasAdmin);
+// La ocupación de unos días: el calendario de una pieza y la vista general.
+router.get(
+  '/reservas/calendario',
+  ...reservas,
+  validar(schemaCalendarioReservas, 'query'),
+  calendarioReservasAdmin
+);
 router.post(
   '/reservas/bloqueos',
   ...reservas,

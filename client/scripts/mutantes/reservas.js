@@ -11,8 +11,8 @@ export const MUTANTES = [
   {
     nombre: 'cada vista pide siempre "Próximas"',
     archivo: ARCHIVO,
-    buscar: 'getReservasAdmin({ vista: vistaPedida })',
-    reemplazo: "getReservasAdmin({ vista: 'proximas' })"
+    buscar: 'getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current })',
+    reemplazo: "getReservasAdmin({ vista: 'proximas', ...busquedaRef.current })"
   },
   {
     nombre: 'la respuesta de una vista anterior que llega tarde pisa la lista',
@@ -242,5 +242,380 @@ export const MUTANTES = [
     archivo: ARCHIVO,
     buscar: 'const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;',
     reemplazo: 'const pudoGuardarse = false;'
+  },
+  // ── 20 oct 2026: descripciones de las vistas, números de aviso y aviso de lista movida ──
+  {
+    nombre: 'bajo los botones se enseña siempre la descripción de «Próximas», aunque se cambie de vista',
+    archivo: ARCHIVO,
+    buscar: 'VISTAS.find((v) => v.id === vista).descripcion',
+    reemplazo: 'VISTAS[0].descripcion'
+  },
+  {
+    nombre: 'el número de una vista de aviso sale también a cero',
+    archivo: ARCHIVO,
+    buscar: 'v.aviso && resumen?.[v.aviso] > 0 && (',
+    reemplazo: 'v.aviso && resumen?.[v.aviso] >= 0 && ('
+  },
+  {
+    nombre: 'el número sale en todas las vistas, no solo en las tres que piden atención',
+    archivo: ARCHIVO,
+    buscar: 'v.aviso && resumen?.[v.aviso] > 0 && (',
+    reemplazo: 'resumen?.total > 0 && ('
+  },
+  {
+    nombre: 'tras una acción no sale el aviso de que la lista se ha movido',
+    archivo: ARCHIVO,
+    buscar: '        setListaMovida(true);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'el aviso de lista movida se queda después de actualizar la lista',
+    archivo: ARCHIVO,
+    buscar: '    setListaMovida(false);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'una acción hecha no avisa al contenedor (la insignia del menú se queda con el número de antes)',
+    archivo: ARCHIVO,
+    buscar: '      avisarCambio();\n      if (resultado.data?.aviso)',
+    reemplazo: '      if (resultado.data?.aviso)'
+  },
+  {
+    nombre: 'una acción que deja el reembolso a medias no avisa al contenedor',
+    archivo: ARCHIVO,
+    buscar: "      avisarCambio();\n      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n",
+    reemplazo: "      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n"
+  },
+  {
+    nombre: 'un alta en el calendario no avisa al contenedor',
+    archivo: ARCHIVO,
+    buscar: '    cargar(vistaRef.current);\n    avisarCambio();\n  };',
+    reemplazo: '    cargar(vistaRef.current);\n  };'
+  },
+  {
+    nombre: '«Actualizar» recarga la lista pero no los números de aviso',
+    archivo: ARCHIVO,
+    buscar: '    cargar(vista);\n    avisarCambio();\n  };',
+    reemplazo: '    cargar(vista);\n  };'
+  },
+  {
+    nombre: 'el botón del aviso de lista movida no actualiza nada',
+    archivo: ARCHIVO,
+    buscar: '<button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>',
+    reemplazo: '<button type="button" className="admin-btn-ghost" onClick={() => {}}>Actualizar la lista</button>'
+  },
+  {
+    nombre: 'al avisar de un cambio, el contenedor no se entera (la insignia del menú)',
+    archivo: ARCHIVO,
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n    setVersion((v) => v + 1);\n  };',
+    reemplazo: '    recargarAgenda();\n    setVersion((v) => v + 1);\n  };'
+  },
+  {
+    nombre: 'al avisar de un cambio, la agenda de hoy y mañana no se vuelve a leer',
+    archivo: ARCHIVO,
+    buscar: '    alCambiar?.();\n    recargarAgenda();\n    setVersion((v) => v + 1);\n  };',
+    reemplazo: '    alCambiar?.();\n    setVersion((v) => v + 1);\n  };'
+  },
+  {
+    nombre: 'la agenda no se enseña (llega siempre vacía)',
+    archivo: ARCHIVO,
+    buscar: '<AgendaReservas datos={datosAgenda}',
+    reemplazo: '<AgendaReservas datos={null}'
+  },
+  {
+    nombre: 'si falla la lectura de la agenda, no se dice',
+    archivo: ARCHIVO,
+    buscar: 'error={errorAgenda}',
+    reemplazo: "error=''"
+  },
+  {
+    nombre: '«Volver a cargar la agenda» no la vuelve a leer',
+    archivo: ARCHIVO,
+    buscar: 'onRecargar={recargarAgenda}',
+    reemplazo: 'onRecargar={() => {}}'
+  },
+  {
+    nombre: 'la agenda sale debajo de las vistas, no encima',
+    archivo: ARCHIVO,
+    cambios: [
+      {
+        buscar: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n\n',
+        reemplazo: ''
+      },
+      {
+        buscar: '      {!busqueda && <p className="reservas-vista-ayuda">',
+        reemplazo: '      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />\n      {!busqueda && <p className="reservas-vista-ayuda">'
+      }
+    ]
+  },
+  {
+    nombre: '«Ver reserva» de una entrega lleva a las recogidas',
+    archivo: ARCHIVO,
+    buscar: "tipo === 'entrega' ? 'entregas' : 'recogidas'",
+    reemplazo: "'recogidas'"
+  },
+  {
+    nombre: '«Ver reserva» de una recogida lleva a las entregas',
+    archivo: ARCHIVO,
+    buscar: "tipo === 'entrega' ? 'entregas' : 'recogidas'",
+    reemplazo: "'entregas'"
+  },
+  {
+    nombre: '«Ver reserva» estando ya en esa vista no recarga la lista',
+    archivo: ARCHIVO,
+    buscar: '    if (vistaRef.current === destino) cargar(destino);\n    else setVista(destino);',
+    reemplazo: '    if (vistaRef.current !== destino) setVista(destino);'
+  },
+  {
+    nombre: '«Ver reserva» no pide enfocar la tarjeta',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = reserva.id;\n    dejarBusqueda();\n',
+    reemplazo: '    dejarBusqueda();\n'
+  },
+  {
+    nombre: 'elegir otra vista no cancela la tarjeta pendiente: el foco salta a ella más tarde',
+    archivo: ARCHIVO,
+    buscar: '  const elegirVista = (id) => {\n    tarjetaPendiente.current = null;\n',
+    reemplazo: '  const elegirVista = (id) => {\n'
+  },
+  {
+    nombre: 'al llegar la lista no se pide enfocar la tarjeta pendiente',
+    archivo: ARCHIVO,
+    buscar: '    if (tarjetaPendiente.current) {\n      setEnfocar(tarjetaPendiente.current);\n      tarjetaPendiente.current = null;\n    }\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'la tarjeta pendiente se queda pedida: cada carga le vuelve a quitar el foco al botón pulsado',
+    archivo: ARCHIVO,
+    buscar: '      setEnfocar(tarjetaPendiente.current);\n      tarjetaPendiente.current = null;',
+    reemplazo: '      setEnfocar(tarjetaPendiente.current);'
+  },
+  {
+    nombre: 'la tarjeta pedida desde la agenda no recibe el foco',
+    archivo: ARCHIVO,
+    buscar: '    tarjeta?.focus();\n    tarjeta?.scrollIntoView',
+    reemplazo: '    tarjeta?.scrollIntoView'
+  },
+  {
+    nombre: 'la tarjeta pedida desde la agenda no se desplaza a la vista',
+    archivo: ARCHIVO,
+    buscar: "    tarjeta?.scrollIntoView?.({ block: 'start' });\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'la misma tarjeta pedida dos veces no vuelve a recibir el foco',
+    archivo: ARCHIVO,
+    buscar: '    setEnfocar(null);\n  }, [enfocar]);',
+    reemplazo: '  }, [enfocar]);'
+  },
+  {
+    nombre: 'la búsqueda no se manda al servidor',
+    archivo: ARCHIVO,
+    buscar: 'getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current })',
+    reemplazo: 'getReservasAdmin({ vista: vistaPedida })'
+  },
+  {
+    nombre: 'la lista de siempre se recarga con una búsqueda vieja (la ref no se vacía al dejarla)',
+    archivo: ARCHIVO,
+    buscar: '  const dejarBusqueda = () => {\n    busquedaRef.current = null;',
+    reemplazo: '  const dejarBusqueda = () => {'
+  },
+  {
+    nombre: 'dejar la búsqueda no cambia lo que se ve',
+    archivo: ARCHIVO,
+    buscar: '    busquedaRef.current = null;\n    setBusqueda(null);\n  };',
+    reemplazo: '    busquedaRef.current = null;\n  };'
+  },
+  {
+    nombre: 'buscar no recarga la lista',
+    archivo: ARCHIVO,
+    buscar: '    setBusqueda(filtros);\n    cargar(vistaRef.current);',
+    reemplazo: '    setBusqueda(filtros);'
+  },
+  {
+    nombre: 'buscar no guarda la búsqueda para las recargas de después',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = null;\n    busquedaRef.current = filtros;\n',
+    reemplazo: '    tarjetaPendiente.current = null;\n'
+  },
+  {
+    nombre: 'quitar la búsqueda recarga aunque no hubiera ninguna',
+    archivo: ARCHIVO,
+    buscar: '    if (!busquedaRef.current) return;\n    dejarBusqueda();\n    cargar(vistaRef.current);',
+    reemplazo: '    dejarBusqueda();\n    cargar(vistaRef.current);'
+  },
+  {
+    nombre: 'quitar la búsqueda no recarga la vista de antes',
+    archivo: ARCHIVO,
+    buscar: '    dejarBusqueda();\n    cargar(vistaRef.current);\n  };',
+    reemplazo: '    dejarBusqueda();\n  };'
+  },
+  {
+    nombre: 'elegir una vista no deja la búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    if (busquedaRef.current) {\n      dejarBusqueda();\n      if (id === vistaRef.current) cargar(id);\n    }',
+    reemplazo: '    if (busquedaRef.current) {\n      if (id === vistaRef.current) cargar(id);\n    }'
+  },
+  {
+    nombre: 'elegir la vista que ya estaba elegida durante una búsqueda no recarga',
+    archivo: ARCHIVO,
+    buscar: '      if (id === vistaRef.current) cargar(id);\n',
+    reemplazo: ''
+  },
+  {
+    nombre: 'elegir una vista recarga siempre aunque no hubiera búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    if (busquedaRef.current) {\n      dejarBusqueda();\n      if (id === vistaRef.current) cargar(id);\n    }\n    setVista(id);',
+    reemplazo: '    dejarBusqueda();\n    if (id === vistaRef.current) cargar(id);\n    setVista(id);'
+  },
+  {
+    nombre: '«Ver reserva» de la agenda no deja la búsqueda',
+    archivo: ARCHIVO,
+    buscar: '    tarjetaPendiente.current = reserva.id;\n    dejarBusqueda();\n',
+    reemplazo: '    tarjetaPendiente.current = reserva.id;\n'
+  },
+  {
+    nombre: 'un reembolso a medias no deja la búsqueda al llevar a «Reembolsos a medias»',
+    archivo: ARCHIVO,
+    buscar: "      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.\n      dejarBusqueda();\n",
+    reemplazo: ''
+  },
+  {
+    nombre: 'buscar no cancela el foco pendiente de una tarjeta de la agenda',
+    archivo: ARCHIVO,
+    buscar: '  const buscar = (filtros) => {\n    tarjetaPendiente.current = null;\n',
+    reemplazo: '  const buscar = (filtros) => {\n'
+  },
+  {
+    nombre: 'durante una búsqueda sigue marcada una vista',
+    archivo: ARCHIVO,
+    buscar: 'aria-pressed={!busqueda && v.id === vista}',
+    reemplazo: 'aria-pressed={v.id === vista}'
+  },
+  {
+    nombre: 'una búsqueda deja marcadas todas las vistas',
+    archivo: ARCHIVO,
+    buscar: 'aria-pressed={!busqueda && v.id === vista}',
+    reemplazo: 'aria-pressed={!busqueda}'
+  },
+  {
+    nombre: 'durante una búsqueda sigue la descripción de la vista',
+    archivo: ARCHIVO,
+    buscar: '{!busqueda && <p className="reservas-vista-ayuda">',
+    reemplazo: '{true && <p className="reservas-vista-ayuda">'
+  },
+  {
+    nombre: 'el buscador no recibe la búsqueda hecha',
+    archivo: ARCHIVO,
+    buscar: '<BuscadorReservas activa={busqueda}',
+    reemplazo: '<BuscadorReservas activa={null}'
+  },
+  {
+    nombre: 'una búsqueda sin resultados usa el texto de la vista',
+    archivo: ARCHIVO,
+    buscar: '{busqueda ? textoResultados(busqueda, 0) : VISTAS.find((v) => v.id === vista).vacia}',
+    reemplazo: '{VISTAS.find((v) => v.id === vista).vacia}'
+  },
+  {
+    nombre: 'una búsqueda con resultados usa el recuento de la vista',
+    archivo: ARCHIVO,
+    buscar: '        {busqueda ? (\n          <p className="reservas-busqueda-resumen" role="status">',
+    reemplazo: '        {false ? (\n          <p className="reservas-busqueda-resumen" role="status">'
+  },
+  {
+    nombre: 'el resumen de la búsqueda no cuenta las reservas que hay',
+    archivo: ARCHIVO,
+    buscar: '{textoResultados(busqueda, reservas.length)}',
+    reemplazo: '{textoResultados(busqueda, 2)}'
+  },
+  {
+    nombre: 'el resumen de la búsqueda no se anuncia al lector de pantalla',
+    archivo: ARCHIVO,
+    buscar: '<p className="reservas-busqueda-resumen" role="status">',
+    reemplazo: '<p className="reservas-busqueda-resumen">'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados sale siempre en una búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = busqueda && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados sale sin búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = limitada && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale en una búsqueda',
+    archivo: ARCHIVO,
+    buscar: 'const avisoLimite = busqueda && limitada && (',
+    reemplazo: 'const avisoLimite = false && (',
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale cuando no hay ninguno',
+    archivo: ARCHIVO,
+    buscar: '        </p>\n        {avisoLimite}\n      </>\n    );\n  } else {',
+    reemplazo: '        </p>\n      </>\n    );\n  } else {'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no sale cuando los hay',
+    archivo: ARCHIVO,
+    buscar: '        {avisoLimite}\n        {listaMovida && (',
+    reemplazo: '        {listaMovida && ('
+  },
+  {
+    nombre: 'el aviso de que hay más resultados no se anuncia',
+    archivo: ARCHIVO,
+    buscar: '<p className="reservas-busqueda-limite" role="status">',
+    reemplazo: '<p className="reservas-busqueda-limite">'
+  },
+  {
+    nombre: 'el aviso de que hay más resultados da otros números',
+    archivo: ARCHIVO,
+    buscar: 'const MAX_BUSQUEDA = 1000;',
+    reemplazo: 'const MAX_BUSQUEDA = 500;'
+  },
+  {
+    nombre: '`limitada` se toma por cierta con cualquier valor',
+    archivo: ARCHIVO,
+    buscar: 'limitada: data?.limitada === true',
+    reemplazo: 'limitada: Boolean(data?.limitada ?? true)'
+  },
+  {
+    nombre: 'el aviso de lista movida habla siempre de la vista',
+    archivo: ARCHIVO,
+    buscar: "{busqueda ? 'esta búsqueda' : 'esta vista'}",
+    reemplazo: "{'esta vista'}"
+  },
+  {
+    nombre: 'el aviso de lista movida habla siempre de la búsqueda',
+    archivo: ARCHIVO,
+    buscar: "{busqueda ? 'esta búsqueda' : 'esta vista'}",
+    reemplazo: "{'esta búsqueda'}"
+  },
+  {
+    nombre: '«las más recientes» sale en cualquier vista con 200 reservas, no solo en «Todas»',
+    archivo: ARCHIVO,
+    buscar: "{vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}",
+    reemplazo: "{reservas.length >= MAX_TODAS && ', las más recientes'}"
+  },
+  {
+    nombre: '«las más recientes» no sale nunca, ni en «Todas» con 200 reservas',
+    archivo: ARCHIVO,
+    buscar: "{vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}",
+    reemplazo: "{vista === 'todas' && reservas.length >= MAX_TODAS && ''}"
+  },
+  {
+    nombre: '«las más recientes» sale solo con más de 200 reservas',
+    archivo: ARCHIVO,
+    buscar: "vista === 'todas' && reservas.length >= MAX_TODAS &&",
+    reemplazo: "vista === 'todas' && reservas.length > MAX_TODAS &&"
+  },
+  {
+    nombre: '«las más recientes» sale ya con 199 reservas',
+    archivo: ARCHIVO,
+    buscar: "vista === 'todas' && reservas.length >= MAX_TODAS &&",
+    reemplazo: "vista === 'todas' && reservas.length >= MAX_TODAS - 1 &&"
   }
 ];

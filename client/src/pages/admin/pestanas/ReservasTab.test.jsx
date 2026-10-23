@@ -6,7 +6,13 @@ import { render, screen, within, act, fireEvent, waitFor } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import ReservasTab from './ReservasTab';
 import { ToastContext } from '../../../context/ToastContext';
-import { getReservasAdmin, accionReservaAdmin, crearEnCalendarioAdmin } from '../../../services/api';
+import {
+  getReservasAdmin,
+  getAgendaReservasAdmin,
+  getCalendarioReservasAdmin,
+  accionReservaAdmin,
+  crearEnCalendarioAdmin
+} from '../../../services/api';
 import { eurosDeCentimos } from '../../../utils/reservas';
 
 vi.mock('../../../services/api');
@@ -139,13 +145,13 @@ const MUEBLES = [
 
 let showToast;
 
-const montar = async ({ reservas = [ALQUILER], hoy = HOY, muebles = MUEBLES } = {}) => {
+const montar = async ({ reservas = [ALQUILER], hoy = HOY, muebles = MUEBLES, props = {} } = {}) => {
   getReservasAdmin.mockResolvedValue(ok({ hoy, reservas }));
   const user = userEvent.setup();
   await act(async () => {
     render(
       <ToastContext.Provider value={{ showToast }}>
-        <ReservasTab muebles={muebles} />
+        <ReservasTab muebles={muebles} {...props} />
       </ToastContext.Provider>
     );
   });
@@ -278,6 +284,35 @@ describe('Reservas — carga y vistas', () => {
     await user.click(screen.getByRole('button', { name: 'Actualizar' }));
     await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
     expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' });
+  });
+
+  describe('«las más recientes»', () => {
+    const reservas = (n) => Array.from({ length: n }, (_, i) => ({ ...ALQUILER, id: `x${i}` }));
+    const enTodas = async (n) => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: reservas(n) }));
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+    };
+
+    it('«Todas» con 200 reservas dice que son las más recientes', async () => {
+      await enTodas(200);
+
+      expect(await screen.findByText('200 reservas, las más recientes')).toBeInTheDocument();
+    });
+
+    it('«Todas» con menos de 200 no lo dice', async () => {
+      await enTodas(199);
+
+      expect(await screen.findByText('199 reservas')).toBeInTheDocument();
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
+
+    it('otra vista con 200 reservas tampoco lo dice', async () => {
+      await montar({ reservas: reservas(200) });
+
+      expect(screen.getByText('200 reservas')).toBeInTheDocument();
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
   });
 });
 
@@ -1662,5 +1697,1129 @@ describe('Reservas — altas en el calendario', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByRole('button', { name: 'Bloquear fechas' })).toHaveFocus();
     expect(crearEnCalendarioAdmin).not.toHaveBeenCalled();
+  });
+});
+
+// Lo que se añadió el 20 oct 2026 tras revisar las capturas: qué hay en cada vista, los números de las
+// vistas que piden atención (vienen del contenedor, que también los pone en la barra lateral) y el
+// aviso de que la lista se ha movido después de una acción.
+describe('Reservas — descripciones, números de aviso y lista movida', () => {
+  const RESUMEN = { hoy: HOY, total: 3, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 0 };
+
+  it('bajo los botones, lo que hay en la vista elegida; cambia con ella', async () => {
+    const { user } = await montar({ reservas: [] });
+    const ayuda = () => document.querySelector('.reservas-vista-ayuda').textContent;
+
+    expect(ayuda()).toMatch(/^Todo lo que ocupa el calendario de hoy en adelante/);
+    await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+    expect(ayuda()).toMatch(/^Alquileres entregados cuya recogida prevista ya pasó\./);
+    await user.click(screen.getByRole('button', { name: 'En conflicto' }));
+    expect(ayuda()).toMatch(/^Reservas pagadas que no se pudieron confirmar/);
+    await user.click(screen.getByRole('button', { name: 'Reembolsos a medias' }));
+    expect(ayuda()).toMatch(/^Reservas canceladas cuyo reembolso no consta hecho en Stripe/);
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
+    expect(ayuda()).toBe('Las más recientes de cualquier tipo y estado, hasta 200.');
+  });
+
+  it('con el resumen, el número va en las vistas de aviso que tienen algo, y solo en ellas', async () => {
+    await montar({ reservas: [], props: { resumen: RESUMEN } });
+    const grupo = within(screen.getByRole('group', { name: 'Qué reservas ver' }));
+
+    expect(grupo.getByRole('button', { name: 'Retrasadas 2' })).toBeInTheDocument();
+    expect(grupo.getByRole('button', { name: 'En conflicto 1' })).toBeInTheDocument();
+    // A cero no sale (un «0» en cada botón sería ruido), ni en las vistas de trabajo del día.
+    expect(grupo.getByRole('button', { name: 'Reembolsos a medias' })).toBeInTheDocument();
+    expect(grupo.getByRole('button', { name: 'Próximas' })).toBeInTheDocument();
+    expect(document.querySelectorAll('.reservas-vista-n')).toHaveLength(2);
+  });
+
+  it('sin resumen (apagado, sin cargar o con error) no hay números', async () => {
+    await montar({ reservas: [] });
+    expect(document.querySelector('.reservas-vista-n')).toBeNull();
+  });
+
+  it('tras una acción, la tarjeta se queda con su estado y sale el aviso; "Actualizar la lista" lo quita', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(
+      ok({ reserva: { ...RETRASADA, estado: 'devuelta', etiqueta: 'Devuelta', retrasada: false, acciones: [] } })
+    );
+    const { user } = await montar({ reservas: [RETRASADA], props: { alCambiar } });
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Marcar recogida' }));
+    await user.click(dialogo().getByRole('button', { name: 'Marcar recogida' }));
+
+    expect(tarjeta('Mesa de roble').getByText('Devuelta')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Has cambiado una reserva. Actualiza la lista para quitar de esta vista las que ya no encajan.'
+    );
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [] }));
+    await user.click(screen.getByRole('button', { name: 'Actualizar la lista' }));
+    expect(await screen.findByText('No hay reservas próximas.')).toBeInTheDocument();
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(2);
+    expect(alCambiar).toHaveBeenCalledTimes(2);
+  });
+
+  it('el botón «Actualizar» de arriba también quita el aviso y avisa al contenedor', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(ok({ reserva: { ...BLOQUEO, estado: 'cancelada', etiqueta: 'Cancelada', acciones: [] } }));
+    const { user } = await montar({ reservas: [BLOQUEO], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+    expect(screen.getByText(/Has cambiado una reserva/)).toBeInTheDocument();
+    alCambiar.mockClear();
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    await waitFor(() => expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull());
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+  });
+
+  it('si la acción falla no cambia nada: ni aviso de lista movida ni aviso al contenedor', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 400));
+    const { user } = await montar({ reservas: [BLOQUEO], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+    expect(await screen.findByText('No se ha podido completar la acción.')).toBeInTheDocument();
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+    expect(alCambiar).not.toHaveBeenCalled();
+  });
+
+  it('una acción hecha con el reembolso a medias también avisa al contenedor, que cuenta un aviso más', async () => {
+    const alCambiar = vi.fn();
+    accionReservaAdmin.mockResolvedValue({
+      data: null,
+      error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+      status: 502,
+      codigo: 'reembolso_a_medias'
+    });
+    const { user } = await montar({ reservas: [ALQUILER], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+    await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+    await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+    await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+    await waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(1));
+  });
+
+  it('un alta en el calendario recarga la lista y avisa al contenedor, sin el aviso de lista movida', async () => {
+    const alCambiar = vi.fn();
+    crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+    const { user } = await montar({ reservas: [], props: { alCambiar } });
+    await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+    await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+    fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+    await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+    await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+    await waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText(/Has cambiado una reserva/)).toBeNull();
+  });
+});
+
+describe('Reservas — agenda de hoy y mañana', () => {
+  const MANANA = '2026-10-14';
+  const trayecto = (reserva, tipo, dia, hora) => ({
+    clave: `${reserva.id}:${tipo}`,
+    tipo,
+    dia,
+    hora,
+    modo: 'domicilio',
+    atrasada: false,
+    prevista: null,
+    reserva: {
+      id: reserva.id,
+      referencia: reserva.referencia,
+      pieza: { nombre: reserva.pieza.nombre, referencia: reserva.pieza.referencia },
+      cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+      direccion: 'Calle Mayor 1, Barcelona'
+    }
+  });
+  const ENTREGA = trayecto(ALQUILER, 'entrega', HOY, '10:00');
+  const RECOGIDA = trayecto(RETRASADA, 'recogida', MANANA, '18:30');
+  const AGENDA = { hoy: HOY, manana: MANANA, trayectos: [ENTREGA, RECOGIDA] };
+  const region = () => within(screen.getByRole('region', { name: 'Hoy y mañana' }));
+  const verReserva = (referencia, pieza) =>
+    screen.getByRole('button', { name: `Ver reserva ${referencia} (${pieza})` });
+
+  it('al entrar pide la agenda y la enseña encima de las vistas', async () => {
+    getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    await montar({ reservas: [] });
+
+    expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(region().getByText('1 entrega y 1 recogida')).toBeInTheDocument();
+    expect(region().getByText('Silla Tolix')).toBeInTheDocument();
+    const agenda = screen.getByRole('region', { name: 'Hoy y mañana' });
+    const vistas = screen.getByRole('group', { name: 'Qué reservas ver' });
+    expect(agenda.compareDocumentPosition(vistas) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('sin agenda (la lectura no trae nada) no sale la región, y la lista sale igual', async () => {
+    await montar();
+
+    expect(screen.queryByRole('region', { name: 'Hoy y mañana' })).toBeNull();
+    expect(tarjeta('Silla Tolix')).toBeTruthy();
+  });
+
+  it('si la agenda falla, lo dice con su botón, y la lista no se entera', async () => {
+    getAgendaReservasAdmin.mockResolvedValue(falla('No se ha podido cargar la agenda de hoy y mañana.', 500));
+    const { user } = await montar();
+
+    expect(region().getByRole('status')).toHaveTextContent('No se ha podido cargar la agenda de hoy y mañana.');
+    expect(tarjeta('Silla Tolix')).toBeTruthy();
+    getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    await user.click(region().getByRole('button', { name: 'Volver a cargar la agenda' }));
+    expect(await screen.findByText('1 entrega y 1 recogida')).toBeInTheDocument();
+    expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+  });
+
+  describe('«Ver reserva»', () => {
+    beforeEach(() => {
+      getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+    afterEach(() => {
+      delete Element.prototype.scrollIntoView;
+    });
+
+    it('una entrega lleva a «Entregas hoy y mañana»: recarga esa vista, y el foco y el desplazamiento van a su tarjeta', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+      expect(screen.getByRole('button', { name: 'Entregas hoy y mañana' })).toHaveAttribute('aria-pressed', 'true');
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(Element.prototype.scrollIntoView.mock.instances[0]).toBe(document.getElementById('reserva-tarjeta-r1'));
+    });
+
+    it('el foco se pide una sola vez: «Actualizar» después no se lo quita al botón', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+
+      expect(screen.getByRole('button', { name: 'Actualizar' })).toHaveFocus();
+    });
+
+    it('se puede pedir otra vez la misma tarjeta: vuelve a recibir el foco', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      screen.getByRole('button', { name: 'Actualizar' }).focus();
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+    });
+
+    it('una recogida lleva a «Recogidas hoy y mañana»', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [RETRASADA] }));
+
+      await user.click(verReserva('B2C3D4E5', 'Mesa de roble'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'recogidas' }));
+      expect(screen.getByRole('button', { name: 'Recogidas hoy y mañana' })).toHaveAttribute('aria-pressed', 'true');
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r2')).toHaveFocus());
+    });
+
+    it('si ya se está en esa vista, la recarga (la lista pudo cambiar) y enfoca la tarjeta', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+      await user.click(screen.getByRole('button', { name: 'Entregas hoy y mañana' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+      screen.getByRole('button', { name: 'Actualizar' }).focus();
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+    });
+
+    it('elegir otra vista antes de que llegue la lista cancela el foco: no salta a una tarjeta que ya no se pidió', async () => {
+      const entregas = diferida();
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockImplementation(({ vista }) =>
+        vista === 'entregas' ? entregas.promesa : Promise.resolve(ok({ hoy: HOY, reservas: [ALQUILER] }))
+      );
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      await waitFor(() => expect(tarjeta('Silla Tolix')).toBeTruthy());
+      await act(async () => entregas.resolver(ok({ hoy: HOY, reservas: [ALQUILER] })));
+
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+
+    it('si la tarjeta ya no está en la vista (otra persona la cambió), no pasa nada', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [] }));
+
+      await user.click(verReserva('A1B2C3D4', 'Silla Tolix'));
+
+      expect(await screen.findByText('No hay entregas hoy ni mañana.')).toBeInTheDocument();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cuando algo cambia, la agenda se vuelve a leer', () => {
+    beforeEach(() => {
+      getAgendaReservasAdmin.mockResolvedValue(ok(AGENDA));
+    });
+
+    it('una acción hecha: la entrega marcada ya no está pendiente', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger', 'ampliar'] } })
+      );
+      const { user } = await montar({ reservas: [ALQUILER] });
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+      getAgendaReservasAdmin.mockResolvedValue(ok({ ...AGENDA, trayectos: [RECOGIDA] }));
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(region().getByText('1 recogida')).toBeInTheDocument());
+    });
+
+    it('una acción que falla no la toca', async () => {
+      accionReservaAdmin.mockResolvedValue(falla('No se ha podido completar la acción.', 400));
+      const { user } = await montar({ reservas: [BLOQUEO] });
+
+      await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+      expect(await screen.findByText('No se ha podido completar la acción.')).toBeInTheDocument();
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    });
+
+    it('una acción hecha con el reembolso a medias también', async () => {
+      accionReservaAdmin.mockResolvedValue({
+        data: null,
+        error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+        status: 502,
+        codigo: 'reembolso_a_medias'
+      });
+      const { user } = await montar({ reservas: [ALQUILER] });
+      await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+      await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+      await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+      await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('«Actualizar»', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('un alta en el calendario', async () => {
+      crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+      const { user } = await montar({ reservas: [] });
+      await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+      await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+      fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+      await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+      await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+      await waitFor(() => expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(2));
+    });
+
+    it('cambiar de vista no la lee otra vez: no ha cambiado nada', async () => {
+      const { user } = await montar({ reservas: [ALQUILER] });
+
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(2));
+
+      expect(getAgendaReservasAdmin).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+describe('Reservas — buscar', () => {
+  const ENCONTRADAS = [ALQUILER, RETRASADA];
+  // La agenda con una entrega de hoy: su «Ver reserva» lleva a la vista de entregas.
+  const AGENDA_UNA_ENTREGA = ok({
+    hoy: HOY,
+    manana: '2026-10-14',
+    trayectos: [
+      {
+        clave: 'r1:entrega',
+        tipo: 'entrega',
+        dia: HOY,
+        hora: '10:00',
+        modo: 'domicilio',
+        atrasada: false,
+        prevista: null,
+        reserva: {
+          id: 'r1',
+          referencia: 'A1B2C3D4',
+          pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
+          cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+          direccion: null
+        }
+      }
+    ]
+  });
+  const formulario = () => within(screen.getByRole('search', { name: 'Buscar reservas' }));
+  const buscar = async (user, { q = '', desde = '', hasta = '' }) => {
+    if (q) {
+      await user.clear(formulario().getByRole('searchbox'));
+      await user.type(formulario().getByRole('searchbox'), q);
+    }
+    if (desde) fireEvent.change(formulario().getByLabelText('Desde el día'), { target: { value: desde } });
+    if (hasta) fireEvent.change(formulario().getByLabelText('Hasta el día'), { target: { value: hasta } });
+    await user.click(formulario().getByRole('button', { name: 'Buscar' }));
+  };
+  const respuesta = (reservas, limitada) => ok({ hoy: HOY, reservas, ...(limitada !== undefined && { limitada }) });
+  const resumen = () => document.querySelector('.reservas-busqueda-resumen');
+  const pulsadas = () =>
+    within(screen.getByRole('group', { name: 'Qué reservas ver' }))
+      .getAllByRole('button')
+      .filter((b) => b.getAttribute('aria-pressed') === 'true')
+      .map((b) => b.textContent);
+
+  it('el buscador está bajo las vistas y encima de la lista', async () => {
+    await montar();
+    const vistas = screen.getByRole('group', { name: 'Qué reservas ver' });
+    const buscador = screen.getByRole('search', { name: 'Buscar reservas' });
+    const lista = screen.getByRole('list');
+
+    expect(vistas.compareDocumentPosition(buscador) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(buscador.compareDocumentPosition(lista) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('buscar por texto pide la búsqueda al servidor, enseña lo encontrado y cuántas son', async () => {
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, false));
+
+    await buscar(user, { q: 'ana' });
+
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    expect(await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeNull();
+    expect(resumen()).toHaveTextContent('2 reservas encontradas. Búsqueda: «ana».');
+    expect(resumen()).toHaveAttribute('role', 'status');
+    expect(screen.queryByText('2 reservas')).toBeNull();
+  });
+
+  it('una sola encontrada, en singular', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], false));
+
+    await buscar(user, { q: 'ana' });
+
+    await waitFor(() => expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: «ana».'));
+  });
+
+  it('por fechas, con el texto o sin él', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+
+    await buscar(user, { desde: '2026-11-02' });
+    await waitFor(() => expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: desde el 02/11/2026.'));
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: '', desde: '2026-11-02', hasta: '' });
+
+    await buscar(user, { q: 'sofá', hasta: '2026-11-09' });
+    await waitFor(() =>
+      expect(resumen()).toHaveTextContent('1 reserva encontrada. Búsqueda: «sofá», del 02/11/2026 al 09/11/2026.')
+    );
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'sofá', desde: '2026-11-02', hasta: '2026-11-09' });
+  });
+
+  it('mientras hay una búsqueda, ninguna vista está elegida y no se describe ninguna', async () => {
+    const { user } = await montar();
+    expect(pulsadas()).toEqual(['Próximas']);
+    expect(document.querySelector('.reservas-vista-ayuda')).not.toBeNull();
+    getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
+
+    await buscar(user, { q: 'ana' });
+    await screen.findByText(/2 reservas encontradas/);
+
+    expect(pulsadas()).toEqual([]);
+    expect(document.querySelector('.reservas-vista-ayuda')).toBeNull();
+  });
+
+  it('sin resultados lo dice con la búsqueda, no con el texto de la vista', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([], false));
+
+    await buscar(user, { q: 'zzz', desde: '2026-11-02', hasta: '2026-11-09' });
+
+    expect(
+      await screen.findByText('Ninguna reserva coincide con la búsqueda: «zzz», del 02/11/2026 al 09/11/2026.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('No hay reservas próximas.')).toBeNull();
+    expect(resumen()).toBeNull();
+  });
+
+  describe('el límite de la búsqueda', () => {
+    const AVISO =
+      'Hay más reservas de las que caben en una búsqueda: se miran las 1000 más recientes y se enseñan 200 como mucho. Afina el texto o las fechas.';
+
+    it('si el servidor dice que no pudo mirar o enseñar todo, avisa de que hay que afinar', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, true));
+
+      await buscar(user, { q: 'ana' });
+
+      expect(await screen.findByText(AVISO)).toBeInTheDocument();
+      expect(screen.getByText(AVISO)).toHaveAttribute('role', 'status');
+    });
+
+    it('también cuando no encontró nada', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta([], true));
+
+      await buscar(user, { q: 'ana' });
+
+      expect(await screen.findByText(AVISO)).toBeInTheDocument();
+      expect(screen.getByText(/Ninguna reserva coincide/)).toBeInTheDocument();
+    });
+
+    it('si no, no sale', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, false));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/2 reservas encontradas/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('si la respuesta no dice nada de `limitada`, no avisa', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/2 reservas encontradas/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('fuera de una búsqueda no sale, aunque la respuesta traiga `limitada`', async () => {
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], true));
+      await act(async () => {
+        render(
+          <ToastContext.Provider value={{ showToast }}>
+            <ReservasTab muebles={MUEBLES} />
+          </ToastContext.Provider>
+        );
+      });
+
+      expect(screen.getByText('1 reserva')).toBeInTheDocument();
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+
+    it('el aviso de una búsqueda no se queda en la siguiente', async () => {
+      const { user } = await montar();
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS, true));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(AVISO);
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER], false));
+
+      await buscar(user, { q: 'ana pérez' });
+
+      await screen.findByText(/1 reserva encontrada/);
+      expect(screen.queryByText(AVISO)).toBeNull();
+    });
+  });
+
+  it('mientras se busca sale «Cargando reservas…»', async () => {
+    const { user } = await montar();
+    const carga = diferida();
+    getReservasAdmin.mockReturnValue(carga.promesa);
+
+    await buscar(user, { q: 'ana' });
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando reservas…');
+    await act(async () => carga.resolver(respuesta(ENCONTRADAS)));
+    expect(screen.queryByText('Cargando reservas…')).toBeNull();
+  });
+
+  it('una segunda búsqueda sustituye a la primera', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+    await buscar(user, { q: 'ana' });
+    await screen.findByText(/1 reserva encontrada/);
+    getReservasAdmin.mockResolvedValue(respuesta([RETRASADA, BLOQUEO]));
+
+    await buscar(user, { q: 'mesa' });
+
+    await screen.findByText('2 reservas encontradas. Búsqueda: «mesa».');
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+  });
+
+  it('si la respuesta de la lista de antes llega tarde, no pisa la búsqueda', async () => {
+    const vieja = diferida();
+    getReservasAdmin.mockReturnValueOnce(vieja.promesa).mockResolvedValue(respuesta([RETRASADA]));
+    const user = userEvent.setup();
+    render(
+      <ToastContext.Provider value={{ showToast }}>
+        <ReservasTab muebles={MUEBLES} />
+      </ToastContext.Provider>
+    );
+
+    await buscar(user, { q: 'mesa' });
+    await screen.findByRole('heading', { level: 3, name: /^Mesa de roble/ });
+    await act(async () => vieja.resolver(respuesta([ALQUILER])));
+
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+    expect(screen.getByRole('heading', { level: 3, name: /^Mesa de roble/ })).toBeInTheDocument();
+  });
+
+  it('si la búsqueda falla, enseña el error y «Reintentar» repite la búsqueda', async () => {
+    const { user } = await montar();
+    getReservasAdmin.mockResolvedValue(falla('No se han podido cargar las reservas.', 500));
+
+    await buscar(user, { q: 'ana' });
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se han podido cargar las reservas.');
+
+    getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+    await user.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    await screen.findByText(/1 reserva encontrada/);
+    expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+  });
+
+  describe('salir de la búsqueda', () => {
+    const conBusqueda = async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      getReservasAdmin.mockResolvedValue(respuesta(ENCONTRADAS));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/2 reservas encontradas/);
+      return { user };
+    };
+
+    it('elegir una vista la deja: pide esa vista sin búsqueda, la marca y vacía los campos', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'todas' }));
+      expect(pulsadas()).toEqual(['Todas']);
+      expect(await screen.findByText('1 reserva')).toBeInTheDocument();
+      expect(resumen()).toBeNull();
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+      expect(document.querySelector('.reservas-vista-ayuda')).not.toBeNull();
+    });
+
+    it('elegir la vista que ya estaba elegida también la deja, y vuelve a leerla', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+      expect(await screen.findByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+      expect(resumen()).toBeNull();
+    });
+
+    it('«Limpiar búsqueda» vuelve a la vista que se veía antes, recargada, con el foco en el texto', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+
+      await user.click(formulario().getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+      expect(await screen.findByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+      expect(formulario().getByRole('searchbox')).toHaveFocus();
+    });
+
+    it('«Buscar» con los campos vacíos hace lo mismo', async () => {
+      const { user } = await conBusqueda();
+      getReservasAdmin.mockResolvedValue(respuesta([BLOQUEO]));
+      await user.clear(formulario().getByRole('searchbox'));
+
+      await user.click(formulario().getByRole('button', { name: 'Buscar' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas' }));
+      expect(pulsadas()).toEqual(['Retrasadas']);
+    });
+
+    it('limpiar lo escrito sin haber buscado no vuelve a leer la lista', async () => {
+      const { user } = await montar();
+      await user.type(formulario().getByRole('searchbox'), 'ana');
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+      await user.click(formulario().getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+    });
+
+    it('elegir la vista que ya está elegida, sin haber buscado, no vuelve a leer la lista', async () => {
+      const { user } = await montar();
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole('button', { name: 'Próximas' }));
+
+      expect(getReservasAdmin).toHaveBeenCalledTimes(1);
+      expect(pulsadas()).toEqual(['Próximas']);
+    });
+
+    it('«Ver reserva» de la agenda deja la búsqueda y lleva a la vista de esa entrega', async () => {
+      getAgendaReservasAdmin.mockResolvedValue(AGENDA_UNA_ENTREGA);
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta([RETRASADA]));
+      await buscar(user, { q: 'mesa' });
+      await screen.findByText(/1 reserva encontrada/);
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+      expect(pulsadas()).toEqual(['Entregas hoy y mañana']);
+      expect(resumen()).toBeNull();
+      expect(formulario().getByRole('searchbox')).toHaveValue('');
+    });
+
+    it('una acción hecha a medias (reembolso) lleva a «Reembolsos a medias» y deja la búsqueda', async () => {
+      accionReservaAdmin.mockResolvedValue({
+        data: null,
+        error: 'La reserva está cancelada, pero el reembolso no se ha podido hacer.',
+        status: 502,
+        codigo: 'reembolso_a_medias'
+      });
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta([ALQUILER]));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/1 reserva encontrada/);
+      await user.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+      await user.type(dialogo().getByLabelText('Motivo de la cancelación'), 'No puede');
+      await user.click(dialogo().getByRole('button', { name: 'Revisar' }));
+      await user.click(dialogo().getByRole('button', { name: 'Cancelar la reserva' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'reembolsos' }));
+      expect(pulsadas()).toEqual(['Reembolsos a medias']);
+      expect(resumen()).toBeNull();
+    });
+  });
+
+  describe('buscar mientras se espera la tarjeta pedida desde la agenda', () => {
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = vi.fn();
+    });
+    afterEach(() => {
+      delete Element.prototype.scrollIntoView;
+    });
+
+    it('cancela el foco: no salta a una tarjeta que ya no se pidió', async () => {
+      getAgendaReservasAdmin.mockResolvedValue(AGENDA_UNA_ENTREGA);
+      const entregas = diferida();
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockImplementation(({ q }) => (q ? Promise.resolve(respuesta([ALQUILER])) : entregas.promesa));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+      await buscar(user, { q: 'ana' });
+      await screen.findByText(/1 reserva encontrada/);
+      await act(async () => entregas.resolver(respuesta([ALQUILER])));
+
+      expect(screen.getByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeInTheDocument();
+      expect(document.getElementById('reserva-tarjeta-r1')).not.toHaveFocus();
+      expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('trabajar sobre los resultados', () => {
+    const conResultados = async (reservas = [ALQUILER]) => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      getReservasAdmin.mockResolvedValue(respuesta(reservas));
+      await buscar(user, { q: 'ana' });
+      await screen.findByRole('heading', { level: 3, name: /^Silla Tolix/ });
+      return { user };
+    };
+
+    it('«Actualizar» repite la búsqueda', async () => {
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('una acción cambia la tarjeta en su sitio y el aviso habla de la búsqueda; «Actualizar la lista» la repite', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger', 'ampliar'] } })
+      );
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      expect(await within(screen.getByRole('list')).findByText('Entregada')).toBeInTheDocument();
+      expect(screen.getByText(/Has cambiado una reserva/)).toHaveTextContent(
+        'Has cambiado una reserva. Actualiza la lista para quitar de esta búsqueda las que ya no encajan.'
+      );
+      expect(getReservasAdmin).toHaveBeenCalledTimes(2);
+      expect(resumen()).toHaveTextContent('1 reserva encontrada');
+
+      await user.click(screen.getByRole('button', { name: 'Actualizar la lista' }));
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('fuera de una búsqueda el aviso sigue hablando de la vista', async () => {
+      accionReservaAdmin.mockResolvedValue(
+        ok({ reserva: { ...BLOQUEO, estado: 'cancelada', etiqueta: 'Cancelada', acciones: [] } })
+      );
+      const { user } = await montar({ reservas: [BLOQUEO] });
+
+      await user.click(screen.getByRole('button', { name: 'Levantar bloqueo' }));
+
+      expect(await screen.findByText(/Has cambiado una reserva/)).toHaveTextContent(
+        'Actualiza la lista para quitar de esta vista las que ya no encajan.'
+      );
+    });
+
+    it('si otra persona cambió la reserva (409), se recarga la búsqueda, no la vista', async () => {
+      accionReservaAdmin.mockResolvedValue(falla('La reserva ya no está así.', 409));
+      const { user } = await conResultados();
+
+      await user.click(screen.getByRole('button', { name: 'Marcar entregada' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('un alta en el calendario recarga la búsqueda', async () => {
+      crearEnCalendarioAdmin.mockResolvedValue({ data: { reserva: BLOQUEO }, error: null, status: 201 });
+      const { user } = await conResultados();
+      await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+      await user.selectOptions(dialogo().getByLabelText('Pieza'), 'm3');
+      fireEvent.change(dialogo().getByLabelText('Libre de nuevo el'), { target: { value: '2026-11-05' } });
+      await user.type(dialogo().getByLabelText('Motivo'), 'Exposición');
+      await user.click(dialogo().getByRole('button', { name: 'Bloquear fechas' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenCalledTimes(3));
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'ana', desde: '', hasta: '' });
+    });
+
+    it('la lista de una búsqueda sale con el recuento de la búsqueda y sin el de la vista «Todas»', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Todas' }));
+      getReservasAdmin.mockResolvedValue(respuesta(Array.from({ length: 200 }, (_, i) => ({ ...ALQUILER, id: `x${i}` }))));
+
+      await buscar(user, { q: 'ana' });
+
+      await screen.findByText(/200 reservas encontradas/);
+      expect(screen.queryByText(/las más recientes/)).toBeNull();
+    });
+  });
+});
+
+describe('Reservas — calendarios', () => {
+  // Lo que el servidor manda al calendario de una reserva de la lista.
+  const paraCalendario = (r) => ({
+    id: r.id,
+    referencia: r.referencia,
+    tipo: r.tipo,
+    estado: r.estado,
+    etiqueta: r.etiqueta,
+    retrasada: r.retrasada,
+    en_conflicto: r.en_conflicto,
+    pieza: r.pieza,
+    cliente: r.contacto?.nombre ?? null,
+    motivo: r.motivo,
+    fecha_inicio: r.fecha_inicio,
+    hora_entrega: r.hora_entrega,
+    fecha_fin: r.fecha_fin,
+    hora_recogida: r.hora_recogida,
+    fin_ocupacion: r.fin_ocupacion,
+    dias_margen: r.dias_margen,
+    ocupada_hasta: r.fin_ocupacion == null ? null : '2026-10-22'
+  });
+  const calendario = (reservas) => ({ hoy: HOY, desde: '2026-10-01', hasta: '2026-10-31', reservas, limitada: false });
+  const modos = () => within(screen.getByRole('group', { name: 'Cómo ver las reservas' }));
+
+  beforeEach(() => {
+    getCalendarioReservasAdmin.mockResolvedValue(ok(calendario([paraCalendario(ALQUILER)])));
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it('hay tres formas de ver las reservas, y al entrar está la lista, sin leer ningún calendario', async () => {
+    await montar();
+
+    expect(modos().getAllByRole('button').map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
+      ['Lista', 'true'],
+      ['Calendario por pieza', 'false'],
+      ['Vista general', 'false']
+    ]);
+    expect(screen.getByRole('group', { name: 'Qué reservas ver' })).toBeInTheDocument();
+    expect(screen.getByRole('search', { name: 'Buscar reservas' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Pieza')).toBeNull();
+    expect(getCalendarioReservasAdmin).not.toHaveBeenCalled();
+  });
+
+  it('el calendario de una pieza deja la lista, las vistas y el buscador, y conserva la barra de acciones', async () => {
+    const { user } = await montar();
+
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    expect(modos().getByRole('button', { name: 'Calendario por pieza' })).toHaveAttribute('aria-pressed', 'true');
+    expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('group', { name: 'Qué reservas ver' })).toBeNull();
+    expect(screen.queryByRole('search', { name: 'Buscar reservas' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 3, name: /^Silla Tolix/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actualizar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bloquear fechas' })).toBeInTheDocument();
+    const piezas = within(screen.getByLabelText('Pieza')).getAllByRole('option');
+    expect(piezas.map((o) => o.textContent)).toEqual(['Elige una pieza', 'Lámpara antigua', 'Silla Tolix (NAV-SIL-001)']);
+    expect(getCalendarioReservasAdmin).not.toHaveBeenCalled();
+  });
+
+  it('al elegir pieza lee el mes de hoy (el del reloj) de esa pieza', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledWith({ desde: '2026-10-01', hasta: '2026-10-31', muebleId: 'm1' });
+    expect(await screen.findByRole('table', { name: 'Calendario de Silla Tolix, octubre de 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^jueves, 15 de octubre de 2026/ })).toBeInTheDocument();
+  });
+
+  it('la vista general lee 30 días desde hoy, de todas las piezas', async () => {
+    const { user } = await montar();
+
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledWith({ desde: '2026-10-13', hasta: '2026-11-11', muebleId: undefined });
+    expect(await screen.findByRole('group', { name: 'Reservas de Silla Tolix' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Qué reservas ver' })).toBeNull();
+  });
+
+  it('volver a la lista la deja como estaba, sin volver a leerla, y esconde el calendario', async () => {
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    await user.click(screen.getByRole('button', { name: 'Todas' }));
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    const lecturas = getReservasAdmin.mock.calls.length;
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+
+    expect(getReservasAdmin).toHaveBeenCalledTimes(lecturas);
+    expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { level: 3, name: /^Lámpara antigua/ })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Cuántos días ver' })).toBeNull();
+  });
+
+  it('lo escrito en el buscador sin buscar sigue ahí al volver de un calendario', async () => {
+    const { user } = await montar();
+    await user.type(screen.getByLabelText('Cliente, pieza o referencia'), 'ana pé');
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(screen.queryByRole('search', { name: 'Buscar reservas' })).toBeNull();
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+
+    expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('ana pé');
+    expect(getReservasAdmin).not.toHaveBeenCalledWith(expect.objectContaining({ q: expect.anything() }));
+  });
+
+  it('el calendario recuerda la pieza y el mes al volver de la lista', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+    await user.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(screen.queryByRole('combobox', { name: 'Pieza' })).toBeNull();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+
+    expect(screen.getByLabelText('Pieza')).toHaveValue('m1');
+    expect(screen.getByRole('heading', { level: 3, name: 'noviembre de 2026' })).toBeInTheDocument();
+  });
+
+  it('«Actualizar» vuelve a leer el calendario que se ve (y no el otro)', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+
+    await waitFor(() => expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2));
+    expect(getCalendarioReservasAdmin).toHaveBeenLastCalledWith({ desde: '2026-10-13', hasta: '2026-11-11', muebleId: undefined });
+  });
+
+  it('el calendario por pieza escondido tampoco lee, y al actualizar con él abierto sí', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+    await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    await waitFor(() => expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
+  });
+
+  it('la vista general recuerda los días elegidos al volver de la lista', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(await screen.findByRole('button', { name: '60 días' }));
+
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(screen.queryByRole('group', { name: 'Cuántos días ver' })).toBeNull();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(screen.getByRole('button', { name: '60 días' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('un calendario escondido no lee nada aunque cambie algo: se lee al volver a él', async () => {
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Actualizar' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
+  });
+
+  describe('«Ver reserva» desde un calendario', () => {
+    it('lleva a la lista, buscando su referencia, y el foco va a su tarjeta', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() =>
+        expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'A1B2C3D4', desde: '', hasta: '' })
+      );
+      expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('search', { name: 'Buscar reservas' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('A1B2C3D4');
+      expect(await screen.findByText(/1 reserva encontrada/)).toBeInTheDocument();
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+      // Con una búsqueda hecha no hay ninguna vista marcada.
+      expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('desde el calendario de una pieza, igual', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Calendario por pieza' }));
+      await user.selectOptions(screen.getByLabelText('Pieza'), 'Silla Tolix (NAV-SIL-001)');
+      await user.click(await screen.findByRole('button', { name: /^jueves, 15 de octubre de 2026/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+      expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas', q: 'A1B2C3D4', desde: '', hasta: '' });
+    });
+
+    it('conserva la vista que estaba elegida para la búsqueda', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(screen.getByRole('button', { name: 'Retrasadas' }));
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await waitFor(() =>
+        expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'retrasadas', q: 'A1B2C3D4', desde: '', hasta: '' })
+      );
+    });
+
+    it('con algo escrito sin buscar, el buscador pasa a la referencia que se ha buscado', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.type(screen.getByLabelText('Cliente, pieza o referencia'), 'otra cosa');
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+
+      await screen.findByText(/1 reserva encontrada/);
+      expect(screen.getByLabelText('Cliente, pieza o referencia')).toHaveValue('A1B2C3D4');
+    });
+
+    it('«Limpiar búsqueda» después deja la lista de la vista, como siempre', async () => {
+      const { user } = await montar({ reservas: [BLOQUEO] });
+      await user.click(modos().getByRole('button', { name: 'Vista general' }));
+      await user.click(await screen.findByRole('button', { name: /^alquiler A1B2C3D4/ }));
+      getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER], limitada: false }));
+      await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix) en la lista' }));
+      await screen.findByText(/1 reserva encontrada/);
+
+      await user.click(screen.getByRole('button', { name: 'Limpiar búsqueda' }));
+
+      await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'proximas' }));
+      expect(screen.getByRole('button', { name: 'Próximas' })).toHaveAttribute('aria-pressed', 'true');
+    });
+  });
+
+  it('«Ver reserva» de la agenda, estando en un calendario, lleva a la lista', async () => {
+    const trayecto = {
+      clave: 'r1:entrega',
+      tipo: 'entrega',
+      dia: HOY,
+      hora: '10:00',
+      modo: 'domicilio',
+      atrasada: false,
+      prevista: null,
+      reserva: {
+        id: 'r1',
+        referencia: 'A1B2C3D4',
+        pieza: { nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' },
+        cliente: { nombre: 'Ana Pérez', telefono: '600111222' },
+        direccion: 'Calle Mayor 1, Barcelona'
+      }
+    };
+    getAgendaReservasAdmin.mockResolvedValue(ok({ hoy: HOY, manana: '2026-10-14', trayectos: [trayecto] }));
+    const { user } = await montar({ reservas: [BLOQUEO] });
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    getReservasAdmin.mockResolvedValue(ok({ hoy: HOY, reservas: [ALQUILER] }));
+
+    await user.click(screen.getByRole('button', { name: 'Ver reserva A1B2C3D4 (Silla Tolix)' }));
+
+    expect(modos().getByRole('button', { name: 'Lista' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(getReservasAdmin).toHaveBeenLastCalledWith({ vista: 'entregas' }));
+    await waitFor(() => expect(document.getElementById('reserva-tarjeta-r1')).toHaveFocus());
+  });
+
+  it('un cambio hecho desde la lista (una acción) vuelve a leer el calendario cuando se vuelve a él', async () => {
+    accionReservaAdmin.mockResolvedValue(ok({ reserva: { ...ALQUILER, estado: 'en_curso', etiqueta: 'Entregada', acciones: ['recoger'] } }));
+    const { user } = await montar();
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+    await user.click(modos().getByRole('button', { name: 'Lista' }));
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(1);
+
+    await user.click(tarjeta('Silla Tolix').getByRole('button', { name: /Marcar entregada/ }));
+    await waitFor(() => expect(accionReservaAdmin).toHaveBeenCalledTimes(1));
+    await user.click(modos().getByRole('button', { name: 'Vista general' }));
+
+    expect(getCalendarioReservasAdmin).toHaveBeenCalledTimes(2);
   });
 });

@@ -1,9 +1,10 @@
 import { useState, useContext, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser, loginConGoogle } from '../services/api';
 import { rutaInterna } from '../utils/rutaInterna';
+import { EyeIcon, EyeOffIcon } from '../components/EyeIcons';
 import '../styles/Login.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -13,6 +14,7 @@ const Login = () => {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [error, setError] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const googleBtnRef = useRef(null);
@@ -113,6 +115,7 @@ const Login = () => {
     setEmail('');
     setPassword('');
     setNombre('');
+    setMostrarPassword(false);
   };
 
   return (
@@ -139,18 +142,34 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="input-group">
+          <div className="input-group password-group">
             <input 
-              type="password" 
+              type={mostrarPassword ? 'text' : 'password'} 
               placeholder="Contraseña" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <button
+              type="button"
+              className="toggle-password-btn"
+              onClick={() => setMostrarPassword((prev) => !prev)}
+              aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+              tabIndex={0}
+            >
+              {mostrarPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
           </div>
           {error && <p className="error-msg">{error}</p>}
           <button type="submit" className="login-btn">
             {isRegister ? 'Registrarme' : 'Continuar'}
           </button>
+          {!isRegister && (
+            <div className="forgot-password-link">
+              <Link to="/forgot-password" className="text-btn">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
+          )}
         </form>
 
         <div className="login-toggle-link">

@@ -11,6 +11,7 @@ const contactoRoutes = require('./routes/contactoRoutes');
 const stripeRoutes = require('./routes/stripeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
+const ajustesRoutes = require('./routes/ajustesRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -97,6 +98,7 @@ app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/contacto', contactoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
+app.use('/api/ajustes', ajustesRoutes);
 
 // Ruta base de comprobación
 app.get('/', (req, res) => {

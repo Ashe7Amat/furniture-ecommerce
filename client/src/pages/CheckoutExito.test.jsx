@@ -66,8 +66,19 @@ describe('CheckoutExito', () => {
     abrir('/checkout/exito');
 
     expect(screen.getByRole('heading', { name: 'No hemos podido confirmar el pago' })).toBeInTheDocument();
-    expect(screen.getByText('Falta el identificador del pago.')).toBeInTheDocument();
+    expect(screen.getByText('No encontramos los datos de tu pago en esta dirección.')).toBeInTheDocument();
     expect(confirmarSesionPago).not.toHaveBeenCalled();
+  });
+
+  it('si no se confirma, pide no repetir el pago y ofrece escribir a la tienda', async () => {
+    confirmarSesionPago.mockResolvedValue({ error: 'El pago todavía no se ha completado.' });
+    abrir();
+
+    expect(await screen.findByText('Si ya has pagado, no lo repitas: escríbenos y lo revisamos.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Escríbenos' })).toHaveAttribute('href', '/contacto');
+    expect(screen.getByRole('link', { name: 'Volver a la tienda' })).toHaveAttribute('href', '/catalogo');
+    // Sin las reservas encendidas, no hay "Ver mis reservas"
+    expect(screen.queryByRole('link', { name: 'Ver mis reservas' })).not.toBeInTheDocument();
   });
 
   it('en StrictMode (que monta dos veces en desarrollo) confirma una sola vez', async () => {
@@ -187,6 +198,16 @@ describe('CheckoutExito — reserva cancelada después del pago', () => {
     abrir();
 
     expect(await screen.findByRole('link', { name: 'Ver mis reservas' })).toHaveAttribute('href', '/cuenta?tab=reservas');
+  });
+
+  it('si no se pudo confirmar el pago, con el interruptor encendido también enlaza a "Ver mis reservas": puede que sí esté', async () => {
+    vi.stubEnv('VITE_RESERVAS_ACTIVAS', 'true');
+    confirmarSesionPago.mockResolvedValue({ error: 'No se pudo confirmar el pago.' });
+    abrir();
+
+    expect(await screen.findByRole('heading', { name: 'No hemos podido confirmar el pago' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver mis reservas' })).toHaveAttribute('href', '/cuenta?tab=reservas');
+    expect(screen.getByRole('link', { name: 'Escríbenos' })).toHaveAttribute('href', '/contacto');
   });
 });
 

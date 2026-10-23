@@ -20,7 +20,8 @@ import ScrollToTop from './components/ScrollToTop';
 const Catalog = lazy(() => import('./pages/Catalog'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const Login = lazy(() => import('./pages/Login'));
-const Admin = lazy(() => import('./pages/Admin'));
+// AdminRuta monta Admin.jsx con el ?editar={id} de la URL (ver AdminRuta.jsx).
+const Admin = lazy(() => import('./pages/AdminRuta'));
 const Profile = lazy(() => import('./pages/Profile'));
 const About = lazy(() => import('./pages/About'));
 const Sustainability = lazy(() => import('./pages/Sustainability'));
@@ -31,6 +32,8 @@ const Terms = lazy(() => import('./pages/Terms'));
 const CheckoutExito = lazy(() => import('./pages/CheckoutExito'));
 const CheckoutCancelado = lazy(() => import('./pages/CheckoutCancelado'));
 const VerificarEmail = lazy(() => import('./pages/VerificarEmail'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Indicador mínimo mientras se descarga una página (solo se ve una fracción de segundo,
@@ -74,6 +77,10 @@ function App() {
 
                       {/* H18: el enlace del correo para confirmar el email (no pide sesión) */}
                       <Route path="/verificar-email" element={<VerificarEmail />} />
+
+                      {/* Recuperación de contraseña */}
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
 
                       {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                       <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />

@@ -24,7 +24,8 @@ const {
   iniciarPagoDeReserva,
   MENSAJE_FECHAS_OCUPADAS,
   MENSAJE_OTRA_RESERVA,
-  MENSAJE_REINTENTAR_PAGO
+  MENSAJE_REINTENTAR_PAGO,
+  CODIGO_OTRA_RESERVA
 } = require('../utils/reservas');
 const { REGLAS_ALQUILER } = require('../utils/reglasAlquiler');
 
@@ -584,7 +585,7 @@ describe('la reserva anterior del mismo cliente (6.3, paso 4)', () => {
     const res = await reservar(cuerpo({ fecha_inicio: dia(30), fecha_fin: dia(32) }));
 
     assert.equal(res.status, 409);
-    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA, codigo: CODIGO_OTRA_RESERVA });
     assert.equal(anterior().estado, 'pendiente');
     assert.equal(creaciones().length, 0);
   });
@@ -644,7 +645,7 @@ describe('fallos y carreras', () => {
     const res = await reservar(cuerpo());
 
     assert.equal(res.status, 409);
-    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA, codigo: CODIGO_OTRA_RESERVA });
     assert.deepEqual(stripe.checkout.sessions.expire.mock.calls[0].arguments, ['cs_carrera']);
     assert.equal(stripe.sesiones.get('cs_carrera'), 'expired');
     assert.equal(filas()[0].stripe_session_id, undefined);
@@ -676,7 +677,12 @@ describe('fallos y carreras', () => {
     // Si la segunda choca, es con la suya: "vuelve a intentarlo", no "esas fechas se acaban de
     // reservar" (4.4).
     const rechazada = respuestas.find((r) => r.status === 409);
-    if (rechazada) assert.deepEqual(rechazada.body, { error: MENSAJE_OTRA_RESERVA });
+    if (rechazada) {
+      assert.deepEqual(rechazada.body, {
+        error: MENSAJE_OTRA_RESERVA,
+        codigo: CODIGO_OTRA_RESERVA
+      });
+    }
     const pendientes = deAna().filter((r) => r.estado === 'pendiente');
     assert.equal(pendientes.length, 1);
     const abiertas = [...stripe.sesiones].filter(([, estado]) => estado === 'open');
@@ -724,7 +730,7 @@ describe('fallos y carreras', () => {
     };
     const res = await reservar(cuerpo());
     assert.equal(res.status, 409);
-    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA });
+    assert.deepEqual(res.body, { error: MENSAJE_OTRA_RESERVA, codigo: CODIGO_OTRA_RESERVA });
   });
 
   test('una provisional suya ya caducada no cuenta: el choque es con otra persona', async () => {

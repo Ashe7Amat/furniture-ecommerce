@@ -30,17 +30,105 @@ export const hoyMasReciente = (hoyServidor, ahora = new Date()) => {
   return hoyServidor && hoyServidor > reloj ? hoyServidor : reloj;
 };
 
-// Las vistas de la lista, en orden. `id` es el valor de ?vista= de GET /api/admin/reservas.
+// Las vistas de la lista, en orden. `id` es el valor de ?vista= de GET /api/admin/reservas;
+// `descripcion` dice qué hay en ella (se enseña bajo los botones: varias vistas se solapan a propósito,
+// una reserva retrasada está también en «Próximas»), y `aviso` es la clave de su número en el resumen
+// de GET /api/admin/reservas/resumen, en las tres vistas que piden atención.
 export const VISTAS = [
-  { id: 'proximas', etiqueta: 'Próximas', vacia: 'No hay reservas próximas.' },
-  { id: 'entregas', etiqueta: 'Entregas hoy y mañana', vacia: 'No hay entregas hoy ni mañana.' },
-  { id: 'recogidas', etiqueta: 'Recogidas hoy y mañana', vacia: 'No hay recogidas hoy ni mañana.' },
-  { id: 'retrasadas', etiqueta: 'Retrasadas', vacia: 'No hay ninguna reserva retrasada.' },
-  { id: 'conflicto', etiqueta: 'En conflicto', vacia: 'No hay ninguna reserva en conflicto.' },
-  { id: 'reembolsos', etiqueta: 'Reembolsos a medias', vacia: 'No hay ningún reembolso a medias.' },
-  { id: 'legacy', etiqueta: 'Contratos antiguos', vacia: 'No hay contratos antiguos en revisión.' },
-  { id: 'todas', etiqueta: 'Todas', vacia: 'Todavía no hay ninguna reserva.' }
+  {
+    id: 'proximas',
+    etiqueta: 'Próximas',
+    descripcion:
+      'Todo lo que ocupa el calendario de hoy en adelante, por fecha de inicio: alquileres, bloqueos y ventas con entrega pendiente. Incluye lo ya entregado y aún sin recoger.',
+    vacia: 'No hay reservas próximas.'
+  },
+  {
+    id: 'entregas',
+    etiqueta: 'Entregas hoy y mañana',
+    descripcion: 'Alquileres confirmados que hay que entregar hoy o mañana, y los que ya tenían que haberse entregado.',
+    vacia: 'No hay entregas hoy ni mañana.'
+  },
+  {
+    id: 'recogidas',
+    etiqueta: 'Recogidas hoy y mañana',
+    descripcion: 'Alquileres entregados cuya recogida prevista es hoy o mañana.',
+    vacia: 'No hay recogidas hoy ni mañana.'
+  },
+  {
+    id: 'retrasadas',
+    etiqueta: 'Retrasadas',
+    descripcion:
+      'Alquileres entregados cuya recogida prevista ya pasó. Llama al cliente y marca la recogida, o amplía el alquiler si se queda más días.',
+    vacia: 'No hay ninguna reserva retrasada.',
+    aviso: 'retrasadas'
+  },
+  {
+    id: 'conflicto',
+    etiqueta: 'En conflicto',
+    descripcion:
+      'Reservas pagadas que no se pudieron confirmar, porque las fechas ya no estaban libres. Cada una dice qué hacer: el dinero se devuelve desde el Dashboard de Stripe.',
+    vacia: 'No hay ninguna reserva en conflicto.',
+    aviso: 'en_conflicto'
+  },
+  {
+    id: 'reembolsos',
+    etiqueta: 'Reembolsos a medias',
+    descripcion:
+      'Reservas canceladas cuyo reembolso no consta hecho en Stripe. Reinténtalo, o dalo por hecho si ya lo devolviste tú desde el Dashboard.',
+    vacia: 'No hay ningún reembolso a medias.',
+    aviso: 'reembolsos_a_medias'
+  },
+  {
+    id: 'legacy',
+    etiqueta: 'Contratos antiguos',
+    descripcion: 'Contratos de antes de las reservas por fechas que quedan por revisar.',
+    vacia: 'No hay contratos antiguos en revisión.'
+  },
+  {
+    id: 'todas',
+    etiqueta: 'Todas',
+    descripcion: 'Las más recientes de cualquier tipo y estado, hasta 200.',
+    vacia: 'Todavía no hay ninguna reserva.'
+  }
 ];
+
+// El detalle de la insignia de «Reservas», para el texto que sale al pasar el ratón por encima.
+// «2 retrasadas, 1 sin confirmar, 1 reembolso a medias»
+export const textoAvisos = (avisos) =>
+  [
+    avisos.retrasadas > 0 && `${avisos.retrasadas} ${avisos.retrasadas === 1 ? 'retrasada' : 'retrasadas'}`,
+    avisos.en_conflicto > 0 && `${avisos.en_conflicto} sin confirmar`,
+    avisos.reembolsos_a_medias > 0 &&
+      `${avisos.reembolsos_a_medias} ${avisos.reembolsos_a_medias === 1 ? 'reembolso' : 'reembolsos'} a medias`
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+// El resumen de la agenda de hoy y mañana, para encabezarla: «2 entregas y 1 recogida».
+export const textoTrayectos = (trayectos) => {
+  const cuenta = (tipo, singular, plural) => {
+    const n = trayectos.filter((t) => t.tipo === tipo).length;
+    return n > 0 && (n === 1 ? `1 ${singular}` : `${n} ${plural}`);
+  };
+  const partes = [cuenta('entrega', 'entrega', 'entregas'), cuenta('recogida', 'recogida', 'recogidas')];
+  return partes.filter(Boolean).join(' y ') || 'Nada que entregar ni recoger hoy ni mañana';
+};
+
+// Qué se buscó, para encabezar los resultados: «ana pérez», del 02/11/2026 al 09/11/2026
+export const textoBusqueda = ({ q, desde, hasta }) => {
+  let fechas = '';
+  if (desde && hasta) fechas = desde === hasta ? `el ${fechaCorta(desde)}` : `del ${fechaCorta(desde)} al ${fechaCorta(hasta)}`;
+  else if (desde) fechas = `desde el ${fechaCorta(desde)}`;
+  else if (hasta) fechas = `hasta el ${fechaCorta(hasta)}`;
+  return [q && `«${q}»`, fechas].filter(Boolean).join(', ');
+};
+
+// El resultado de una búsqueda: «3 reservas encontradas. Búsqueda: «ana», desde el 02/11/2026.»
+export const textoResultados = (filtros, n) => {
+  const que = textoBusqueda(filtros);
+  if (n === 0) return `Ninguna reserva coincide con la búsqueda: ${que}.`;
+  return `${n === 1 ? '1 reserva encontrada' : `${n} reservas encontradas`}. Búsqueda: ${que}.`;
+};
 
 // El texto del botón de cada acción que puede traer una reserva en `acciones`. Una acción que no
 // esté aquí (una nueva del servidor) no se pinta.

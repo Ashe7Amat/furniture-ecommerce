@@ -3,11 +3,12 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './Home';
-import { getMuebles, getCategorias } from '../services/api';
+import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
 
 vi.mock('../services/api', () => ({
   getMuebles: vi.fn(),
-  getCategorias: vi.fn()
+  getCategorias: vi.fn(),
+  getAjustesHome: vi.fn()
 }));
 
 const renderHome = async () => {
@@ -21,10 +22,12 @@ const renderHome = async () => {
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   // jsdom no implementa matchMedia (lo usa useScrollReveal).
   window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   getCategorias.mockResolvedValue([]);
   getMuebles.mockResolvedValue([]);
+  getAjustesHome.mockResolvedValue(null);
 });
 
 describe('Home — hero', () => {
@@ -199,18 +202,138 @@ describe('Home — textos y piezas destacadas', () => {
     expect(screen.queryByText(/FSC|reciclados/)).toBeNull();
   });
 
-  it('cada destacada lleva su referencia como etiqueta de almacén; sin referencia, nada', async () => {
+  it('cada destacada lleva su referencia en tipografía monoespaciada; sin referencia, nada', async () => {
+    // CAMBIADO A PROPÓSITO (22 oct 2026): piezas destacadas unificadas con ProductCard del catálogo.
     getMuebles.mockResolvedValue([
       { id: 1, nombre: 'Butaca de cine', referencia: 'NAV-SIL-001', imagenes: [] },
       { id: 2, nombre: 'Baúl antiguo', imagenes: [] }
     ]);
     await renderHome();
-    const etiquetas = [...document.querySelectorAll('.home-card-meta .ref-producto--etiqueta')];
-    expect(etiquetas.map((e) => e.textContent)).toEqual(['Ref. NAV-SIL-001']);
+    const referencias = [...document.querySelectorAll('.product-reference')];
+    expect(referencias.map((e) => e.textContent)).toEqual(['Ref. NAV-SIL-001']);
+  });
+
+  it('las destacadas usan el diseño unificado con badge "Pieza Única" y CTA "Solicitar información"', async () => {
+    // CAMBIADO A PROPÓSITO (22 oct 2026): piezas destacadas unificadas con ProductCard del catálogo.
+    getMuebles.mockResolvedValue([
+      { id: 1, nombre: 'Aparador nórdico', estado: 'disponible', imagenes: [] }
+    ]);
+    await renderHome();
+
+    const badge = screen.getByText('Pieza Única');
+    expect(badge).toHaveClass('product-badge', 'product-badge--unique');
+    expect(screen.getByText('Solicitar información →')).toBeInTheDocument();
   });
 
   it('la sección "Vistos en" no sale mientras no haya producciones', async () => {
     await renderHome();
     expect(screen.queryByText('Nuestras piezas han salido en')).toBeNull();
+  });
+});
+
+describe('Home — carrusel hero estático con 4 fotos de siempre', () => {
+  const activa = () => document.querySelector('.hero-slide-img.is-active').getAttribute('src');
+  const pasar = (ms) => act(() => { vi.advanceTimersByTime(ms); });
+
+  it('usa siempre las 4 fotos estáticas por defecto con sus 4 puntos y rota entre ellas', async () => {
+    vi.useFakeTimers();
+    try {
+      getAjustesHome.mockResolvedValue({ productos_destacados: [] });
+      await renderHome();
+
+      expect(screen.getAllByRole('button', { name: /^Ver foto \d de 4$/ })).toHaveLength(4);
+      expect(activa()).toBe('/img/hero-almacen.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-aerea.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-sillones.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-showroom.webp');
+      await pasar(5500);
+      expect(activa()).toBe('/img/hero-almacen.webp');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('las fotos estáticas del hero tienen sus fuentes responsive para móvil y tableta', async () => {
+    getAjustesHome.mockResolvedValue({ productos_destacados: [] });
+    await renderHome();
+    const sources = document.querySelectorAll('.hero-image-box picture source');
+    expect(sources.length).toBeGreaterThan(0);
+    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', 'Vista general del almacén de Nave 5 Barcelona');
+  });
+});
+
+describe('Home — destacados elegidos desde el panel', () => {
+  const MUEBLES = [
+    { id: 'a', nombre: 'Aparador', imagenes: [] },
+    { id: 'b', nombre: 'Butaca', imagenes: [] },
+    { id: 'c', nombre: 'Cómoda', imagenes: [] },
+    { id: 'd', nombre: 'Diván', imagenes: [] }
+  ];
+
+  it('con destacados guardados enseña solo esas piezas, en el orden de la API', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['c', 'a'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    const grid = document.querySelector('.home-products-grid');
+    const texto = grid.textContent;
+    expect(texto).toContain('Cómoda');
+    expect(texto).toContain('Aparador');
+    expect(texto).not.toContain('Butaca');
+    expect(texto).not.toContain('Diván');
+    expect(texto.indexOf('Cómoda')).toBeLessThan(texto.indexOf('Aparador'));
+    expect(getMuebles).toHaveBeenCalledWith();
+  });
+
+  it('el fallback de los 4 muebles más recientes nunca se solicita si hay destacados configurados', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['b'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    // Solo se debe consultar el catálogo completo para resolver los IDs, nunca el fallback con limit: 4
+    expect(getMuebles).not.toHaveBeenCalledWith({ limit: 4 });
+    expect(getMuebles).toHaveBeenCalledWith();
+
+    const grid = document.querySelector('.home-products-grid');
+    expect(grid.textContent).toContain('Butaca');
+    expect(grid.textContent).not.toContain('Aparador');
+    expect(grid.textContent).not.toContain('Cómoda');
+    expect(grid.textContent).not.toContain('Diván');
+  });
+
+  it('sin destacados guardados usa las 4 más recientes', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: [] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    expect(getMuebles).toHaveBeenCalledWith({ limit: 4 });
+    expect(document.querySelector('.home-products-grid').textContent).toContain('Butaca');
+  });
+
+  it('si ninguna de las elegidas existe ya, vuelve a las 4 más recientes', async () => {
+    getAjustesHome.mockResolvedValue({ hero_imagenes: [], productos_destacados: ['borrada'] });
+    getMuebles.mockResolvedValue(MUEBLES);
+    await renderHome();
+
+    expect(getMuebles).toHaveBeenCalledWith({ limit: 4 });
+    expect(document.querySelector('.home-products-grid').textContent).toContain('Aparador');
+  });
+});
+
+describe('Home — galería de inspiración y sostenibilidad estáticas', () => {
+  it('muestra las 2 fotos de ambiente fijas y el bloque de sostenibilidad original', async () => {
+    getAjustesHome.mockResolvedValue({
+      productos_destacados: []
+    });
+    await renderHome();
+
+    const imgs = document.querySelectorAll('.gallery-grid img.gallery-img');
+    expect(imgs).toHaveLength(2);
+    expect(imgs[0]).toHaveAttribute('src', '/img/galeria-rincon.webp');
+    expect(imgs[1]).toHaveAttribute('src', '/img/galeria-butacas.webp');
+    expect(screen.getByText('El mueble más sostenible es el que ya existe')).toBeInTheDocument();
   });
 });

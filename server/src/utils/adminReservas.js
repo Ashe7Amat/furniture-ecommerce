@@ -45,6 +45,9 @@ const COLUMNAS_LISTA = `id, mueble_id, ${COLUMNAS_PANEL}, historial`;
 
 // "Todas": las 200 más recientes. El resto de vistas son listas de trabajo, cortas por naturaleza.
 const MAX_TODAS = 200;
+// Una búsqueda mira las 1000 reservas más recientes (también es el tope de filas de PostgREST en
+// Supabase) y enseña como mucho MAX_TODAS de las que coinciden.
+const MAX_BUSQUEDA = 1000;
 
 // Una venta ya hecha se puede registrar con fecha de hasta 30 días atrás: basta para apuntar una
 // venta de tienda que se olvidó, y frena un año mal escrito (2006 por 2026), que dejaría una venta
@@ -256,12 +259,15 @@ const leer = async (consulta) => {
   return data;
 };
 
+// Todas las reservas con las columnas de la lista, o las de una pieza.
+const consultaBase = (muebleId) => {
+  const consulta = supabase.from('reservas').select(COLUMNAS_LISTA);
+  return muebleId ? consulta.eq('mueble_id', muebleId) : consulta;
+};
+
 // Las filas de cada vista. `hoy` es el de Madrid (3.6).
 const leerVista = async (vista, { muebleId, hoy, ahora }) => {
-  const base = () => {
-    const consulta = supabase.from('reservas').select(COLUMNAS_LISTA);
-    return muebleId ? consulta.eq('mueble_id', muebleId) : consulta;
-  };
+  const base = () => consultaBase(muebleId);
   const manana = sumarDias(hoy, 1);
   switch (vista) {
     case 'proximas': {
@@ -335,16 +341,248 @@ const leerVista = async (vista, { muebleId, hoy, ahora }) => {
       );
     case 'todas':
       return leer(base().order('created_at', { ascending: false }).limit(MAX_TODAS));
+    case 'busqueda':
+      // No es una vista de la lista (el esquema no la deja pedir): es lo que lee listarReservas
+      // cuando hay una búsqueda, para filtrarlo en memoria.
+      return leer(base().order('created_at', { ascending: false }).limit(MAX_BUSQUEDA));
     default:
       throw new ErrorValidacion('Esa vista de la lista de reservas no existe.');
   }
 };
 
-// GET /api/admin/reservas: { hoy, reservas }.
-const listarReservas = async ({ vista = 'proximas', muebleId, ahora = new Date() }) => {
+// ─── La búsqueda (8.1: «tabla filtrable por estado y fechas») ────────────────────────────────────
+
+// Sin mayúsculas ni acentos: «perez» encuentra a «Pérez».
+const sinAcentos = (texto) =>
+  String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+// Un teléfono sin espacios, puntos, guiones ni paréntesis, y sin el «+» de delante.
+const soloDigitos = (texto) => String(texto ?? '').replace(/[\s.\-()+]/g, '');
+const palabrasDe = (q) => sinAcentos(q).split(/\s+/).filter(Boolean);
+
+// Lo que se busca de cada reserva: su referencia, la pieza (nombre y referencia), el cliente (nombre,
+// email, teléfono y dirección), la dirección de entrega y el motivo de un bloqueo o una venta. Las
+// notas del cliente no.
+const textoBuscable = (r) =>
+  sinAcentos(
+    [
+      r.referencia,
+      r.pieza.nombre,
+      r.pieza.referencia,
+      r.contacto?.nombre,
+      r.contacto?.email,
+      r.contacto?.telefono,
+      r.contacto?.direccion,
+      r.direccion_entrega,
+      r.motivo
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+
+// Todas las palabras tienen que estar, en cualquier orden. Un número también vale si el teléfono se
+// guardó con otros espacios: «600111222» encuentra «600 111 222».
+const coincideConTexto = (r, palabras) => {
+  const texto = textoBuscable(r);
+  const telefono = soloDigitos(r.contacto?.telefono);
+  return palabras.every((palabra) => {
+    if (texto.includes(palabra)) return true;
+    const digitos = soloDigitos(palabra);
+    return digitos.length >= 3 && telefono.includes(digitos);
+  });
+};
+
+// Entre `desde` y `hasta` (los dos incluidos, cualquiera puede faltar) la reserva tenía algo: un
+// alquiler o un bloqueo, de su entrega a su recogida (la real si ya se devolvió, y la ampliada si
+// se amplió); una venta, solo el día de la venta (no tiene fecha de fin).
+const diaMayor = (a, b) => (b && b > a ? b : a);
+const ultimoDia = (r) => {
+  if (r.estado === 'devuelta' && r.fin_ocupacion) return r.fin_ocupacion;
+  return diaMayor(r.fecha_fin ?? r.fecha_inicio, r.fin_ocupacion);
+};
+const coincideConFechas = (r, desde, hasta) =>
+  (!desde || ultimoDia(r) >= desde) && (!hasta || r.fecha_inicio <= hasta);
+
+// Una búsqueda mira las más recientes de todas las reservas (sea cual sea la vista) y enseña las que
+// coinciden, también las canceladas y las devueltas, con su etiqueta. `limitada` avisa de que no se
+// pudo mirar o enseñar todo: hay que afinar.
+const buscarReservas = async ({ muebleId, q, desde, hasta, hoy, ahora }) => {
+  const filas = await leerVista('busqueda', { muebleId, hoy, ahora });
+  const palabras = palabrasDe(q);
+  const coinciden = (await presentarFilas(filas, ahora)).filter(
+    (r) => coincideConTexto(r, palabras) && coincideConFechas(r, desde, hasta)
+  );
+  return {
+    hoy,
+    reservas: coinciden.slice(0, MAX_TODAS),
+    limitada: filas.length >= MAX_BUSQUEDA || coinciden.length > MAX_TODAS
+  };
+};
+
+// GET /api/admin/reservas: { hoy, reservas }. Con `q`, `desde` o `hasta` es una búsqueda en todas las
+// reservas, y la vista no cuenta.
+const listarReservas = async ({
+  vista = 'proximas',
+  muebleId,
+  q,
+  desde,
+  hasta,
+  ahora = new Date()
+}) => {
   const contexto = contextoDe(ahora);
+  if (q || desde || hasta) return buscarReservas({ muebleId, q, desde, hasta, ...contexto });
   const filas = await leerVista(vista, { muebleId, ...contexto });
   return { hoy: contexto.hoy, reservas: await presentarFilas(filas, ahora) };
+};
+
+// GET /api/admin/reservas/resumen: lo que no puede esperar a que alguien abra la pestaña, para la
+// insignia del menú del panel. Son las tres vistas de aviso, contadas con la misma consulta que las
+// lista (así el número y la lista nunca se contradicen): las retrasadas, las pagadas que no se
+// pudieron confirmar y los reembolsos a medias. `total` cuenta cada reserva una vez: una pagada sin
+// confirmar y con el reembolso a medias está en dos vistas. Las entregas y recogidas de hoy y mañana
+// son trabajo de cada día, no un aviso: no suman.
+const VISTAS_DE_AVISO = ['retrasadas', 'conflicto', 'reembolsos'];
+const resumenDeAvisos = async ({ ahora = new Date() } = {}) => {
+  const contexto = contextoDe(ahora);
+  const [retrasadas, conflicto, reembolsos] = await Promise.all(
+    VISTAS_DE_AVISO.map((vista) => leerVista(vista, contexto))
+  );
+  const reservas = new Set([...retrasadas, ...conflicto, ...reembolsos].map((fila) => fila.id));
+  return {
+    hoy: contexto.hoy,
+    total: reservas.size,
+    retrasadas: retrasadas.length,
+    en_conflicto: conflicto.length,
+    reembolsos_a_medias: reembolsos.length
+  };
+};
+
+// ─── El calendario (8.2: por pieza y vista general) ──────────────────────────────────────────────
+
+// Las reservas que ocupan alguna pieza entre `desde` y `hasta` (los dos incluidos), con el margen. Las
+// dos vistas del calendario se dibujan en el panel a partir de esto. Las provisionales caducadas no
+// ocupan nada (como en la ficha). Con `hasta` a partir de hoy se suman las retrasadas, que tienen la
+// pieza fuera aunque su ocupación ya haya acabado: son el riesgo para la reserva siguiente (8.2).
+const MAX_CALENDARIO = 1000;
+
+// Lo mínimo que el calendario necesita de cada reserva: sin teléfono, email, dirección ni notas del
+// cliente. `ocupada_hasta` es el primer día libre después del margen (null = sin fin, una venta).
+const paraCalendario = (r) => ({
+  id: r.id,
+  referencia: r.referencia,
+  tipo: r.tipo,
+  estado: r.estado,
+  etiqueta: r.etiqueta,
+  retrasada: r.retrasada,
+  en_conflicto: r.en_conflicto,
+  pieza: r.pieza,
+  cliente: r.contacto?.nombre ?? null,
+  motivo: r.motivo,
+  fecha_inicio: r.fecha_inicio,
+  hora_entrega: r.hora_entrega,
+  fecha_fin: r.fecha_fin,
+  hora_recogida: r.hora_recogida,
+  fin_ocupacion: r.fin_ocupacion,
+  dias_margen: r.dias_margen,
+  ocupada_hasta: r.fin_ocupacion == null ? null : sumarDias(r.fin_ocupacion, r.dias_margen)
+});
+
+const calendarioDeReservas = async ({ desde, hasta, muebleId, ahora = new Date() }) => {
+  const contexto = contextoDe(ahora);
+  const [enElRango, retrasadas] = await Promise.all([
+    leer(
+      consultaBase(muebleId)
+        .in('estado', ESTADOS_QUE_OCUPAN)
+        .overlaps('rango_ocupado', `[${desde},${sumarDias(hasta, 1)})`)
+        // Las más recientes primero: si hay más de las que caben, que falten las más viejas (las ventas no
+        // tienen fin y entran en toda ventana posterior a su día), no las que están por llegar.
+        .order('fecha_inicio', { ascending: false })
+        .limit(MAX_CALENDARIO)
+    ),
+    hasta < contexto.hoy
+      ? []
+      : leer(
+          consultaBase(muebleId)
+            .eq('tipo', 'alquiler')
+            .eq('estado', 'en_curso')
+            .lt('fecha_fin', contexto.hoy)
+            .order('fecha_inicio', { ascending: true })
+        )
+  ]);
+  const filas = enElRango.filter((fila) => ocupaElCalendario(fila, ahora));
+  const vistas = new Set(filas.map((fila) => fila.id));
+  const todas = [...filas, ...retrasadas.filter((fila) => !vistas.has(fila.id))].sort(porInicio);
+  return {
+    hoy: contexto.hoy,
+    desde,
+    hasta,
+    reservas: (await presentarFilas(todas, ahora)).map(paraCalendario),
+    limitada: enElRango.length >= MAX_CALENDARIO
+  };
+};
+
+// ─── La agenda de hoy y mañana (8.2, «lista de trayectos del día») ───────────────────────────────
+
+// Un trayecto es una entrega o una recogida: lo mínimo para organizar la ruta y llamar sin abrir la
+// reserva (hora, pieza, cliente, teléfono y dónde). En una tienda no hay dirección que llevar.
+const trayecto = (reserva, tipo, hoy) => {
+  const entrega = tipo === 'entrega';
+  const modo = (entrega ? reserva.modo_entrega : reserva.modo_devolucion) ?? null;
+  // Una entrega que tenía que haberse hecho antes de hoy y sigue sin hacerse va en hoy, marcada.
+  const atrasada = entrega && reserva.fecha_inicio < hoy;
+  const contacto = reserva.contacto;
+  return {
+    clave: `${reserva.id}:${tipo}`,
+    tipo,
+    dia: atrasada ? hoy : entrega ? reserva.fecha_inicio : reserva.fin_ocupacion,
+    hora: (entrega ? reserva.hora_entrega : reserva.hora_recogida) ?? null,
+    modo,
+    atrasada,
+    prevista: atrasada ? reserva.fecha_inicio : null,
+    reserva: {
+      id: reserva.id,
+      referencia: reserva.referencia,
+      pieza: { nombre: reserva.pieza.nombre, referencia: reserva.pieza.referencia },
+      cliente: contacto ? { nombre: contacto.nombre, telefono: contacto.telefono } : null,
+      direccion:
+        modo === 'tienda' ? null : (reserva.direccion_entrega ?? contacto?.direccion ?? null)
+    }
+  };
+};
+
+// Por día; en un día, primero lo atrasado, luego por hora (sin hora al final), y a igual hora, la
+// entrega antes que la recogida; y para que el orden no cambie entre cargas, por referencia y por clave.
+const porMomento = (a, b) => {
+  if (a.dia !== b.dia) return a.dia < b.dia ? -1 : 1;
+  if (a.atrasada !== b.atrasada) return a.atrasada ? -1 : 1;
+  const horaA = a.hora ?? '99:99';
+  const horaB = b.hora ?? '99:99';
+  if (horaA !== horaB) return horaA < horaB ? -1 : 1;
+  if (a.tipo !== b.tipo) return a.tipo === 'entrega' ? -1 : 1;
+  if (a.reserva.referencia !== b.reserva.referencia) {
+    return a.reserva.referencia < b.reserva.referencia ? -1 : 1;
+  }
+  return a.clave < b.clave ? -1 : 1;
+};
+
+// GET /api/admin/reservas/agenda: las entregas y las recogidas de hoy y de mañana, en una sola lista.
+// Salen de las mismas consultas que las vistas «Entregas hoy y mañana» y «Recogidas hoy y mañana»,
+// así la agenda y esas listas nunca se contradicen. Las recogidas retrasadas no están: son un aviso
+// con su propia vista.
+const agendaDeHoy = async ({ ahora = new Date() } = {}) => {
+  const contexto = contextoDe(ahora);
+  const [entregas, recogidas] = await Promise.all([
+    leerVista('entregas', contexto),
+    leerVista('recogidas', contexto)
+  ]);
+  const presentadas = await presentarFilas([...entregas, ...recogidas], ahora);
+  const trayectos = [
+    ...presentadas.slice(0, entregas.length).map((r) => trayecto(r, 'entrega', contexto.hoy)),
+    ...presentadas.slice(entregas.length).map((r) => trayecto(r, 'recogida', contexto.hoy))
+  ].sort(porMomento);
+  return { hoy: contexto.hoy, manana: sumarDias(contexto.hoy, 1), trayectos };
 };
 
 // ─── Choques en el calendario (4.3) ──────────────────────────────────────────────────────────────
@@ -1237,6 +1475,8 @@ const crearVenta = async (datos, ahora = new Date()) => {
 module.exports = {
   COLUMNAS_LISTA,
   MAX_TODAS,
+  MAX_BUSQUEDA,
+  MAX_CALENDARIO,
   DIAS_ATRAS_VENTA,
   MENSAJE_RESERVA_NO_ENCONTRADA,
   MENSAJE_REEMBOLSO_EN_CURSO,
@@ -1253,6 +1493,9 @@ module.exports = {
   presentar,
   presentarFilas,
   listarReservas,
+  calendarioDeReservas,
+  resumenDeAvisos,
+  agendaDeHoy,
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,

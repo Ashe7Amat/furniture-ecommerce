@@ -1,0 +1,80 @@
+/* La barra de modo admin de la ficha pública (components/BarraAdmin.jsx): fija abajo y centrada, oscura y
+   semitransparente. Con el aviso de cookies abierto, se sube justo encima (como el botón de la música).
+   Por debajo de los modales, el carrito y el aviso de cookies; el menú «Cambiar estado» (1050), encima. */
+.barra-admin {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(16px + var(--alto-aviso-cookies, 0px));
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 8px 8px 8px 16px;
+  background: rgba(24, 19, 15, 0.9);
+  color: #F5EFE8;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(6px);
+  font-size: 0.85rem;
+}
+.barra-admin-texto {
+  margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.barra-admin-texto strong { font-weight: 600; }
+.barra-admin-estado {
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.78rem;
+}
+.barra-admin-botones { display: flex; gap: 8px; flex-shrink: 0; }
+.barra-admin-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.barra-admin-btn:hover,
+.barra-admin-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.14); border-color: #F5EFE8; }
+.barra-admin-btn:focus-visible { outline: 2px solid #F5EFE8; outline-offset: 2px; }
+
+/* La ficha deja sitio debajo para que la barra no tape el final de la página. */
+.pd-container.con-barra-admin { padding-bottom: 96px; }
+
+/* En el móvil: de lado a lado (con 16 px de margen), el texto arriba y los dos botones debajo. */
+@media (max-width: 600px) {
+  .barra-admin {
+    left: 16px;
+    right: 16px;
+    transform: none;
+    max-width: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .barra-admin-texto { flex: 1; }
+  .barra-admin-botones { width: 100%; }
+  .barra-admin-btn { flex: 1; justify-content: center; }
+  .pd-container.con-barra-admin { padding-bottom: 140px; }
+}
+
+@media (forced-colors: active) {
+  .barra-admin { border-color: CanvasText; }
+}

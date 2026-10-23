@@ -152,6 +152,48 @@ describe('ReservaModal — datos de contacto', () => {
     expect(screen.getByRole('checkbox')).toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('cada aviso rojo se quita en cuanto se arregla su campo, sin volver a pulsar Pagar', async () => {
+    const { user } = abrir();
+    await user.clear(screen.getByLabelText('Nombre y apellidos'));
+    await user.click(pagar());
+    const nombre = screen.getByLabelText('Nombre y apellidos');
+    const telefono = screen.getByLabelText('Teléfono');
+    const direccion = screen.getByLabelText('Dirección de entrega');
+    const casilla = screen.getByRole('checkbox');
+    expect(document.querySelectorAll('.reserva-campo-error')).toHaveLength(4);
+
+    await user.type(nombre, 'Ana');
+    expect(screen.queryByText('Escribe tu nombre.')).not.toBeInTheDocument();
+    expect(nombre).not.toHaveAttribute('aria-invalid');
+    expect(nombre).not.toHaveAttribute('aria-describedby');
+    // Los demás siguen hasta que se arreglen
+    expect(telefono).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(telefono, '600');
+    expect(screen.queryByText('Escribe un teléfono de contacto.')).not.toBeInTheDocument();
+    await user.type(direccion, 'Calle Mayor 1');
+    expect(screen.queryByText('Escribe la dirección.')).not.toBeInTheDocument();
+    await user.click(casilla);
+    expect(screen.queryByText('Tienes que aceptar las condiciones del alquiler.')).not.toBeInTheDocument();
+    expect(casilla).not.toHaveAttribute('aria-invalid');
+    expect(document.querySelectorAll('.reserva-campo-error')).toHaveLength(0);
+  });
+
+  it('un campo que sigue vacío (solo espacios) conserva su aviso; y si se vuelve a vaciar, no reaparece hasta pulsar Pagar', async () => {
+    const { user } = abrir();
+    await user.click(pagar());
+    const telefono = screen.getByLabelText('Teléfono');
+    expect(screen.getByText('Escribe un teléfono de contacto.')).toBeInTheDocument();
+
+    await user.type(telefono, '   ');
+    expect(screen.getByText('Escribe un teléfono de contacto.')).toBeInTheDocument();
+
+    await user.type(telefono, '600');
+    expect(screen.queryByText('Escribe un teléfono de contacto.')).not.toBeInTheDocument();
+    await user.clear(telefono);
+    expect(screen.queryByText('Escribe un teléfono de contacto.')).not.toBeInTheDocument();
+  });
+
   it('la casilla de las condiciones es obligatoria', async () => {
     const { user } = abrir();
     await user.type(screen.getByLabelText('Teléfono'), '600123123');
@@ -231,8 +273,26 @@ describe('ReservaModal — pago', () => {
 
     await user.click(pagar());
 
-    expect(onConflicto).toHaveBeenCalledWith('Esas fechas se acaban de reservar. Elige otras.');
+    expect(onConflicto).toHaveBeenCalledWith('Esas fechas se acaban de reservar. Elige otras.', undefined);
     expect(window.location.assign).not.toHaveBeenCalled();
+  });
+
+  it('409 por otra reserva a medio pagar: pasa también el código, para que la ficha conserve las fechas', async () => {
+    crearSesionPagoReserva.mockResolvedValue({
+      data: null,
+      error: 'Tienes otra reserva a medio pagar. Vuelve a intentarlo en un momento.',
+      status: 409,
+      codigo: 'otra_reserva_en_curso'
+    });
+    const { user, onConflicto } = abrir();
+    await rellenar(user);
+
+    await user.click(pagar());
+
+    expect(onConflicto).toHaveBeenCalledWith(
+      'Tienes otra reserva a medio pagar. Vuelve a intentarlo en un momento.',
+      'otra_reserva_en_curso'
+    );
   });
 
   it('401: pide volver a iniciar sesión, con un botón que lo abre', async () => {

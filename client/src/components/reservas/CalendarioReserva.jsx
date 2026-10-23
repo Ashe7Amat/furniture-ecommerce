@@ -5,7 +5,8 @@
 // segundo, la recogida (ver seleccionFechas.js).
 import { useId, useRef, useState } from 'react';
 import { sumarMeses, semanasDelMes, nombreDelMes, fechaLarga } from '../../utils/reservas';
-import { diaElegible, mesesVisibles, seleccionTrasElegir } from './seleccionFechas';
+import { GRUPO_DE_MOTIVO, diaElegible, mesesVisibles, motivoNoElegible, seleccionTrasElegir } from './seleccionFechas';
+import { textoMotivo, textoPlazos } from './textosReserva';
 
 const DIAS_SEMANA = [
   ['L', 'lunes'],
@@ -38,11 +39,21 @@ const CalendarioReserva = ({ disponibilidad, inicio, fin, onCambiar }) => {
     const elegible = diaElegible(seleccion, fecha, disponibilidad);
     const papel = fecha === inicio ? 'entrega' : fecha === fin ? 'recogida' : null;
     const enRango = inicio && fin && fecha > inicio && fecha < fin;
-    const clases = ['cal-reserva-dia', papel && `cal-reserva-dia--${papel}`, enRango && 'cal-reserva-dia--rango']
+    // Por qué no se puede pulsar: rayado si lo tiene otra reserva, apagado si está fuera de plazo.
+    const motivo = elegible ? null : motivoNoElegible(seleccion, fecha, disponibilidad);
+    const clases = [
+      'cal-reserva-dia',
+      papel && `cal-reserva-dia--${papel}`,
+      enRango && 'cal-reserva-dia--rango',
+      motivo && `cal-reserva-dia--${GRUPO_DE_MOTIVO[motivo]}`
+    ]
       .filter(Boolean)
       .join(' ');
-    // Entrega y recogida se anuncian siempre como tales, aunque el día no se pueda volver a pulsar.
-    const etiqueta = `${fechaLarga(fecha)}${papel ? `, ${papel}` : elegible ? '' : ', no disponible'}`;
+    // Entrega y recogida se anuncian siempre como tales, aunque el día no se pueda volver a pulsar. Un
+    // día que no se puede elegir dice también por qué.
+    const etiqueta = `${fechaLarga(fecha)}${
+      papel ? `, ${papel}` : motivo ? `, no disponible: ${textoMotivo(motivo, disponibilidad.reglas)}` : ''
+    }`;
     // Una recogida que no sirve como entrega no se puede volver a pulsar, pero no se desactiva del
     // todo (aria-disabled): un botón desactivado suelta el foco justo después de elegirla.
     const soloAnunciado = !elegible && papel !== null;
@@ -112,9 +123,13 @@ const CalendarioReserva = ({ disponibilidad, inicio, fin, onCambiar }) => {
 
       <ul className="cal-reserva-leyenda">
         <li className="cal-reserva-leyenda--libre">Libre</li>
-        <li className="cal-reserva-leyenda--ocupado">No disponible</li>
+        <li className="cal-reserva-leyenda--ocupado">Ocupado</li>
+        <li className="cal-reserva-leyenda--fuera">Fuera de plazo</li>
         <li className="cal-reserva-leyenda--elegido">Tus fechas</li>
       </ul>
+      {textoPlazos(disponibilidad.reglas) && (
+        <p className="cal-reserva-reglas">{textoPlazos(disponibilidad.reglas)}</p>
+      )}
 
       <div className="cal-reserva-pie">
         <p className="cal-reserva-instrucciones" aria-live="polite" tabIndex={-1} ref={instruccionesRef}>

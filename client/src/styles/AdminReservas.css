@@ -29,14 +29,209 @@
   border-color: var(--primary-color);
   color: var(--bg-color);
 }
+/* El número de las vistas que piden atención (retrasadas, sin confirmar, reembolsos a medias) */
+.reservas-vista-n {
+  display: inline-block;
+  min-width: 1.4em;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+.reservas-vista[aria-pressed="true"] .reservas-vista-n {
+  background: var(--bg-color);
+  color: var(--primary-color);
+}
+/* Qué hay en la vista elegida, bajo los botones */
+.reservas-vista-ayuda {
+  margin: -6px 0 18px;
+  max-width: 70ch;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
 .reservas-vista:focus-visible,
 .reserva-acciones button:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
+/* ─── Buscador ─── */
+.reservas-buscador {
+  max-width: none;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.reservas-buscador-fechas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+.reservas-buscador-botones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+/* En frase, como el resto de botones de «Reservas». */
+.reservas-buscador-botones .admin-btn {
+  padding: 11px 22px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.reservas-buscador .reservas-error { margin: 0; }
+/* Cuántas reservas salieron de la búsqueda, y el aviso de que hay más de las que caben */
+.reservas-busqueda-resumen {
+  margin: 0 0 12px;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.reservas-busqueda-limite {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  color: var(--primary-color);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.reservas-buscador input:focus-visible,
+.reservas-buscador button:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 /* Las tres altas (bloquear, alquiler y venta fuera de la web): bajan de línea si no caben. */
 .reservas-altas { flex-wrap: wrap; }
+
+/* ─── Agenda de hoy y mañana ─── */
+.reservas-agenda {
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.reservas-agenda h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.reservas-agenda-resumen {
+  margin: 0 0 14px;
+  color: var(--secondary-color);
+  font-size: 0.88rem;
+}
+.reservas-agenda-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+.reservas-agenda-error p {
+  margin: 0;
+  flex: 1 1 240px;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+}
+.agenda-dia + .agenda-dia { margin-top: 18px; }
+.agenda-dia h4 {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--primary-color);
+}
+.agenda-dia h4 span {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--secondary-color);
+}
+.agenda-vacio {
+  margin: 0;
+  color: var(--secondary-color);
+  font-size: 0.88rem;
+}
+.agenda-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.agenda-trayecto {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-color);
+}
+.agenda-hora {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--primary-color);
+}
+.agenda-datos > * { margin: 0; }
+.agenda-datos > * + * { margin-top: 3px; }
+.agenda-que {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.82rem;
+}
+.agenda-tipo {
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.agenda-tipo--entrega {
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+  color: color-mix(in srgb, var(--accent-text) 75%, var(--primary-color));
+}
+.agenda-tipo--recogida {
+  background: var(--success-bg);
+  color: color-mix(in srgb, var(--success-color) 70%, var(--primary-color));
+}
+.agenda-modo { color: var(--secondary-color); }
+.agenda-atrasada {
+  font-weight: 600;
+  color: var(--danger-color);
+}
+.agenda-pieza strong { color: var(--primary-color); }
+.agenda-pieza .reserva-ref { margin: 0; }
+.agenda-cliente,
+.agenda-direccion {
+  font-size: 0.88rem;
+  color: var(--primary-color);
+  overflow-wrap: anywhere;
+}
+.agenda-cliente a {
+  color: var(--accent-text);
+  text-decoration: underline;
+}
 
 /* ─── Lista ─── */
 .reservas-lista {
@@ -170,6 +365,26 @@
   overflow-wrap: anywhere;
 }
 
+/* Después de una acción, la tarjeta se queda en su sitio y este aviso dice que la lista ya puede haber cambiado */
+.reservas-lista-movida {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+}
+.reservas-lista-movida p {
+  margin: 0;
+  flex: 1 1 260px;
+  color: var(--primary-color);
+  font-size: 0.88rem;
+}
+
 /* ─── Errores y diálogos ─── */
 .reservas-error {
   color: var(--danger-color);
@@ -192,7 +407,13 @@
   flex-wrap: wrap;
   gap: 10px;
 }
-.reservas-dialogo-botones .admin-btn { padding: 12px 20px; }
+.reservas-dialogo-botones .admin-btn {
+  padding: 12px 20px;
+  /* En frase, como el botón de la tarjeta que se pulsó para llegar aquí («Marcar entregada»): en
+     MAYÚSCULAS parecía otro botón. El resto del panel conserva las mayúsculas de .admin-btn. */
+  text-transform: none;
+  letter-spacing: 0;
+}
 .reservas-btn-peligro { background: var(--danger-color); }
 .reservas-btn-peligro:hover:not(:disabled) { background: var(--danger-color); filter: brightness(0.92); }
 .reservas-check {
@@ -205,15 +426,510 @@
 }
 .admin-form .reservas-check input { width: auto; }
 
+/* ─── Cómo ver las reservas: lista, calendario de una pieza o vista general ─── */
+.reservas-modos {
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+.reservas-modo {
+  padding: 11px 18px;
+  border: 0;
+  background: transparent;
+  color: var(--secondary-color);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.reservas-modo + .reservas-modo { border-left: 1px solid var(--border-color); }
+.reservas-modo:hover { color: var(--primary-color); }
+.reservas-modo[aria-pressed="true"] {
+  background: var(--primary-color);
+  color: var(--bg-color);
+}
+.reservas-modo:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: -4px;
+}
+
+/* ─── Calendarios: el de una pieza y la vista general ───
+   Cada tipo de reserva se distingue también por el dibujo, no solo por el color: alquiler = relleno liso,
+   esperando pago = borde discontinuo, retrasada = rayas, bloqueo = puntos, venta = relleno oscuro y
+   margen = sombreado fino. --c es el color fuerte de cada tipo y --relleno su fondo. */
+.ocupacion {
+  --pieza-ancho: 9rem;
+  --dia-ancho: 1.6rem;
+}
+.ocupacion-dia--alquiler, .ocupacion-barra--alquiler, .ocupacion-muestra--alquiler {
+  --c: var(--success-color);
+  --relleno: var(--success-bg);
+}
+.ocupacion-dia--pendiente, .ocupacion-barra--pendiente, .ocupacion-muestra--pendiente {
+  --c: var(--warning-color);
+  --relleno: var(--warning-bg);
+}
+.ocupacion-dia--retrasada, .ocupacion-barra--retrasada, .ocupacion-muestra--retrasada, .ocupacion-fuera {
+  --c: var(--danger-color);
+  --relleno: var(--danger-bg);
+}
+.ocupacion-dia--bloqueo, .ocupacion-barra--bloqueo, .ocupacion-muestra--bloqueo {
+  --c: var(--secondary-color);
+  --relleno: var(--surface-alt);
+}
+.ocupacion-dia--venta, .ocupacion-barra--venta, .ocupacion-muestra--venta {
+  --c: var(--primary-color);
+  --relleno: var(--primary-color);
+}
+.ocupacion-muestra--margen { --c: var(--secondary-color); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .ocupacion-dia--alquiler, .ocupacion-barra--alquiler, .ocupacion-muestra--alquiler {
+    --relleno: color-mix(in srgb, var(--success-color) 28%, var(--card-bg));
+  }
+  .ocupacion-dia--pendiente, .ocupacion-barra--pendiente, .ocupacion-muestra--pendiente {
+    --relleno: color-mix(in srgb, var(--warning-color) 24%, var(--card-bg));
+  }
+}
+/* Los dibujos: rayas (retrasada), puntos (bloqueo) y sombreado (margen). */
+/* (Con dos clases en las celdas del mes: `.ocupacion-dia` más abajo reinicia el fondo con su abreviatura.) */
+.ocupacion-dia.ocupacion-dia--retrasada, .ocupacion-barra--retrasada .ocupacion-barra-reserva, .ocupacion-muestra--retrasada, .ocupacion-fuera {
+  background-image: repeating-linear-gradient(45deg, var(--c) 0 2px, transparent 2px 7px);
+  background-color: var(--relleno);
+}
+.ocupacion-dia.ocupacion-dia--bloqueo, .ocupacion-barra--bloqueo .ocupacion-barra-reserva, .ocupacion-muestra--bloqueo {
+  background-image: radial-gradient(circle, var(--c) 1px, transparent 1.6px);
+  background-size: 6px 6px;
+  background-color: var(--relleno);
+}
+.ocupacion-dia.ocupacion-dia--margen,
+.ocupacion-barra-margen,
+.ocupacion-muestra--margen {
+  background-image: repeating-linear-gradient(135deg, var(--c) 0 2px, transparent 2px 6px);
+  background-color: var(--card-bg);
+}
+.ocupacion-dia.ocupacion-dia--margen { border-style: dashed; }
+
+.ocupacion-controles { max-width: 420px; margin-bottom: 14px; }
+.ocupacion-navegacion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.ocupacion-titulo {
+  flex: 1 1 12rem;
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+.ocupacion-titulo::first-letter { text-transform: uppercase; }
+.ocupacion-resumen {
+  margin: 0 0 12px;
+  color: var(--secondary-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.ocupacion-resumen:empty { margin: 0; }
+/* «Hoy» y «Este mes», cuando ya se está en ello: se quedan con el foco, apagados. */
+.ocupacion-navegacion .admin-btn-ghost[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: default;
+}
+.ocupacion-solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* La leyenda */
+.ocupacion-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  color: var(--secondary-color);
+  font-size: 0.8rem;
+}
+.ocupacion-leyenda li { display: inline-flex; align-items: center; gap: 7px; }
+.ocupacion-muestra {
+  flex: none;
+  width: 20px;
+  height: 14px;
+  border: 1px solid var(--c, var(--border-color));
+  border-radius: 3px;
+  background-color: var(--relleno, var(--card-bg));
+}
+.ocupacion-muestra--pendiente { border-style: dashed; border-width: 2px; }
+.ocupacion-muestra--margen { border-style: dashed; }
+
+/* El mes de una pieza */
+.ocupacion-mes {
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 4px;
+  border-collapse: separate;
+  border-spacing: 3px;
+  table-layout: fixed;
+}
+.ocupacion-mes th {
+  padding: 4px 0;
+  color: var(--secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ocupacion-dia {
+  position: relative;
+  height: 3rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--card-bg);
+  text-align: center;
+  vertical-align: middle;
+}
+.ocupacion-dia--fuera { border-color: transparent; background: transparent; }
+.ocupacion-libre,
+.ocupacion-dia-boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 3rem;
+}
+.ocupacion-libre { color: var(--secondary-color); font-size: 0.85rem; }
+.ocupacion-dia-boton {
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ocupacion-dia--alquiler, .ocupacion-dia--pendiente, .ocupacion-dia--retrasada, .ocupacion-dia--bloqueo {
+  border-color: var(--c);
+}
+.ocupacion-dia--alquiler:not(.ocupacion-dia--margen),
+.ocupacion-dia--pendiente:not(.ocupacion-dia--margen) { background: var(--relleno); }
+.ocupacion-dia--pendiente { border-style: dashed; border-width: 2px; }
+.ocupacion-dia--venta { border-color: var(--c); background: var(--relleno); }
+.ocupacion-dia--venta .ocupacion-dia-boton { color: var(--bg-color); }
+/* Sobre un dibujo, el número lleva un fondo para poder leerse. */
+.ocupacion-dia--margen .ocupacion-numero,
+.ocupacion-dia--retrasada .ocupacion-numero,
+.ocupacion-dia--bloqueo .ocupacion-numero {
+  padding: 0 0.4em;
+  border-radius: 4px;
+  background: var(--card-bg);
+}
+.ocupacion-dia--hoy .ocupacion-numero {
+  min-width: 1.7em;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--accent-color);
+  line-height: 1.7em;
+  font-weight: 700;
+}
+.ocupacion-dia--hoy.ocupacion-dia--venta .ocupacion-numero { box-shadow: 0 0 0 2px var(--bg-color); }
+.ocupacion-dia.is-seleccionado { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+/* Lo que se ve de la pieza fuera cuando otra reserva ya ocupa ese día */
+.ocupacion-marca {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  min-width: 1.1em;
+  border-radius: 50%;
+  background: var(--card-bg);
+  color: var(--danger-color);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.1em;
+  text-align: center;
+}
+.ocupacion-dia-boton:focus-visible,
+.ocupacion-barra:focus-visible,
+.ocupacion-fuera:focus-visible,
+.ocupacion-detalle:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* La vista general: una fila por pieza y una columna por día, con scroll hacia los lados */
+.ocupacion-rejilla {
+  margin-bottom: 16px;
+  overflow-x: auto;
+  /* El foco no se esconde bajo la columna fija de la pieza. */
+  scroll-padding-left: var(--pieza-ancho);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.ocupacion-cuerpo { min-width: calc(var(--pieza-ancho) + var(--dias) * var(--dia-ancho)); }
+.ocupacion-cabecera,
+.ocupacion-fila {
+  display: grid;
+  grid-template-columns: var(--pieza-ancho) minmax(0, 1fr);
+}
+.ocupacion-cabecera {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+.ocupacion-pieza-celda {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid var(--border-color);
+  background: var(--card-bg);
+}
+.ocupacion-pieza-celda strong {
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.ocupacion-pieza-celda .reserva-ref { margin: 2px 0 0; font-size: 0.72rem; }
+.ocupacion-escala { min-width: 0; }
+.ocupacion-meses,
+.ocupacion-numeros,
+.ocupacion-barras {
+  display: grid;
+  grid-template-columns: repeat(var(--dias), minmax(0, 1fr));
+}
+.ocupacion-meses span {
+  padding: 4px 6px;
+  border-left: 1px solid var(--border-color);
+  color: var(--secondary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocupacion-meses span::first-letter { text-transform: uppercase; }
+.ocupacion-numeros span {
+  padding: 4px 0;
+  color: var(--secondary-color);
+  font-size: 0.72rem;
+  text-align: center;
+}
+.ocupacion-numeros .es-finde { background: var(--surface-alt); }
+.ocupacion-numeros .es-hoy {
+  background: var(--accent-text);
+  color: var(--bg-color);
+  font-weight: 700;
+}
+.ocupacion-filas { margin: 0; padding: 0; list-style: none; }
+.ocupacion-fila + .ocupacion-fila { border-top: 1px solid var(--border-color); }
+.ocupacion-barras {
+  position: relative;
+  align-content: center;
+  row-gap: 3px;
+  padding: 6px 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(100% / var(--dias) - 1px),
+    var(--border-color) calc(100% / var(--dias) - 1px),
+    var(--border-color) calc(100% / var(--dias))
+  );
+}
+.ocupacion-hoy {
+  grid-row: 1 / span 2;
+  border-right: 1px solid var(--accent-color);
+  border-left: 1px solid var(--accent-color);
+  background: var(--surface-alt);
+  background: color-mix(in srgb, var(--accent-color) 16%, transparent);
+}
+.ocupacion-barra {
+  position: relative;
+  z-index: 1;
+  grid-row: 1;
+  display: grid;
+  min-height: 2rem;
+  padding: 0;
+  border: 1px solid var(--c);
+  border-radius: 5px;
+  overflow: hidden;
+  background: transparent;
+  color: var(--primary-color);
+  font-family: inherit;
+  font-size: 0.72rem;
+  text-align: left;
+  cursor: pointer;
+}
+.ocupacion-barra--pendiente { border-style: dashed; border-width: 2px; }
+.ocupacion-barra-reserva {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0 6px;
+  background-color: var(--relleno);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocupacion-barra--venta .ocupacion-barra-reserva { color: var(--bg-color); }
+/* Sobre rayas o puntos, la referencia lleva un fondo para poder leerse. */
+.ocupacion-barra-ref {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocupacion-barra--retrasada .ocupacion-barra-ref,
+.ocupacion-barra--bloqueo .ocupacion-barra-ref {
+  padding: 0 0.4em;
+  border-radius: 3px;
+  background: var(--card-bg);
+}
+.ocupacion-barra.es-cortada-izq .ocupacion-barra-reserva { padding-left: 16px; }
+.ocupacion-barra.es-cortada-izq { border-left-width: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.ocupacion-barra.es-cortada-der { border-right-width: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* Una flecha en el borde por el que la reserva sigue fuera de la ventana. */
+.ocupacion-barra.es-cortada-izq::before,
+.ocupacion-barra.es-cortada-der::after {
+  position: absolute;
+  top: 50%;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--card-bg);
+  color: var(--primary-color);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+  transform: translateY(-50%);
+}
+.ocupacion-barra.es-cortada-izq::before { content: "‹"; left: 1px; }
+.ocupacion-barra.es-cortada-der::after { content: "›"; right: 1px; }
+.ocupacion-barra.is-seleccionado,
+.ocupacion-fuera.is-seleccionado { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+.ocupacion-fuera {
+  position: relative;
+  z-index: 1;
+  grid-row: 2;
+  min-height: 1.4rem;
+  padding: 0 6px;
+  border: 1px solid var(--c);
+  border-radius: 4px;
+  color: var(--danger-color);
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.ocupacion-fuera span {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--danger-bg);
+}
+
+/* Los riesgos de la vista general */
+.ocupacion-riesgos {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--warning-color);
+  border-radius: 8px;
+  background: var(--warning-bg);
+  color: var(--primary-color);
+}
+.ocupacion-riesgos h4 { margin: 0 0 6px; font-size: 0.95rem; }
+.ocupacion-riesgos ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.ocupacion-riesgos li + li { margin-top: 4px; }
+
+/* El detalle que se abre al pulsar un día o una barra */
+.ocupacion-detalle {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+.ocupacion-detalle-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ocupacion-detalle-dia { margin: 0; color: var(--primary-color); font-weight: 600; }
+.ocupacion-detalle-reserva + .ocupacion-detalle-reserva {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+.ocupacion-detalle-reserva h4 { margin: 0 0 6px; font-size: 1rem; color: var(--primary-color); }
+.ocupacion-detalle-pieza { margin: 0 0 8px; }
+.ocupacion-detalle-pieza .reserva-ref { margin: 0; }
+.ocupacion-detalle-aviso {
+  margin: 10px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 768px) {
   /* Zonas táctiles de al menos 44 px (WCAG 2.5.5, AAA; pauta de Apple y Google). */
   .reservas-vista,
+  .reservas-agenda-error button,
+  .agenda-trayecto button,
   .reservas-aviso-general button,
+  .reservas-lista-movida button,
+  .reservas-buscador-botones button,
   .reserva-acciones button,
   .reservas-altas button,
+  .reservas-modo,
+  .ocupacion-navegacion button,
+  .ocupacion-detalle button,
+  .ocupacion-mes .ocupacion-dia-boton,
   .reservas-dialogo-botones > button {
     min-height: 44px;
   }
+  .ocupacion-barra,
+  .ocupacion-fuera { min-height: 44px; }
+  .ocupacion-titulo { order: -1; flex-basis: 100%; }
+  .ocupacion-mes { border-spacing: 2px; }
+  .ocupacion-dia { height: 44px; }
+  .ocupacion { --pieza-ancho: 6.5rem; --dia-ancho: 2.5rem; }
+  .ocupacion-detalle { padding: 14px; }
   .reservas-dialogo .admin-modal-close {
     min-width: 44px;
     min-height: 44px;
@@ -231,6 +947,21 @@
     border-top: 1px solid var(--border-color);
     padding-top: 16px;
   }
+  .reservas-agenda { padding: 16px 14px; }
+  /* La hora arriba, y los datos y el botón debajo, a todo el ancho. */
+  .agenda-trayecto { grid-template-columns: 1fr; }
+  .agenda-cliente a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+  .agenda-trayecto button { justify-self: start; }
   .reservas-dialogo-botones { justify-content: stretch; }
   .reservas-dialogo-botones > button { flex: 1; }
+}
+
+/* Con tres botones que no caben en una fila, uno encima de otro. */
+@media (max-width: 520px) {
+  .reservas-modos { display: grid; width: 100%; grid-template-columns: 1fr; }
+  .reservas-modo + .reservas-modo { border-top: 1px solid var(--border-color); border-left: 0; }
 }

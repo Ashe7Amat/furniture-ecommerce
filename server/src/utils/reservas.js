@@ -9,7 +9,12 @@ const supabase = require('../data/supabase');
 const email = require('./email');
 const { registrarPedido } = require('./pagos');
 const { enviarTodos } = require('./enviarTodos');
-const { ErrorValidacion, ErrorConflicto, ErrorReintentable } = require('./errores');
+const {
+  ErrorValidacion,
+  ErrorConflicto,
+  ErrorReintentable,
+  ErrorNoEncontrado
+} = require('./errores');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
 const { calcularPrecioReserva } = require('./precioReserva');
 const { hoyEnMadrid, fechaLegible } = require('./fechasMadrid');
@@ -29,6 +34,12 @@ const MARGEN_STRIPE_MIN = 1;
 const MENSAJE_FECHAS_OCUPADAS = 'Esas fechas se acaban de reservar. Elige otras.';
 const MENSAJE_OTRA_RESERVA =
   'Tienes otra reserva a medio pagar. Vuelve a intentarlo en un momento.';
+// El código del 409 anterior: las fechas no se han ocupado, así que la web las conserva.
+const CODIGO_OTRA_RESERVA = 'otra_reserva_en_curso';
+const MENSAJE_RESERVA_NO_ENCONTRADA = 'No encontramos esa reserva.';
+const MENSAJE_PLAZO_DE_PAGO_TERMINADO =
+  'El plazo para pagar esta reserva ha terminado. Elige las fechas otra vez.';
+const MENSAJE_PAGO_YA_RECIBIDO = 'Ya hemos recibido tu pago. Estamos confirmando tu reserva.';
 const MENSAJE_REINTENTAR_PAGO =
   'No hemos podido preparar el pago. Inténtalo de nuevo en un momento.';
 
@@ -263,10 +274,13 @@ const iniciarPagoDeReserva = async ({
     // persona, así que recibe el mismo "vuelve a intentarlo" (4.4).
     if (error.code === CODIGO_EXCLUSION) {
       const suya = await tieneOtraProvisional(cuenta.id, ahora);
-      throw new ErrorConflicto(suya ? MENSAJE_OTRA_RESERVA : MENSAJE_FECHAS_OCUPADAS);
+      throw suya
+        ? new ErrorConflicto(MENSAJE_OTRA_RESERVA, CODIGO_OTRA_RESERVA)
+        : new ErrorConflicto(MENSAJE_FECHAS_OCUPADAS);
     }
     // El índice de una sola provisional por cliente: otra pestaña suya ha creado la suya a la vez.
-    if (error.code === CODIGO_UNICIDAD) throw new ErrorConflicto(MENSAJE_OTRA_RESERVA);
+    if (error.code === CODIGO_UNICIDAD)
+      throw new ErrorConflicto(MENSAJE_OTRA_RESERVA, CODIGO_OTRA_RESERVA);
     throw error;
   }
 
@@ -318,10 +332,52 @@ const iniciarPagoDeReserva = async ({
       console.error(`No se pudo caducar la sesión de pago ${session.id}:`, errorCaducar.message);
     }
     if (errorGuardar) throw errorGuardar;
-    throw new ErrorConflicto(MENSAJE_OTRA_RESERVA);
+    throw new ErrorConflicto(MENSAJE_OTRA_RESERVA, CODIGO_OTRA_RESERVA);
   }
 
   return { url: session.url, reservaId: reserva.id };
+};
+
+// Hasta cuándo se puede pagar una reserva provisional: lo que dura su sesión de Stripe. `expira_en` es ese
+// instante más la gracia del webhook (6.3, paso 5), que el cliente no puede usar para pagar.
+const pagoHastaDe = (filaReserva, reglas = REGLAS_ALQUILER) =>
+  new Date(
+    new Date(filaReserva.expira_en).getTime() - reglas.graciaWebhookMin * MS_MINUTO
+  ).toISOString();
+
+// POST /api/reservas/:id/retomar-pago: la página de pago de una reserva provisional que sigue abierta, para
+// el cliente que la cerró sin pagar (o volvió atrás). No crea nada: pide a Stripe la sesión que ya tiene.
+// Lanza ErrorNoEncontrado (404: no es suya o no existe), ErrorConflicto (409: ya no se puede pagar) o
+// ErrorReintentable (503); los mensajes se pueden enseñar.
+const retomarPagoDeReserva = async ({ stripe, cuenta, id, ahora = new Date() }) => {
+  const { data: fila, error } = await supabase
+    .from('reservas')
+    .select('id, cliente_id, tipo, estado, expira_en, stripe_session_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  // La de otro cliente, igual que si no existiera.
+  if (!fila || fila.cliente_id !== cuenta.id || fila.tipo !== 'alquiler') {
+    throw new ErrorNoEncontrado(MENSAJE_RESERVA_NO_ENCONTRADA);
+  }
+  if (fila.estado !== 'pendiente' || !fila.stripe_session_id || new Date(fila.expira_en) <= ahora) {
+    throw new ErrorConflicto(MENSAJE_PLAZO_DE_PAGO_TERMINADO);
+  }
+
+  let sesion;
+  try {
+    sesion = await stripe.checkout.sessions.retrieve(fila.stripe_session_id);
+  } catch (errorConsulta) {
+    console.error(
+      `No se pudo consultar la sesión de pago ${fila.stripe_session_id}:`,
+      errorConsulta.message
+    );
+    throw new ErrorReintentable(MENSAJE_REINTENTAR_PAGO);
+  }
+  if (sesion.status === 'complete') throw new ErrorConflicto(MENSAJE_PAGO_YA_RECIBIDO);
+  if (sesion.status !== 'open' || !sesion.url)
+    throw new ErrorConflicto(MENSAJE_PLAZO_DE_PAGO_TERMINADO);
+  return { url: sesion.url };
 };
 
 // ─── Confirmación del pago (6.4) ─────────────────────────────────────────────────────────────────
@@ -589,8 +645,14 @@ module.exports = {
   liberarProvisionalesCaducadas,
   escribirEnCalendario,
   iniciarPagoDeReserva,
+  retomarPagoDeReserva,
+  pagoHastaDe,
   CODIGO_EXCLUSION,
+  CODIGO_OTRA_RESERVA,
   MENSAJE_FECHAS_OCUPADAS,
   MENSAJE_OTRA_RESERVA,
-  MENSAJE_REINTENTAR_PAGO
+  MENSAJE_REINTENTAR_PAGO,
+  MENSAJE_RESERVA_NO_ENCONTRADA,
+  MENSAJE_PLAZO_DE_PAGO_TERMINADO,
+  MENSAJE_PAGO_YA_RECIBIDO
 };

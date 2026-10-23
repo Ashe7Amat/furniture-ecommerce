@@ -8,6 +8,7 @@ const correos = require('../utils/email');
 const refreshTokens = require('../utils/refreshTokens');
 const verificacionEmail = require('../utils/verificacionEmail');
 const { enviarTodos } = require('../utils/enviarTodos');
+const { registrarActividad } = require('../utils/audit');
 
 // Cliente para verificar los tokens que manda el botón de Google. Si no hay
 // GOOGLE_CLIENT_ID configurado en el servidor, el login con Google queda desactivado
@@ -191,6 +192,19 @@ const loginCliente = async (req, res) => {
     // el nombre de siempre) y el refresh token
     const token = firmarToken(usuario);
     const refreshToken = await emitirRefresh(usuario, req);
+
+    try {
+      await registrarActividad(
+        { ...req, usuario: { sub: usuario.id, email: usuario.email, rol: usuario.rol } },
+        'login',
+        'auth',
+        usuario.id,
+        null,
+        { email: usuario.email, rol: usuario.rol }
+      );
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría en login:', errAudit.message);
+    }
 
     res.status(200).json({
       success: true,
@@ -696,6 +710,146 @@ const reenviarVerificacion = async (req, res) => {
   }
 };
 
+// 9. RECUPERACIÓN DE CONTRASEÑA — SOLICITAR (POST /api/auth/forgot-password)
+const MENSAJE_FORGOT_GENERICO = 'Si el correo está registrado, recibirás un enlace.';
+
+const solicitarRecuperacion = async (req, res) => {
+  try {
+    const emailEntrada = String(req.body?.email || '')
+      .toLowerCase()
+      .trim();
+    if (!emailEntrada) {
+      return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+    }
+
+    const { data: cliente, error } = await supabase
+      .from('clientes')
+      .select('id, email, nombre')
+      .eq('email', emailEntrada)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error al buscar cliente en solicitarRecuperacion:', error.message);
+      return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+    }
+
+    if (!cliente) {
+      return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+    const { error: errorInsert } = await supabase.from('password_resets').insert({
+      email: cliente.email,
+      token_hash: tokenHash,
+      expires_at: expiresAt,
+      used_at: null
+    });
+
+    if (errorInsert) {
+      console.error('Error al guardar token de password_resets:', errorInsert.message);
+      return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+    }
+
+    const urlBase = (process.env.CLIENT_URL || 'https://www.nave5barcelona.com').replace(
+      /\/+$/,
+      ''
+    );
+    const enlace = `${urlBase}/reset-password?token=${token}`;
+
+    await enviarTodos([() => correos.enviarEmailRecuperacion(cliente.email, enlace)]);
+
+    return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+  } catch (error) {
+    console.error('Error no controlado en solicitarRecuperacion:', error.message);
+    return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
+  }
+};
+
+// 10. RECUPERACIÓN DE CONTRASEÑA — RESTABLECER (POST /api/auth/reset-password)
+const restablecerPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body || {};
+    if (!token) {
+      return res.status(400).json({ error: 'El token es obligatorio.' });
+    }
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+
+    const { data: resetEntry, error: errorRead } = await supabase
+      .from('password_resets')
+      .select('*')
+      .eq('token_hash', tokenHash)
+      .maybeSingle();
+
+    if (errorRead) {
+      console.error('Error al leer token de recuperación:', errorRead.message);
+      return res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+
+    if (!resetEntry) {
+      return res
+        .status(400)
+        .json({ error: 'El enlace de recuperación no es válido o ha caducado.' });
+    }
+
+    if (resetEntry.used_at) {
+      return res.status(400).json({ error: 'Este enlace de recuperación ya ha sido utilizado.' });
+    }
+
+    if (new Date(resetEntry.expires_at).getTime() < Date.now()) {
+      return res.status(400).json({ error: 'El enlace de recuperación ha caducado.' });
+    }
+
+    // Actualiza clientes.password (con bcrypt, 12 rondas)
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const { data: cliente, error: errorUpdate } = await supabase
+      .from('clientes')
+      .update({ password: hashedPassword })
+      .eq('email', resetEntry.email)
+      .select('id')
+      .maybeSingle();
+
+    if (errorUpdate) {
+      console.error('Error al actualizar contraseña del cliente:', errorUpdate.message);
+      return res.status(500).json({ error: 'Error al actualizar la contraseña.' });
+    }
+
+    // Marca el token como usado
+    const { error: errorMarcar } = await supabase
+      .from('password_resets')
+      .update({ used_at: new Date().toISOString() })
+      .eq('id', resetEntry.id);
+
+    if (errorMarcar) {
+      console.error('Error al marcar token de recuperación como usado:', errorMarcar.message);
+    }
+
+    // Revoca todos los refresh_tokens del usuario (por seguridad)
+    if (cliente?.id) {
+      try {
+        await refreshTokens.revocarTodasDelUsuario(cliente.id);
+      } catch (errTokens) {
+        console.error(
+          'Error al revocar refresh tokens tras restablecer contraseña:',
+          errTokens.message
+        );
+      }
+    }
+
+    return res.status(200).json({ success: true, message: 'Contraseña restablecida con éxito.' });
+  } catch (error) {
+    console.error('Error en restablecerPassword:', error.message);
+    return res.status(500).json({ error: 'Error al restablecer la contraseña.' });
+  }
+};
+
 module.exports = {
   registrarCliente,
   loginCliente,
@@ -704,5 +858,7 @@ module.exports = {
   refrescarSesion,
   cerrarSesion,
   verificarEmail,
-  reenviarVerificacion
+  reenviarVerificacion,
+  solicitarRecuperacion,
+  restablecerPassword
 };

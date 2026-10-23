@@ -3,6 +3,10 @@ import { describe, it, expect } from 'vitest';
 import { eurosDeCentimos } from '../../utils/reservas';
 import {
   VISTAS,
+  textoAvisos,
+  textoTrayectos,
+  textoBusqueda,
+  textoResultados,
   ETIQUETA_ACCION,
   etiquetaAccion,
   ORIGEN,
@@ -53,6 +57,67 @@ describe('Reservas del panel — textos fijos', () => {
       'Reembolsos a medias', 'Contratos antiguos', 'Todas'
     ]);
     expect(VISTAS.every((v) => v.vacia.endsWith('.'))).toBe(true);
+  });
+
+  it('cada vista dice qué contiene (una frase, distinta de las demás), y solo tres piden atención', () => {
+    expect(VISTAS.every((v) => v.descripcion.endsWith('.'))).toBe(true);
+    expect(new Set(VISTAS.map((v) => v.descripcion)).size).toBe(VISTAS.length);
+    expect(VISTAS.filter((v) => v.aviso).map((v) => [v.id, v.aviso])).toEqual([
+      ['retrasadas', 'retrasadas'],
+      ['conflicto', 'en_conflicto'],
+      ['reembolsos', 'reembolsos_a_medias']
+    ]);
+  });
+
+  it('textoTrayectos: el resumen de la agenda, en singular y plural, sin lo que está a cero', () => {
+    const entrega = { tipo: 'entrega' };
+    const recogida = { tipo: 'recogida' };
+    expect(textoTrayectos([entrega])).toBe('1 entrega');
+    expect(textoTrayectos([entrega, entrega])).toBe('2 entregas');
+    expect(textoTrayectos([recogida])).toBe('1 recogida');
+    expect(textoTrayectos([recogida, recogida, recogida])).toBe('3 recogidas');
+    expect(textoTrayectos([entrega, recogida])).toBe('1 entrega y 1 recogida');
+    expect(textoTrayectos([entrega, entrega, recogida, recogida, recogida])).toBe('2 entregas y 3 recogidas');
+    expect(textoTrayectos([])).toBe('Nada que entregar ni recoger hoy ni mañana');
+  });
+
+  it('textoBusqueda: lo que se buscó, con el texto entre comillas y las fechas en palabras', () => {
+    expect(textoBusqueda({ q: 'ana pérez' })).toBe('«ana pérez»');
+    expect(textoBusqueda({ desde: '2026-11-02', hasta: '2026-11-09' })).toBe('del 02/11/2026 al 09/11/2026');
+    expect(textoBusqueda({ desde: '2026-11-02', hasta: '2026-11-02' })).toBe('el 02/11/2026');
+    expect(textoBusqueda({ desde: '2026-11-02' })).toBe('desde el 02/11/2026');
+    expect(textoBusqueda({ hasta: '2026-11-09' })).toBe('hasta el 09/11/2026');
+    expect(textoBusqueda({ q: 'sofá', desde: '2026-11-02', hasta: '2026-11-09' })).toBe(
+      '«sofá», del 02/11/2026 al 09/11/2026'
+    );
+    expect(textoBusqueda({ q: 'sofá', hasta: '2026-11-09' })).toBe('«sofá», hasta el 09/11/2026');
+    expect(textoBusqueda({ q: '', desde: '', hasta: '' })).toBe('');
+  });
+
+  it('textoResultados: cuántas se encontraron (singular y plural) y qué se buscó', () => {
+    expect(textoResultados({ q: 'ana' }, 1)).toBe('1 reserva encontrada. Búsqueda: «ana».');
+    expect(textoResultados({ q: 'ana' }, 2)).toBe('2 reservas encontradas. Búsqueda: «ana».');
+    expect(textoResultados({ q: 'ana' }, 200)).toBe('200 reservas encontradas. Búsqueda: «ana».');
+    expect(textoResultados({ desde: '2026-11-02' }, 3)).toBe(
+      '3 reservas encontradas. Búsqueda: desde el 02/11/2026.'
+    );
+    expect(textoResultados({ q: 'ana', hasta: '2026-11-09' }, 0)).toBe(
+      'Ninguna reserva coincide con la búsqueda: «ana», hasta el 09/11/2026.'
+    );
+  });
+
+  it('textoAvisos: el detalle de la insignia, en singular y plural, sin lo que está a cero', () => {
+    const base = { total: 0, retrasadas: 0, en_conflicto: 0, reembolsos_a_medias: 0 };
+    expect(textoAvisos({ ...base, retrasadas: 1 })).toBe('1 retrasada');
+    expect(textoAvisos({ ...base, retrasadas: 2 })).toBe('2 retrasadas');
+    expect(textoAvisos({ ...base, en_conflicto: 1 })).toBe('1 sin confirmar');
+    expect(textoAvisos({ ...base, en_conflicto: 3 })).toBe('3 sin confirmar');
+    expect(textoAvisos({ ...base, reembolsos_a_medias: 1 })).toBe('1 reembolso a medias');
+    expect(textoAvisos({ ...base, reembolsos_a_medias: 2 })).toBe('2 reembolsos a medias');
+    expect(textoAvisos({ total: 4, retrasadas: 2, en_conflicto: 1, reembolsos_a_medias: 1 })).toBe(
+      '2 retrasadas, 1 sin confirmar, 1 reembolso a medias'
+    );
+    expect(textoAvisos(base)).toBe('');
   });
 
   it('un botón por cada acción conocida, y una marca para lo que no viene de la web', () => {

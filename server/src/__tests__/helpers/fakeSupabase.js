@@ -172,7 +172,10 @@ const crearFakeSupabase = ({
   refresh_tokens = [],
   mensajes_contacto = [],
   verificaciones_email = [],
+  password_resets = [],
+  audit_log = [],
   reservas = [],
+  ajustes_home = [{ id: 1, hero_imagenes: [], productos_destacados: [] }],
   indiceUnicoStripe = true,
   fallos = {}
 } = {}) => {
@@ -184,6 +187,9 @@ const crearFakeSupabase = ({
     refresh_tokens: refresh_tokens.map((fila) => ({ ...fila })),
     mensajes_contacto: mensajes_contacto.map((fila) => ({ ...fila })),
     verificaciones_email: verificaciones_email.map((fila) => ({ ...fila })),
+    password_resets: password_resets.map((fila) => ({ ...fila })),
+    audit_log: audit_log.map((fila) => ({ ...fila })),
+    ajustes_home: ajustes_home.map((fila) => ({ ...fila })),
     reservas: reservas.map((fila) => ({
       updated_at: '2025-12-31T00:00:00.000Z',
       ...fila,

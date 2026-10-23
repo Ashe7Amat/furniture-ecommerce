@@ -6,15 +6,16 @@ import { MODOS, camposAlta, datosAlta, validarAlta } from '../reservasAdmin';
 
 // Las tres altas en el calendario sin pago web (8.3): "Bloquear fechas", "Registrar alquiler fuera
 // de la web" y "Registrar venta fuera de la web". Si chocan con algo, el servidor responde 409 con
-// las fechas y la referencia de lo que choca, y ese mensaje sale aquí tal cual.
+// las fechas y la referencia de lo que choca, y ese mensaje sale aquí tal cual. `inicial` rellena
+// campos al abrir (desde un mensaje de contacto: la pieza, el nombre y el email del cliente).
 const TEXTOS = {
   bloqueo: { titulo: 'Bloquear fechas', boton: 'Bloquear fechas' },
   alquiler: { titulo: 'Registrar alquiler fuera de la web', boton: 'Registrar alquiler' },
   venta: { titulo: 'Registrar venta fuera de la web', boton: 'Registrar venta' }
 };
 
-const AltaCalendarioModal = ({ tipo, muebles, hoy, enviando, error, onEnviar, onCerrar }) => {
-  const [campos, setCampos] = useState(() => camposAlta(hoy));
+const AltaCalendarioModal = ({ tipo, muebles, hoy, inicial, enviando, error, onEnviar, onCerrar }) => {
+  const [campos, setCampos] = useState(() => ({ ...camposAlta(hoy), ...inicial }));
   const [aviso, setAviso] = useState('');
 
   const cambiar = (e) => {

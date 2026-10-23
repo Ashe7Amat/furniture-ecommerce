@@ -1,12 +1,16 @@
-import { useContext, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { updateMueble, deleteMueble, exportarCatalogoCsv } from '../../../services/api';
-import { formatPrice } from '../../../utils/format';
+import { updateMueble, deleteMueble, duplicarMueble, exportarCatalogoCsv } from '../../../services/api';
 import { descargarArchivo } from '../../../utils/descargarArchivo';
 import { PLACEHOLDER_IMG } from '../../../utils/images';
 import Icon from '../Icon';
 import ImportarCatalogoModal from '../modales/ImportarCatalogoModal';
+import AsignarAlquilerModal from '../modales/AsignarAlquilerModal';
+import EtiquetasModal from '../modales/EtiquetasModal';
+import PrecioEditable from '../PrecioEditable';
+import MenuAcciones from '../MenuAcciones';
 import { ejecutarLote, textoLoteAMedias } from '../lotes';
+import { textoResultadoAlquiler } from '../precios';
 
 // Pestaña "Gestionar Inventario". El estado de la vista (búsqueda, filtros, orden, página,
 // selección) llega en `vista` desde el contenedor (useInventarioVista), para que se conserve al
@@ -14,6 +18,11 @@ import { ejecutarLote, textoLoteAMedias } from '../lotes';
 // H12: los borrados y el cambio de estado en lote miran la respuesta. Si algo falla, se avisa con un
 // error, solo se recarga si algo cambió, y las piezas que fallaron siguen seleccionadas para
 // reintentarlo.
+// Los precios de venta y de alquiler se editan en la misma fila (PrecioEditable), y el de alquiler
+// se puede poner a varias piezas a la vez (AsignarAlquilerModal).
+// En cada fila solo están «Editar» y el menú «⋮» (MenuAcciones), con «Duplicar», «Imprimir etiqueta»
+// y «Eliminar». «Imprimir etiqueta» y el «Imprimir etiquetas» de la barra en lote abren la vista de
+// impresión de las etiquetas con QR (EtiquetasModal).
 const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarBorrado, abrirEditorMueble }) => {
   const { showToast } = useContext(ToastContext);
   const {
@@ -33,6 +42,9 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
   const totalMuebles = muebles.length;
   const [exportando, setExportando] = useState(false);
   const [importando, setImportando] = useState(false);
+  const [asignandoAlquiler, setAsignandoAlquiler] = useState(false);
+  // Las piezas de las etiquetas abiertas (se fijan al abrir, aunque luego cambie la selección).
+  const [etiquetas, setEtiquetas] = useState(null);
 
   // El catálogo entero (no solo lo filtrado), con los precios reales, en un CSV para Excel.
   const handleExportar = async () => {
@@ -59,6 +71,32 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
         showToast('Mueble eliminado con éxito', 'success');
         recargarMuebles();
       }
+    );
+  };
+
+  // "Duplicar" en la fila: el servidor crea la copia (mismos datos, sin fotos, disponible y con la
+  // referencia siguiente de su categoría) y aquí se abre su editor, para ponerle las fotos. Mientras
+  // se duplica, un segundo clic en "Duplicar" del diálogo no crea otra copia.
+  const duplicando = useRef(false);
+  const handleDuplicar = (m) => {
+    confirmarBorrado(
+      'Duplicar pieza',
+      `¿Duplicar ${m.nombre}? Se creará una nueva pieza con la misma información excepto las fotos.`,
+      async () => {
+        if (duplicando.current) return;
+        duplicando.current = true;
+        const { data, error } = await duplicarMueble(m.id);
+        duplicando.current = false;
+        const nueva = data?.data?.[0];
+        if (error || !nueva) {
+          showToast(error || 'No se pudo duplicar la pieza.', 'error');
+          return;
+        }
+        showToast(nueva.referencia ? `Pieza duplicada (${nueva.referencia})` : 'Pieza duplicada', 'success');
+        recargarMuebles();
+        abrirEditorMueble(nueva);
+      },
+      'Duplicar'
     );
   };
 
@@ -92,6 +130,29 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
     } else {
       showToast(textoLoteAMedias(hechos, cantidad), 'error');
     }
+    setSeleccionados(fallidos);
+    if (hechos > 0) recargarMuebles();
+  };
+
+  // Edición rápida de un precio en la fila. `campo` es el del formulario del servidor: precio_venta o
+  // precio_alquiler (que se guarda en precio_alquiler_dia). Va como texto, como en el formulario
+  // de edición (schemas/muebles.js), y vacío (null) quita el precio.
+  const guardarPrecio = async (id, campo, valor) => {
+    const res = await updateMueble(id, { [campo]: valor === null ? null : String(valor) });
+    if (!res) {
+      showToast('Error al guardar', 'error');
+      return false;
+    }
+    showToast('Precio guardado', 'success');
+    recargarMuebles();
+    return true;
+  };
+  const avisarPrecioNoValido = (texto) => showToast(texto, 'error');
+
+  // Al acabar "Asignar precio de alquiler": como en las demás acciones en lote, se recarga si algo
+  // cambió y las que fallaron siguen seleccionadas.
+  const trasAsignarAlquiler = ({ hechos, fallidos, total }) => {
+    showToast(textoResultadoAlquiler(hechos, total), fallidos.length === 0 ? 'success' : 'error');
     setSeleccionados(fallidos);
     if (hechos > 0) recargarMuebles();
   };
@@ -159,6 +220,10 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
               <option value="alquilado">Marcar alquilado</option>
             </select>
             <button className="admin-btn-ghost" onClick={handleBulkEstado}>Aplicar estado</button>
+            <button className="admin-btn-ghost" onClick={() => setAsignandoAlquiler(true)}>Asignar precio de alquiler</button>
+            <button className="admin-btn-ghost" onClick={() => setEtiquetas(muebles.filter(m => seleccionados.includes(m.id)))}>
+              Imprimir etiquetas
+            </button>
             <button className="admin-btn-danger-ghost" onClick={handleBulkDelete}>Eliminar seleccionados</button>
             <button className="admin-btn-ghost" onClick={() => setSeleccionados([])}>Cancelar</button>
           </div>
@@ -177,8 +242,10 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
               <span>Nombre</span>
               <span className="inv-category">Categoría</span>
               <span>Estado</span>
-              <span className="inv-price">Precio</span>
-              <span>Acciones</span>
+              {/* Los dos precios van en la misma columna, uno encima del otro: con dos columnas, en un
+                  portátil no quedaba sitio para el nombre. */}
+              <span className="inv-price inv-precios"><span>Venta</span><span>Alquiler/día</span></span>
+              <span className="inv-actions-head">Acciones</span>
             </div>
             {muebleVisibles.map(m => (
               <div key={m.id} className={`inventory-list-item ${seleccionados.includes(m.id) ? 'is-selected' : ''}`}>
@@ -217,18 +284,48 @@ const InventarioTab = ({ vista, muebles, categorias, recargarMuebles, confirmarB
                     <option value="alquilado">Alquilado</option>
                   </select>
                 </span>
-                <span className="inv-price">
-                  {m.precio_venta ? `${formatPrice(m.precio_venta)}€` : (m.precio_alquiler_dia ? `${formatPrice(m.precio_alquiler_dia)}€/día` : '—')}
+                <span className="inv-price inv-precios">
+                  <PrecioEditable
+                    valor={m.precio_venta}
+                    etiqueta={`Precio de venta de ${m.nombre}`}
+                    onGuardar={(valor) => guardarPrecio(m.id, 'precio_venta', valor)}
+                    onInvalido={avisarPrecioNoValido}
+                  />
+                  <PrecioEditable
+                    valor={m.precio_alquiler_dia}
+                    sufijo="/día"
+                    etiqueta={`Precio de alquiler por día de ${m.nombre}`}
+                    onGuardar={(valor) => guardarPrecio(m.id, 'precio_alquiler', valor)}
+                    onInvalido={avisarPrecioNoValido}
+                  />
                 </span>
                 <div className="inv-actions">
                   <button onClick={() => abrirEditorMueble(m)} className="inv-edit-btn">Editar</button>
-                  <button onClick={() => handleDeleteMueble(m.id)} className="inv-del-btn">Eliminar</button>
+                  <MenuAcciones
+                    etiqueta={`Más acciones de ${m.nombre}`}
+                    acciones={[
+                      { texto: 'Duplicar', icono: 'copy', onElegir: () => handleDuplicar(m) },
+                      { texto: 'Imprimir etiqueta', icono: 'qr', onElegir: () => setEtiquetas([m]) },
+                      null,
+                      { texto: 'Eliminar', icono: 'trash', peligro: true, onElegir: () => handleDeleteMueble(m.id) }
+                    ]}
+                  />
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {asignandoAlquiler && (
+        <AsignarAlquilerModal
+          piezas={muebles.filter(m => seleccionados.includes(m.id))}
+          onCerrar={() => setAsignandoAlquiler(false)}
+          onAplicado={trasAsignarAlquiler}
+        />
+      )}
+
+      {etiquetas && <EtiquetasModal piezas={etiquetas} onCerrar={() => setEtiquetas(null)} />}
 
       {importando && (
         <ImportarCatalogoModal onCerrar={() => setImportando(false)} onImportado={recargarMuebles} />

@@ -57,6 +57,7 @@ describe('Navegación — barra lateral', () => {
       ['Gestionar Inventario', 'Gestionar Inventario'],
       [/^Pedidos/, 'Pedidos'],
       ['Gestionar Categorías', 'Gestionar Categorías'],
+      ['Actividad', 'Actividad'],
       ['Resumen', 'Dashboard']
     ];
 
@@ -76,10 +77,11 @@ describe('Navegación — barra lateral', () => {
   it('los botones salen en este orden', async () => {
     await renderAdmin({ muebles: CATALOGO, categorias: CATEGORIAS, pedidos: [] }); // sin pedidos: sin insignia
     const botones = barraLateral().getAllByRole('button').map((b) => b.textContent.trim());
-    // CAMBIADO A PROPÓSITO (panel de mensajes, 4 oct 2026): pestaña nueva "Mensajes", después de "Pedidos".
-    expect(botones).toEqual(['Resumen', 'Añadir Mueble', 'Gestionar Inventario', 'Pedidos', 'Mensajes', 'Gestionar Categorías']);
+    // CAMBIADO A PROPÓSITO: pestaña nueva "Portada" junto a Resumen y "Actividad".
+    expect(botones).toEqual(['Resumen', 'Portada', 'Añadir Mueble', 'Gestionar Inventario', 'Pedidos', 'Mensajes', 'Gestionar Categorías', 'Actividad']);
   });
 });
+
 
 describe('Navegación — lo que se conserva al cambiar de pestaña y volver', () => {
   it('inventario: búsqueda, filtros, orden y página', async () => {

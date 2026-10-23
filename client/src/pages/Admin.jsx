@@ -1,5 +1,6 @@
 import { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ToastContext } from '../context/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import '../styles/Admin.css';
 import Icon from './admin/Icon';
@@ -7,6 +8,8 @@ import { primeraEspecifica } from './admin/categorias';
 import useAdminDatos from './admin/hooks/useAdminDatos';
 import useInventarioVista from './admin/hooks/useInventarioVista';
 import useConfirmacion from './admin/hooks/useConfirmacion';
+import useAvisosReservas from './admin/hooks/useAvisosReservas';
+import { textoAvisos } from './admin/reservasAdmin';
 import ResumenTab from './admin/pestanas/ResumenTab';
 import CrearMuebleTab from './admin/pestanas/CrearMuebleTab';
 import InventarioTab from './admin/pestanas/InventarioTab';
@@ -14,6 +17,8 @@ import PedidosTab from './admin/pestanas/PedidosTab';
 import CategoriasTab from './admin/pestanas/CategoriasTab';
 import MensajesTab from './admin/pestanas/MensajesTab';
 import ReservasTab from './admin/pestanas/ReservasTab';
+import ActividadTab from './admin/pestanas/ActividadTab';
+import PortadaTab from './admin/pestanas/PortadaTab';
 import { reservasActivas } from '../utils/reservas';
 import EditarMuebleModal from './admin/modales/EditarMuebleModal';
 import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
@@ -22,12 +27,15 @@ import EditarCategoriaModal from './admin/modales/EditarCategoriaModal';
 // y su caso en <main> (ver docs/tarea4-diseno.md, sección 7).
 const PESTANAS = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'dashboard' },
+  { id: 'portada', etiqueta: 'Portada', icono: 'home' },
   { id: 'crear', etiqueta: 'Añadir Mueble', icono: 'add' },
   { id: 'inventario', etiqueta: 'Gestionar Inventario', icono: 'inventory' },
   { id: 'pedidos', etiqueta: 'Pedidos', icono: 'box' },
   { id: 'mensajes', etiqueta: 'Mensajes', icono: 'mail' },
-  { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' }
+  { id: 'categorias', etiqueta: 'Gestionar Categorías', icono: 'tag' },
+  { id: 'actividad', etiqueta: 'Actividad', icono: 'activity' }
 ];
+
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1): la pestaña solo existe con el interruptor
 // VITE_RESERVAS_ACTIVAS encendido, después de "Pedidos". Apagado, la barra lateral es la de siempre.
@@ -35,18 +43,25 @@ const PESTANA_RESERVAS = { id: 'reservas', etiqueta: 'Reservas', icono: 'bell' }
 const pestanasVisibles = () =>
   reservasActivas() ? PESTANAS.flatMap(p => (p.id === 'pedidos' ? [p, PESTANA_RESERVAS] : [p])) : PESTANAS;
 
-const Admin = () => {
+// `idEditar` y `onEnlaceUsado` vienen de la URL /admin?editar={id} (AdminRuta.jsx): la barra de modo
+// admin de la ficha pública enlaza así al editor de la pieza. Sin ellos (los tests del panel montan
+// <Admin /> sin router), el panel es el de siempre.
+const Admin = ({ idEditar = null, onEnlaceUsado }) => {
   const { user } = useContext(AuthContext);
+  const { showToast } = useContext(ToastContext);
 
   const [vistaActiva, setVistaActiva] = useState('resumen');
 
   // El filtro de pedidos vive aquí (se conserva al cambiar de pestaña) y lo aplica el servidor (H37).
   const [filtroEstadoPedido, setFiltroEstadoPedido] = useState('');
   const {
-    muebles, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
+    muebles, mueblesCargados, categorias, pedidos, setPedidos, cargarMuebles, cargarCategorias, cargarPedidos,
     infoPedidos, ajustarTrasCambioDeEstado,
     mensajes, setMensajes, errorMensajes, cargarMensajes
   } = useAdminDatos(user, filtroEstadoPedido);
+  // Reservas que piden atención: la insignia de «Reservas» y los números de sus vistas (solo con el
+  // interruptor de reservas encendido; apagado no pide nada).
+  const { avisos: avisosReservas, recargar: recargarAvisosReservas } = useAvisosReservas(user, vistaActiva);
 
   // Estados para creación de categorías
   const [nuevaCat, setNuevaCat] = useState('');
@@ -90,6 +105,30 @@ const Admin = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorias]);
 
+  // /admin?editar={id}: con el inventario ya cargado, se abre el editor de esa pieza (en "Gestionar
+  // Inventario", para que al cerrarlo se vea en la lista). Al cerrarlo, ?editar sale de la URL, así que
+  // recargar el inventario tras guardar no lo vuelve a abrir. Si la pieza no está, se avisa y se quita
+  // de la URL.
+  useEffect(() => {
+    if (!idEditar || !mueblesCargados) return;
+    const pieza = muebles.find(m => String(m.id) === idEditar);
+    if (pieza) {
+      setVistaActiva('inventario');
+      setMuebleAEditar(pieza);
+    } else {
+      showToast('No se ha encontrado la pieza que querías editar', 'error');
+      onEnlaceUsado();
+    }
+    // Solo al llegar el enlace o el inventario: showToast y onEnlaceUsado cambian en cada render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idEditar, mueblesCargados, muebles]);
+
+  // Al cerrar el editor abierto por el enlace, el ?editar sale de la URL: recargar no lo reabre.
+  const cerrarEditorMueble = () => {
+    setMuebleAEditar(null);
+    if (idEditar) onEnlaceUsado();
+  };
+
   if (!user) {
     return <div className="admin-msg">Acceso denegado. Inicia sesión primero.</div>;
   }
@@ -111,6 +150,9 @@ const Admin = () => {
               <Icon name={pestana.icono} /> {pestana.etiqueta}
               {pestana.id === 'pedidos' && pedidosPendientes > 0 && <span className="sidebar-badge">{pedidosPendientes}</span>}
               {pestana.id === 'mensajes' && mensajesNoLeidos > 0 && <span className="sidebar-badge">{mensajesNoLeidos}</span>}
+              {pestana.id === 'reservas' && avisosReservas?.total > 0 && (
+                <span className="sidebar-badge" title={textoAvisos(avisosReservas)}>{avisosReservas.total}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -120,10 +162,24 @@ const Admin = () => {
       <main className="admin-content">
 
         {vistaActiva === 'resumen' && (
-          <ResumenTab muebles={muebles} pedidosPendientes={pedidosPendientes} irA={setVistaActiva} />
+          <ResumenTab
+            muebles={muebles}
+            pedidosPendientes={pedidosPendientes}
+            irA={(vista, filtro) => {
+              if (filtro !== undefined) {
+                setFiltroEstadoPedido(filtro);
+              }
+              setVistaActiva(vista);
+            }}
+          />
+        )}
+
+        {vistaActiva === 'portada' && (
+          <PortadaTab muebles={muebles} />
         )}
 
         {vistaActiva === 'crear' && (
+
           <CrearMuebleTab
             categorias={categorias}
             formData={formData}
@@ -155,10 +211,13 @@ const Admin = () => {
             filtroEstadoPedido={filtroEstadoPedido}
             setFiltroEstadoPedido={setFiltroEstadoPedido}
             cargarPedidos={cargarPedidos}
+            muebles={muebles}
           />
         )}
 
-        {vistaActiva === 'reservas' && <ReservasTab muebles={muebles} />}
+        {vistaActiva === 'reservas' && (
+          <ReservasTab muebles={muebles} resumen={avisosReservas} alCambiar={recargarAvisosReservas} />
+        )}
 
         {vistaActiva === 'mensajes' && (
           <MensajesTab
@@ -166,6 +225,8 @@ const Admin = () => {
             setMensajes={setMensajes}
             errorMensajes={errorMensajes}
             recargarMensajes={cargarMensajes}
+            muebles={muebles}
+            abrirEditorMueble={setMuebleAEditar}
           />
         )}
 
@@ -186,6 +247,8 @@ const Admin = () => {
           />
         )}
 
+        {vistaActiva === 'actividad' && <ActividadTab />}
+
       </main>
 
       {muebleAEditar && (
@@ -197,7 +260,7 @@ const Admin = () => {
           categorias={categorias}
           confirmarBorrado={confirmarBorrado}
           onGuardado={cargarMuebles}
-          onCerrar={() => setMuebleAEditar(null)}
+          onCerrar={cerrarEditorMueble}
         />
       )}
 

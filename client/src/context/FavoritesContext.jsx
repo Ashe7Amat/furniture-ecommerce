@@ -1,7 +1,11 @@
 import { createContext, useState, useEffect, useContext } from 'react';
 import { AuthContext } from './AuthContext';
 
-export const FavoritesContext = createContext();
+export const FavoritesContext = createContext({
+  favorites: [],
+  toggleFavorite: () => {},
+  isFavorite: () => false
+});
 
 export const FavoritesProvider = ({ children }) => {
   const { user } = useContext(AuthContext);

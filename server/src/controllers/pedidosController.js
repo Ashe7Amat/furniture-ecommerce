@@ -81,6 +81,8 @@ const obtenerPedidos = async (req, res) => {
   }
 };
 
+const { registrarActividad } = require('../utils/audit');
+
 // 2. Cambiar el estado de un pedido (p. ej. al prepararlo o enviarlo). Solo administradores.
 // El valor de "estado" ya viene validado contra la lista de estados válidos (ver
 // schemas/pedidos.js) antes de llegar aquí.
@@ -88,6 +90,12 @@ const actualizarEstadoPedido = async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
+
+    const { data: pedidoAntes } = await supabase
+      .from('pedidos')
+      .select('estado')
+      .eq('id', id)
+      .maybeSingle();
 
     const { data, error } = await supabase
       .from('pedidos')
@@ -98,6 +106,19 @@ const actualizarEstadoPedido = async (req, res) => {
 
     if (error || !data) {
       return res.status(404).json({ error: 'Pedido no encontrado.' });
+    }
+
+    try {
+      await registrarActividad(
+        req,
+        'cambio_estado',
+        'pedidos',
+        id,
+        pedidoAntes ? { estado: pedidoAntes.estado } : null,
+        { estado }
+      );
+    } catch (errAudit) {
+      console.error('Error al registrar auditoría al cambiar estado de pedido:', errAudit.message);
     }
 
     res.status(200).json(data);

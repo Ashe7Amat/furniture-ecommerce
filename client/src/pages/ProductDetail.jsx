@@ -1,44 +1,48 @@
-import { useEffect, useState, useContext, lazy, Suspense } from 'react';
+import { useEffect, useState, useContext, lazy, Suspense, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { descripcionParaMeta } from '../utils/descripcionMeta';
 import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
+import { AuthContext } from '../context/AuthContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
 import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
 import { PLACEHOLDER_IMG } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
-import { reservasActivas, sumarDias, fechaCorta } from '../utils/reservas';
+import ModalContacto from '../components/ModalContacto';
+import { reservasActivas, sumarDias, fechaSinDia } from '../utils/reservas';
+import { extraerMedidas } from '../utils/medidas';
 
 // Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
 // descargan si el interruptor está encendido y la pieza se puede alquilar.
 const PanelReserva = lazy(() => import('../components/reservas/PanelReserva'));
+// Modo admin (BarraAdmin.jsx): solo se descarga con la sesión de un administrador.
+const BarraAdmin = lazy(() => import('../components/BarraAdmin'));
 
 // Hasta qué día tiene reservas una pieza que no se puede comprar por ellas: el día antes del primero
 // libre (`comprable_desde`, 7.1).
 const textoReservasHasta = (comprableDesde) =>
   comprableDesde
-    ? `Esta pieza tiene reservas hasta el ${fechaCorta(sumarDias(comprableDesde, -1))}.`
+    ? `Esta pieza tiene reservas hasta el ${fechaSinDia(sumarDias(comprableDesde, -1))}.`
     : 'Esta pieza tiene reservas.';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  // addToCart ya muestra su propio toast de confirmación (ver CartContext), así que no
-  // hace falta duplicar el aviso aquí.
   const { addToCart, cestaLlena } = useContext(CartContext);
   const { favorites, toggleFavorite } = useContext(FavoritesContext);
+  const esAdmin = useContext(AuthContext)?.user?.rol === 'admin';
   const [mueble, setMueble] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mainImage, setMainImage] = useState('');
   const [openAccordion, setOpenAccordion] = useState('');
   const [modalidad, setModalidad] = useState('compra');
-  // Con el interruptor de las reservas encendido: la disponibilidad de la pieza (7.1), guardada con
-  // el id que la pidió para no enseñar la de otra pieza mientras llega la nueva. `recargas` la vuelve
-  // a pedir (tras un 409 al reservar). Si falla, la ficha se queda como antes: sin calendario y sin
-  // bloquear la compra.
+  const [modalContactoAbierto, setModalContactoAbierto] = useState(false);
+  const [stickyVisible, setStickyVisible] = useState(false);
+  const ctaRef = useRef(null);
+
   const conReservas = reservasActivas();
   const [disponibilidad, setDisponibilidad] = useState({ para: null });
   const [recargas, setRecargas] = useState(0);
@@ -70,7 +74,6 @@ const ProductDetail = () => {
     let vigente = true;
     getDisponibilidad(muebleId).then(({ data }) => {
       if (!vigente) return;
-      // Si falla una recarga, se queda la que había.
       setDisponibilidad((anterior) =>
         data
           ? { para: muebleId, estado: 'lista', datos: data }
@@ -84,10 +87,45 @@ const ProductDetail = () => {
     };
   }, [conReservas, muebleId, recargas]);
 
-  // <title>, descripción e imagen para compartir de esta pieza: "{nombre} | Nave 5 Barcelona", el
-  // principio de su descripción y su primera foto (la de portada, aunque se esté viendo otra). Mientras
-  // carga, o si no existe, las de la web. Solo cambian con JavaScript: las vistas previas de WhatsApp
-  // o redes leen el index.html y siguen viendo las de la portada (H34).
+  // Barra sticky inferior al perder de vista el CTA principal
+  useEffect(() => {
+    if (!ctaRef.current) return undefined;
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const rect = entry.boundingClientRect;
+          const yaPasoElCta = rect.top < 0;
+          setStickyVisible(!entry.isIntersecting && yaPasoElCta);
+        },
+        { threshold: 0 }
+      );
+      observer.observe(ctaRef.current);
+      return () => observer.disconnect();
+    }
+
+    const onScroll = () => {
+      if (!ctaRef.current) return;
+      const rect = ctaRef.current.getBoundingClientRect();
+      setStickyVisible(rect.bottom < 0);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [mueble]);
+
+  // Coordinación con modo admin: registrar altura de barra sticky para no solapar
+  useEffect(() => {
+    const raiz = document.documentElement.style;
+    if (stickyVisible) {
+      raiz.setProperty('--alto-barra-sticky', '72px');
+    } else {
+      raiz.removeProperty('--alto-barra-sticky');
+    }
+    return () => {
+      raiz.removeProperty('--alto-barra-sticky');
+    };
+  }, [stickyVisible]);
+
   useDocumentMeta({
     title: mueble?.nombre,
     description: mueble ? descripcionParaMeta(mueble) : undefined,
@@ -115,53 +153,70 @@ const ProductDetail = () => {
     setOpenAccordion(openAccordion === section ? '' : section);
   };
 
-  // Con las reservas, la cesta es solo para comprar (6.1): el alquiler va por el calendario.
   const handleAddToCart = () => {
     addToCart(mueble, conReservas ? 'compra' : modalidad);
   };
 
-  // C3: disponible y sin precios a la vista (ocultos por MOSTRAR_PRECIOS, o sin ninguno), no se
-  // compra: se pregunta. Sin precios, "Cantidad" y "Modalidad" no dicen nada (el alquiler saldría
-  // "No disponible" aunque lo esté), así que tampoco se enseñan.
   const preguntar = mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && !tienePrecio(mueble);
 
-  // Reservas por fechas, solo con el interruptor encendido.
   const disp = conReservas && disponibilidad.para === mueble.id ? disponibilidad : null;
   const datosDisp = disp?.estado === 'lista' ? disp.datos : null;
-  const conCalendario = Boolean(datosDisp?.alquilable && datosDisp.precio_dia_centimos != null);
-  // Con reservas que llegan a hoy o más allá no se puede comprar (6.7): se explica y se ofrece preguntar.
+  const alquiladaAMano = conReservas && mueble.estado === 'alquilado';
+  const conCalendario = Boolean(
+    datosDisp?.alquilable && datosDisp.precio_dia_centimos != null && mueble.estado !== 'alquilado'
+  );
   const bloqueadaPorReservas =
     datosDisp?.comprable === false && datosDisp.motivo_no_comprable === 'reservas_activas';
-  // Lo que no se puede comprar según el servidor (7.1) tampoco se ofrece, sea cual sea el motivo: una
-  // venta con entrega diferida deja la pieza "disponible" en el catálogo y el pago la rechazaría.
   const noComprable = datosDisp?.comprable === false;
   const vendidaEnCalendario = datosDisp?.motivo_no_comprable === 'vendida';
-  // Una pieza disponible sin precio de venta no va a la cesta: se alquila por fechas o se pregunta.
   const sinCompra = conReservas && !mueble.precio_venta && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado';
 
+  const medidasExtraidas = extraerMedidas(mueble.descripcion);
+
   return (
-    <div className="pd-container">
-      <div className="pd-breadcrumb">
-        <button onClick={() => navigate(-1)} className="pd-back-link">
+    <div className={`pd-container ${esAdmin ? 'con-barra-admin' : ''} ${stickyVisible ? 'con-barra-sticky' : ''}`}>
+      {esAdmin && (
+        <Suspense fallback={null}>
+          <BarraAdmin
+            mueble={mueble}
+            onEstadoCambiado={(estado) => {
+              setMueble((actual) => ({ ...actual, estado }));
+              setRecargas((n) => n + 1);
+            }}
+          />
+        </Suspense>
+      )}
+
+      {/* Navegación superior con botón volver */}
+      <div className="pd-top-nav">
+        <button onClick={() => navigate(-1)} className="pd-back-link" aria-label="Volver a la colección">
           &larr; Volver a la colección
         </button>
       </div>
 
       <div className="pd-grid">
-        {/* COLUMNA IZQUIERDA: GALERIA VISUAL */}
+        {/* COLUMNA IZQUIERDA (60%): GALERÍA DE FOTOS */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
-            <img key={mainImage} src={mainImage} alt={mueble.nombre} className="pd-main-image" decoding="async" />
+            <img
+              key={mainImage}
+              src={mainImage}
+              alt={mueble.nombre}
+              className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+              decoding="async"
+            />
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
           </div>
+
           {mueble.imagenes && mueble.imagenes.length > 1 && (
-            <div className="pd-thumbnails">
+            <div className="pd-thumbnails" role="region" aria-label="Galería de imágenes">
               {mueble.imagenes.map((img, index) => (
                 <button 
                   key={index} 
                   className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
                   onClick={() => setMainImage(img)}
+                  aria-label={`Ver imagen ${index + 1}`}
                 >
                   <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
                 </button>
@@ -170,102 +225,189 @@ const ProductDetail = () => {
           )}
         </div>
 
-        {/* COLUMNA DERECHA: INFO Y ACCIONES */}
+        {/* COLUMNA DERECHA (40%): INFORMACIÓN Y ACCIONES */}
         <div className="pd-info">
-          <span className="pd-category">{mueble.categoria || 'Selected Collection'}</span>
-          <div className="pd-title-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Breadcrumbs */}
+          <nav className="pd-breadcrumbs" aria-label="Migas de pan">
+            <Link to="/" className="pd-breadcrumb-link">Inicio</Link>
+            <span className="pd-breadcrumb-sep">/</span>
+            <Link to="/#catalogo" className="pd-breadcrumb-link">Catálogo</Link>
+            <span className="pd-breadcrumb-sep">/</span>
+            <span className="pd-breadcrumb-current">{mueble.categoria || 'Selected Collection'}</span>
+          </nav>
+
+          {/* Título Enorme y Favoritos */}
+          <div className="pd-title-header">
             <h1 className="pd-title font-display">{mueble.nombre}</h1>
             <button 
-              className="icon-btn" 
+              className="pd-fav-btn" 
               onClick={() => toggleFavorite(mueble.id)} 
-              style={{ cursor: 'pointer', background: 'none', border: 'none', display: 'flex', alignItems: 'center', padding: '8px' }}
               aria-label="Añadir a favoritos"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill={favorites.includes(mueble.id) ? "var(--accent-color)" : "none"} stroke={favorites.includes(mueble.id) ? "var(--accent-color)" : "var(--primary-color)"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill={favorites.includes(mueble.id) ? "var(--accent-color)" : "none"} stroke={favorites.includes(mueble.id) ? "var(--accent-color)" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </button>
           </div>
-          {/* A6: la referencia real (NAV-SIL-001). Sustituye a la "Ref. SKU-…" que había al final de
-              la ficha, inventada con los 6 primeros caracteres del id. */}
-          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref ref-producto--etiqueta" />
-          {/* C2: antes, sin precio de venta salía "Consultar precio" aunque tuviera precio de alquiler */}
-          <p className="pd-price font-display">{textoPrecio(mueble)}</p>
-          
-          <div className="pd-description">
-            <p>{mueble.descripcion}</p>
-          </div>
 
-          <div className="pd-actions-form">
-            {preguntar ? (
-              <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
-                {TEXTO_PREGUNTAR}
-              </Link>
+          {/* Referencia pequeña debajo del título */}
+          <ReferenciaProducto referencia={mueble.referencia} className="pd-ref ref-producto--etiqueta" />
+
+          {/* Precio si está activo o texto configurado */}
+          <p className="pd-price font-display">{textoPrecio(mueble)}</p>
+
+          {/* CTA Principal */}
+          <div className="pd-actions-form" ref={ctaRef}>
+            {mueble.estado === 'vendido' || vendidaEnCalendario ? (
+              <button className="pd-cta-btn pd-cta-sold" disabled>
+                Agotado
+              </button>
+            ) : mueble.estado === 'alquilado' ? (
+              <>
+                <button className="pd-cta-btn pd-cta-rented" disabled>
+                  Actualmente alquilado
+                </button>
+                {alquiladaAMano && (
+                  <p className="pd-aviso-reservas">
+                    Ahora mismo está alquilada. Si te interesa, pregúntanos cuándo estará libre.{' '}
+                    <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
+                  </p>
+                )}
+              </>
+            ) : preguntar ? (
+              <button
+                type="button"
+                className="pd-cta-btn pd-cta-solicitar"
+                onClick={() => setModalContactoAbierto(true)}
+              >
+                Solicitar información
+              </button>
             ) : sinCompra ? (
-              // Con las reservas, una pieza sin precio de venta no se compra en la web: se alquila con el
-              // calendario de abajo o, si no lo hay (no se puede alquilar, o falló la disponibilidad),
-              // se pregunta.
               disp && !conCalendario && (
-                <Link to={rutaPreguntarPorPieza(mueble)} className="pd-cta-btn pd-cta-link">
-                  {TEXTO_PREGUNTAR}
-                </Link>
+                <button
+                  type="button"
+                  className="pd-cta-btn pd-cta-solicitar"
+                  onClick={() => setModalContactoAbierto(true)}
+                >
+                  Solicitar información
+                </button>
               )
             ) : (
-            <>
-            <div className="pd-quantity-wrapper">
-              <label className="pd-label">Cantidad</label>
-              <div className="pd-quantity-selector">
-                <button className="pd-qty-btn" disabled>−</button>
-                <span className="pd-qty-val">1</span>
-                <button className="pd-qty-btn" disabled>+</button>
+              <>
+                <div className="pd-quantity-wrapper">
+                  <label className="pd-label">Cantidad</label>
+                  <div className="pd-quantity-selector">
+                    <button className="pd-qty-btn" disabled>−</button>
+                    <span className="pd-qty-val">1</span>
+                    <button className="pd-qty-btn" disabled>+</button>
+                  </div>
+                </div>
+
+                {!conReservas && (
+                  <div className="pd-options-wrapper">
+                    <label className="pd-label">Modalidad</label>
+                    <div className="pd-options-grid">
+                      <button 
+                        className={`pd-option-btn ${modalidad === 'compra' ? 'active' : ''}`}
+                        disabled={mueble.estado === 'vendido'}
+                        onClick={() => setModalidad('compra')}
+                      >
+                        <span className="pd-opt-title">Comprar pieza única</span>
+                        {mueble.precio_venta && <span className="pd-opt-price">{formatPrice(mueble.precio_venta)} €</span>}
+                      </button>
+                      <button 
+                        className={`pd-option-btn outline ${modalidad === 'alquiler' ? 'active' : ''}`}
+                        disabled={!mueble.precio_alquiler_dia || mueble.estado === 'vendido'}
+                        onClick={() => setModalidad('alquiler')}
+                      >
+                        <span className="pd-opt-title">Alquilar por días</span>
+                        {mueble.precio_alquiler_dia ? <span className="pd-opt-price">{formatPrice(mueble.precio_alquiler_dia)} €/día</span> : <span className="pd-opt-price">No disponible</span>}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <button 
+                  className="pd-cta-btn pd-cta-comprar" 
+                  disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado' || cestaLlena || noComprable}
+                  onClick={handleAddToCart}
+                  aria-describedby={bloqueadaPorReservas ? 'pd-aviso-reservas' : undefined}
+                >
+                  {cestaLlena ? 'Cesta llena' : 'Añadir a mi cesta'}
+                </button>
+
+                <button
+                  type="button"
+                  className="pd-cta-btn pd-cta-secondary"
+                  onClick={() => setModalContactoAbierto(true)}
+                >
+                  Solicitar información
+                </button>
+
+                {cestaLlena && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && (
+                  <p className="pd-cesta-llena" role="status">{CESTA_LLENA}</p>
+                )}
+                {bloqueadaPorReservas && (
+                  <p id="pd-aviso-reservas" className="pd-aviso-reservas">
+                    {textoReservasHasta(datosDisp.comprable_desde)} Si quieres comprarla, pregúntanos.{' '}
+                    <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
+                  </p>
+                )}
+                {alquiladaAMano && (
+                  <p className="pd-aviso-reservas">
+                    Ahora mismo está alquilada. Si te interesa, pregúntanos cuándo estará libre.{' '}
+                    <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Iconos de confianza */}
+          <div className="pd-trust-badges">
+            <div className="pd-trust-badge">
+              <div className="pd-trust-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </div>
+              <div className="pd-trust-content">
+                <strong className="pd-trust-title">Pieza Única</strong>
+                <span className="pd-trust-desc">Solo un ejemplar en stock</span>
               </div>
             </div>
 
-            {/* Con las reservas, la cesta es solo para comprar: sin "Alquilar por días" (6.1). */}
-            {!conReservas && (
-            <div className="pd-options-wrapper">
-              <label className="pd-label">Modalidad</label>
-              <div className="pd-options-grid">
-                <button 
-                  className={`pd-option-btn ${modalidad === 'compra' ? 'active' : ''}`}
-                  disabled={mueble.estado === 'vendido'}
-                  onClick={() => setModalidad('compra')}
-                >
-                  <span className="pd-opt-title">Comprar pieza única</span>
-                  {mueble.precio_venta && <span className="pd-opt-price">{formatPrice(mueble.precio_venta)} €</span>}
-                </button>
-                <button 
-                  className={`pd-option-btn outline ${modalidad === 'alquiler' ? 'active' : ''}`}
-                  disabled={!mueble.precio_alquiler_dia || mueble.estado === 'vendido'}
-                  onClick={() => setModalidad('alquiler')}
-                >
-                  <span className="pd-opt-title">Alquilar por días</span>
-                  {mueble.precio_alquiler_dia ? <span className="pd-opt-price">{formatPrice(mueble.precio_alquiler_dia)} €/día</span> : <span className="pd-opt-price">No disponible</span>}
-                </button>
+            <div className="pd-trust-badge">
+              <div className="pd-trust-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+              </div>
+              <div className="pd-trust-content">
+                <strong className="pd-trust-title">Restaurado a mano</strong>
+                <span className="pd-trust-desc">En taller artesanal</span>
               </div>
             </div>
-            )}
 
-            <button 
-              className="pd-cta-btn" 
-              disabled={mueble.estado === 'vendido' || mueble.estado === 'alquilado' || cestaLlena || noComprable}
-              onClick={handleAddToCart}
-              aria-describedby={bloqueadaPorReservas ? 'pd-aviso-reservas' : undefined}
-            >
-              {mueble.estado === 'vendido' || vendidaEnCalendario ? 'Agotado' : (mueble.estado === 'alquilado' ? 'Actualmente alquilado' : (cestaLlena ? 'Cesta llena' : 'Añadir a mi cesta'))}
-            </button>
-            {/* H35: con la cesta en el máximo de piezas, se dice por qué no se puede añadir. */}
-            {cestaLlena && mueble.estado !== 'vendido' && mueble.estado !== 'alquilado' && (
-              <p className="pd-cesta-llena" role="status">{CESTA_LLENA}</p>
-            )}
-            {bloqueadaPorReservas && (
-              <p id="pd-aviso-reservas" className="pd-aviso-reservas">
-                {textoReservasHasta(datosDisp.comprable_desde)} Si quieres comprarla, pregúntanos.{' '}
-                <Link to={rutaPreguntarPorPieza(mueble)}>{TEXTO_PREGUNTAR}</Link>
-              </p>
-            )}
-            </>
-            )}
+            <div className="pd-trust-badge">
+              <div className="pd-trust-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="3" width="15" height="13" />
+                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                  <circle cx="5.5" cy="18.5" r="2.5" />
+                  <circle cx="18.5" cy="18.5" r="2.5" />
+                </svg>
+              </div>
+              <div className="pd-trust-content">
+                <strong className="pd-trust-title">Envío desde Barcelona</strong>
+                <span className="pd-trust-desc">Transporte especializado</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Descripción con tipografía refinada e interlineado */}
+          <div className="pd-description">
+            <p>{mueble.descripcion}</p>
           </div>
 
           {conCalendario && (
@@ -275,11 +417,12 @@ const ProductDetail = () => {
                 mueble={mueble}
                 disponibilidad={datosDisp}
                 onRecargar={() => setRecargas((n) => n + 1)}
+                precioEnCabecera={!mueble.precio_venta}
               />
             </Suspense>
           )}
 
-          {/* ACORDEON DE DETALLES */}
+          {/* ACORDEÓN DE DETALLES TÉCNICOS Y ENVÍOS */}
           <div className="pd-accordion-container">
             <div className="pd-accordion-item">
               <button className="pd-accordion-header" onClick={() => toggleAccordion('details')}>
@@ -287,7 +430,23 @@ const ProductDetail = () => {
                 <span className="pd-accordion-icon">{openAccordion === 'details' ? '−' : '+'}</span>
               </button>
               <div className={`pd-accordion-content ${openAccordion === 'details' ? 'open' : ''}`}>
-                <p>Esta pieza ha sido cuidadosamente restaurada en nuestro taller. Conserva su carácter original pero con acabados renovados para garantizar su durabilidad y adaptabilidad a espacios modernos.</p>
+                <div className="pd-tech-specs">
+                  <div className="pd-tech-row">
+                    <span className="pd-tech-label">Medidas:</span>
+                    <span className="pd-tech-val">{medidasExtraidas}</span>
+                  </div>
+                  <div className="pd-tech-row">
+                    <span className="pd-tech-label">Material / Estado:</span>
+                    <span className="pd-tech-val">Madera noble restaurada · Excelente conservación</span>
+                  </div>
+                  <div className="pd-tech-row">
+                    <span className="pd-tech-label">Año / Época:</span>
+                    <span className="pd-tech-val">Mediados del siglo XX (c. 1960) · Pieza original única</span>
+                  </div>
+                </div>
+                <p className="pd-tech-p">
+                  Esta pieza ha sido cuidadosamente restaurada en nuestro taller. Conserva su carácter original pero con acabados renovados para garantizar su durabilidad y adaptabilidad a espacios modernos.
+                </p>
               </div>
             </div>
             
@@ -297,13 +456,58 @@ const ProductDetail = () => {
                 <span className="pd-accordion-icon">{openAccordion === 'shipping' ? '−' : '+'}</span>
               </button>
               <div className={`pd-accordion-content ${openAccordion === 'shipping' ? 'open' : ''}`}>
-                <p>Contamos con transporte especializado en muebles delicados (1-2 semanas aprox). Ofrecemos 14 días para devoluciones desde la recepción del producto, siempre conservando el embalaje original.</p>
+                <p>
+                  Contamos con transporte especializado en muebles delicados (1-2 semanas aprox). Ofrecemos 14 días para devoluciones desde la recepción del producto, siempre conservando el embalaje original.
+                </p>
               </div>
             </div>
           </div>
-
         </div>
       </div>
+
+      {/* BARRA STICKY INFERIOR AL HACER SCROLL */}
+      {stickyVisible && (
+        <aside className="pd-sticky-bar" role="complementary" aria-label="Acciones del producto">
+          <div className="pd-sticky-container">
+            <div className="pd-sticky-info">
+              <img
+                src={mainImage || PLACEHOLDER_IMG}
+                alt={mueble.nombre}
+                className="pd-sticky-thumb"
+              />
+              <div className="pd-sticky-text">
+                <span className="pd-sticky-nombre font-display">{mueble.nombre}</span>
+                {mueble.referencia && (
+                  <span className="pd-sticky-ref">Ref. {mueble.referencia}</span>
+                )}
+              </div>
+            </div>
+            <div className="pd-sticky-actions">
+              {mueble.estado === 'vendido' || vendidaEnCalendario ? (
+                <button className="pd-sticky-btn" disabled>Agotado</button>
+              ) : mueble.estado === 'alquilado' ? (
+                <button className="pd-sticky-btn" disabled>Alquilado</button>
+              ) : (
+                <button
+                  type="button"
+                  className="pd-sticky-btn pd-sticky-btn-primary"
+                  onClick={() => setModalContactoAbierto(true)}
+                >
+                  Solicitar información
+                </button>
+              )}
+            </div>
+          </div>
+        </aside>
+      )}
+
+      {/* MODAL DE CONTACTO CON REFERENCIA RELLENADA */}
+      {modalContactoAbierto && (
+        <ModalContacto
+          mueble={mueble}
+          onClose={() => setModalContactoAbierto(false)}
+        />
+      )}
     </div>
   );
 };
