@@ -2,6 +2,19 @@
 const supabase = require('../data/supabase');
 const { registrarActividad } = require('../utils/audit');
 
+const normalizarArray = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parseado = JSON.parse(val);
+      if (Array.isArray(parseado)) return parseado;
+    } catch {
+      // Ignorar error de parseo si no es JSON válido
+    }
+  }
+  return [];
+};
+
 // GET /api/ajustes/home (público): devuelve los ajustes de la portada (id = 1)
 // Sin caché (navegador ni CDN): lo que guarda el panel debe verse al recargar la portada.
 const obtenerAjustesHome = async (req, res) => {
@@ -29,9 +42,9 @@ const obtenerAjustesHome = async (req, res) => {
 
     res.status(200).json({
       ...data,
-      hero_imagenes: data.hero_imagenes || [],
-      productos_destacados: data.productos_destacados || [],
-      imagenes_seccion_inspiracion: data.imagenes_seccion_inspiracion || [],
+      hero_imagenes: normalizarArray(data.hero_imagenes),
+      productos_destacados: normalizarArray(data.productos_destacados),
+      imagenes_seccion_inspiracion: normalizarArray(data.imagenes_seccion_inspiracion),
       imagen_seccion_sostenibilidad: data.imagen_seccion_sostenibilidad ?? null
     });
   } catch (error) {
@@ -43,6 +56,7 @@ const obtenerAjustesHome = async (req, res) => {
 // PUT /api/admin/ajustes/home (admin): actualiza hero_imagenes, productos_destacados,
 // imagenes_seccion_inspiracion y/o imagen_seccion_sostenibilidad
 const actualizarAjustesHome = async (req, res) => {
+  console.log('[PUT /api/admin/ajustes/home] req.body recibido:', JSON.stringify(req.body, null, 2));
   try {
     const {
       hero_imagenes,
@@ -55,13 +69,13 @@ const actualizarAjustesHome = async (req, res) => {
     };
 
     if (hero_imagenes !== undefined) {
-      datosActualizar.hero_imagenes = hero_imagenes;
+      datosActualizar.hero_imagenes = normalizarArray(hero_imagenes);
     }
     if (productos_destacados !== undefined) {
-      datosActualizar.productos_destacados = productos_destacados;
+      datosActualizar.productos_destacados = normalizarArray(productos_destacados);
     }
     if (imagenes_seccion_inspiracion !== undefined) {
-      datosActualizar.imagenes_seccion_inspiracion = imagenes_seccion_inspiracion;
+      datosActualizar.imagenes_seccion_inspiracion = normalizarArray(imagenes_seccion_inspiracion);
     }
     if (imagen_seccion_sostenibilidad !== undefined) {
       datosActualizar.imagen_seccion_sostenibilidad = imagen_seccion_sostenibilidad;
@@ -95,9 +109,9 @@ const actualizarAjustesHome = async (req, res) => {
         .from('ajustes_home')
         .insert({
           id: 1,
-          hero_imagenes: hero_imagenes ?? [],
-          productos_destacados: productos_destacados ?? [],
-          imagenes_seccion_inspiracion: imagenes_seccion_inspiracion ?? [],
+          hero_imagenes: normalizarArray(hero_imagenes),
+          productos_destacados: normalizarArray(productos_destacados),
+          imagenes_seccion_inspiracion: normalizarArray(imagenes_seccion_inspiracion),
           imagen_seccion_sostenibilidad: imagen_seccion_sostenibilidad ?? null,
           ...datosActualizar
         })
@@ -115,10 +129,25 @@ const actualizarAjustesHome = async (req, res) => {
       console.error('Error al registrar auditoría en ajustes_home:', errAudit.message);
     }
 
+    const respuestaData = data
+      ? {
+          ...data,
+          hero_imagenes: normalizarArray(data.hero_imagenes),
+          productos_destacados: normalizarArray(data.productos_destacados),
+          imagenes_seccion_inspiracion: normalizarArray(data.imagenes_seccion_inspiracion),
+          imagen_seccion_sostenibilidad: data.imagen_seccion_sostenibilidad ?? null
+        }
+      : data;
+
+    console.log(
+      '[PUT /api/admin/ajustes/home] Respuesta enviada (guardado en BD):',
+      JSON.stringify(respuestaData, null, 2)
+    );
+
     res.status(200).json({
       success: true,
       message: 'Ajustes de portada actualizados correctamente.',
-      data
+      data: respuestaData
     });
   } catch (error) {
     console.error('Error al actualizar los ajustes de portada:', error.message);

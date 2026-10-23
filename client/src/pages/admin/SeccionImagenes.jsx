@@ -13,7 +13,7 @@ const SeccionImagenes = ({
   id,
   titulo,
   descripcion,
-  imagenes,
+  imagenes = [],
   onChange,
   max,
   minimo = 1,
@@ -33,34 +33,71 @@ const SeccionImagenes = ({
   const Etiqueta = etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1);
 
   const handleArchivo = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
     if (lleno) {
       showToast?.(`Se admite un máximo de ${max} imágenes. Elimina una para añadir otra.`, 'error');
+      if (e.target) e.target.value = '';
       if (inputRef.current) inputRef.current.value = '';
       return;
     }
+
+    // Calcular cuántos archivos podemos subir sin superar el tope máximo
+    let archivosASubir = files;
+    if (sustituye) {
+      archivosASubir = [files[0]];
+    } else {
+      const disponibles = max - imagenes.length;
+      if (files.length > disponibles) {
+        showToast?.(
+          `Solo puedes añadir ${disponibles} ${disponibles === 1 ? 'imagen' : 'imágenes'} más (máximo ${max}).`,
+          'warning'
+        );
+        archivosASubir = files.slice(0, disponibles);
+      }
+    }
+
     try {
       setSubiendo(true);
-      setMensaje('Optimizando imagen...');
-      const optimizada = await redimensionarImagen(file, { maxLado: 1920, calidad: 0.85 });
-      setMensaje('Subiendo a Supabase Storage...');
-      const resultado = await subirImagenHero(optimizada);
-      if (resultado?.url) {
-        // Siempre al final de la lista usando actualización funcional para no perder fotos previas
+      const nuevasUrls = [];
+
+      for (let i = 0; i < archivosASubir.length; i++) {
+        const file = archivosASubir[i];
+        const sufijo = archivosASubir.length > 1 ? ` (${i + 1}/${archivosASubir.length})` : '';
+
+        setMensaje(`Optimizando imagen${sufijo}...`);
+        const optimizada = await redimensionarImagen(file, { maxLado: 1920, calidad: 0.85 });
+
+        setMensaje(`Subiendo a Supabase Storage${sufijo}...`);
+        const resultado = await subirImagenHero(optimizada);
+
+        if (resultado?.url) {
+          nuevasUrls.push(resultado.url);
+        } else {
+          showToast?.(`Error al subir "${file.name}" a Storage`, 'error');
+        }
+      }
+
+      if (nuevasUrls.length > 0) {
+        // Actualización funcional acumulando todas las nuevas URLs
         onChange((prev) => {
-          const base = Array.isArray(prev) ? prev : imagenes;
-          return sustituye ? [resultado.url] : [...base, resultado.url];
+          const base = Array.isArray(prev) ? prev : [];
+          return sustituye ? [nuevasUrls[0]] : [...base, ...nuevasUrls];
         });
-        showToast?.(mensajeAnadida || 'Imagen añadida', 'success');
-      } else {
-        showToast?.('Error al subir la imagen a Storage', 'error');
+
+        const msgExito =
+          nuevasUrls.length > 1
+            ? `${nuevasUrls.length} imágenes añadidas correctamente`
+            : mensajeAnadida || 'Imagen añadida';
+        showToast?.(msgExito, 'success');
       }
     } catch {
-      showToast?.('Error al procesar la imagen', 'error');
+      showToast?.('Error al procesar las imágenes', 'error');
     } finally {
       setSubiendo(false);
       setMensaje('');
+      if (e.target) e.target.value = '';
       if (inputRef.current) inputRef.current.value = '';
     }
   };
@@ -106,6 +143,7 @@ const SeccionImagenes = ({
             type="file"
             id={`${id}-file-input`}
             accept="image/*"
+            multiple={!sustituye}
             onChange={handleArchivo}
             style={{ display: 'none' }}
             disabled={subiendo || lleno}
@@ -117,78 +155,114 @@ const SeccionImagenes = ({
             disabled={subiendo || lleno}
             aria-label={ariaSubir}
           >
-            <Icon name="add" /> {sustituye && imagenes.length > 0 ? 'Cambiar imagen' : 'Subir nueva imagen'}
+            <Icon name="add" />{' '}
+            {sustituye && imagenes.length > 0
+              ? 'Cambiar imagen'
+              : sustituye
+                ? 'Subir nueva imagen'
+                : 'Subir imágenes'}
           </button>
         </div>
       </div>
 
       {subiendo && (
         <p className="admin-status" aria-live="polite">
-          {mensaje || 'Subiendo imagen...'}
+          {mensaje || 'Subiendo imágenes...'}
         </p>
       )}
 
-      <div className="hero-grid" role="list" aria-label={`Lista de imágenes: ${titulo}`}>
+      <div
+        className="hero-grid"
+        role="list"
+        aria-label={`Lista de imágenes: ${titulo}`}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+          gap: '12px'
+        }}
+      >
         {imagenes.length === 0
           ? predeterminadas.map((p, i) => (
-              <div key={p.url} className="hero-slot hero-slot--placeholder" role="listitem">
-                <div className="hero-slot-preview">
-                  <img src={p.url} alt={`Placeholder ${i + 1}: ${p.titulo}`} className="hero-slot-img" />
-                  <span className="hero-slot-badge">Predeterminada {i + 1}</span>
-                </div>
-                <div className="hero-slot-info">
-                  <span className="hero-slot-label">{p.titulo}</span>
-                </div>
+            <div key={p.url} className="hero-slot hero-slot--placeholder" role="listitem">
+              <div className="hero-slot-preview">
+                <img
+                  src={p.url}
+                  alt={`Placeholder ${i + 1}: ${p.titulo}`}
+                  className="hero-slot-img"
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    display: 'block'
+                  }}
+                />
+                <span className="hero-slot-badge">Predeterminada {i + 1}</span>
               </div>
-            ))
+              <div className="hero-slot-info">
+                <span className="hero-slot-label">{p.titulo}</span>
+              </div>
+            </div>
+          ))
           : imagenes.map((url, i) => (
-              <div key={`${url}-${i}`} className="hero-slot hero-slot--activo" role="listitem">
-                <div className="hero-slot-preview">
-                  <img src={url} alt={`${Etiqueta} de portada ${i + 1}`} className="hero-slot-img" />
-                  <span className="hero-slot-badge">Posición {i + 1}</span>
-                </div>
-                <div className="hero-slot-info">
-                  <span className="hero-slot-label">
-                    {Etiqueta} {i + 1}
-                  </span>
-                  <div className="hero-slot-acciones">
-                    {!sustituye && (
-                      <>
-                        <button
-                          type="button"
-                          className="hero-accion-btn"
-                          onClick={() => mover(i, -1)}
-                          disabled={i === 0}
-                          aria-label={`Mover ${etiqueta} ${i + 1} hacia arriba`}
-                          title="Subir posición"
-                        >
-                          <Icon name="arrowUp" />
-                        </button>
-                        <button
-                          type="button"
-                          className="hero-accion-btn"
-                          onClick={() => mover(i, 1)}
-                          disabled={i === imagenes.length - 1}
-                          aria-label={`Mover ${etiqueta} ${i + 1} hacia abajo`}
-                          title="Bajar posición"
-                        >
-                          <Icon name="arrowDown" />
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      className="hero-accion-btn hero-accion-btn--borrar"
-                      onClick={() => eliminar(i)}
-                      aria-label={`Eliminar ${etiqueta} ${i + 1}`}
-                      title="Eliminar de la lista"
-                    >
-                      <Icon name="trash" />
-                    </button>
-                  </div>
+            <div key={`${url}-${i}`} className="hero-slot hero-slot--activo" role="listitem">
+              <div className="hero-slot-preview">
+                <img
+                  src={url}
+                  alt={`${Etiqueta} de portada ${i + 1}`}
+                  className="hero-slot-img"
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    display: 'block'
+                  }}
+                />
+                <span className="hero-slot-badge">#{i + 1}</span>
+              </div>
+              <div className="hero-slot-info">
+                <span className="hero-slot-label">
+                  {Etiqueta} {i + 1}
+                </span>
+                <div className="hero-slot-acciones">
+                  {!sustituye && (
+                    <>
+                      <button
+                        type="button"
+                        className="hero-accion-btn"
+                        onClick={() => mover(i, -1)}
+                        disabled={i === 0}
+                        aria-label={`Mover ${etiqueta} ${i + 1} hacia arriba`}
+                        title="Subir posición"
+                      >
+                        <Icon name="arrowUp" />
+                      </button>
+                      <button
+                        type="button"
+                        className="hero-accion-btn"
+                        onClick={() => mover(i, 1)}
+                        disabled={i === imagenes.length - 1}
+                        aria-label={`Mover ${etiqueta} ${i + 1} hacia abajo`}
+                        title="Bajar posición"
+                      >
+                        <Icon name="arrowDown" />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="hero-accion-btn hero-accion-btn--borrar"
+                    onClick={() => eliminar(i)}
+                    aria-label={`Eliminar ${etiqueta} ${i + 1}`}
+                    title="Eliminar de la lista"
+                  >
+                    <Icon name="trash" />
+                  </button>
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
       </div>
     </section>
   );

@@ -33,6 +33,10 @@ const PortadaTab = ({ muebles = [] }) => {
   const [imagenSostenibilidad, setImagenSostenibilidad] = useState([]);
   const [busqueda, setBusqueda] = useState('');
 
+  // Estados para el modal de Vista Previa
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [heroPreviewIdx, setHeroPreviewIdx] = useState(0);
+
   // Cargar configuración existente
   useEffect(() => {
     let cancelado = false;
@@ -66,21 +70,31 @@ const PortadaTab = ({ muebles = [] }) => {
     };
   }, [showToast]);
 
+  // Cerrar el modal con Escape
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setIsPreviewOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPreviewOpen]);
+
   // Manejo de Destacados
   const handleAnadirDestacado = (muebleId) => {
     if (productosDestacados.includes(muebleId)) return;
-    setProductosDestacados(prev => [...prev, muebleId]);
+    setProductosDestacados((prev) => [...prev, muebleId]);
     setBusqueda('');
   };
 
   const handleQuitarDestacado = (muebleId) => {
-    setProductosDestacados(prev => prev.filter(id => id !== muebleId));
+    setProductosDestacados((prev) => prev.filter((id) => id !== muebleId));
   };
 
   const handleMoverDestacado = (index, direccion) => {
     const nuevoIndex = index + direccion;
     if (nuevoIndex < 0 || nuevoIndex >= productosDestacados.length) return;
-    setProductosDestacados(prev => {
+    setProductosDestacados((prev) => {
       const copia = [...prev];
       const temp = copia[index];
       copia[index] = copia[nuevoIndex];
@@ -113,6 +127,16 @@ const PortadaTab = ({ muebles = [] }) => {
         imagen_seccion_sostenibilidad: imagenSostenibilidad[0] || null
       });
       if (res?.success) {
+        if (res?.data) {
+          if (Array.isArray(res.data.hero_imagenes)) setHeroImagenes(res.data.hero_imagenes);
+          if (Array.isArray(res.data.productos_destacados)) setProductosDestacados(res.data.productos_destacados);
+          if (Array.isArray(res.data.imagenes_seccion_inspiracion)) setImagenesInspiracion(res.data.imagenes_seccion_inspiracion);
+          if (res.data.imagen_seccion_sostenibilidad) {
+            setImagenSostenibilidad([res.data.imagen_seccion_sostenibilidad]);
+          } else {
+            setImagenSostenibilidad([]);
+          }
+        }
         showToast?.('Ajustes de portada guardados correctamente', 'success');
       } else {
         showToast?.('Error al guardar los ajustes de portada', 'error');
@@ -128,18 +152,19 @@ const PortadaTab = ({ muebles = [] }) => {
   const busquedaNormalizada = busqueda.trim().toLowerCase();
   const mueblesSugeridos = busquedaNormalizada
     ? muebles
-        .filter(m => !productosDestacados.includes(m.id))
-        .filter(m =>
+      .filter((m) => !productosDestacados.includes(m.id))
+      .filter(
+        (m) =>
           (m.nombre && m.nombre.toLowerCase().includes(busquedaNormalizada)) ||
           (m.referencia && m.referencia.toLowerCase().includes(busquedaNormalizada)) ||
           (m.categoria && m.categoria.toLowerCase().includes(busquedaNormalizada))
-        )
-        .slice(0, 6)
+      )
+      .slice(0, 6)
     : [];
 
   // Muebles seleccionados en orden
-  const mueblesDestacadosInfo = productosDestacados.map(id => {
-    const encontrado = muebles.find(m => String(m.id) === String(id));
+  const mueblesDestacadosInfo = productosDestacados.map((id) => {
+    const encontrado = muebles.find((m) => String(m.id) === String(id));
     return (
       encontrado || {
         id,
@@ -150,13 +175,34 @@ const PortadaTab = ({ muebles = [] }) => {
     );
   });
 
+  // Datos calculados en vivo para el Modal de Vista Previa
+  const previewHeroUrls =
+    heroImagenes.length > 0 ? heroImagenes : PLACEHOLDERS_HERO.map((p) => p.url);
+
+  const previewDestacados =
+    mueblesDestacadosInfo.length > 0 ? mueblesDestacadosInfo : muebles.slice(0, 4);
+
+  const previewInspiracionUrls =
+    imagenesInspiracion.length >= 2
+      ? imagenesInspiracion
+      : PLACEHOLDERS_INSPIRACION.map((p) => p.url);
+
+  const previewSostenibilidadUrl = imagenSostenibilidad[0] || null;
+
+  const abrirVistaPrevia = () => {
+    setHeroPreviewIdx(0);
+    setIsPreviewOpen(true);
+  };
+
   if (cargando) {
     return (
       <div className="admin-view fade-in">
         <div className="admin-view-head">
           <h2>Gestión de Portada</h2>
         </div>
-        <p className="portada-cargando" aria-live="polite">Cargando ajustes de portada...</p>
+        <p className="portada-cargando" aria-live="polite">
+          Cargando ajustes de portada...
+        </p>
       </div>
     );
   }
@@ -172,8 +218,8 @@ const PortadaTab = ({ muebles = [] }) => {
           <button
             type="button"
             className="admin-btn admin-btn--secondary"
-            onClick={() => window.open('/', '_blank', 'noopener,noreferrer')}
-            aria-label="Abrir vista previa de la portada en una pestaña nueva"
+            onClick={abrirVistaPrevia}
+            aria-label="Abrir modal de vista previa de la portada"
           >
             <Icon name="eye" /> Vista previa
           </button>
@@ -230,7 +276,7 @@ const PortadaTab = ({ muebles = [] }) => {
                 className="destacados-search-input"
                 placeholder="Buscar mueble por nombre, referencia o categoría para destacar..."
                 value={busqueda}
-                onChange={e => setBusqueda(e.target.value)}
+                onChange={(e) => setBusqueda(e.target.value)}
                 aria-label="Buscar muebles para añadir a destacados"
               />
               {busqueda && (
@@ -249,7 +295,7 @@ const PortadaTab = ({ muebles = [] }) => {
             {busquedaNormalizada && (
               <div className="destacados-sugerencias" role="region" aria-label="Resultados de búsqueda">
                 {mueblesSugeridos.length > 0 ? (
-                  mueblesSugeridos.map(mueble => (
+                  mueblesSugeridos.map((mueble) => (
                     <div key={`sug-${mueble.id}`} className="destacado-sugerencia-item">
                       <img
                         src={mueble.imagenes?.[0] || PLACEHOLDER_IMG}
@@ -355,6 +401,7 @@ const PortadaTab = ({ muebles = [] }) => {
           imagenes={imagenesInspiracion}
           onChange={handleCambioInspiracion}
           max={MAX_INSPIRACION}
+          minimo={2}
           predeterminadas={PLACEHOLDERS_INSPIRACION}
           textoVacio="No hay fotos personalizadas para esta galería. La web muestra las 2 fotos predeterminadas."
           ariaSubir="Subir nueva imagen para la galería de inspiración"
@@ -375,6 +422,287 @@ const PortadaTab = ({ muebles = [] }) => {
           mensajeAnadida="Imagen asignada a sostenibilidad"
         />
       </div>
+
+      {/* MODAL DE VISTA PREVIA EN TIEMPO REAL */}
+      {isPreviewOpen && (
+        <div
+          className="preview-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Vista previa de la portada"
+          onClick={() => setIsPreviewOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            backgroundColor: 'rgba(0, 0, 0, 0.78)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '24px'
+          }}
+        >
+          <div
+            className="preview-modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'relative',
+              width: '100%',
+              maxWidth: '1120px',
+              maxHeight: '92vh',
+              backgroundColor: '#faf8f5',
+              color: '#1f1f1f',
+              borderRadius: '14px',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+            }}
+          >
+            {/* Botón X en la esquina superior derecha */}
+            <button
+              type="button"
+              className="preview-modal-close"
+              onClick={() => setIsPreviewOpen(false)}
+              aria-label="Cerrar vista previa"
+              title="Cerrar vista previa"
+              style={{
+                position: 'sticky',
+                top: '16px',
+                float: 'right',
+                marginRight: '16px',
+                zIndex: 10000,
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: 'rgba(17, 17, 17, 0.85)',
+                color: '#ffffff',
+                fontSize: '20px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Aviso superior de vista previa en vivo */}
+            <div
+              style={{
+                backgroundColor: '#1e293b',
+                color: '#f8fafc',
+                padding: '10px 24px',
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <strong>Modo Vista Previa (En vivo):</strong>
+              <span>
+                Mostrando los cambios actuales en pantalla antes de guardar en la base de datos.
+              </span>
+            </div>
+
+            {/* 1. Preview: Carrusel Hero */}
+            <div style={{ position: 'relative', height: '420px', backgroundColor: '#111', overflow: 'hidden' }}>
+              <img
+                src={previewHeroUrls[heroPreviewIdx % previewHeroUrls.length]}
+                alt={`Hero slide ${heroPreviewIdx + 1}`}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.82 }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0.15))',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  color: '#fff',
+                  textAlign: 'center',
+                  padding: '24px'
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '2px',
+                    backgroundColor: 'rgba(0,0,0,0.55)',
+                    padding: '4px 12px',
+                    borderRadius: '999px',
+                    marginBottom: '12px'
+                  }}
+                >
+                  Carrusel Hero · Foto {(heroPreviewIdx % previewHeroUrls.length) + 1} de{' '}
+                  {previewHeroUrls.length}
+                </span>
+                <h2 style={{ fontSize: '34px', margin: '0 0 10px', fontWeight: 700 }}>
+                  Mobiliario con Historia y Carácter
+                </h2>
+                <p style={{ maxWidth: '560px', margin: '0 0 20px', opacity: 0.9 }}>
+                  Piezas únicas seleccionadas y recuperadas para transformar tus espacios.
+                </p>
+
+                {previewHeroUrls.length > 1 && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                    {previewHeroUrls.map((_, i) => (
+                      <button
+                        key={`dot-${i}`}
+                        type="button"
+                        onClick={() => setHeroPreviewIdx(i)}
+                        aria-label={`Ver imagen Hero ${i + 1}`}
+                        style={{
+                          width: '12px',
+                          height: '12px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor:
+                            i === heroPreviewIdx % previewHeroUrls.length
+                              ? '#ffffff'
+                              : 'rgba(255,255,255,0.4)'
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Preview: Piezas Destacadas */}
+            <div style={{ padding: '48px 32px' }}>
+              <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                <h3 style={{ fontSize: '26px', margin: '0 0 6px' }}>Piezas Destacadas</h3>
+                <p style={{ color: '#666', margin: 0, fontSize: '14px' }}>
+                  {productosDestacados.length > 0
+                    ? `Mostrando ${productosDestacados.length} pieza(s) seleccionada(s) manualmente`
+                    : 'Sin selección manual (mostrando las últimas 4 piezas del catálogo por defecto)'}
+                </p>
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
+                  gap: '20px'
+                }}
+              >
+                {previewDestacados.map((mueble) => (
+                  <div
+                    key={`prev-dest-${mueble.id}`}
+                    style={{
+                      backgroundColor: '#fff',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      border: '1px solid #e5e5e5'
+                    }}
+                  >
+                    <img
+                      src={mueble.imagenes?.[0] || PLACEHOLDER_IMG}
+                      alt={mueble.nombre}
+                      style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', display: 'block' }}
+                    />
+                    <div style={{ padding: '14px' }}>
+                      <strong style={{ display: 'block', fontSize: '15px', marginBottom: '4px' }}>
+                        {mueble.nombre}
+                      </strong>
+                      <span style={{ fontSize: '12px', color: '#777' }}>
+                        {mueble.categoria || 'Catálogo'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Preview: Galería Espacios que Inspiran */}
+            <div style={{ padding: '40px 32px', backgroundColor: '#f1ede6' }}>
+              <div style={{ marginBottom: '24px', textAlign: 'center' }}>
+                <h3 style={{ fontSize: '26px', margin: '0 0 6px' }}>Espacios que inspiran</h3>
+                <p style={{ color: '#666', margin: 0, fontSize: '14px' }}>
+                  {imagenesInspiracion.length >= 2
+                    ? `Mostrando ${imagenesInspiracion.length} fotografías personalizadas`
+                    : 'Mostrando las 2 fotografías predeterminadas'}
+                </p>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${previewInspiracionUrls.length}, 1fr)`,
+                  gap: '16px'
+                }}
+              >
+                {previewInspiracionUrls.map((url, idx) => (
+                  <img
+                    key={`prev-insp-${idx}`}
+                    src={url}
+                    alt={`Inspiración ${idx + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '260px',
+                      objectFit: 'cover',
+                      borderRadius: '10px',
+                      display: 'block'
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 4. Preview: Sostenibilidad */}
+            <div
+              style={{
+                padding: '48px 32px',
+                display: 'grid',
+                gridTemplateColumns: previewSostenibilidadUrl ? '1fr 1fr' : '1fr',
+                gap: '32px',
+                alignItems: 'center'
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1.5px',
+                    color: '#4d6b53',
+                    fontWeight: 600
+                  }}
+                >
+                  Sostenibilidad · Segunda Vida
+                </span>
+                <h3 style={{ fontSize: '28px', margin: '8px 0 14px' }}>
+                  El mueble más sostenible es el que ya existe
+                </h3>
+                <p style={{ color: '#555', lineHeight: 1.6, margin: 0 }}>
+                  Apostamos por la recuperación y conservación de mobiliario con historia, reduciendo la
+                  huella ecológica y dando una segunda vida a piezas irrepetibles.
+                </p>
+              </div>
+              {previewSostenibilidadUrl && (
+                <div>
+                  <img
+                    src={previewSostenibilidadUrl}
+                    alt="Sostenibilidad"
+                    style={{
+                      width: '100%',
+                      maxHeight: '320px',
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      display: 'block'
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -333,9 +333,8 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     });
   });
 
-  it('el botón de Vista previa abre la portada en una pestaña nueva', async () => {
+  it('el botón de vista previa abre el modal de previsualización de portada', async () => {
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     api.getAjustesHome.mockResolvedValueOnce({
       hero_imagenes: [],
@@ -349,11 +348,11 @@ describe('PortadaTab — Pestaña de Portada en el Panel de Administración', ()
     });
 
     const btnVistaPrevia = screen.getByRole('button', {
-      name: 'Abrir vista previa de la portada en una pestaña nueva'
+      name: /vista previa/i
     });
     await user.click(btnVistaPrevia);
 
-    expect(openSpy).toHaveBeenCalledWith('/', '_blank', 'noopener,noreferrer');
+    expect(screen.getByRole('dialog', { name: /vista previa de la portada/i })).toBeInTheDocument();
   });
 
   it('guarda los cambios de inspiración y sostenibilidad al pulsar Guardar cambios', async () => {

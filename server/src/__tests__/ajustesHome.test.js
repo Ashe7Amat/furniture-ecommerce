@@ -137,6 +137,41 @@ describe('Ajustes de Portada (Home)', () => {
       assert.deepEqual(res.body.data.productos_destacados, ['uuid-mueble-1', 'uuid-mueble-2']);
     });
 
+    test('un PUT con un array de 3 URLs persiste las 3 y un GET posterior devuelve las 3 URLs completas', async () => {
+      instalar({
+        ajustes_home: [
+          {
+            id: 1,
+            hero_imagenes: ['https://img.test/vieja.webp'],
+            productos_destacados: [],
+            imagenes_seccion_inspiracion: [],
+            imagen_seccion_sostenibilidad: null
+          }
+        ]
+      });
+
+      const tresUrls = [
+        'https://img.test/hero-1.webp',
+        'https://img.test/hero-2.webp',
+        'https://img.test/hero-3.webp'
+      ];
+
+      const resPut = await request(app)
+        .put('/api/admin/ajustes/home')
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send({ hero_imagenes: tresUrls });
+
+      assert.equal(resPut.status, 200);
+      assert.equal(resPut.body.success, true);
+      assert.deepEqual(resPut.body.data.hero_imagenes, tresUrls);
+      assert.equal(resPut.body.data.hero_imagenes.length, 3);
+
+      const resGet = await request(app).get('/api/ajustes/home');
+      assert.equal(resGet.status, 200);
+      assert.deepEqual(resGet.body.hero_imagenes, tresUrls);
+      assert.equal(resGet.body.hero_imagenes.length, 3);
+    });
+
     test('un administrador inserta la fila por defecto si no existía previamente', async () => {
       instalar({ ajustes_home: [] });
 
