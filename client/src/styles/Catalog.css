@@ -92,6 +92,8 @@
 .products-grid {
   display: grid;
   gap: 30px;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
 }
 
 .products-grid--normal {

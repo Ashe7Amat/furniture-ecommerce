@@ -334,6 +334,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 32px;
+    align-items: stretch;
+    grid-auto-rows: 1fr;
     margin-top: 24px;
     margin-bottom: 80px;
 }
