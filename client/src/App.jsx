@@ -74,6 +74,8 @@ function App() {
 
                       <Route path="/checkout/exito" element={<CheckoutExito />} />
                       <Route path="/checkout/cancelado" element={<CheckoutCancelado />} />
+                      <Route path="/reservas/exito" element={<CheckoutExito />} />
+                      <Route path="/reservas/cancelado" element={<CheckoutCancelado />} />
 
                       {/* H18: el enlace del correo para confirmar el email (no pide sesión) */}
                       <Route path="/verificar-email" element={<VerificarEmail />} />
