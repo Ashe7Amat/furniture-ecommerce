@@ -779,10 +779,30 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                           <span className="reserva-fechas-rango">{fechasTexto}</span>
                         </td>
                         <td>
-                          <span className={`reserva-estado-badge estado-${estado}`}>
-                            <span className="n5-badge-dot" />
-                            {ETIQUETAS_ESTADO[estado] || estado}
-                          </span>
+                          <div className="reserva-celda-estado">
+                            <span className={`reserva-estado-badge estado-${estado}`}>
+                              <span className="n5-badge-dot" />
+                              {ETIQUETAS_ESTADO[estado] || estado}
+                            </span>
+                            {reserva.cancelacion_solicitada && (
+                              <span
+                                className="reserva-solicitud-badge"
+                                title={
+                                  reserva.cancelacion_solicitada_motivo
+                                    ? `Motivo: ${reserva.cancelacion_solicitada_motivo}`
+                                    : 'El cliente ha solicitado cancelar'
+                                }
+                              >
+                                ⚠️ Cancelación solicitada
+                              </span>
+                            )}
+                            {reserva.cancelacion_solicitada_motivo &&
+                              reserva.cancelacion_solicitada_motivo !== 'Sin motivo.' && (
+                                <small className="reserva-motivo-hint">
+                                  «{reserva.cancelacion_solicitada_motivo}»
+                                </small>
+                              )}
+                          </div>
                         </td>
                         <td>
                           <strong className="n5-price-cell">{totalTexto}</strong>
@@ -1144,6 +1164,13 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
             <p className="n5-modal-description">
               ¿Cancelar la reserva? Se intentará reembolsar al cliente el importe total a través de Stripe.
             </p>
+
+            {reservaACancelar.cancelacion_solicitada_motivo && (
+              <div className="n5-client-motive-callout">
+                <strong>Motivo indicado por el cliente:</strong>
+                <p>«{reservaACancelar.cancelacion_solicitada_motivo}»</p>
+              </div>
+            )}
 
             <div className="n5-refund-box">
               <label className="n5-checkbox-label">

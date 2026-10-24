@@ -2115,3 +2115,58 @@
   border-radius: var(--radius-sm);
 }
 
+/* ─── Indicador de Solicitud de Cancelación del Cliente ─── */
+.reserva-celda-estado {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.reserva-solicitud-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--warning-bg);
+  color: var(--warning-color);
+  border: 1px solid color-mix(in srgb, var(--warning-color) 30%, transparent);
+}
+
+.reserva-motivo-hint {
+  font-size: 0.74rem;
+  color: var(--secondary-color);
+  font-style: italic;
+  max-width: 220px;
+  line-height: 1.25;
+}
+
+.n5-client-motive-callout {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--warning-color);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+
+.n5-client-motive-callout strong {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--warning-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.n5-client-motive-callout p {
+  margin: 0;
+  color: var(--primary-color);
+  font-style: italic;
+}
+
+
