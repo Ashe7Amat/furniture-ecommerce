@@ -142,13 +142,17 @@ const tratarRevocado = async (fila, meta) => {
   return { ok: false, motivo: 'reuso', familia: fila.family_id };
 };
 
+const secretoFallback = () =>
+  process.env.REFRESH_TOKEN_HASH_SECRET_PREVIOUS || process.env.REFRESH_TOKEN_HASH_FALLBACK;
+
 // Rota el refresh token presentado. Devuelve { ok: true, userId, familia, refreshToken } o
 // { ok: false, motivo: 'inexistente' | 'reuso' | 'caducado' }. El motivo es solo para el log:
 // al cliente se le responde igual en los tres casos.
 const rotar = async (token, meta = {}) => {
   let fila = await leer('token_hash', hashear(token));
-  if (!fila && process.env.REFRESH_TOKEN_HASH_FALLBACK) {
-    fila = await leer('token_hash', hashear(token, process.env.REFRESH_TOKEN_HASH_FALLBACK));
+  const fallback = secretoFallback();
+  if (!fila && fallback) {
+    fila = await leer('token_hash', hashear(token, fallback));
   }
   if (!fila) return { ok: false, motivo: 'inexistente' };
   if (fila.revoked_at) return tratarRevocado(fila, meta);
@@ -158,8 +162,9 @@ const rotar = async (token, meta = {}) => {
 // Cierre de sesión: revoca la familia del token presentado. Si no existe, no hace nada.
 const revocarFamiliaDeToken = async (token) => {
   let fila = await leer('token_hash', hashear(token));
-  if (!fila && process.env.REFRESH_TOKEN_HASH_FALLBACK) {
-    fila = await leer('token_hash', hashear(token, process.env.REFRESH_TOKEN_HASH_FALLBACK));
+  const fallback = secretoFallback();
+  if (!fila && fallback) {
+    fila = await leer('token_hash', hashear(token, fallback));
   }
   if (fila) await revocarFamilia(fila.family_id);
 };

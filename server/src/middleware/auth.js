@@ -15,9 +15,10 @@ const verificarToken = (req, res, next) => {
     req.usuario = payload; // { email, rol, nombre }
     next();
   } catch (error) {
-    if (process.env.JWT_SECRET_FALLBACK) {
+    const secretoAnterior = process.env.JWT_SECRET_PREVIOUS || process.env.JWT_SECRET_FALLBACK;
+    if (secretoAnterior) {
       try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET_FALLBACK);
+        const payload = jwt.verify(token, secretoAnterior);
         req.usuario = payload;
         return next();
       } catch {

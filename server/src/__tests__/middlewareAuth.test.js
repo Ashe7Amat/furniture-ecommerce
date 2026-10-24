@@ -89,6 +89,22 @@ describe('verificarToken', () => {
     }
   });
 
+  test('con JWT_SECRET_PREVIOUS configurado, acepta token firmado con el secreto anterior', () => {
+    process.env.JWT_SECRET_PREVIOUS = 'secreto-anterior-previous';
+    try {
+      const tokenViejo = jwt.sign(
+        { email: 'previous@correo.es', rol: 'cliente', nombre: 'Previous' },
+        process.env.JWT_SECRET_PREVIOUS,
+        { expiresIn: '1h' }
+      );
+      const r = pasarPor(verificarToken, `Bearer ${tokenViejo}`);
+      assert.equal(r.siguio, true);
+      assert.equal(r.req.usuario.email, 'previous@correo.es');
+    } finally {
+      delete process.env.JWT_SECRET_PREVIOUS;
+    }
+  });
+
   test('con JWT_SECRET_FALLBACK configurado, rechaza token que no coincide con ninguno', () => {
     process.env.JWT_SECRET_FALLBACK = 'secreto-anterior-de-gracia';
     try {

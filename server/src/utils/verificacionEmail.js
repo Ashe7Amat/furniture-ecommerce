@@ -34,8 +34,11 @@ const secreto = () => {
   return valor;
 };
 
-const hashear = (token) =>
-  crypto.createHmac('sha256', secreto()).update(String(token)).digest('hex');
+const secretoFallback = () =>
+  process.env.EMAIL_TOKEN_HASH_SECRET_PREVIOUS || process.env.EMAIL_TOKEN_HASH_FALLBACK;
+
+const hashear = (token, secretoAlternativo) =>
+  crypto.createHmac('sha256', secretoAlternativo || secreto()).update(String(token)).digest('hex');
 
 const tabla = () => supabase.from('verificaciones_email');
 
@@ -69,12 +72,24 @@ const crear = async ({ clienteId, email, motivo }) => {
 // existe, ya se usó, ha caducado o lo ha gastado otra petición a la vez. Los cuatro casos dan lo
 // mismo a propósito: quien llama responde igual a todos.
 const consumir = async (token) => {
-  const { data: fila, error } = await tabla()
+  let { data: fila, error } = await tabla()
     .select(COLUMNAS)
     .eq('token_hash', hashear(token))
     .is('usado_en', null)
     .maybeSingle();
   if (error) throw error;
+
+  const fallback = secretoFallback();
+  if (!fila && fallback) {
+    const { data: filaFallback, error: errorFallback } = await tabla()
+      .select(COLUMNAS)
+      .eq('token_hash', hashear(token, fallback))
+      .is('usado_en', null)
+      .maybeSingle();
+    if (errorFallback) throw errorFallback;
+    fila = filaFallback;
+  }
+
   if (!fila) return null;
   if (new Date(fila.expira_en).getTime() <= Date.now()) return null;
 
