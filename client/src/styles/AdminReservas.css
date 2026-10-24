@@ -1899,3 +1899,219 @@
   color: var(--secondary-color);
 }
 
+/* ─── E. VISTA MASTER (CALENDARIO GLOBAL / GANTT) ─── */
+.n5-master-card {
+  padding: 24px;
+}
+
+.n5-master-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin: 0 0 4px 0;
+}
+
+.n5-master-subtitle {
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+  margin: 0;
+}
+
+.n5-master-table-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 68vh;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.n5-master-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 0.82rem;
+}
+
+/* Fila de cabecera fija superior */
+.n5-master-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-alt);
+  border-bottom: 2px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  padding: 8px 4px;
+  text-align: center;
+  z-index: 5;
+  user-select: none;
+}
+
+/* Celda esquina superior izquierda: fija tanto horizontal como verticalmente */
+.n5-master-table thead th.n5-master-th-mueble {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 15;
+  background: var(--surface-alt);
+  min-width: 220px;
+  width: 220px;
+  max-width: 220px;
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--secondary-color);
+  border-right: 2px solid var(--border-color);
+}
+
+.n5-master-th-dia {
+  min-width: 36px;
+  width: 36px;
+  max-width: 42px;
+}
+
+.n5-master-th-dia.is-today {
+  background: var(--accent-text);
+  color: var(--bg-color);
+}
+
+.n5-master-dia-num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.n5-master-dia-sem {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+/* Columna de muebles fija a la izquierda (sticky) */
+.n5-master-row {
+  transition: background-color 0.15s ease;
+}
+
+.n5-master-row:hover {
+  background: var(--surface-alt);
+}
+
+.n5-master-td-mueble {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: var(--card-bg);
+  min-width: 220px;
+  width: 220px;
+  max-width: 220px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  border-right: 2px solid var(--border-color);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  justify-content: center;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.03);
+}
+
+.n5-master-row:hover .n5-master-td-mueble {
+  background: var(--surface-alt);
+}
+
+.n5-master-mueble-nombre {
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.n5-master-mueble-ref {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--secondary-color);
+}
+
+/* Celdas de cuadrícula */
+.n5-master-cell {
+  min-width: 36px;
+  width: 36px;
+  height: 42px;
+  padding: 2px;
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.n5-master-cell.is-free {
+  background: var(--card-bg);
+}
+
+.n5-master-cell.is-free:hover {
+  background: var(--surface-alt);
+  outline: 1px dashed var(--accent-color);
+  outline-offset: -1px;
+}
+
+.n5-master-cell.is-booked {
+  background: var(--accent-color);
+  color: var(--card-bg);
+}
+
+.n5-master-cell.is-booked:hover {
+  background: var(--accent-hover);
+  transform: scale(0.96);
+}
+
+.n5-master-cell.is-blocked {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-alt),
+    var(--surface-alt) 4px,
+    var(--etiqueta-bg) 4px,
+    var(--etiqueta-bg) 8px
+  );
+  border-color: var(--accent-text);
+}
+
+.n5-master-cell.is-blocked:hover {
+  filter: brightness(0.95);
+  transform: scale(0.96);
+}
+
+.n5-master-cell.is-today {
+  border-left: 2px solid var(--primary-color);
+  border-right: 2px solid var(--primary-color);
+}
+
+.n5-master-cell.is-selected {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.n5-master-cell-indicator {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+

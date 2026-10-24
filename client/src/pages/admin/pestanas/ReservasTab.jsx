@@ -12,7 +12,11 @@ import {
   semanasDelMes,
   nombreDelMes,
   sumarMeses,
-  mesDe
+  mesDe,
+  primerDiaDe,
+  sumarDias,
+  diasEntre,
+  diaDeLaSemana
 } from '../../../utils/reservas';
 import '../../../styles/AdminReservas.css';
 
@@ -100,7 +104,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     });
     reservas.forEach((r) => {
       const p = r.pieza || r.mueble;
-      const mId = r.mueble_id || p?.id;
+      const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
       if (mId && !mapa.has(mId)) {
         mapa.set(mId, { id: mId, nombre: p?.nombre || 'Pieza', referencia: p?.referencia || '' });
       }
@@ -365,7 +369,8 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
   const reservasMuebleCalendario = useMemo(() => {
     if (!muebleCalendarioId) return [];
     return reservas.filter((r) => {
-      const mId = r.mueble_id || r.pieza?.id || r.mueble?.id;
+      const p = r.pieza || r.mueble;
+      const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
       return (
         String(mId) === String(muebleCalendarioId) &&
         r.estado !== 'cancelada' &&
@@ -397,6 +402,158 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     }
   };
 
+  // Días del mes para la vista Master (Gantt)
+  const diasDelMes = useMemo(() => {
+    const primero = primerDiaDe(mesCalendario);
+    const totalDias = diasEntre(primero, primerDiaDe(sumarMeses(mesCalendario, 1)));
+    return Array.from({ length: totalDias }, (_, i) => {
+      const fecha = sumarDias(primero, i);
+      const numeroDia = i + 1;
+      const diaSemana = DIAS_CABECERA[diaDeLaSemana(fecha)];
+      return { fecha, numeroDia, diaSemana };
+    });
+  }, [mesCalendario]);
+
+  // Buscar si un día está ocupado para un mueble específico (usado en Vista Master)
+  const obtenerOcupacionMuebleDia = useCallback(
+    (muebleId, fechaStr) => {
+      if (!fechaStr || !muebleId) return null;
+      return reservas.find((r) => {
+        const p = r.pieza || r.mueble;
+        const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
+        if (String(mId) !== String(muebleId)) return false;
+        if (r.estado === 'cancelada' || r.estado === 'expirada') return false;
+        const fin = r.fin_ocupacion || r.fecha_fin;
+        return r.fecha_inicio <= fechaStr && fin >= fechaStr;
+      });
+    },
+    [reservas]
+  );
+
+  // Inspector Lateral reutilizado en Vista Calendario y Vista Master
+  const renderInspectorLateral = () => {
+    if (!diaSeleccionadoInfo || !diaSeleccionadoInfo.reserva) return null;
+    return (
+      <aside className="n5-calendar-inspector" aria-label="Detalle de reserva seleccionada">
+        <div className="n5-inspector-head">
+          <div>
+            <span className="n5-eyebrow">
+              Fecha seleccionada · {formatearFecha(diaSeleccionadoInfo.fecha)}
+            </span>
+            <h4 className="n5-inspector-title">
+              {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                ? 'Bloqueo de Almacén'
+                : 'Detalle de la Reserva'}
+            </h4>
+          </div>
+          <button
+            type="button"
+            className="n5-inspector-close"
+            onClick={() => setDiaSeleccionadoInfo(null)}
+            aria-label="Cerrar panel de detalle"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="n5-inspector-body">
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Cliente / Concepto</span>
+            <strong className="n5-inspector-value">
+              {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                ? diaSeleccionadoInfo.reserva.motivo_cancelacion ||
+                  diaSeleccionadoInfo.reserva.motivo ||
+                  'Bloqueo administrativo'
+                : diaSeleccionadoInfo.reserva.contacto?.nombre ||
+                  diaSeleccionadoInfo.reserva.cliente?.nombre ||
+                  'Cliente'}
+            </strong>
+          </div>
+
+          {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+            <div className="n5-inspector-row">
+              <span className="n5-inspector-label">Email de contacto</span>
+              <span className="n5-inspector-value">
+                {diaSeleccionadoInfo.reserva.contacto?.email ||
+                  diaSeleccionadoInfo.reserva.cliente?.email ||
+                  'No especificado'}
+              </span>
+            </div>
+          )}
+
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Periodo reservado</span>
+            <span className="n5-inspector-value">
+              {formatearFecha(diaSeleccionadoInfo.reserva.fecha_inicio)} —{' '}
+              {formatearFecha(diaSeleccionadoInfo.reserva.fecha_fin)}
+            </span>
+          </div>
+
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Estado actual</span>
+            <div>
+              <span
+                className={`reserva-estado-badge estado-${diaSeleccionadoInfo.reserva.estado}`}
+              >
+                <span className="n5-badge-dot" />
+                {ETIQUETAS_ESTADO[diaSeleccionadoInfo.reserva.estado] ||
+                  diaSeleccionadoInfo.reserva.estado}
+              </span>
+            </div>
+          </div>
+
+          {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+            <div className="n5-inspector-row">
+              <span className="n5-inspector-label">Importe total</span>
+              <strong className="n5-inspector-value">
+                {formatPrice(diaSeleccionadoInfo.reserva.importe_total ?? 0)} €
+              </strong>
+            </div>
+          )}
+        </div>
+
+        <div className="n5-inspector-actions">
+          {diaSeleccionadoInfo.reserva.estado === 'confirmada' && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-deliver"
+              onClick={() => handleMarcarEntregada(diaSeleccionadoInfo.reserva.id)}
+              disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+            >
+              {procesandoId === diaSeleccionadoInfo.reserva.id
+                ? 'Guardando…'
+                : 'Marcar Entregada'}
+            </button>
+          )}
+
+          {diaSeleccionadoInfo.reserva.estado === 'en_curso' && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-pickup"
+              onClick={() => handleMarcarRecogida(diaSeleccionadoInfo.reserva.id)}
+              disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+            >
+              {procesandoId === diaSeleccionadoInfo.reserva.id
+                ? 'Guardando…'
+                : 'Marcar Recogida'}
+            </button>
+          )}
+
+          {(diaSeleccionadoInfo.reserva.estado === 'confirmada' ||
+            diaSeleccionadoInfo.reserva.estado === 'en_curso') && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-cancel"
+              onClick={() => abrirModalCancelar(diaSeleccionadoInfo.reserva)}
+            >
+              ✕ Cancelar
+            </button>
+          )}
+        </div>
+      </aside>
+    );
+  };
+
   const limpiarFiltros = () => {
     setBusquedaTexto('');
     setFiltroEstado('todos');
@@ -418,7 +575,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
           </p>
         </div>
 
-        {/* Toggle Lista / Calendario */}
+        {/* Toggle Lista / Calendario / Master */}
         <div className="reservas-toggle-modo n5-view-switcher">
           <button
             type="button"
@@ -433,6 +590,13 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
             onClick={() => setVistaModo('calendario')}
           >
             📅 Vista Calendario
+          </button>
+          <button
+            type="button"
+            className={`n5-switch-btn ${vistaModo === 'master' ? 'is-active' : ''}`}
+            onClick={() => setVistaModo('master')}
+          >
+            📊 Vista Master
           </button>
         </div>
       </div>
@@ -517,6 +681,10 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                 Limpiar filtros
               </button>
             )}
+          </div>
+        ) : vistaModo === 'master' ? (
+          <div className="n5-calendar-hint">
+            <span>💡 Vista Gantt de ocupación global. Haz clic en una celda para ver el detalle de la reserva o bloquear fechas.</span>
           </div>
         ) : (
           <div className="n5-calendar-hint">
@@ -794,122 +962,8 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
               </table>
             </div>
 
-            {/* C. PANEL LATERAL DE DETALLE EN EL CALENDARIO */}
-            {diaSeleccionadoInfo && diaSeleccionadoInfo.reserva && (
-              <aside className="n5-calendar-inspector" aria-label="Detalle de reserva seleccionada">
-                <div className="n5-inspector-head">
-                  <div>
-                    <span className="n5-eyebrow">Fecha seleccionada · {formatearFecha(diaSeleccionadoInfo.fecha)}</span>
-                    <h4 className="n5-inspector-title">
-                      {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
-                        ? 'Bloqueo de Almacén'
-                        : 'Detalle de la Reserva'}
-                    </h4>
-                  </div>
-                  <button
-                    type="button"
-                    className="n5-inspector-close"
-                    onClick={() => setDiaSeleccionadoInfo(null)}
-                    aria-label="Cerrar panel de detalle"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="n5-inspector-body">
-                  <div className="n5-inspector-row">
-                    <span className="n5-inspector-label">Cliente / Concepto</span>
-                    <strong className="n5-inspector-value">
-                      {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
-                        ? diaSeleccionadoInfo.reserva.motivo_cancelacion ||
-                          diaSeleccionadoInfo.reserva.motivo ||
-                          'Bloqueo administrativo'
-                        : diaSeleccionadoInfo.reserva.contacto?.nombre ||
-                          diaSeleccionadoInfo.reserva.cliente?.nombre ||
-                          'Cliente'}
-                    </strong>
-                  </div>
-
-                  {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
-                    <div className="n5-inspector-row">
-                      <span className="n5-inspector-label">Email de contacto</span>
-                      <span className="n5-inspector-value">
-                        {diaSeleccionadoInfo.reserva.contacto?.email ||
-                          diaSeleccionadoInfo.reserva.cliente?.email ||
-                          'No especificado'}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="n5-inspector-row">
-                    <span className="n5-inspector-label">Periodo reservado</span>
-                    <span className="n5-inspector-value">
-                      {formatearFecha(diaSeleccionadoInfo.reserva.fecha_inicio)} —{' '}
-                      {formatearFecha(diaSeleccionadoInfo.reserva.fecha_fin)}
-                    </span>
-                  </div>
-
-                  <div className="n5-inspector-row">
-                    <span className="n5-inspector-label">Estado actual</span>
-                    <div>
-                      <span className={`reserva-estado-badge estado-${diaSeleccionadoInfo.reserva.estado}`}>
-                        <span className="n5-badge-dot" />
-                        {ETIQUETAS_ESTADO[diaSeleccionadoInfo.reserva.estado] ||
-                          diaSeleccionadoInfo.reserva.estado}
-                      </span>
-                    </div>
-                  </div>
-
-                  {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
-                    <div className="n5-inspector-row">
-                      <span className="n5-inspector-label">Importe total</span>
-                      <strong className="n5-inspector-value">
-                        {formatPrice(diaSeleccionadoInfo.reserva.importe_total ?? 0)} €
-                      </strong>
-                    </div>
-                  )}
-                </div>
-
-                <div className="n5-inspector-actions">
-                  {diaSeleccionadoInfo.reserva.estado === 'confirmada' && (
-                    <button
-                      type="button"
-                      className="n5-btn n5-btn-action-deliver"
-                      onClick={() => handleMarcarEntregada(diaSeleccionadoInfo.reserva.id)}
-                      disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
-                    >
-                      {procesandoId === diaSeleccionadoInfo.reserva.id
-                        ? 'Guardando…'
-                        : 'Marcar Entregada'}
-                    </button>
-                  )}
-
-                  {diaSeleccionadoInfo.reserva.estado === 'en_curso' && (
-                    <button
-                      type="button"
-                      className="n5-btn n5-btn-action-pickup"
-                      onClick={() => handleMarcarRecogida(diaSeleccionadoInfo.reserva.id)}
-                      disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
-                    >
-                      {procesandoId === diaSeleccionadoInfo.reserva.id
-                        ? 'Guardando…'
-                        : 'Marcar Recogida'}
-                    </button>
-                  )}
-
-                  {(diaSeleccionadoInfo.reserva.estado === 'confirmada' ||
-                    diaSeleccionadoInfo.reserva.estado === 'en_curso') && (
-                    <button
-                      type="button"
-                      className="n5-btn n5-btn-action-cancel"
-                      onClick={() => abrirModalCancelar(diaSeleccionadoInfo.reserva)}
-                    >
-                      ✕ Cancelar
-                    </button>
-                  )}
-                </div>
-              </aside>
-            )}
+            {/* Inspector Lateral de Detalle */}
+            {renderInspectorLateral()}
           </div>
 
           {/* Leyenda y resumen inferior */}
@@ -933,6 +987,150 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
               {reservasMuebleCalendario.length === 1
                 ? 'evento activo para este mueble'
                 : 'eventos activos para este mueble'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VISTA MASTER (CALENDARIO GLOBAL / GANTT) */}
+      {vistaModo === 'master' && (
+        <div className="admin-calendario-vista n5-calendar-card n5-master-card">
+          {/* Navegación mensual */}
+          <div className="n5-calendar-header">
+            <div>
+              <h3 className="n5-master-title">Ocupación Global de Catálogo</h3>
+              <p className="n5-master-subtitle">
+                Línea temporal de alquileres y bloqueos de todos los muebles para el mes seleccionado.
+              </p>
+            </div>
+
+            <div className="n5-calendar-nav">
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, -1))}
+              >
+                ◀ Mes anterior
+              </button>
+              <span className="n5-calendar-month-label">{nombreDelMes(mesCalendario)}</span>
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, 1))}
+              >
+                Mes siguiente ▶
+              </button>
+            </div>
+          </div>
+
+          {/* Layout: Cuadrícula Gantt + Panel Lateral de Detalle */}
+          <div className={`n5-calendar-layout ${diaSeleccionadoInfo ? 'has-inspector' : ''}`}>
+            <div className="n5-master-table-wrapper">
+              <table className="n5-master-table" aria-label="Calendario global de muebles">
+                <thead>
+                  <tr>
+                    <th className="n5-master-th-mueble">Mueble / Referencia</th>
+                    {diasDelMes.map(({ fecha, numeroDia, diaSemana }) => {
+                      const esHoy = fecha === hoyEnMadrid();
+                      return (
+                        <th
+                          key={fecha}
+                          className={`n5-master-th-dia ${esHoy ? 'is-today' : ''}`}
+                          title={`${fecha} (${diaSemana})`}
+                        >
+                          <span className="n5-master-dia-num">{numeroDia}</span>
+                          <span className="n5-master-dia-sem">{diaSemana}</span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaMuebles.length === 0 ? (
+                    <tr>
+                      <td colSpan={diasDelMes.length + 1} style={{ textAlign: 'center', padding: '32px' }}>
+                        No hay muebles disponibles en el catálogo.
+                      </td>
+                    </tr>
+                  ) : (
+                    listaMuebles.map((mueble) => (
+                      <tr key={mueble.id} className="n5-master-row">
+                        <th className="n5-master-td-mueble" scope="row">
+                          <strong className="n5-master-mueble-nombre">{mueble.nombre}</strong>
+                          {mueble.referencia && (
+                            <span className="n5-master-mueble-ref">Ref. {mueble.referencia}</span>
+                          )}
+                        </th>
+                        {diasDelMes.map(({ fecha }) => {
+                          const ocupacion = obtenerOcupacionMuebleDia(mueble.id, fecha);
+                          const esBloqueo = ocupacion?.tipo === 'bloqueo';
+                          const esHoy = fecha === hoyEnMadrid();
+                          const estaSeleccionado =
+                            diaSeleccionadoInfo?.fecha === fecha &&
+                            (diaSeleccionadoInfo?.reserva?.mueble_id === mueble.id ||
+                              diaSeleccionadoInfo?.reserva?.pieza?.id === mueble.id);
+
+                          const clases = [
+                            'n5-master-cell',
+                            ocupacion ? (esBloqueo ? 'is-blocked' : 'is-booked') : 'is-free',
+                            esHoy ? 'is-today' : '',
+                            estaSeleccionado ? 'is-selected' : ''
+                          ]
+                            .filter(Boolean)
+                            .join(' ');
+
+                          return (
+                            <td
+                              key={fecha}
+                              className={clases}
+                              onClick={() => {
+                                if (ocupacion) {
+                                  setDiaSeleccionadoInfo({ fecha, reserva: ocupacion });
+                                } else {
+                                  setDiaSeleccionadoInfo(null);
+                                  abrirModalBloqueo(fecha, mueble.id);
+                                }
+                              }}
+                              title={
+                                ocupacion
+                                  ? esBloqueo
+                                    ? `${mueble.nombre} · Bloqueo: ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Mantenimiento'}`
+                                    : `${mueble.nombre} · Reserva: ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Cliente'} (${ocupacion.estado})`
+                                  : `${mueble.nombre} · Disponible (${formatearFecha(fecha)}) — Clic para bloquear`
+                              }
+                            >
+                              <span className="n5-master-cell-indicator" />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {renderInspectorLateral()}
+          </div>
+
+          {/* Leyenda y resumen inferior */}
+          <div className="n5-calendar-footer">
+            <div className="n5-calendar-legend">
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-booked" />
+                Alquiler activo / Confirmado
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-blocked" />
+                Bloqueo administrativo (Patrón rayado)
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-free" />
+                Día libre (Clic para bloquear)
+              </span>
+            </div>
+            <div className="n5-calendar-summary">
+              {listaMuebles.length} {listaMuebles.length === 1 ? 'mueble en catálogo' : 'muebles en catálogo'}
             </div>
           </div>
         </div>

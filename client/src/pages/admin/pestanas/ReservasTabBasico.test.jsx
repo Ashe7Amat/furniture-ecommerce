@@ -325,6 +325,62 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
       expect(screen.getByText('Silla Tolix')).toBeInTheDocument();
     });
   });
+
+  it('permite alternar a la Vista Master (Gantt) y renderiza las filas de los muebles y las celdas de los días', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA] }
+    });
+    const MUEBLES_MOCK = [
+      { id: 'm-1', nombre: 'Espejo vintage', referencia: 'NAV-ESP-004' },
+      { id: 'm-2', nombre: 'Silla Tolix', referencia: 'NAV-SIL-001' }
+    ];
+
+    renderConToast(<ReservasTab muebles={MUEBLES_MOCK} />);
+
+    const botonMaster = await screen.findByRole('button', { name: /vista master/i });
+    expect(botonMaster).toBeInTheDocument();
+    fireEvent.click(botonMaster);
+
+    // Debe mostrar la cabecera y tabla de la vista master
+    expect(await screen.findByText('Ocupación Global de Catálogo')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: /calendario global de muebles/i })).toBeInTheDocument();
+
+    // Debe renderizar las filas con los nombres de los muebles
+    expect(screen.getAllByText('Espejo vintage').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Silla Tolix')).toBeInTheDocument();
+
+    // Debe renderizar las celdas de los días del mes
+    const celdas = document.querySelectorAll('.n5-master-cell');
+    expect(celdas.length).toBeGreaterThan(0);
+  });
+
+  it('en la Vista Master, al hacer clic en una celda ocupada se abre el inspector lateral de la reserva', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA] }
+    });
+
+    renderConToast(<ReservasTab />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /vista master/i }));
+
+    expect(await screen.findByText('Ocupación Global de Catálogo')).toBeInTheDocument();
+
+    // Navegar al mes de la reserva (noviembre 2026)
+    fireEvent.click(screen.getByText(/mes siguiente/i));
+    expect(screen.getByText(/noviembre de 2026/i)).toBeInTheDocument();
+
+    // Localizar una celda ocupada (is-booked)
+    const celdaOcupada = document.querySelector('.n5-master-cell.is-booked');
+    expect(celdaOcupada).toBeInTheDocument();
+    fireEvent.click(celdaOcupada);
+
+    // Debe abrir el inspector lateral con los datos y acciones
+    expect(
+      await screen.findByRole('complementary', { name: /detalle de reserva seleccionada/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Detalle de la Reserva')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Marcar Entregada' })).toBeInTheDocument();
+  });
 });
 
 describe('PedidosTab — Distintivo visual en alquileres (Tarea 1)', () => {
