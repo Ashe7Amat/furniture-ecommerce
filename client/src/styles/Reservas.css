@@ -3,12 +3,14 @@
    index.css, así que sigue al modo oscuro. */
 
 /* ─── Panel de la ficha ─── */
+/* ─── Panel de la ficha ─── */
 .reserva-panel {
   margin-top: 32px;
   padding: 24px;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--card-bg);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
 }
 
 .reserva-panel-titulo {
@@ -31,8 +33,8 @@
 
 .reserva-panel-reglas,
 .reserva-panel-ayuda {
-  margin: 6px 0 18px;
-  font-size: 0.88rem;
+  margin: 6px 0 16px;
+  font-size: 0.84rem;
   color: var(--secondary-color);
   line-height: 1.5;
 }
@@ -42,7 +44,7 @@
 
 /* ─── Calendario ─── */
 .cal-reserva {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .cal-reserva-cabecera {
@@ -50,31 +52,37 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .cal-reserva-mes {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--primary-color);
   text-align: center;
+  letter-spacing: 0.3px;
 }
 
 .cal-reserva-nav {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--bg-color);
   color: var(--primary-color);
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 .cal-reserva-nav:hover:not([aria-disabled='true']) {
   border-color: var(--accent-color);
+  background: var(--card-bg);
 }
 .cal-reserva-nav[aria-disabled='true'] {
   opacity: 0.35;
@@ -85,14 +93,15 @@
   width: 100%;
   table-layout: fixed;
   border-collapse: separate;
-  border-spacing: 3px;
+  border-spacing: 2px;
 }
 
 .cal-reserva-tabla th {
-  padding: 4px 0;
-  font-size: 0.75rem;
+  padding: 3px 0;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--secondary-color);
+  text-transform: uppercase;
 }
 .cal-reserva-tabla abbr {
   text-decoration: none;
@@ -105,21 +114,23 @@
 
 .cal-reserva-dia {
   width: 100%;
-  min-height: 36px;
-  aspect-ratio: 1;
+  min-height: 28px;
+  height: 30px;
+  aspect-ratio: auto;
   padding: 0;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 5px;
   background: var(--bg-color);
   color: var(--primary-color);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .cal-reserva-dia:hover:not(:disabled):not([aria-disabled='true']) {
   border-color: var(--accent-color);
+  background: var(--card-bg);
 }
 /* La recogida elegida que no se puede volver a pulsar (CalendarioReserva.jsx): se ve como elegida. */
 .cal-reserva-dia[aria-disabled='true'] {
@@ -171,11 +182,11 @@
 .cal-reserva-leyenda {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  margin: 10px 0 0;
+  gap: 4px 14px;
+  margin: 8px 0 0;
   padding: 0;
   list-style: none;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--secondary-color);
 }
 .cal-reserva-leyenda li {
@@ -185,8 +196,8 @@
 }
 .cal-reserva-leyenda li::before {
   content: '';
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   border-radius: 3px;
   border: 1px solid var(--border-color);
   background: var(--bg-color);
@@ -207,9 +218,9 @@
 }
 
 .cal-reserva-reglas {
-  margin: 8px 0 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
   color: var(--secondary-color);
 }
 
@@ -218,15 +229,15 @@
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 6px 16px;
-  margin-top: 12px;
+  gap: 6px 14px;
+  margin-top: 10px;
 }
 
 .cal-reserva-instrucciones {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   color: var(--primary-color);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .cal-reserva-borrar,
@@ -236,7 +247,7 @@
   background: none;
   color: var(--accent-text);
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.84rem;
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
@@ -251,76 +262,191 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  margin-top: 16px;
+}
+
+@media (max-width: 580px) {
+  .reserva-trayectos {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 }
 
 .reserva-trayecto {
   min-width: 0;
   margin: 0;
-  padding: 12px 14px 14px;
+  padding: 14px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 10px;
+  background: var(--bg-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
+
 .reserva-trayecto legend {
-  padding: 0 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 0 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: var(--primary-color);
 }
-.reserva-trayecto > label {
+
+.reserva-trayecto-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.reserva-trayecto label {
   display: block;
-  margin-bottom: 6px;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--secondary-color);
 }
+
+.reserva-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .reserva-trayecto select {
   width: 100%;
-  padding: 8px 10px;
+  padding: 9px 32px 9px 12px;
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
   color: var(--primary-color);
   font: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reserva-trayecto select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(184, 134, 11, 0.15);
+}
+
+.reserva-select-icon {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  color: var(--secondary-color);
 }
 
 .reserva-trayecto-modos {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  margin-top: 12px;
+  gap: 8px;
+  margin-top: 4px;
 }
+
 .reserva-trayecto-modo {
+  flex: 1;
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  font-size: 0.9rem;
+  padding: 7px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--surface-alt);
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--primary-color);
   cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
+
+.reserva-trayecto-modo:hover {
+  border-color: var(--accent-color);
+  background: var(--card-bg);
+}
+
+.reserva-trayecto-modo.activo,
+.reserva-trayecto-modo:has(input:checked) {
+  border-color: var(--primary-color);
+  background: var(--bg-color);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
 .reserva-trayecto-modo input {
-  accent-color: var(--primary-color);
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.reserva-trayecto-modo:focus-within {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+.reserva-cta:disabled {
+  background-color: var(--surface-alt);
+  color: var(--secondary-color);
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  border: 1px solid var(--border-color);
+}
+
+.reserva-modo-icon {
+  flex-shrink: 0;
+  color: var(--secondary-color);
+  transition: color 0.2s ease;
+}
+
+.reserva-trayecto-modo.activo .reserva-modo-icon,
+.reserva-trayecto-modo:has(input:checked) .reserva-modo-icon {
+  color: var(--primary-color);
 }
 
 /* ─── Desglose ─── */
 .reserva-panel-precio-total {
   margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
 }
 
 .reserva-desglose {
   margin: 0;
   padding: 0;
 }
+
 .reserva-desglose-fila {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  padding: 7px 0;
+  padding: 6px 0;
   border-bottom: 1px dashed var(--border-color);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
 }
+
 .reserva-desglose-fila dt {
   color: var(--secondary-color);
 }
+
 .reserva-desglose-fila dd {
   margin: 0;
   color: var(--primary-color);
@@ -328,21 +454,36 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
 .reserva-desglose-fila--descuento dd {
   color: var(--success-color);
-}
-.reserva-desglose-fila--total {
-  border-bottom: none;
-  padding-top: 12px;
-  font-size: 1.05rem;
   font-weight: 600;
 }
+
+.reserva-desglose-fila--total {
+  border-bottom: none;
+  border-top: 1px solid var(--border-color);
+  margin-top: 8px;
+  padding-top: 12px;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
 .reserva-desglose-fila--total dt {
   color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1.05rem;
 }
+
+.reserva-desglose-fila--total dd {
+  color: var(--primary-color);
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
 .reserva-desglose-iva {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 400;
   color: var(--secondary-color);
 }

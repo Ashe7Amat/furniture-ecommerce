@@ -1499,5 +1499,7 @@ module.exports = {
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
-  crearVenta
+  crearVenta,
+  moverPieza,
+  leerReserva
 };

@@ -57,6 +57,10 @@ const opcion = (texto) => screen.getByText(texto).closest('button');
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv('VITE_RESERVAS_ACTIVAS', '');
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('ProductDetail — cesta llena (H35)', () => {

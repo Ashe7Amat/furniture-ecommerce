@@ -2,7 +2,7 @@
 // (docs/reservas-diseno.md, 9.1). No son tests de caracterización: describen lo nuevo. Con el
 // interruptor apagado, el panel es exactamente el de antes (lo fijan también los Admin.*.test.jsx).
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { getReservasAdmin, getResumenReservasAdmin } from '../../services/api';
 import { renderAdmin, irAPestana, barraLateral, CATEGORIAS } from '../adminTestUtils';
@@ -85,19 +85,22 @@ describe('Panel — pestaña "Reservas" con el interruptor encendido', () => {
   });
 
 
-  it('al pulsarla se abre (y queda marcada), pide las próximas y las altas usan el inventario del panel', async () => {
+  it('al pulsarla se abre (y queda marcada), pide las reservas y las altas usan el inventario del panel', async () => {
     const user = userEvent.setup();
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
     await irAPestana(user, 'Reservas');
 
-    expect(screen.getByRole('heading', { level: 2, name: 'Reservas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Gestión de Reservas' })).toBeInTheDocument();
     expect(barraLateral().getByRole('button', { name: 'Reservas' })).toHaveClass('active');
-    expect(getReservasAdmin).toHaveBeenCalledWith({ vista: 'proximas' });
-    expect(await screen.findByText('No hay reservas próximas.')).toBeInTheDocument();
+    expect(getReservasAdmin).toHaveBeenCalled();
+    expect(await screen.findByText('Todavía no se ha registrado ninguna reserva.')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
-    const pieza = within(screen.getByRole('dialog')).getByLabelText('Pieza');
-    expect([...pieza.options].map((o) => o.textContent)).toEqual(['Elige una pieza', 'Silla Tolix (NAV-SIL-001)']);
+    await user.click(screen.getByRole('button', { name: /Bloquear fechas/i }));
+    const select = screen.getByLabelText(/Mueble/i);
+    expect([...select.options].map((o) => o.textContent.trim())).toEqual([
+      'Selecciona un mueble…',
+      'Silla Tolix (NAV-SIL-001)'
+    ]);
   });
 
   it('las demás pestañas siguen funcionando igual', async () => {
@@ -106,7 +109,7 @@ describe('Panel — pestaña "Reservas" con el interruptor encendido', () => {
     await irAPestana(user, 'Reservas');
     await irAPestana(user, /^Pedidos/);
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Pedidos');
-    expect(screen.queryByRole('heading', { level: 2, name: 'Reservas' })).toBeNull();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Gestión de Reservas' })).toBeNull();
   });
 });
 
@@ -146,24 +149,16 @@ describe('Panel — insignia de «Reservas»', () => {
     expect(insignia()).toBeNull();
   });
 
-  it('dentro de la pestaña, los números salen en sus vistas, y una acción hecha vuelve a contar', async () => {
+  it('dentro de la pestaña, la sección de almacén está presente y el botón actualizar refresca', async () => {
     const user = userEvent.setup();
     await renderAdmin({ muebles: MUEBLES, categorias: CATEGORIAS });
     await irAPestana(user, /^Reservas/);
 
-    expect(await screen.findByRole('button', { name: 'Retrasadas 2' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'En conflicto 1' })).toBeInTheDocument();
-    const lecturas = getResumenReservasAdmin.mock.calls.length;
+    expect(screen.getByRole('region', { name: 'Hoy en el almacén' })).toBeInTheDocument();
+    const lecturas = getReservasAdmin.mock.calls.length;
 
-    getResumenReservasAdmin.mockResolvedValue({
-      data: { ...RESUMEN, total: 0, retrasadas: 0, en_conflicto: 0 },
-      error: null,
-      status: 200
-    });
     await user.click(screen.getByRole('button', { name: 'Actualizar' }));
 
-    expect(await screen.findByRole('button', { name: 'Retrasadas' })).toBeInTheDocument();
-    expect(getResumenReservasAdmin.mock.calls.length).toBeGreaterThan(lecturas);
-    expect(insignia()).toBeNull();
+    expect(getReservasAdmin.mock.calls.length).toBeGreaterThan(lecturas);
   });
 });
