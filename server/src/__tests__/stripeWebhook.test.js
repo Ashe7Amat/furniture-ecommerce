@@ -189,6 +189,67 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
   });
 });
 
+describe('POST /api/stripe/webhook — checkout.session.expired', () => {
+  test('libera la reserva pendiente cuando caduca la sesión en Stripe', async () => {
+    const reservaId = '11111111-1111-4111-8111-111111111111';
+    fake.tablas.reservas = [
+      {
+        id: reservaId,
+        mueble_id: 'mueble-1',
+        estado: 'pendiente'
+      }
+    ];
+
+    const res = await enviarWebhook({
+      id: 'evt_expired_1',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_123',
+          metadata: { tipo: 'reserva', reserva_id: reservaId }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, estado: 'expirada' });
+    assert.equal(fake.tablas.reservas[0].estado, 'expirada');
+
+    // Reenvío del mismo evento expirado: idempotente (sin cambios)
+    const reenvio = await enviarWebhook({
+      id: 'evt_expired_1',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_123',
+          metadata: { tipo: 'reserva', reserva_id: reservaId }
+        }
+      }
+    });
+    assert.equal(reenvio.status, 200);
+    assert.deepEqual(reenvio.body, { recibido: true, estado: 'sin_cambios' });
+  });
+
+  test('ignora checkout.session.expired si no es de tipo reserva', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_expired_compra',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_compra_123',
+          metadata: { clienteNombre: 'Pedro' }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, ignorado: true });
+  });
+});
+
 describe('POST /api/stripe/webhook — otros eventos', () => {
   test('un evento que no es checkout.session.completed se acusa con 200 y se ignora', async () => {
     const res = await enviarWebhook({
