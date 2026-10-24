@@ -482,11 +482,11 @@ const InventarioTab = ({
                   </div>
 
                   {/* Referencia con estilo etiqueta de papel Kraft si existe; vacía si no existe */}
-                  <span className="inv-ref">
-                    {m.referencia ? (
-                      <span className="inv-ref-tag">{m.referencia}</span>
-                    ) : null}
-                  </span>
+                  {m.referencia ? (
+                    <span className="inv-ref inv-ref-tag">{m.referencia}</span>
+                  ) : (
+                    <span className="inv-ref" />
+                  )}
 
                   <span className="inv-name">{m.nombre}</span>
 
