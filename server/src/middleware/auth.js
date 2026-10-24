@@ -15,6 +15,15 @@ const verificarToken = (req, res, next) => {
     req.usuario = payload; // { email, rol, nombre }
     next();
   } catch (error) {
+    if (process.env.JWT_SECRET_FALLBACK) {
+      try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET_FALLBACK);
+        req.usuario = payload;
+        return next();
+      } catch {
+        // Fallback también falló
+      }
+    }
     return res.status(401).json({ error: 'Tu sesión ha caducado. Vuelve a iniciar sesión.' });
   }
 };

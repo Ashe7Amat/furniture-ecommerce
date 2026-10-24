@@ -457,4 +457,84 @@ describe('mantenimiento y el doble', () => {
 
     assert.deepEqual([a.data.length, b.data.length].sort(), [0, 1]);
   });
+
+  test('rotación con gracia: token emitido con REFRESH_TOKEN_HASH_FALLBACK se rota al nuevo secreto', async () => {
+    const fallbackSecret = 'secreto-hash-anterior-de-gracia';
+    process.env.REFRESH_TOKEN_HASH_FALLBACK = fallbackSecret;
+
+    try {
+      const rawToken = 'token-antiguo-generado-previamente-1234';
+      const hashAntiguo = crypto.createHmac('sha256', fallbackSecret).update(rawToken).digest('hex');
+
+      fake = crearFakeSupabase({
+        clientes: [cuenta('cli-ana', 'ana@example.com')],
+        refresh_tokens: [
+          {
+            id: 'rt-antiguo',
+            user_id: 'cli-ana',
+            family_id: 'fam-antigua',
+            token_hash: hashAntiguo,
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+            revoked_at: null,
+            replaced_by: null
+          }
+        ]
+      });
+      mock.method(supabase, 'from', fake.from);
+
+      const res = await refrescar(rawToken);
+      assert.equal(res.status, 200);
+      assert.ok(res.body.refreshToken);
+
+      // El token antiguo debe quedar revocado
+      const filaAntigua = fake.tablas.refresh_tokens.find((f) => f.id === 'rt-antiguo');
+      assert.ok(filaAntigua.revoked_at);
+      assert.ok(filaAntigua.replaced_by);
+
+      // El nuevo token se hashea con el secreto principal actual
+      const nuevoHash = crypto
+        .createHmac('sha256', process.env.REFRESH_TOKEN_HASH_SECRET)
+        .update(res.body.refreshToken)
+        .digest('hex');
+      const filaNueva = fake.tablas.refresh_tokens.find((f) => f.id === filaAntigua.replaced_by);
+      assert.ok(filaNueva);
+      assert.equal(filaNueva.token_hash, nuevoHash);
+    } finally {
+      delete process.env.REFRESH_TOKEN_HASH_FALLBACK;
+    }
+  });
+
+  test('logout con gracia: token emitido con REFRESH_TOKEN_HASH_FALLBACK revoca la familia', async () => {
+    const fallbackSecret = 'secreto-hash-anterior-de-gracia';
+    process.env.REFRESH_TOKEN_HASH_FALLBACK = fallbackSecret;
+
+    try {
+      const rawToken = 'token-antiguo-para-logout-1234';
+      const hashAntiguo = crypto.createHmac('sha256', fallbackSecret).update(rawToken).digest('hex');
+
+      fake = crearFakeSupabase({
+        refresh_tokens: [
+          {
+            id: 'rt-antiguo-logout',
+            user_id: 'cli-ana',
+            family_id: 'fam-logout',
+            token_hash: hashAntiguo,
+            expires_at: new Date(Date.now() + 86400000).toISOString(),
+            revoked_at: null,
+            replaced_by: null
+          }
+        ]
+      });
+      mock.method(supabase, 'from', fake.from);
+
+      const res = await cerrar(rawToken);
+      assert.equal(res.status, 200);
+
+      const filaAntigua = fake.tablas.refresh_tokens.find((f) => f.id === 'rt-antiguo-logout');
+      assert.ok(filaAntigua.revoked_at);
+    } finally {
+      delete process.env.REFRESH_TOKEN_HASH_FALLBACK;
+    }
+  });
 });
+
