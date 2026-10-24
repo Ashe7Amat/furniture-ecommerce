@@ -12,6 +12,7 @@ const stripeRoutes = require('./routes/stripeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
 const ajustesRoutes = require('./routes/ajustesRoutes');
+const healthRoutes = require('./routes/healthRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -47,7 +48,13 @@ app.use((req, res, next) => {
 app.use(
   helmet({
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    frameguard: { action: 'deny' },
+    hsts: {
+      maxAge: 63072000,
+      includeSubDomains: true,
+      preload: true
+    }
   })
 );
 
@@ -91,6 +98,7 @@ app.use('/api/stripe', stripeRoutes);
 app.use(express.json());
 
 // Enrutamiento de la API
+app.use('/api/health', healthRoutes);
 app.use('/api/muebles', mueblesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);

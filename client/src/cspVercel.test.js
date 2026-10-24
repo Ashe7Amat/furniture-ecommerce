@@ -55,3 +55,35 @@ describe('CSP del cliente (vercel.json)', () => {
     expect(permite('script-src', 'https://ejemplo.com/script.js')).toBe(false);
   });
 });
+
+describe('Cabeceras de seguridad en cliente (vercel.json)', () => {
+  const todasCabeceras = vercel.headers.flatMap((h) => h.headers);
+  const buscarCabecera = (clave) => todasCabeceras.find((h) => h.key.toLowerCase() === clave.toLowerCase());
+
+  it('incluye X-Content-Type-Options: nosniff', () => {
+    const h = buscarCabecera('X-Content-Type-Options');
+    expect(h?.value).toBe('nosniff');
+  });
+
+  it('incluye X-Frame-Options: DENY', () => {
+    const h = buscarCabecera('X-Frame-Options');
+    expect(h?.value).toBe('DENY');
+  });
+
+  it('incluye Referrer-Policy estricta', () => {
+    const h = buscarCabecera('Referrer-Policy');
+    expect(h?.value).toBe('strict-origin-when-cross-origin');
+  });
+
+  it('incluye Permissions-Policy limitando hardware', () => {
+    const h = buscarCabecera('Permissions-Policy');
+    expect(h?.value).toContain('camera=()');
+    expect(h?.value).toContain('microphone=()');
+  });
+
+  it('incluye Strict-Transport-Security con preload', () => {
+    const h = buscarCabecera('Strict-Transport-Security');
+    expect(h?.value).toMatch(/max-age=\d+/);
+    expect(h?.value).toContain('preload');
+  });
+});

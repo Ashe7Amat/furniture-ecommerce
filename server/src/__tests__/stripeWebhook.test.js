@@ -189,13 +189,125 @@ describe('POST /api/stripe/webhook — checkout.session.completed', () => {
   });
 });
 
-describe('POST /api/stripe/webhook — otros eventos', () => {
-  test('un evento que no es checkout.session.completed se acusa con 200 y se ignora', async () => {
+describe('POST /api/stripe/webhook — checkout.session.expired', () => {
+  test('libera la reserva pendiente cuando caduca la sesión en Stripe', async () => {
+    const reservaId = '11111111-1111-4111-8111-111111111111';
+    fake.tablas.reservas = [
+      {
+        id: reservaId,
+        mueble_id: 'mueble-1',
+        estado: 'pendiente'
+      }
+    ];
+
     const res = await enviarWebhook({
-      id: 'evt_otro',
+      id: 'evt_expired_1',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_123',
+          metadata: { tipo: 'reserva', reserva_id: reservaId }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, estado: 'expirada' });
+    assert.equal(fake.tablas.reservas[0].estado, 'expirada');
+
+    // Reenvío del mismo evento expirado: idempotente (sin cambios)
+    const reenvio = await enviarWebhook({
+      id: 'evt_expired_1',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_123',
+          metadata: { tipo: 'reserva', reserva_id: reservaId }
+        }
+      }
+    });
+    assert.equal(reenvio.status, 200);
+    assert.deepEqual(reenvio.body, { recibido: true, estado: 'sin_cambios' });
+  });
+
+  test('ignora checkout.session.expired si no es de tipo reserva', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_expired_compra',
+      object: 'event',
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_expired_compra_123',
+          metadata: { clienteNombre: 'Pedro' }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, ignorado: true });
+  });
+});
+
+describe('POST /api/stripe/webhook — eventos complementarios y de ciclo de vida', () => {
+  test('payment_intent.succeeded se acusa con 200 y registra evento complementario', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_pi_succeeded',
       object: 'event',
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_1' } }
+      data: { object: { id: 'pi_test_123' } }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, evento: 'payment_intent.succeeded' });
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('payment_intent.payment_failed registra aviso con detalle y devuelve 200 a Stripe', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_pi_failed',
+      object: 'event',
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: 'pi_test_failed',
+          last_payment_error: { message: 'Fondos insuficientes' }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.recibido, true);
+    assert.equal(res.body.evento, 'payment_intent.payment_failed');
+    assert.equal(res.body.detalle, 'Fondos insuficientes');
+  });
+
+  test('charge.refunded registra aviso de reembolso y devuelve 200 a Stripe', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_refund',
+      object: 'event',
+      type: 'charge.refunded',
+      data: {
+        object: {
+          id: 'ch_test_123',
+          amount_refunded: 4500
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.recibido, true);
+    assert.equal(res.body.evento, 'charge.refunded');
+    assert.equal(res.body.reembolsado, '45.00');
+  });
+
+  test('un evento no reconocido se acusa con 200 y se marca como ignorado', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_desconocido',
+      object: 'event',
+      type: 'customer.created',
+      data: { object: { id: 'cus_123' } }
     });
 
     assert.equal(res.status, 200);
