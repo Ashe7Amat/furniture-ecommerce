@@ -49,8 +49,9 @@ app.use(
   helmet({
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
     crossOriginEmbedderPolicy: false,
+    frameguard: { action: 'deny' },
     hsts: {
-      maxAge: 31536000,
+      maxAge: 63072000,
       includeSubDomains: true,
       preload: true
     }

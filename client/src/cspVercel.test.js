@@ -65,9 +65,9 @@ describe('Cabeceras de seguridad en cliente (vercel.json)', () => {
     expect(h?.value).toBe('nosniff');
   });
 
-  it('incluye X-Frame-Options: SAMEORIGIN', () => {
+  it('incluye X-Frame-Options: DENY', () => {
     const h = buscarCabecera('X-Frame-Options');
-    expect(h?.value).toBe('SAMEORIGIN');
+    expect(h?.value).toBe('DENY');
   });
 
   it('incluye Referrer-Policy estricta', () => {
