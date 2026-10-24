@@ -133,10 +133,63 @@ const ProductDetail = () => {
     };
   }, [stickyVisible]);
 
+  const jsonLdFicha = mueble ? {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Product',
+        'name': mueble.nombre,
+        'image': (mueble.imagenes && mueble.imagenes.length > 0) ? mueble.imagenes : ['https://www.nave5barcelona.com/og-image.png'],
+        'description': descripcionParaMeta(mueble),
+        'itemCondition': 'https://schema.org/UsedCondition',
+        'offers': {
+          '@type': 'Offer',
+          'price': mueble.precio_venta || (mueble.precio_alquiler_dia ? mueble.precio_alquiler_dia : 0),
+          'priceCurrency': 'EUR',
+          'availability': mueble.estado === 'disponible' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+          'url': `https://www.nave5barcelona.com/mueble/${mueble.id}`,
+          'itemCondition': 'https://schema.org/UsedCondition'
+        }
+      },
+      {
+        '@type': 'BreadcrumbList',
+        'itemListElement': [
+          {
+            '@type': 'ListItem',
+            'position': 1,
+            'name': 'Inicio',
+            'item': 'https://www.nave5barcelona.com/'
+          },
+          {
+            '@type': 'ListItem',
+            'position': 2,
+            'name': 'Catálogo',
+            'item': 'https://www.nave5barcelona.com/catalogo'
+          },
+          ...(mueble.categoria ? [{
+            '@type': 'ListItem',
+            'position': 3,
+            'name': mueble.categoria,
+            'item': `https://www.nave5barcelona.com/catalogo?categoria=${encodeURIComponent(mueble.categoria)}`
+          }] : []),
+          {
+            '@type': 'ListItem',
+            'position': mueble.categoria ? 4 : 3,
+            'name': mueble.nombre,
+            'item': `https://www.nave5barcelona.com/mueble/${mueble.id}`
+          }
+        ]
+      }
+    ]
+  } : null;
+
   useDocumentMeta({
     title: mueble?.nombre,
     description: mueble ? descripcionParaMeta(mueble) : undefined,
     image: mueble?.imagenes?.[0],
+    url: mueble ? `/mueble/${mueble.id}` : undefined,
+    canonical: mueble ? `/mueble/${mueble.id}` : undefined,
+    jsonLd: jsonLdFicha
   });
 
   if (loading) {

@@ -1,14 +1,14 @@
-import { useDocumentMeta } from '../utils/useDocumentMeta';
+import Seo from './Seo';
 import '../styles/InfoPage.css';
 
 // Título/descripción por página: se define una vez aquí y beneficia a todas las páginas
 // de contenido (Sobre Nosotros, Sostenibilidad, Contacto, Legal) que usan este layout --
 // antes todas mostraban el mismo título genérico en la pestaña del navegador.
-const InfoPageLayout = ({ eyebrow, title, tagline, wide = false, children }) => {
-  useDocumentMeta({ title, description: tagline });
-
+const InfoPageLayout = ({ eyebrow, title, tagline, wide = false, canonical, children }) => {
   return (
-    <div className="info-page">
+    <>
+      <Seo title={title} description={tagline} canonical={canonical} />
+      <div className="info-page">
       <div className={`info-page-inner ${wide ? 'info-page-wide' : ''}`}>
         <header className="info-page-header">
           <span className="info-eyebrow">{eyebrow}</span>
@@ -18,6 +18,7 @@ const InfoPageLayout = ({ eyebrow, title, tagline, wide = false, children }) => 
         <article className="info-content">{children}</article>
       </div>
     </div>
+    </>
   );
 };
 

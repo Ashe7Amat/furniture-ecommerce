@@ -1,6 +1,7 @@
 User-agent: *
-Allow: /
 Disallow: /admin
+Disallow: /api
+Disallow: /checkout
 Disallow: /cuenta
 
 Sitemap: https://www.nave5barcelona.com/sitemap.xml
