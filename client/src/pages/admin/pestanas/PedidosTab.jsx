@@ -36,14 +36,42 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
         <p>{pedidosFiltrados.length} de {infoPedidos.total} pedidos</p>
       </div>
 
-      <div className="admin-toolbar">
-        <select value={filtroEstadoPedido} onChange={(e) => setFiltroEstadoPedido(e.target.value)}>
-          <option value="">Todos los estados</option>
-          {ESTADOS_PEDIDO.map(estado => (
-            <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-          ))}
-        </select>
-        <button className="admin-btn-ghost" onClick={cargarPedidos}>Actualizar</button>
+      <div className="admin-toolbar pedidos-toolbar">
+        <div className="pedidos-toolbar-filtros">
+          <select
+            className="n5-input pedidos-filtro-select"
+            value={filtroEstadoPedido}
+            onChange={(e) => setFiltroEstadoPedido(e.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS_PEDIDO.map(estado => (
+              <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="admin-btn-ghost pedidos-btn-actualizar"
+          onClick={cargarPedidos}
+          title="Actualizar listado de pedidos"
+        >
+          <svg
+            className="pedidos-btn-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
+          Actualizar
+        </button>
       </div>
 
       {pedidosFiltrados.length === 0 ? (
@@ -76,6 +104,20 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                       className="admin-btn-ghost pedido-btn-albaran"
                       onClick={() => setPedidoAlbaran(pedido)}
                     >
+                      <svg
+                        className="pedido-btn-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                      </svg>
                       Imprimir albarán
                     </button>
                     {esAlquiler ? (
