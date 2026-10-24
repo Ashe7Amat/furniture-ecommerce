@@ -1254,8 +1254,11 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
 
             <form onSubmit={handleGuardarBloqueo}>
               <div className="n5-form-group">
-                <label className="n5-form-label">Mueble:</label>
+                <label className="n5-form-label" htmlFor="bloqueo-mueble-select">
+                  Mueble:
+                </label>
                 <select
+                  id="bloqueo-mueble-select"
                   className="n5-input"
                   value={bloqueoMuebleId}
                   onChange={(e) => setBloqueoMuebleId(e.target.value)}
