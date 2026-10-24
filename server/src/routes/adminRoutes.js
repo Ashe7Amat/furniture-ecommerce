@@ -133,4 +133,18 @@ router.post(
 // levantar-bloqueo
 router.post('/reservas/:id/:accion', ...reservas, prepararAccion, accionSobreReserva);
 
+// Endpoints PATCH dedicados para marcar entrega y recogida (R-d)
+router.patch('/reservas/:id/entregar', ...reservas, (req, res, next) => {
+  req.params.accion = 'entregar';
+  req.body = req.body || {};
+  if (req.body.antes_de_tiempo === undefined) req.body.antes_de_tiempo = true;
+  next();
+}, prepararAccion, accionSobreReserva);
+
+router.patch('/reservas/:id/recoger', ...reservas, (req, res, next) => {
+  req.params.accion = 'recoger';
+  req.body = req.body || {};
+  next();
+}, prepararAccion, accionSobreReserva);
+
 module.exports = router;

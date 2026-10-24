@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { actualizarEstadoPedido } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
+import { reservasActivas } from '../../../utils/reservas';
 import AlbaranPedido from '../AlbaranPedido';
 
 const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
@@ -56,16 +57,18 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
           {pedidosFiltrados.map(pedido => {
             const cliente = pedido.cliente_info || {};
             const items = Array.isArray(pedido.items) ? pedido.items : [];
+            const esAlquiler = reservasActivas() && (items.some(item => item.modalidad === 'alquiler') || pedido.tipo === 'alquiler' || Boolean(pedido.reserva_id));
             const fecha = pedido.created_at
               ? new Date(pedido.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
               : '—';
 
             return (
-              <div key={pedido.id} className="pedido-card">
+              <div key={pedido.id} className={`pedido-card ${esAlquiler ? 'pedido-card--alquiler' : ''}`}>
                 <div className="pedido-card-header">
-                  <div>
+                  <div className="pedido-cabecera-meta">
                     <span className="pedido-fecha">{fecha}</span>
                     <span className="pedido-id">Ref. {pedido.id.slice(0, 8).toUpperCase()}</span>
+                    {esAlquiler && <span className="pedido-badge-alquiler">ALQUILER</span>}
                   </div>
                   <div className="pedido-card-acciones">
                     <button
@@ -75,15 +78,31 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                     >
                       Imprimir albarán
                     </button>
-                    <select
-                      value={pedido.estado}
-                      onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
-                      className={`pedido-estado-select estado-${pedido.estado}`}
-                    >
-                      {ESTADOS_PEDIDO.map(estado => (
-                        <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-                      ))}
-                    </select>
+                    {esAlquiler ? (
+                      <div className="pedido-alquiler-control" title="Este pedido corresponde a un alquiler. Gestiónalo desde la pestaña Reservas.">
+                        <select
+                          value={pedido.estado}
+                          disabled
+                          className="pedido-estado-select pedido-estado-select--deshabilitado"
+                          aria-label="Estado del pedido"
+                        >
+                          <option value={pedido.estado}>{ETIQUETA_ESTADO_PEDIDO[pedido.estado] || pedido.estado}</option>
+                        </select>
+                        <span className="pedido-alquiler-aviso">
+                          Este pedido corresponde a un alquiler. Gestiónalo desde la pestaña Reservas.
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={pedido.estado}
+                        onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
+                        className={`pedido-estado-select estado-${pedido.estado}`}
+                      >
+                        {ESTADOS_PEDIDO.map(estado => (
+                          <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 

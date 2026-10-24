@@ -39,7 +39,7 @@ const PESTANAS = [
 
 // Reservas por fechas (docs/reservas-diseno.md, 8.1): la pestaña solo existe con el interruptor
 // VITE_RESERVAS_ACTIVAS encendido, después de "Pedidos". Apagado, la barra lateral es la de siempre.
-const PESTANA_RESERVAS = { id: 'reservas', etiqueta: 'Reservas', icono: 'bell' };
+const PESTANA_RESERVAS = { id: 'reservas', etiqueta: 'Reservas', icono: 'calendar' };
 const pestanasVisibles = () =>
   reservasActivas() ? PESTANAS.flatMap(p => (p.id === 'pedidos' ? [p, PESTANA_RESERVAS] : [p])) : PESTANAS;
 
