@@ -49,8 +49,15 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
   // Toggle Vista: 'lista' | 'calendario'
   const [vistaModo, setVistaModo] = useState('lista');
 
-  // Estado Modal Cancelación
+  // Filtros Avanzados en Tabla
+  const [busquedaTexto, setBusquedaTexto] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroFecha, setFiltroFecha] = useState('');
+
+  // Estado Modal Cancelación y Reembolso en céntimos
   const [reservaACancelar, setReservaACancelar] = useState(null);
+  const [reembolsarTotal, setReembolsarTotal] = useState(true);
+  const [importeReembolsoEuros, setImporteReembolsoEuros] = useState(0);
   const [cancelando, setCancelando] = useState(false);
 
   // Estado Modal Bloqueo de Fechas
@@ -62,9 +69,10 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
   const [guardandoBloqueo, setGuardandoBloqueo] = useState(false);
   const [errorBloqueo, setErrorBloqueo] = useState(null);
 
-  // Estado Vista Calendario
+  // Estado Vista Calendario e Inspector Lateral
   const [mesCalendario, setMesCalendario] = useState(() => mesDe(hoyEnMadrid()));
   const [muebleCalendarioId, setMuebleCalendarioId] = useState('');
+  const [diaSeleccionadoInfo, setDiaSeleccionadoInfo] = useState(null);
 
   const cargarReservas = useCallback(async () => {
     setCargando(true);
@@ -106,6 +114,89 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       setMuebleCalendarioId(listaMuebles[0].id);
     }
   }, [muebleCalendarioId, listaMuebles]);
+
+  // Sincronizar el panel lateral del calendario si cambia el estado de la reserva seleccionada
+  useEffect(() => {
+    if (diaSeleccionadoInfo?.reserva?.id) {
+      const actualizada = reservas.find((r) => r.id === diaSeleccionadoInfo.reserva.id);
+      if (actualizada) {
+        setDiaSeleccionadoInfo((prev) => (prev ? { ...prev, reserva: actualizada } : null));
+      }
+    }
+  }, [reservas, diaSeleccionadoInfo?.reserva?.id]);
+
+  // A. Métricas del Dashboard Operativo Superior (Hoy en el almacén)
+  const metricasOperativas = useMemo(() => {
+    const hoy = hoyEnMadrid();
+    let entregasPendientesHoy = 0;
+    let recogidasPendientesHoy = 0;
+    let ingresosActivos = 0;
+
+    reservas.forEach((r) => {
+      const esBloqueo = r.tipo === 'bloqueo';
+      if (r.estado === 'confirmada' && r.fecha_inicio === hoy && !esBloqueo) {
+        entregasPendientesHoy += 1;
+      }
+      if (r.estado === 'en_curso' && r.fecha_fin === hoy && !esBloqueo) {
+        recogidasPendientesHoy += 1;
+      }
+      if ((r.estado === 'confirmada' || r.estado === 'en_curso') && !esBloqueo) {
+        ingresosActivos += Number(r.importe_total ?? 0);
+      }
+    });
+
+    return {
+      entregasPendientesHoy,
+      recogidasPendientesHoy,
+      ingresosActivos
+    };
+  }, [reservas]);
+
+  // B. Reservas filtradas para la tabla
+  const reservasFiltradas = useMemo(() => {
+    const termino = busquedaTexto.trim().toLowerCase();
+
+    return reservas.filter((reserva) => {
+      if (filtroEstado !== 'todos' && reserva.estado !== filtroEstado) {
+        return false;
+      }
+
+      if (filtroFecha) {
+        const fin = reserva.fin_ocupacion || reserva.fecha_fin || '';
+        const inicio = reserva.fecha_inicio || '';
+        if (filtroFecha < inicio || filtroFecha > fin) {
+          return false;
+        }
+      }
+
+      if (termino) {
+        const pieza = reserva.pieza || reserva.mueble || {};
+        const contacto = reserva.contacto || reserva.datos_contacto || {};
+        const nombreMueble = (pieza.nombre || '').toLowerCase();
+        const refMueble = (pieza.referencia || '').toLowerCase();
+        const nombreCliente = (
+          contacto.nombre ||
+          reserva.cliente?.nombre ||
+          reserva.motivo ||
+          reserva.motivo_cancelacion ||
+          ''
+        ).toLowerCase();
+        const emailCliente = (contacto.email || reserva.cliente?.email || '').toLowerCase();
+        const telCliente = (contacto.telefono || '').toLowerCase();
+
+        const coincide =
+          nombreMueble.includes(termino) ||
+          refMueble.includes(termino) ||
+          nombreCliente.includes(termino) ||
+          emailCliente.includes(termino) ||
+          telCliente.includes(termino);
+
+        if (!coincide) return false;
+      }
+
+      return true;
+    });
+  }, [reservas, busquedaTexto, filtroEstado, filtroFecha]);
 
   const refrescarDatosGlobales = () => {
     if (typeof recargarMuebles === 'function') {
@@ -154,8 +245,12 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     }
   };
 
+  // 1. Abrir modal de cancelación inicializando el importe a reembolsar por defecto al 100%
   const abrirModalCancelar = (reserva) => {
+    const totalReserva = Number(reserva?.importe_total ?? 0);
     setReservaACancelar(reserva);
+    setReembolsarTotal(true);
+    setImporteReembolsoEuros(totalReserva);
   };
 
   const cerrarModalCancelar = () => {
@@ -163,12 +258,24 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     setReservaACancelar(null);
   };
 
+  const handleToggleReembolsoTotal = (checked) => {
+    setReembolsarTotal(checked);
+    if (checked && reservaACancelar) {
+      setImporteReembolsoEuros(Number(reservaACancelar.importe_total ?? 0));
+    }
+  };
+
   const handleConfirmarCancelar = async () => {
     if (!reservaACancelar) return;
     setCancelando(true);
     try {
+      const totalOriginal = Number(reservaACancelar.importe_total ?? 0);
+      const importeElegido = reembolsarTotal ? totalOriginal : Number(importeReembolsoEuros || 0);
+      const reembolsoEnCentimos = Math.max(0, Math.round(importeElegido * 100));
+
       const res = await cancelarReservaAdmin(reservaACancelar.id, {
-        motivo: 'Cancelada por el administrador'
+        motivo: 'Cancelada por el administrador',
+        reembolso_importe: reembolsoEnCentimos
       });
       if (res?.error) {
         showToast(res.error, 'error');
@@ -189,14 +296,22 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     }
   };
 
-  const abrirModalBloqueo = () => {
+  const abrirModalBloqueo = (fechaPreseleccionada = null, mueblePreseleccionado = null) => {
     setErrorBloqueo(null);
-    if (!bloqueoMuebleId && listaMuebles.length > 0) {
-      setBloqueoMuebleId(listaMuebles[0].id);
-    }
-    const hoy = hoyEnMadrid();
-    setBloqueoFechaInicio(hoy);
-    setBloqueoFechaFin(hoy);
+    const fechaBase =
+      typeof fechaPreseleccionada === 'string' && fechaPreseleccionada
+        ? fechaPreseleccionada
+        : hoyEnMadrid();
+
+    const muebleObjetivo =
+      mueblePreseleccionado ||
+      bloqueoMuebleId ||
+      muebleCalendarioId ||
+      (listaMuebles.length > 0 ? listaMuebles[0].id : '');
+
+    setBloqueoMuebleId(muebleObjetivo);
+    setBloqueoFechaInicio(fechaBase);
+    setBloqueoFechaFin(fechaBase);
     setBloqueoMotivo('');
     setModalBloqueoAbierto(true);
   };
@@ -229,7 +344,6 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       };
       const res = await bloquearFechasAdmin(payload);
       if (res?.error) {
-        // Manejar solape (409) o validación
         setErrorBloqueo(res.error);
         showToast(res.error, 'error');
       } else {
@@ -253,7 +367,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     return reservas.filter((r) => {
       const mId = r.mueble_id || r.pieza?.id || r.mueble?.id;
       return (
-        mId === muebleCalendarioId &&
+        String(mId) === String(muebleCalendarioId) &&
         r.estado !== 'cancelada' &&
         r.estado !== 'expirada'
       );
@@ -272,52 +386,148 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
     });
   };
 
+  // C & D. Interacción al hacer clic en un día del calendario
+  const handleClickCeldaCalendario = (fecha, ocupacion) => {
+    if (!fecha) return;
+    if (ocupacion) {
+      setDiaSeleccionadoInfo({ fecha, reserva: ocupacion });
+    } else {
+      setDiaSeleccionadoInfo(null);
+      abrirModalBloqueo(fecha, muebleCalendarioId);
+    }
+  };
+
+  const limpiarFiltros = () => {
+    setBusquedaTexto('');
+    setFiltroEstado('todos');
+    setFiltroFecha('');
+  };
+
+  const hayFiltrosActivos =
+    busquedaTexto.trim() !== '' || filtroEstado !== 'todos' || filtroFecha !== '';
+
   return (
-    <div className="admin-view fade-in">
-      <div className="admin-view-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="admin-view n5-reservas-wrapper fade-in">
+      {/* CABECERA EDITORIAL */}
+      <div className="admin-view-head n5-reservas-header">
         <div>
-          <h2>Gestión de Reservas</h2>
-          <p>{reservas.length} {reservas.length === 1 ? 'reserva registrada' : 'reservas registradas'}</p>
+          <span className="n5-eyebrow">Nave 5 Barcelona · Operaciones</span>
+          <h2 className="n5-title">Gestión de Reservas</h2>
+          <p className="n5-subtitle">
+            {reservas.length} {reservas.length === 1 ? 'reserva registrada' : 'reservas registradas'}
+          </p>
         </div>
 
         {/* Toggle Lista / Calendario */}
-        <div className="reservas-toggle-modo" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="reservas-toggle-modo n5-view-switcher">
           <button
             type="button"
-            className={`admin-btn-ghost ${vistaModo === 'lista' ? 'admin-btn-active' : ''}`}
+            className={`n5-switch-btn ${vistaModo === 'lista' ? 'is-active' : ''}`}
             onClick={() => setVistaModo('lista')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontWeight: vistaModo === 'lista' ? 'bold' : 'normal',
-              background: vistaModo === 'lista' ? 'var(--primary-color)' : 'transparent',
-              color: vistaModo === 'lista' ? 'var(--bg-color, #fff)' : 'inherit'
-            }}
           >
             📋 Vista Lista
           </button>
           <button
             type="button"
-            className={`admin-btn-ghost ${vistaModo === 'calendario' ? 'admin-btn-active' : ''}`}
+            className={`n5-switch-btn ${vistaModo === 'calendario' ? 'is-active' : ''}`}
             onClick={() => setVistaModo('calendario')}
-            style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontWeight: vistaModo === 'calendario' ? 'bold' : 'normal',
-              background: vistaModo === 'calendario' ? 'var(--primary-color)' : 'transparent',
-              color: vistaModo === 'calendario' ? 'var(--bg-color, #fff)' : 'inherit'
-            }}
           >
             📅 Vista Calendario
           </button>
         </div>
       </div>
 
-      <div className="admin-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '10px' }}>
+      {/* A. DASHBOARD OPERATIVO SUPERIOR (HOY EN EL ALMACÉN) */}
+      <section className="n5-kpi-section" aria-label="Hoy en el almacén">
+        <div className="n5-kpi-grid">
+          <article className="n5-kpi-card">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Entregas pendientes hoy</span>
+              <span className="n5-kpi-icon" aria-hidden="true">↗</span>
+            </div>
+            <div className="n5-kpi-value">{metricasOperativas.entregasPendientesHoy}</div>
+            <p className="n5-kpi-caption">Salidas de almacén confirmadas para hoy</p>
+          </article>
+
+          <article className="n5-kpi-card">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Recogidas pendientes hoy</span>
+              <span className="n5-kpi-icon" aria-hidden="true">↙</span>
+            </div>
+            <div className="n5-kpi-value">{metricasOperativas.recogidasPendientesHoy}</div>
+            <p className="n5-kpi-caption">Retornos previstos de alquileres en curso</p>
+          </article>
+
+          <article className="n5-kpi-card n5-kpi-card--highlight">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Ingresos Activos</span>
+              <span className="n5-kpi-icon" aria-hidden="true">€</span>
+            </div>
+            <div className="n5-kpi-value">{formatPrice(metricasOperativas.ingresosActivos)} €</div>
+            <p className="n5-kpi-caption">Volumen total en reservas confirmadas y en curso</p>
+          </article>
+        </div>
+      </section>
+
+      {/* BARRA DE HERRAMIENTAS Y FILTROS */}
+      <div className="admin-toolbar n5-toolbar">
+        {vistaModo === 'lista' ? (
+          <div className="n5-filters-bar">
+            <div className="n5-search-box">
+              <span className="n5-search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                className="n5-input n5-search-input"
+                placeholder="Buscar por cliente, email, pieza o referencia…"
+                value={busquedaTexto}
+                onChange={(e) => setBusquedaTexto(e.target.value)}
+                aria-label="Buscar reservas"
+              />
+            </div>
+
+            <select
+              className="n5-input n5-filter-select"
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              aria-label="Filtrar por estado"
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="confirmada">Confirmada</option>
+              <option value="en_curso">En curso</option>
+              <option value="devuelta">Devuelta</option>
+              <option value="cancelada">Cancelada</option>
+              <option value="expirada">Expirada</option>
+            </select>
+
+            <input
+              type="date"
+              className="n5-input n5-filter-date"
+              value={filtroFecha}
+              onChange={(e) => setFiltroFecha(e.target.value)}
+              aria-label="Filtrar por fecha activa"
+              title="Filtrar reservas activas en esta fecha"
+            />
+
+            {hayFiltrosActivos && (
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={limpiarFiltros}
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="n5-calendar-hint">
+            <span>💡 Haz clic en un día libre para bloquear fechas o en uno ocupado para gestionar la entrega.</span>
+          </div>
+        )}
+
+        <div className="n5-toolbar-actions">
           <button
             type="button"
-            className="admin-btn-ghost"
+            className="n5-btn n5-btn-ghost"
             onClick={cargarReservas}
             disabled={cargando}
           >
@@ -325,8 +535,8 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
           </button>
           <button
             type="button"
-            className="admin-btn-secondary"
-            onClick={abrirModalBloqueo}
+            className="n5-btn n5-btn-secondary"
+            onClick={() => abrirModalBloqueo()}
           >
             🔒 Bloquear fechas
           </button>
@@ -337,12 +547,20 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       {vistaModo === 'lista' && (
         <>
           {cargando && reservas.length === 0 ? (
-            <p className="admin-empty-note">Cargando reservas…</p>
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">Cargando reservas…</p>
+            </div>
           ) : reservas.length === 0 ? (
-            <p className="admin-empty-note">Todavía no se ha registrado ninguna reserva.</p>
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">Todavía no se ha registrado ninguna reserva.</p>
+            </div>
+          ) : reservasFiltradas.length === 0 ? (
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">No se encontraron reservas que coincidan con los filtros aplicados.</p>
+            </div>
           ) : (
-            <div className="admin-table-container">
-              <table className="admin-table reservas-table">
+            <div className="admin-table-container n5-table-card">
+              <table className="admin-table reservas-table n5-luxury-table">
                 <thead>
                   <tr>
                     <th>Mueble</th>
@@ -354,24 +572,28 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {reservas.map((reserva) => {
+                  {reservasFiltradas.map((reserva) => {
                     const pieza = reserva.pieza || reserva.mueble || {};
                     const contacto = reserva.contacto || reserva.datos_contacto || {};
-                    const nombreMueble = pieza.nombre || (reserva.tipo === 'bloqueo' ? 'Bloqueo administrativo' : 'Pieza de alquiler');
+                    const nombreMueble =
+                      pieza.nombre ||
+                      (reserva.tipo === 'bloqueo' ? 'Bloqueo administrativo' : 'Pieza de alquiler');
                     const refMueble = pieza.referencia || null;
-                    const nombreCliente = reserva.tipo === 'bloqueo'
-                      ? (reserva.motivo_cancelacion || reserva.motivo || 'Bloqueo manual')
-                      : (contacto.nombre || reserva.cliente?.nombre || 'Cliente');
+                    const nombreCliente =
+                      reserva.tipo === 'bloqueo'
+                        ? reserva.motivo_cancelacion || reserva.motivo || 'Bloqueo manual'
+                        : contacto.nombre || reserva.cliente?.nombre || 'Cliente';
                     const emailCliente = contacto.email || reserva.cliente?.email || '';
                     const telefonoCliente = contacto.telefono || '';
                     const fechasTexto = `${formatearFecha(reserva.fecha_inicio)} - ${formatearFecha(reserva.fecha_fin)}`;
-                    const totalTexto = reserva.tipo === 'bloqueo' ? '—' : `${formatPrice(reserva.importe_total ?? 0)} €`;
+                    const totalTexto =
+                      reserva.tipo === 'bloqueo' ? '—' : `${formatPrice(reserva.importe_total ?? 0)} €`;
                     const estado = reserva.estado;
                     const enProceso = procesandoId === reserva.id;
                     const esCancelable = estado === 'confirmada' || estado === 'en_curso';
 
                     return (
-                      <tr key={reserva.id}>
+                      <tr key={reserva.id} className={reserva.tipo === 'bloqueo' ? 'n5-row-bloqueo' : ''}>
                         <td>
                           <div className="reserva-celda-mueble">
                             <strong className="reserva-mueble-nombre">{nombreMueble}</strong>
@@ -380,7 +602,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                         </td>
                         <td>
                           <div className="reserva-celda-cliente">
-                            <strong>{nombreCliente}</strong>
+                            <strong className="reserva-cliente-nombre">{nombreCliente}</strong>
                             {emailCliente && <span className="reserva-cliente-email">{emailCliente}</span>}
                             {telefonoCliente && <span className="reserva-cliente-tel">{telefonoCliente}</span>}
                           </div>
@@ -390,18 +612,19 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                         </td>
                         <td>
                           <span className={`reserva-estado-badge estado-${estado}`}>
+                            <span className="n5-badge-dot" />
                             {ETIQUETAS_ESTADO[estado] || estado}
                           </span>
                         </td>
                         <td>
-                          <strong>{totalTexto}</strong>
+                          <strong className="n5-price-cell">{totalTexto}</strong>
                         </td>
                         <td style={{ textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                          <div className="n5-actions-group">
                             {estado === 'confirmada' && (
                               <button
                                 type="button"
-                                className="admin-btn-primary admin-btn-sm"
+                                className="n5-btn n5-btn-action-deliver n5-btn-sm"
                                 onClick={() => handleMarcarEntregada(reserva.id)}
                                 disabled={enProceso}
                               >
@@ -412,7 +635,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                             {estado === 'en_curso' && (
                               <button
                                 type="button"
-                                className="admin-btn-secondary admin-btn-sm"
+                                className="n5-btn n5-btn-action-pickup n5-btn-sm"
                                 onClick={() => handleMarcarRecogida(reserva.id)}
                                 disabled={enProceso}
                               >
@@ -423,7 +646,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                             {estado === 'devuelta' && (
                               <button
                                 type="button"
-                                className="admin-btn-ghost admin-btn-sm"
+                                className="n5-btn n5-btn-finished n5-btn-sm"
                                 disabled
                               >
                                 Finalizada
@@ -433,10 +656,9 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                             {esCancelable && (
                               <button
                                 type="button"
-                                className="admin-btn-ghost admin-btn-sm"
+                                className="n5-btn n5-btn-action-cancel n5-btn-sm"
                                 onClick={() => abrirModalCancelar(reserva)}
                                 title="Cancelar reserva y tramitar reembolso"
-                                style={{ color: 'var(--error-color, #e53e3e)', borderColor: 'var(--error-color, #e53e3e)' }}
                               >
                                 ✕ Cancelar
                               </button>
@@ -459,19 +681,22 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
 
       {/* VISTA CALENDARIO */}
       {vistaModo === 'calendario' && (
-        <div className="admin-calendario-vista" style={{ background: 'var(--card-bg, #fff)', border: '1px solid var(--border-color)', borderRadius: '12px', padding: '24px' }}>
+        <div className="admin-calendario-vista n5-calendar-card">
           {/* Selector de mueble y navegación mensual */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <label htmlFor="select-mueble-calendario" style={{ fontWeight: '600', fontSize: '0.95rem' }}>
+          <div className="n5-calendar-header">
+            <div className="n5-calendar-selector">
+              <label htmlFor="select-mueble-calendario" className="n5-label-inline">
                 Mueble a consultar:
               </label>
               <select
                 id="select-mueble-calendario"
-                className="admin-input"
+                aria-label="Mueble a consultar"
+                className="n5-input n5-select-piece"
                 value={muebleCalendarioId}
-                onChange={(e) => setMuebleCalendarioId(e.target.value)}
-                style={{ minWidth: '240px' }}
+                onChange={(e) => {
+                  setMuebleCalendarioId(e.target.value);
+                  setDiaSeleccionadoInfo(null);
+                }}
               >
                 {listaMuebles.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -481,155 +706,301 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
               </select>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="n5-calendar-nav">
               <button
                 type="button"
-                className="admin-btn-ghost admin-btn-sm"
-                onClick={() => setMesCalendario(prev => sumarMeses(prev, -1))}
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, -1))}
               >
                 ◀ Mes anterior
               </button>
-              <span style={{ fontWeight: 'bold', fontSize: '1.05rem', minWidth: '160px', textAlign: 'center', textTransform: 'capitalize' }}>
-                {nombreDelMes(mesCalendario)}
-              </span>
+              <span className="n5-calendar-month-label">{nombreDelMes(mesCalendario)}</span>
               <button
                 type="button"
-                className="admin-btn-ghost admin-btn-sm"
-                onClick={() => setMesCalendario(prev => sumarMeses(prev, 1))}
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, 1))}
               >
                 Mes siguiente ▶
               </button>
             </div>
           </div>
 
-          {/* Cuadrícula del Calendario */}
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-              <thead>
-                <tr>
-                  {DIAS_CABECERA.map((d) => (
-                    <th key={d} style={{ padding: '10px', textAlign: 'center', borderBottom: '2px solid var(--border-color)', color: 'var(--secondary-color)', fontSize: '0.85rem' }}>
-                      {d}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {semanas.map((semana, sIdx) => (
-                  <tr key={sIdx}>
-                    {semana.map((fecha, dIdx) => {
-                      if (!fecha) {
-                        return (
-                          <td key={dIdx} style={{ height: '90px', background: 'var(--bg-muted, rgba(0,0,0,0.02))', border: '1px solid var(--border-color)' }} />
-                        );
-                      }
-                      const ocupacion = obtenerOcupacionDia(fecha);
-                      const diaNum = fecha.slice(8);
-                      const esHoy = fecha === hoyEnMadrid();
-
-                      return (
-                        <td
-                          key={dIdx}
-                          style={{
-                            height: '90px',
-                            verticalAlign: 'top',
-                            padding: '6px',
-                            border: '1px solid var(--border-color)',
-                            background: ocupacion
-                              ? (ocupacion.tipo === 'bloqueo' ? 'rgba(237, 137, 54, 0.12)' : 'rgba(66, 153, 225, 0.12)')
-                              : esHoy ? 'rgba(72, 187, 120, 0.08)' : 'transparent',
-                            transition: 'background 0.2s'
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                            <span style={{
-                              fontWeight: esHoy ? 'bold' : 'normal',
-                              fontSize: '0.85rem',
-                              color: esHoy ? 'var(--primary-color)' : 'inherit',
-                              borderRadius: '50%',
-                              width: '22px',
-                              height: '22px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              border: esHoy ? '1px solid var(--primary-color)' : 'none'
-                            }}>
-                              {parseInt(diaNum, 10)}
-                            </span>
-                          </div>
-
-                          {ocupacion && (
-                            <div
-                              style={{
-                                fontSize: '0.72rem',
-                                padding: '3px 6px',
-                                borderRadius: '4px',
-                                background: ocupacion.tipo === 'bloqueo' ? '#ed8936' : 'var(--primary-color, #3182ce)',
-                                color: '#fff',
-                                fontWeight: '600',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}
-                              title={
-                                ocupacion.tipo === 'bloqueo'
-                                  ? `Bloqueo: ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Mantenimiento'}`
-                                  : `Reserva: ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Cliente'} (${ocupacion.estado})`
-                              }
-                            >
-                              {ocupacion.tipo === 'bloqueo'
-                                ? `🔒 ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Bloqueado'}`
-                                : `📦 ${ocupacion.contacto?.nombre || 'Alquilado'}`}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
+          {/* Layout: Cuadrícula + Panel Lateral de Detalle */}
+          <div className={`n5-calendar-layout ${diaSeleccionadoInfo ? 'has-inspector' : ''}`}>
+            <div className="n5-calendar-grid-wrapper">
+              <table className="n5-calendar-table">
+                <thead>
+                  <tr>
+                    {DIAS_CABECERA.map((d) => (
+                      <th key={d}>{d}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {semanas.map((semana, sIdx) => (
+                    <tr key={sIdx}>
+                      {semana.map((fecha, dIdx) => {
+                        if (!fecha) {
+                          return <td key={dIdx} className="n5-cal-cell is-empty" />;
+                        }
+                        const ocupacion = obtenerOcupacionDia(fecha);
+                        const diaNum = parseInt(fecha.slice(8), 10);
+                        const esHoy = fecha === hoyEnMadrid();
+                        const esBloqueo = ocupacion?.tipo === 'bloqueo';
+                        const estaSeleccionado = diaSeleccionadoInfo?.fecha === fecha;
+
+                        const clasesCelda = [
+                          'n5-cal-cell',
+                          ocupacion ? (esBloqueo ? 'is-blocked' : 'is-booked') : 'is-free',
+                          esHoy ? 'is-today' : '',
+                          estaSeleccionado ? 'is-selected' : ''
+                        ]
+                          .filter(Boolean)
+                          .join(' ');
+
+                        return (
+                          <td
+                            key={dIdx}
+                            className={clasesCelda}
+                            onClick={() => handleClickCeldaCalendario(fecha, ocupacion)}
+                            title={
+                              ocupacion
+                                ? esBloqueo
+                                  ? `Bloqueo: ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Mantenimiento'}`
+                                  : `Reserva: ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Cliente'} (${ocupacion.estado}) — Clic para ver detalles`
+                                : `Día disponible (${formatearFecha(fecha)}) — Clic para bloquear fecha`
+                            }
+                          >
+                            <div className="n5-cal-cell-inner">
+                              <div className="n5-cal-day-top">
+                                <span className="n5-cal-day-number">{diaNum}</span>
+                                {!ocupacion && <span className="n5-cal-add-hint">+ Bloquear</span>}
+                              </div>
+
+                              {ocupacion && (
+                                <div className="n5-cal-pill">
+                                  {esBloqueo
+                                    ? `🔒 ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Bloqueado'}`
+                                    : `📦 ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Alquilado'}`}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* C. PANEL LATERAL DE DETALLE EN EL CALENDARIO */}
+            {diaSeleccionadoInfo && diaSeleccionadoInfo.reserva && (
+              <aside className="n5-calendar-inspector" aria-label="Detalle de reserva seleccionada">
+                <div className="n5-inspector-head">
+                  <div>
+                    <span className="n5-eyebrow">Fecha seleccionada · {formatearFecha(diaSeleccionadoInfo.fecha)}</span>
+                    <h4 className="n5-inspector-title">
+                      {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                        ? 'Bloqueo de Almacén'
+                        : 'Detalle de la Reserva'}
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    className="n5-inspector-close"
+                    onClick={() => setDiaSeleccionadoInfo(null)}
+                    aria-label="Cerrar panel de detalle"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="n5-inspector-body">
+                  <div className="n5-inspector-row">
+                    <span className="n5-inspector-label">Cliente / Concepto</span>
+                    <strong className="n5-inspector-value">
+                      {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                        ? diaSeleccionadoInfo.reserva.motivo_cancelacion ||
+                          diaSeleccionadoInfo.reserva.motivo ||
+                          'Bloqueo administrativo'
+                        : diaSeleccionadoInfo.reserva.contacto?.nombre ||
+                          diaSeleccionadoInfo.reserva.cliente?.nombre ||
+                          'Cliente'}
+                    </strong>
+                  </div>
+
+                  {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+                    <div className="n5-inspector-row">
+                      <span className="n5-inspector-label">Email de contacto</span>
+                      <span className="n5-inspector-value">
+                        {diaSeleccionadoInfo.reserva.contacto?.email ||
+                          diaSeleccionadoInfo.reserva.cliente?.email ||
+                          'No especificado'}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="n5-inspector-row">
+                    <span className="n5-inspector-label">Periodo reservado</span>
+                    <span className="n5-inspector-value">
+                      {formatearFecha(diaSeleccionadoInfo.reserva.fecha_inicio)} —{' '}
+                      {formatearFecha(diaSeleccionadoInfo.reserva.fecha_fin)}
+                    </span>
+                  </div>
+
+                  <div className="n5-inspector-row">
+                    <span className="n5-inspector-label">Estado actual</span>
+                    <div>
+                      <span className={`reserva-estado-badge estado-${diaSeleccionadoInfo.reserva.estado}`}>
+                        <span className="n5-badge-dot" />
+                        {ETIQUETAS_ESTADO[diaSeleccionadoInfo.reserva.estado] ||
+                          diaSeleccionadoInfo.reserva.estado}
+                      </span>
+                    </div>
+                  </div>
+
+                  {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+                    <div className="n5-inspector-row">
+                      <span className="n5-inspector-label">Importe total</span>
+                      <strong className="n5-inspector-value">
+                        {formatPrice(diaSeleccionadoInfo.reserva.importe_total ?? 0)} €
+                      </strong>
+                    </div>
+                  )}
+                </div>
+
+                <div className="n5-inspector-actions">
+                  {diaSeleccionadoInfo.reserva.estado === 'confirmada' && (
+                    <button
+                      type="button"
+                      className="n5-btn n5-btn-action-deliver"
+                      onClick={() => handleMarcarEntregada(diaSeleccionadoInfo.reserva.id)}
+                      disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+                    >
+                      {procesandoId === diaSeleccionadoInfo.reserva.id
+                        ? 'Guardando…'
+                        : 'Marcar Entregada'}
+                    </button>
+                  )}
+
+                  {diaSeleccionadoInfo.reserva.estado === 'en_curso' && (
+                    <button
+                      type="button"
+                      className="n5-btn n5-btn-action-pickup"
+                      onClick={() => handleMarcarRecogida(diaSeleccionadoInfo.reserva.id)}
+                      disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+                    >
+                      {procesandoId === diaSeleccionadoInfo.reserva.id
+                        ? 'Guardando…'
+                        : 'Marcar Recogida'}
+                    </button>
+                  )}
+
+                  {(diaSeleccionadoInfo.reserva.estado === 'confirmada' ||
+                    diaSeleccionadoInfo.reserva.estado === 'en_curso') && (
+                    <button
+                      type="button"
+                      className="n5-btn n5-btn-action-cancel"
+                      onClick={() => abrirModalCancelar(diaSeleccionadoInfo.reserva)}
+                    >
+                      ✕ Cancelar
+                    </button>
+                  )}
+                </div>
+              </aside>
+            )}
           </div>
 
-          {/* Leyenda y lista de reservas del mueble */}
-          <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '0.85rem' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '12px', background: 'var(--primary-color, #3182ce)', borderRadius: '2px', display: 'inline-block' }} />
+          {/* Leyenda y resumen inferior */}
+          <div className="n5-calendar-footer">
+            <div className="n5-calendar-legend">
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-booked" />
                 Alquiler activo / Confirmado
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '12px', height: '12px', background: '#ed8936', borderRadius: '2px', display: 'inline-block' }} />
-                Bloqueo administrativo
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-blocked" />
+                Bloqueo administrativo (Patrón rayado)
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-free" />
+                Día libre (Clic para bloquear)
               </span>
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-color)' }}>
-              {reservasMuebleCalendario.length} {reservasMuebleCalendario.length === 1 ? 'evento activo para este mueble' : 'eventos activos para este mueble'}
+            <div className="n5-calendar-summary">
+              {reservasMuebleCalendario.length}{' '}
+              {reservasMuebleCalendario.length === 1
+                ? 'evento activo para este mueble'
+                : 'eventos activos para este mueble'}
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL CANCELAR RESERVA */}
+      {/* MODAL CANCELAR RESERVA (CON REEMBOLSO EN CÉNTIMOS) */}
       {reservaACancelar && (
-        <div className="admin-modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div className="admin-modal-card" style={{
-            background: 'var(--card-bg, #fff)', borderRadius: '12px', padding: '24px', maxWidth: '480px', width: '90%',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '12px', color: 'var(--error-color, #e53e3e)' }}>
-              ¿Cancelar reserva?
-            </h3>
-            <p style={{ marginBottom: '20px', lineHeight: 1.5, color: 'var(--text-color)' }}>
+        <div className="admin-modal-overlay n5-modal-overlay">
+          <div className="admin-modal-card n5-modal-card">
+            <h3 className="n5-modal-title n5-modal-title--danger">¿Cancelar reserva?</h3>
+            <p className="n5-modal-description">
               ¿Cancelar la reserva? Se intentará reembolsar al cliente el importe total a través de Stripe.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+
+            <div className="n5-refund-box">
+              <label className="n5-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={reembolsarTotal}
+                  onChange={(e) => handleToggleReembolsoTotal(e.target.checked)}
+                />
+                <span>
+                  Reembolsar el 100% del importe ({formatPrice(reservaACancelar.importe_total ?? 0)} €)
+                </span>
+              </label>
+
+              <div className="n5-refund-input-group">
+                <label htmlFor="input-reembolso-euros" className="n5-form-label">
+                  Importe a reembolsar (€):
+                </label>
+                <input
+                  id="input-reembolso-euros"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={Number(reservaACancelar.importe_total ?? 0)}
+                  className="n5-input"
+                  value={importeReembolsoEuros}
+                  disabled={reembolsarTotal}
+                  onChange={(e) => {
+                    setReembolsarTotal(false);
+                    setImporteReembolsoEuros(e.target.value);
+                  }}
+                />
+                <small className="n5-refund-helper">
+                  Se enviarán{' '}
+                  <strong>
+                    {Math.max(
+                      0,
+                      Math.round(
+                        Number(
+                          reembolsarTotal
+                            ? reservaACancelar.importe_total ?? 0
+                            : importeReembolsoEuros || 0
+                        ) * 100
+                      )
+                    )}{' '}
+                    céntimos
+                  </strong>{' '}
+                  (`reembolso_importe`) a la pasarela de pago.
+                </small>
+              </div>
+            </div>
+
+            <div className="n5-modal-actions">
               <button
                 type="button"
-                className="admin-btn-ghost"
+                className="n5-btn n5-btn-ghost"
                 onClick={cerrarModalCancelar}
                 disabled={cancelando}
               >
@@ -637,10 +1008,9 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
               </button>
               <button
                 type="button"
-                className="admin-btn-primary"
+                className="n5-btn n5-btn-danger"
                 onClick={handleConfirmarCancelar}
                 disabled={cancelando}
-                style={{ backgroundColor: 'var(--error-color, #e53e3e)', borderColor: 'var(--error-color, #e53e3e)' }}
               >
                 {cancelando ? 'Cancelando y reembolsando…' : 'Cancelar reserva'}
               </button>
@@ -651,40 +1021,24 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
 
       {/* MODAL BLOQUEAR FECHAS */}
       {modalBloqueoAbierto && (
-        <div className="admin-modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div className="admin-modal-card" style={{
-            background: 'var(--card-bg, #fff)', borderRadius: '12px', padding: '24px', maxWidth: '520px', width: '90%',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: '16px' }}>
-              🔒 Bloquear fechas manualmente
-            </h3>
+        <div className="admin-modal-overlay n5-modal-overlay">
+          <div className="admin-modal-card n5-modal-card">
+            <h3 className="n5-modal-title">🔒 Bloquear fechas manualmente</h3>
 
-            {errorBloqueo && (
-              <div style={{
-                background: 'rgba(229, 62, 62, 0.1)', border: '1px solid var(--error-color, #e53e3e)',
-                color: 'var(--error-color, #e53e3e)', padding: '10px 14px', borderRadius: '6px', marginBottom: '16px', fontSize: '0.88rem'
-              }}>
-                {errorBloqueo}
-              </div>
-            )}
+            {errorBloqueo && <div className="n5-alert-error">{errorBloqueo}</div>}
 
             <form onSubmit={handleGuardarBloqueo}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '0.9rem' }}>
-                  Mueble:
-                </label>
+              <div className="n5-form-group">
+                <label className="n5-form-label">Mueble:</label>
                 <select
-                  className="admin-input"
+                  className="n5-input"
                   value={bloqueoMuebleId}
                   onChange={(e) => setBloqueoMuebleId(e.target.value)}
-                  style={{ width: '100%' }}
                   required
                 >
-                  <option value="" disabled>Selecciona un mueble…</option>
+                  <option value="" disabled>
+                    Selecciona un mueble…
+                  </option>
                   {listaMuebles.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.nombre} {m.referencia ? `(${m.referencia})` : ''}
@@ -693,54 +1047,45 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '0.9rem' }}>
-                    Fecha Inicio:
-                  </label>
+              <div className="n5-form-row-2">
+                <div className="n5-form-group">
+                  <label className="n5-form-label">Fecha Inicio:</label>
                   <input
                     type="date"
-                    className="admin-input"
+                    className="n5-input"
                     value={bloqueoFechaInicio}
                     onChange={(e) => setBloqueoFechaInicio(e.target.value)}
-                    style={{ width: '100%' }}
                     required
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '0.9rem' }}>
-                    Fecha Fin:
-                  </label>
+                <div className="n5-form-group">
+                  <label className="n5-form-label">Fecha Fin:</label>
                   <input
                     type="date"
-                    className="admin-input"
+                    className="n5-input"
                     value={bloqueoFechaFin}
                     onChange={(e) => setBloqueoFechaFin(e.target.value)}
-                    style={{ width: '100%' }}
                     required
                   />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', fontWeight: '600', fontSize: '0.9rem' }}>
-                  Motivo:
-                </label>
+              <div className="n5-form-group">
+                <label className="n5-form-label">Motivo:</label>
                 <input
                   type="text"
-                  className="admin-input"
+                  className="n5-input"
                   placeholder="Ej. Exposición, Mantenimiento, Restauración"
                   value={bloqueoMotivo}
                   onChange={(e) => setBloqueoMotivo(e.target.value)}
-                  style={{ width: '100%' }}
                   required
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div className="n5-modal-actions">
                 <button
                   type="button"
-                  className="admin-btn-ghost"
+                  className="n5-btn n5-btn-ghost"
                   onClick={cerrarModalBloqueo}
                   disabled={guardandoBloqueo}
                 >
@@ -748,7 +1093,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                 </button>
                 <button
                   type="submit"
-                  className="admin-btn-primary"
+                  className="n5-btn n5-btn-primary"
                   disabled={guardandoBloqueo}
                 >
                   {guardandoBloqueo ? 'Guardando bloqueo…' : 'Bloquear fechas'}

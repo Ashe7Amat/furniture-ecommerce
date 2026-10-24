@@ -253,6 +253,7 @@ const cancelarReservaAdmin = async (req, res, next) => {
     }
 
     const motivo = req.body?.motivo || 'Cancelada por el administrador';
+    const importeCentimos = req.body?.reembolso_importe !== undefined ? Math.round(Number(req.body.reembolso_importe)) : null;
     let refundId = null;
 
     // 2. Reembolso con Stripe si tiene payment_intent y no está reembolsado ya
@@ -260,10 +261,14 @@ const cancelarReservaAdmin = async (req, res, next) => {
       const stripe = stripeUtil.getStripe();
       if (stripe) {
         try {
-          const refund = await stripe.refunds.create({
+          const refundData = {
             payment_intent: fila.stripe_payment_intent_id,
             metadata: { reserva_id: fila.id, motivo }
-          });
+          };
+          if (importeCentimos !== null && importeCentimos > 0) {
+            refundData.amount = importeCentimos;
+          }
+          const refund = await stripe.refunds.create(refundData);
           if (refund && refund.id) {
             refundId = refund.id;
           }
@@ -293,7 +298,7 @@ const cancelarReservaAdmin = async (req, res, next) => {
     if (refundId) {
       cambios.stripe_refund_id = refundId;
       cambios.reembolso_solicitado_en = ahora.toISOString();
-      cambios.reembolso_importe = fila.importe_total || 0;
+      cambios.reembolso_importe = importeCentimos !== null ? (importeCentimos / 100) : (fila.importe_total || 0);
     }
 
     const { data: updatedData, error: updateError } = await supabase

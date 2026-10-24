@@ -86,8 +86,8 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
     expect(screen.getByText('Ashenafi Amat')).toBeInTheDocument();
     expect(screen.getByText('amat@ejemplo.com')).toBeInTheDocument();
     expect(screen.getByText('03/11/2026 - 05/11/2026')).toBeInTheDocument();
-    expect(screen.getByText('Confirmada')).toBeInTheDocument();
-    expect(screen.getByText('150 €')).toBeInTheDocument();
+    expect(screen.getAllByText('Confirmada').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('150 €').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: 'Marcar Entregada' })).toBeInTheDocument();
   });
 
@@ -165,9 +165,13 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
     fireEvent.click(botonConfirmar);
 
     await waitFor(() => {
-      expect(cancelarReservaAdmin).toHaveBeenCalledWith('res-1', {
-        motivo: 'Cancelada por el administrador'
-      });
+      expect(cancelarReservaAdmin).toHaveBeenCalledWith(
+        'res-1',
+        expect.objectContaining({
+          motivo: 'Cancelada por el administrador',
+          reembolso_importe: 15000
+        })
+      );
       expect(showToast).toHaveBeenCalledWith('Reserva cancelada y reembolsada', 'success');
       expect(recargarMuebles).toHaveBeenCalled();
     });
@@ -252,6 +256,74 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
     expect(await screen.findByLabelText(/mueble a consultar/i)).toBeInTheDocument();
     expect(screen.getByText(/mes anterior/i)).toBeInTheDocument();
     expect(screen.getByText(/mes siguiente/i)).toBeInTheDocument();
+  });
+
+  it('permite reembolso parcial en el modal de cancelación enviando los céntimos exactos', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA] }
+    });
+    cancelarReservaAdmin.mockResolvedValue({ data: { reserva: { id: 'res-1', estado: 'cancelada' } } });
+
+    renderConToast(<ReservasTab />);
+
+    const botonCancelar = await screen.findByRole('button', { name: /cancelar/i });
+    fireEvent.click(botonCancelar);
+
+    // Desmarcar reembolso del 100%
+    const checkboxTotal = screen.getByLabelText(/reembolsar el 100%/i);
+    expect(checkboxTotal).toBeChecked();
+    fireEvent.click(checkboxTotal);
+    expect(checkboxTotal).not.toBeChecked();
+
+    // Cambiar importe a 50 euros
+    const inputImporte = screen.getByLabelText(/importe a reembolsar/i);
+    fireEvent.change(inputImporte, { target: { value: '50' } });
+
+    // Confirmar cancelación
+    const botonConfirmar = screen.getByRole('button', { name: 'Cancelar reserva' });
+    fireEvent.click(botonConfirmar);
+
+    await waitFor(() => {
+      expect(cancelarReservaAdmin).toHaveBeenCalledWith(
+        'res-1',
+        expect.objectContaining({
+          motivo: 'Cancelada por el administrador',
+          reembolso_importe: 5000
+        })
+      );
+    });
+  });
+
+  it('muestra el dashboard operativo de almacén con sus 3 KPIs y permite filtrar reservas por texto', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA, RESERVA_EN_CURSO] }
+    });
+
+    renderConToast(<ReservasTab />);
+
+    // Verificar las 3 tarjetas de KPIs
+    expect(await screen.findByText('Entregas pendientes hoy')).toBeInTheDocument();
+    expect(screen.getByText('Recogidas pendientes hoy')).toBeInTheDocument();
+    expect(screen.getByText('Ingresos Activos')).toBeInTheDocument();
+
+    // Filtro por texto
+    const inputBusqueda = screen.getByPlaceholderText(/buscar por cliente/i);
+    fireEvent.change(inputBusqueda, { target: { value: 'Tolix' } });
+
+    // Debe mostrar la Silla Tolix y ocultar el Espejo vintage
+    await waitFor(() => {
+      expect(screen.getByText('Silla Tolix')).toBeInTheDocument();
+      expect(screen.queryByText('Espejo vintage')).not.toBeInTheDocument();
+    });
+
+    // Limpiar filtro
+    const botonLimpiar = screen.getByRole('button', { name: /limpiar filtros/i });
+    fireEvent.click(botonLimpiar);
+
+    await waitFor(() => {
+      expect(screen.getByText('Espejo vintage')).toBeInTheDocument();
+      expect(screen.getByText('Silla Tolix')).toBeInTheDocument();
+    });
   });
 });
 

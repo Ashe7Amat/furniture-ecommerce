@@ -965,3 +965,937 @@
   .reservas-modos { display: grid; width: 100%; grid-template-columns: 1fr; }
   .reservas-modo + .reservas-modo { border-top: 1px solid var(--border-color); border-left: 0; }
 }
+
+/* ==========================================================================
+   NAVE 5 BARCELONA — GESTIÓN DE RESERVAS (ESTILO EDITORIAL LUXURY)
+   Usa estrictamente las variables definidas en index.css
+   ========================================================================== */
+
+.n5-reservas-wrapper {
+  font-family: var(--font-body);
+  color: var(--primary-color);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 40px;
+}
+
+/* ─── CABECERA Y SELECTOR DE VISTA ─── */
+.n5-reservas-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.n5-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-text);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.n5-title {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.n5-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+.n5-view-switcher {
+  display: inline-flex;
+  background: var(--surface-alt);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  gap: 4px;
+}
+
+.n5-switch-btn {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  color: var(--secondary-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.n5-switch-btn:hover {
+  color: var(--primary-color);
+}
+
+.n5-switch-btn.is-active {
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ─── A. DASHBOARD OPERATIVO SUPERIOR (KPIs) ─── */
+.n5-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.n5-kpi-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.n5-kpi-card:hover {
+  transform: translateY(-2px);
+}
+
+.n5-kpi-card--highlight {
+  background: linear-gradient(145deg, var(--card-bg) 0%, var(--surface-alt) 100%);
+  border-color: var(--accent-color);
+}
+
+.n5-kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.n5-kpi-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--secondary-color);
+}
+
+.n5-kpi-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  color: var(--accent-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.n5-kpi-value {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.n5-kpi-caption {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+}
+
+/* ─── B. BARRA DE FILTROS Y HERRAMIENTAS ─── */
+.n5-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  background: var(--card-bg);
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.n5-filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.n5-search-box {
+  position: relative;
+  flex: 1;
+  min-width: 240px;
+}
+
+.n5-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--secondary-color);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.n5-input {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: var(--primary-color);
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.n5-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  background: var(--card-bg);
+}
+
+.n5-search-input {
+  padding-left: 34px;
+}
+
+.n5-filter-select {
+  width: auto;
+  min-width: 165px;
+}
+
+.n5-filter-date {
+  width: auto;
+  min-width: 150px;
+}
+
+.n5-calendar-hint {
+  font-size: 0.86rem;
+  color: var(--secondary-color);
+}
+
+.n5-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ─── BOTONES COMPACTOS Y SEMÁNTICOS ─── */
+.n5-btn {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.n5-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.n5-btn-sm {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+}
+
+.n5-btn-primary {
+  background: var(--accent-color);
+  color: var(--card-bg);
+}
+
+.n5-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.n5-btn-secondary {
+  background: var(--primary-color);
+  color: var(--bg-color);
+}
+
+.n5-btn-secondary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.n5-btn-ghost {
+  background: transparent;
+  color: var(--primary-color);
+  border-color: var(--border-color);
+}
+
+.n5-btn-ghost:hover:not(:disabled) {
+  background: var(--surface-alt);
+}
+
+.n5-btn-danger {
+  background: var(--danger-color);
+  color: var(--card-bg);
+}
+
+/* Botones de acción en fila de tabla */
+.n5-btn-action-deliver {
+  background: var(--accent-color);
+  color: var(--card-bg);
+}
+
+.n5-btn-action-deliver:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.n5-btn-action-pickup {
+  background: var(--success-bg);
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.n5-btn-action-pickup:hover:not(:disabled) {
+  background: var(--success-color);
+  color: var(--card-bg);
+}
+
+.n5-btn-action-cancel {
+  background: transparent;
+  color: var(--danger-color);
+  border-color: var(--danger-bg);
+}
+
+.n5-btn-action-cancel:hover:not(:disabled) {
+  background: var(--danger-bg);
+  border-color: var(--danger-color);
+}
+
+.n5-btn-finished {
+  background: var(--surface-alt);
+  color: var(--secondary-color);
+  border-color: transparent;
+}
+
+/* ─── 2. TABLA DE RESERVAS ESTILO HOTEL DE LUJO ─── */
+.n5-table-card {
+  background: var(--surface-alt);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.n5-luxury-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+}
+
+.n5-luxury-table thead th {
+  font-family: var(--font-body);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--secondary-color);
+  padding: 12px 18px;
+  border: none;
+  text-align: left;
+}
+
+.n5-luxury-table tbody tr {
+  background: var(--card-bg);
+  transition: transform 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.n5-luxury-table tbody tr:hover {
+  background: var(--bg-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.n5-luxury-table tbody td {
+  padding: 16px 18px;
+  border: none;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.n5-luxury-table tbody td:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+
+.n5-luxury-table tbody td:last-child {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.reserva-celda-mueble,
+.reserva-celda-cliente {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reserva-mueble-nombre {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.reserva-mueble-ref {
+  display: inline-block;
+  width: fit-content;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: var(--etiqueta-bg);
+  color: var(--etiqueta-text);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+.reserva-cliente-nombre {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.reserva-cliente-email,
+.reserva-cliente-tel {
+  font-size: 0.8rem;
+  color: var(--secondary-color);
+}
+
+.reserva-fechas-rango {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--primary-color);
+  background: var(--surface-alt);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+.n5-price-cell {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--primary-color);
+}
+
+.n5-actions-group {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Badges de Estado */
+.reserva-estado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.n5-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.reserva-estado-badge.estado-confirmada {
+  background: var(--warning-bg);
+  color: var(--warning-color);
+}
+
+.reserva-estado-badge.estado-en_curso {
+  background: var(--etiqueta-bg);
+  color: var(--etiqueta-text);
+}
+
+.reserva-estado-badge.estado-devuelta {
+  background: var(--success-bg);
+  color: var(--success-color);
+}
+
+.reserva-estado-badge.estado-cancelada,
+.reserva-estado-badge.estado-expirada {
+  background: var(--danger-bg);
+  color: var(--danger-color);
+}
+
+/* ─── C & D. VISTA CALENDARIO MODERNA (ASPECT-RATIO 1/1 + INSPECTOR) ─── */
+.n5-calendar-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: var(--shadow-card);
+}
+
+.n5-calendar-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.n5-calendar-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.n5-label-inline {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+.n5-select-piece {
+  min-width: 260px;
+  width: auto;
+}
+
+.n5-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.n5-calendar-month-label {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  min-width: 170px;
+  text-align: center;
+  text-transform: capitalize;
+  color: var(--primary-color);
+}
+
+.n5-calendar-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.n5-calendar-layout.has-inspector {
+  grid-template-columns: 1fr 340px;
+}
+
+@media (max-width: 960px) {
+  .n5-calendar-layout.has-inspector {
+    grid-template-columns: 1fr;
+  }
+}
+
+.n5-calendar-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 8px;
+  table-layout: fixed;
+}
+
+.n5-calendar-table thead th {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--secondary-color);
+  padding-bottom: 8px;
+  text-align: center;
+}
+
+.n5-cal-cell {
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  vertical-align: top;
+  padding: 10px;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.n5-cal-cell.is-empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+}
+
+.n5-cal-cell.is-free {
+  background: var(--surface-alt);
+}
+
+.n5-cal-cell.is-free:hover {
+  background: var(--card-bg);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Días ocupados por reserva: bloque sólido terracota cálido */
+.n5-cal-cell.is-booked {
+  background: var(--accent-color);
+  color: var(--card-bg);
+  border-color: var(--accent-hover);
+}
+
+.n5-cal-cell.is-booked:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+/* Días bloqueados manualmente: patrón rayado orgánico */
+.n5-cal-cell.is-blocked {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-alt),
+    var(--surface-alt) 8px,
+    var(--etiqueta-bg) 8px,
+    var(--etiqueta-bg) 16px
+  );
+  color: var(--primary-color);
+  border-color: var(--accent-text);
+}
+
+.n5-cal-cell.is-today {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+.n5-cal-cell.is-selected {
+  box-shadow: 0 0 0 3px var(--primary-color);
+}
+
+.n5-cal-cell-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  min-height: 72px;
+}
+
+.n5-cal-day-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.n5-cal-day-number {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.n5-cal-add-hint {
+  font-size: 0.68rem;
+  color: var(--accent-text);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-weight: 600;
+}
+
+.n5-cal-cell.is-free:hover .n5-cal-add-hint {
+  opacity: 1;
+}
+
+.n5-cal-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.18);
+  color: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.n5-cal-cell.is-blocked .n5-cal-pill {
+  background: var(--card-bg);
+  color: var(--primary-color);
+}
+
+/* Inspector Lateral del Calendario */
+.n5-calendar-inspector {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.n5-inspector-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+}
+
+.n5-inspector-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 4px 0 0 0;
+  color: var(--primary-color);
+}
+
+.n5-inspector-close {
+  background: transparent;
+  border: none;
+  color: var(--secondary-color);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.n5-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.n5-inspector-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.n5-inspector-label {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
+.n5-inspector-value {
+  font-size: 0.92rem;
+  color: var(--primary-color);
+}
+
+.n5-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Pie de calendario y leyenda */
+.n5-calendar-footer {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.n5-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 0.84rem;
+  color: var(--secondary-color);
+}
+
+.n5-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.n5-legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  border: 1px solid var(--border-color);
+}
+
+.n5-legend-swatch.is-booked {
+  background: var(--accent-color);
+}
+
+.n5-legend-swatch.is-blocked {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-alt),
+    var(--surface-alt) 4px,
+    var(--etiqueta-bg) 4px,
+    var(--etiqueta-bg) 8px
+  );
+}
+
+.n5-legend-swatch.is-free {
+  background: var(--surface-alt);
+}
+
+.n5-calendar-summary {
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+}
+
+/* ─── MODALES (CANCELACIÓN Y BLOQUEO) ─── */
+.n5-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(34, 27, 22, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.n5-modal-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 28px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: var(--shadow-modal);
+}
+
+.n5-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  margin: 0 0 12px 0;
+  color: var(--primary-color);
+}
+
+.n5-modal-title--danger {
+  color: var(--danger-color);
+}
+
+.n5-modal-description {
+  margin: 0 0 18px 0;
+  line-height: 1.55;
+  font-size: 0.92rem;
+  color: var(--text-color);
+}
+
+.n5-refund-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.n5-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  cursor: pointer;
+}
+
+.n5-refund-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.n5-refund-helper {
+  font-size: 0.78rem;
+  color: var(--secondary-color);
+}
+
+.n5-form-group {
+  margin-bottom: 16px;
+}
+
+.n5-form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.n5-form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 0.86rem;
+  color: var(--primary-color);
+}
+
+.n5-alert-error {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-color);
+  color: var(--danger-color);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 0.86rem;
+}
+
+.n5-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.n5-empty-state {
+  background: var(--card-bg);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--secondary-color);
+}
+
