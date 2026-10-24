@@ -250,13 +250,64 @@ describe('POST /api/stripe/webhook — checkout.session.expired', () => {
   });
 });
 
-describe('POST /api/stripe/webhook — otros eventos', () => {
-  test('un evento que no es checkout.session.completed se acusa con 200 y se ignora', async () => {
+describe('POST /api/stripe/webhook — eventos complementarios y de ciclo de vida', () => {
+  test('payment_intent.succeeded se acusa con 200 y registra evento complementario', async () => {
     const res = await enviarWebhook({
-      id: 'evt_otro',
+      id: 'evt_pi_succeeded',
       object: 'event',
       type: 'payment_intent.succeeded',
-      data: { object: { id: 'pi_1' } }
+      data: { object: { id: 'pi_test_123' } }
+    });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, { recibido: true, evento: 'payment_intent.succeeded' });
+    assert.equal(fake.escrituras.length, 0);
+  });
+
+  test('payment_intent.payment_failed registra aviso con detalle y devuelve 200 a Stripe', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_pi_failed',
+      object: 'event',
+      type: 'payment_intent.payment_failed',
+      data: {
+        object: {
+          id: 'pi_test_failed',
+          last_payment_error: { message: 'Fondos insuficientes' }
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.recibido, true);
+    assert.equal(res.body.evento, 'payment_intent.payment_failed');
+    assert.equal(res.body.detalle, 'Fondos insuficientes');
+  });
+
+  test('charge.refunded registra aviso de reembolso y devuelve 200 a Stripe', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_refund',
+      object: 'event',
+      type: 'charge.refunded',
+      data: {
+        object: {
+          id: 'ch_test_123',
+          amount_refunded: 4500
+        }
+      }
+    });
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.recibido, true);
+    assert.equal(res.body.evento, 'charge.refunded');
+    assert.equal(res.body.reembolsado, '45.00');
+  });
+
+  test('un evento no reconocido se acusa con 200 y se marca como ignorado', async () => {
+    const res = await enviarWebhook({
+      id: 'evt_desconocido',
+      object: 'event',
+      type: 'customer.created',
+      data: { object: { id: 'cus_123' } }
     });
 
     assert.equal(res.status, 200);
