@@ -23,7 +23,8 @@ const {
   accionSobreReserva,
   crearBloqueoAdmin,
   crearAlquilerAdmin,
-  crearVentaAdmin
+  crearVentaAdmin,
+  cancelarReservaAdmin
 } = require('../controllers/adminReservasController');
 const { verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -109,7 +110,7 @@ router.get(
   calendarioReservasAdmin
 );
 router.post(
-  '/reservas/bloqueos',
+  ['/reservas/bloqueos', '/reservas/bloqueo'],
   ...reservas,
   exigirObjeto,
   validar(schemaBloqueo),
@@ -129,6 +130,10 @@ router.post(
   validar(schemaVentaFueraDeLaWeb),
   crearVentaAdmin
 );
+
+// Cancelar reserva con reembolso y log de auditoría (R-d)
+router.post('/reservas/:id/cancelar', ...reservas, cancelarReservaAdmin);
+
 // entregar, recoger, ampliar, cancelar, reintentar-reembolso, dar-por-reembolsado o
 // levantar-bloqueo
 router.post('/reservas/:id/:accion', ...reservas, prepararAccion, accionSobreReserva);

@@ -3,12 +3,20 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ReservasTab from './ReservasTab';
 import PedidosTab from './PedidosTab';
 import { ToastContext } from '../../../context/ToastContext';
-import { getReservasAdmin, entregarReservaAdmin, recogerReservaAdmin } from '../../../services/api';
+import {
+  getReservasAdmin,
+  entregarReservaAdmin,
+  recogerReservaAdmin,
+  cancelarReservaAdmin,
+  bloquearFechasAdmin
+} from '../../../services/api';
 
 vi.mock('../../../services/api', () => ({
   getReservasAdmin: vi.fn(),
   entregarReservaAdmin: vi.fn(),
   recogerReservaAdmin: vi.fn(),
+  cancelarReservaAdmin: vi.fn(),
+  bloquearFechasAdmin: vi.fn(),
   actualizarEstadoPedido: vi.fn()
 }));
 
@@ -128,6 +136,122 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
 
     const botonFinalizada = await screen.findByRole('button', { name: 'Finalizada' });
     expect(botonFinalizada).toBeDisabled();
+  });
+
+  it('permite cancelar una reserva confirmada o en_curso abriendo modal de confirmación y reembolsando', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA] }
+    });
+    cancelarReservaAdmin.mockResolvedValue({ data: { reserva: { id: 'res-1', estado: 'cancelada' } } });
+    const recargarMuebles = vi.fn();
+
+    const { showToast } = renderConToast(<ReservasTab recargarMuebles={recargarMuebles} />);
+
+    // El botón cancelar debe estar presente
+    const botonCancelar = await screen.findByRole('button', { name: /cancelar/i });
+    expect(botonCancelar).toBeInTheDocument();
+
+    fireEvent.click(botonCancelar);
+
+    // Debe abrirse el modal con el texto de advertencia de Stripe
+    expect(
+      await screen.findByText(
+        '¿Cancelar la reserva? Se intentará reembolsar al cliente el importe total a través de Stripe.'
+      )
+    ).toBeInTheDocument();
+
+    // Confirmamos la cancelación
+    const botonConfirmar = screen.getByRole('button', { name: 'Cancelar reserva' });
+    fireEvent.click(botonConfirmar);
+
+    await waitFor(() => {
+      expect(cancelarReservaAdmin).toHaveBeenCalledWith('res-1', {
+        motivo: 'Cancelada por el administrador'
+      });
+      expect(showToast).toHaveBeenCalledWith('Reserva cancelada y reembolsada', 'success');
+      expect(recargarMuebles).toHaveBeenCalled();
+    });
+  });
+
+  it('permite abrir el modal de bloqueo, rellenar y enviar llamando a bloquearFechasAdmin y actualizando inventario', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [] }
+    });
+    bloquearFechasAdmin.mockResolvedValue({ data: { id: 'bloq-1', tipo: 'bloqueo' } });
+    const recargarMuebles = vi.fn();
+    const MUEBLES_MOCK = [
+      { id: 'm-1', nombre: 'Mesa Roble', referencia: 'NAV-MES-001' }
+    ];
+
+    const { showToast } = renderConToast(<ReservasTab muebles={MUEBLES_MOCK} recargarMuebles={recargarMuebles} />);
+
+    const botonBloquear = await screen.findByRole('button', { name: /bloquear fechas/i });
+    fireEvent.click(botonBloquear);
+
+    // Modal abierto
+    expect(screen.getByText('🔒 Bloquear fechas manualmente')).toBeInTheDocument();
+
+    // Rellenamos el motivo
+    const inputMotivo = screen.getByPlaceholderText(/Exposición, Mantenimiento/i);
+    fireEvent.change(inputMotivo, { target: { value: 'Mantenimiento preventivo' } });
+
+    // Enviamos el formulario
+    const botonGuardar = screen.getByRole('button', { name: 'Bloquear fechas' });
+    fireEvent.click(botonGuardar);
+
+    await waitFor(() => {
+      expect(bloquearFechasAdmin).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mueble_id: 'm-1',
+          motivo: 'Mantenimiento preventivo'
+        })
+      );
+      expect(showToast).toHaveBeenCalledWith('Fechas bloqueadas correctamente', 'success');
+      expect(recargarMuebles).toHaveBeenCalled();
+    });
+  });
+
+  it('maneja el error 409 de solape al intentar bloquear fechas', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [] }
+    });
+    bloquearFechasAdmin.mockResolvedValue({
+      error: 'Esas fechas chocan con otra reserva activa',
+      status: 409
+    });
+    const MUEBLES_MOCK = [
+      { id: 'm-1', nombre: 'Mesa Roble', referencia: 'NAV-MES-001' }
+    ];
+
+    const { showToast } = renderConToast(<ReservasTab muebles={MUEBLES_MOCK} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /bloquear fechas/i }));
+
+    const inputMotivo = screen.getByPlaceholderText(/Exposición, Mantenimiento/i);
+    fireEvent.change(inputMotivo, { target: { value: 'Exposición' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bloquear fechas' }));
+
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith('Esas fechas chocan con otra reserva activa', 'error');
+      expect(screen.getByText('Esas fechas chocan con otra reserva activa')).toBeInTheDocument();
+    });
+  });
+
+  it('permite alternar entre Vista Lista y Vista Calendario', async () => {
+    getReservasAdmin.mockResolvedValue({
+      data: { reservas: [RESERVA_CONFIRMADA] }
+    });
+
+    renderConToast(<ReservasTab />);
+
+    expect(await screen.findByRole('button', { name: /vista calendario/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /vista calendario/i }));
+
+    // Se muestra el selector de mueble de la vista calendario
+    expect(await screen.findByLabelText(/mueble a consultar/i)).toBeInTheDocument();
+    expect(screen.getByText(/mes anterior/i)).toBeInTheDocument();
+    expect(screen.getByText(/mes siguiente/i)).toBeInTheDocument();
   });
 });
 

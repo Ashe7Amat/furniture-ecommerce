@@ -696,6 +696,22 @@ export const recogerReservaAdmin = (id) =>
     'No se ha podido marcar como recogida.'
   );
 
+// Panel: cancelar reserva con reembolso Stripe (R-d)
+export const cancelarReservaAdmin = (id, datos = {}) =>
+  conCodigo(
+    `${API_URL}/admin/reservas/${encodeURIComponent(id)}/cancelar`,
+    jsonPost(datos),
+    'No se ha podido cancelar la reserva.'
+  );
+
+// Panel: bloquear fechas de un mueble (R-d)
+export const bloquearFechasAdmin = (datos) =>
+  conCodigo(
+    `${API_URL}/admin/reservas/bloqueo`,
+    jsonPost(datos),
+    'No se han podido bloquear las fechas.'
+  );
+
 // Panel: altas en el calendario sin pago web: un bloqueo, un alquiler pactado fuera de la web o una
 // venta fuera de la web (o con entrega diferida).
 export const crearEnCalendarioAdmin = (tipo, datos) =>

@@ -216,7 +216,12 @@ const Admin = ({ idEditar = null, onEnlaceUsado }) => {
         )}
 
         {vistaActiva === 'reservas' && (
-          <ReservasTab muebles={muebles} resumen={avisosReservas} alCambiar={recargarAvisosReservas} />
+          <ReservasTab
+            muebles={muebles}
+            recargarMuebles={cargarMuebles}
+            resumen={avisosReservas}
+            alCambiar={recargarAvisosReservas}
+          />
         )}
 
         {vistaActiva === 'mensajes' && (
