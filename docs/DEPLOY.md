@@ -109,9 +109,23 @@ Si ejecutas manualmente en el SQL Editor de Supabase, el orden maestro es:
 
 ### 2.4 Storage Bucket para Imágenes
 1. Ve a **Storage** en el menú lateral de Supabase.
-2. Crea un bucket llamado `muebles` (o el configurado para tu catálogo).
+2. Crea un bucket llamado `imagenes` (o el configurado para tu catálogo).
 3. Marca el bucket como **Public bucket** para que las URLs públicas puedan ser servidas mediante CDN.
 4. Establece un límite de subida por archivo (recomendado: 10 MB) y tipos permitidos: `image/jpeg, image/png, image/webp, image/avif`.
+
+### 2.5 Optimización por Lotes de Imágenes Existentes (WebP 400w, 800w, 1200w)
+Si el bucket ya contiene fotografías históricas en JPEG/PNG sin comprimir:
+1. Asegúrate de tener `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en `server/.env`.
+2. Ejecuta el script de optimización:
+   ```bash
+   cd server
+   node scripts/optimizarImagenes.js
+   ```
+   - El script descargará cada JPEG/PNG, generará las 3 resoluciones WebP con calidad 82 (`-400.webp`, `-800.webp`, `-1200.webp`) y las subirá al bucket.
+   - El script es idempotente: no vuelve a procesar imágenes que ya tengan sus versiones WebP creadas.
+3. **TODO / Si no dispones de credenciales en local**:
+   - Puedes probar el pipeline localmente ejecutando: `node scripts/optimizarImagenes.js --local` (procesará las imágenes de `server/scripts/__fixtures__/input/`).
+   - Una vez desplegado en Vercel con las credenciales de producción, ejecuta el comando desde una terminal con acceso a Supabase o mediante una Serverless Function de mantenimiento puntual.
 
 ---
 

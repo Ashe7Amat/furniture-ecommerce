@@ -3,7 +3,7 @@ import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { textoPrecio, tienePrecio } from '../utils/format';
-import { PLACEHOLDER_IMG, miniatura } from '../utils/images';
+import { PLACEHOLDER_IMG, miniatura, obtenerVariantesWebp } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
 import ReferenciaProducto from './ReferenciaProducto';
@@ -17,6 +17,7 @@ const ProductCard = ({ mueble }) => {
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
     ? miniatura(mueble.imagenes[0])
     : PLACEHOLDER_IMG;
+  const variantesWebp = obtenerVariantesWebp(imageUrl);
 
   const handleFavClick = (e) => {
     e.preventDefault();
@@ -37,15 +38,26 @@ const ProductCard = ({ mueble }) => {
     <>
       <Link to={`/mueble/${mueble.id}`} className={`product-card ${esVendido ? 'is-sold' : ''}`}>
         <div className="product-image-container">
-          <img
-            src={imageUrl}
-            srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
-            alt={mueble.nombre || 'Mueble'}
-            className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
-            loading="lazy"
-            decoding="async"
-          />
+          <picture className="product-picture">
+            {variantesWebp && (
+              <source
+                type="image/webp"
+                srcSet={variantesWebp.srcset}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+              />
+            )}
+            <img
+              src={imageUrl}
+              srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+              alt={mueble.nombre || 'Mueble'}
+              className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
+              loading="lazy"
+              decoding="async"
+              width="320"
+              height="320"
+            />
+          </picture>
 
           {/* Overlay esquina superior izquierda: Pieza Única (disponible) o Vendido (grayscale) */}
           <div className="product-badge-overlay">

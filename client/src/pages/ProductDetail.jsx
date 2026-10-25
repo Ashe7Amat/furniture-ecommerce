@@ -8,7 +8,7 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { AuthContext } from '../context/AuthContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
 import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
-import { PLACEHOLDER_IMG } from '../utils/images';
+import { PLACEHOLDER_IMG, obtenerVariantesWebp } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
 import ModalContacto from '../components/ModalContacto';
@@ -294,46 +294,72 @@ const ProductDetail = () => {
         {/* COLUMNA IZQUIERDA (60%): GALERÍA DE FOTOS */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
-            <img
-              key={mainImage}
-              src={mainImage}
-              alt={mueble.nombre}
-              width="600"
-              height="600"
-              className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
-              decoding="async"
-              loading="eager"
-              // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
-              // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
-              // eslint-disable-next-line react/no-unknown-property
-              fetchpriority="high"
-            />
+            {(() => {
+              const variantesWebp = obtenerVariantesWebp(mainImage);
+              return (
+                <picture className="pd-main-image-picture">
+                  {variantesWebp && (
+                    <source
+                      type="image/webp"
+                      srcSet={variantesWebp.srcset}
+                      sizes="(max-width: 768px) 100vw, 600px"
+                    />
+                  )}
+                  <img
+                    key={mainImage}
+                    src={mainImage}
+                    alt={mueble.nombre}
+                    width="600"
+                    height="600"
+                    className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+                    decoding="async"
+                    loading="eager"
+                    // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                    // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                    // eslint-disable-next-line react/no-unknown-property
+                    fetchpriority="high"
+                  />
+                </picture>
+              );
+            })()}
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
           </div>
 
           {mueble.imagenes && mueble.imagenes.length > 1 && (
             <div className="pd-thumbnails" role="region" aria-label="Galería de imágenes">
-              {mueble.imagenes.map((img, index) => (
-                <button 
-                  key={index} 
-                  className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
-                  onClick={() => setMainImage(img)}
-                  aria-label={`Ver imagen ${index + 1}`}
-                >
-                  <img
-                    src={img}
-                    alt={`Miniatura ${index + 1}`}
-                    className="pd-thumbnail-img"
-                    width="80"
-                    height="80"
-                    loading="lazy"
-                    decoding="async"
-                    // eslint-disable-next-line react/no-unknown-property
-                    fetchpriority="low"
-                  />
-                </button>
-              ))}
+              {mueble.imagenes.map((img, index) => {
+                const variantesThumb = obtenerVariantesWebp(img);
+                return (
+                  <button 
+                    key={index} 
+                    className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
+                    onClick={() => setMainImage(img)}
+                    aria-label={`Ver imagen ${index + 1}`}
+                  >
+                    <picture className="pd-thumbnail-picture">
+                      {variantesThumb && (
+                        <source
+                          type="image/webp"
+                          srcSet={`${variantesThumb.w400} 400w`}
+                          sizes="80px"
+                        />
+                      )}
+                      <img
+                        src={img}
+                        alt={`Miniatura ${index + 1}`}
+                        className="pd-thumbnail-img"
+                        width="80"
+                        height="80"
+                        loading="lazy"
+                        decoding="async"
+                        // eslint-disable-next-line react/no-unknown-property
+                        fetchpriority="low"
+                      />
+                    </picture>
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
