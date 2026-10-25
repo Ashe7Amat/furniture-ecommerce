@@ -63,67 +63,68 @@ const ResumenTab = ({ muebles, pedidosPendientes, irA }) => {
   return (
     <div className="admin-view fade-in">
       <div className="admin-view-head">
-        <h2>Dashboard</h2>
+        <span className="admin-eyebrow">Vista General</span>
+        <h2 className="admin-title-h1">Dashboard</h2>
       </div>
-      <div className="resumen-cards">
-        <div className="resumen-card accent-brand">
-          <h3>{totalMuebles}</h3>
-          <p>Total Catálogo</p>
+      <div className="resumen-cards admin-kpi-grid">
+        <div className="resumen-card admin-kpi-card accent-brand">
+          <h3 className="kpi-value">{totalMuebles}</h3>
+          <p className="kpi-label">Total Catálogo</p>
         </div>
         <div
-          className="resumen-card accent-success resumen-card-clickable"
+          className="resumen-card admin-kpi-card accent-success resumen-card-clickable"
           role="button"
           tabIndex={0}
           onClick={() => irA('inventario')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('inventario')}
           aria-label="Ver piezas disponibles en inventario"
         >
-          <h3>{disponibles.length}</h3>
-          <p>Disponibles</p>
+          <h3 className="kpi-value">{disponibles.length}</h3>
+          <p className="kpi-label">Disponibles</p>
         </div>
-        <div className="resumen-card accent-danger">
-          <h3>{vendidos}</h3>
-          <p>Vendidos</p>
+        <div className="resumen-card admin-kpi-card accent-danger">
+          <h3 className="kpi-value">{vendidos}</h3>
+          <p className="kpi-label">Vendidos</p>
         </div>
-        <div className="resumen-card accent-warning">
-          <h3>{alquilados}</h3>
-          <p>Alquilados</p>
+        <div className="resumen-card admin-kpi-card accent-warning">
+          <h3 className="kpi-value">{alquilados}</h3>
+          <p className="kpi-label">Alquilados</p>
         </div>
-        <div className="resumen-card">
-          <h3>{formatPrice(valorDisponible)} €</h3>
-          <p>Valor en stock</p>
+        <div className="resumen-card admin-kpi-card">
+          <h3 className="kpi-value">{formatPrice(valorDisponible)} €</h3>
+          <p className="kpi-label">Valor en stock</p>
         </div>
         <div
-          className={`resumen-card ${pedidosPendientes > 0 ? 'accent-warning semaforo-alerta' : 'accent-success semaforo-ok'} resumen-card-clickable`}
+          className={`resumen-card admin-kpi-card ${pedidosPendientes > 0 ? 'accent-warning semaforo-alerta' : 'accent-success semaforo-ok'} resumen-card-clickable`}
           role="button"
           tabIndex={0}
           onClick={() => irA('pedidos', 'procesando')}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && irA('pedidos', 'procesando')}
           aria-label="Ver pedidos pendientes de procesar"
         >
-          <h3>{pedidosPendientes}</h3>
-          <p>Pedidos por procesar</p>
+          <h3 className="kpi-value">{pedidosPendientes}</h3>
+          <p className="kpi-label">Pedidos por procesar</p>
         </div>
-        <div className="resumen-card accent-brand">
-          <h3>{metricas ? formatearImporte(metricas.ticketMedio) : '—'}</h3>
-          <p>Ticket Medio</p>
+        <div className="resumen-card admin-kpi-card accent-brand">
+          <h3 className="kpi-value">{metricas ? formatearImporte(metricas.ticketMedio) : '—'}</h3>
+          <p className="kpi-label">Ticket Medio</p>
         </div>
-        <div className="resumen-card">
-          <h3>{metricas ? formatearImporte(metricas.ingresosAlquiler) : '—'}</h3>
-          <p>Ingresos Alquiler/mes</p>
+        <div className="resumen-card admin-kpi-card">
+          <h3 className="kpi-value">{metricas ? formatearImporte(metricas.ingresosAlquiler) : '—'}</h3>
+          <p className="kpi-label">Ingresos Alquiler/mes</p>
         </div>
         <div
-          className="resumen-card resumen-card-clickable"
+          className="resumen-card admin-kpi-card resumen-card-clickable"
           role="button"
           tabIndex={0}
           onClick={handleExportarClientes}
           onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleExportarClientes()}
           aria-label="Exportar clientes en CSV"
         >
-          <h3>{metricas?.clientes ? metricas.clientes.nuevosEsteMes + metricas.clientes.recurrentes : '—'}</h3>
-          <p>Clientes</p>
+          <h3 className="kpi-value">{metricas?.clientes ? metricas.clientes.nuevosEsteMes + metricas.clientes.recurrentes : '—'}</h3>
+          <p className="kpi-label">Clientes</p>
           {metricas?.clientes && (
-            <span className="resumen-card-subtexto">
+            <span className="resumen-card-subtexto kpi-subtext">
               {metricas.clientes.nuevosEsteMes} nuevos este mes · {metricas.clientes.recurrentes} recurrentes
             </span>
           )}
