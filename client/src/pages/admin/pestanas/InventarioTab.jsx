@@ -340,6 +340,7 @@ const InventarioTab = ({
 
         <select
           className="n5-input inv-filter-select"
+          aria-label="Filtrar por categoría"
           value={filtroCategoria}
           onChange={(e) => setFiltroCategoria(e.target.value)}
         >
@@ -353,6 +354,7 @@ const InventarioTab = ({
 
         <select
           className="n5-input inv-filter-select"
+          aria-label="Filtrar por estado"
           value={filtroEstado}
           onChange={(e) => setFiltroEstado(e.target.value)}
         >
@@ -364,6 +366,7 @@ const InventarioTab = ({
 
         <select
           className="n5-input inv-filter-select"
+          aria-label="Ordenar inventario"
           value={orden}
           onChange={(e) => setOrden(e.target.value)}
         >

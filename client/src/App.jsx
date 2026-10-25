@@ -9,15 +9,14 @@ import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
 import CookieConsent from './components/CookieConsent';
-import MusicaDeFondo from './components/MusicaDeFondo';
-import Home from './pages/Home'; // <-- Se mantiene fuera del lazy-loading: es la página de aterrizaje
+import Home from './pages/Home'; // Inmediato (landing)
+import Catalog from './pages/Catalog'; // Inmediato (catálogo principal)
+import PageLoader from './components/PageLoader';
 import ScrollToTop from './components/ScrollToTop';
 
-// Carga perezosa (code-splitting): el resto de páginas solo se descargan cuando el
+// Carga perezosa (code-splitting): el resto de páginas y utilidades secundarias solo se descargan cuando el
 // visitante realmente navega a ellas, en vez de venir todas en el paquete inicial.
-// Admin.jsx en particular es un archivo grande que solo necesita quien administra la
-// tienda -- no tiene sentido que lo descargue alguien que solo mira el catálogo.
-const Catalog = lazy(() => import('./pages/Catalog'));
+const MusicaDeFondo = lazy(() => import('./components/MusicaDeFondo'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const Login = lazy(() => import('./pages/Login'));
 // AdminRuta monta Admin.jsx con el ?editar={id} de la URL (ver AdminRuta.jsx).
@@ -36,10 +35,6 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// Indicador mínimo mientras se descarga una página (solo se ve una fracción de segundo,
-// habitualmente ni llega a mostrarse gracias a la caché del navegador).
-const CargandoPagina = () => <div className="page-loading" aria-hidden="true" />;
-
 function App() {
   return (
     <ToastProvider>
@@ -49,11 +44,10 @@ function App() {
             <BrowserRouter>
               <ScrollToTop />
               <div className="app-container">
-                {/* Accesibilidad (WCAG 2.4.1): con el teclado, saltar la cabecera e ir directo al contenido. */}
-                <a href="#contenido" className="saltar-al-contenido">Saltar al contenido</a>
+                <a href="#contenido" className="skip-link saltar-al-contenido">Saltar al contenido</a>
                 <Header />
                 <main id="contenido" tabIndex={-1}>
-                  <Suspense fallback={<CargandoPagina />}>
+                  <Suspense fallback={<PageLoader />}>
                     <Routes>
                       <Route path="/" element={<Home />} />
 
@@ -94,7 +88,9 @@ function App() {
                 </main>
                 <Footer />
                 <CartDrawer />
-                <MusicaDeFondo />
+                <Suspense fallback={null}>
+                  <MusicaDeFondo />
+                </Suspense>
                 <CookieConsent />
               </div>
             </BrowserRouter>

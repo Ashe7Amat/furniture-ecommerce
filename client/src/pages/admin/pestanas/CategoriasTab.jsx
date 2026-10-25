@@ -113,8 +113,13 @@ const CategoriasTab = ({
             <small id="nueva-cat-codigo-nota" className="field-hint">Forma las referencias de sus muebles (NAV-SOF-001). Sin código, no llevan referencia.</small>
           </div>
           <div className="field-group">
-            <label className="field-label">Categoría general (opcional):</label>
-            <select value={nuevaCatPadre} onChange={(e) => setNuevaCatPadre(e.target.value)}>
+            <label htmlFor="nueva-cat-padre" className="field-label">Categoría general (opcional):</label>
+            <select
+              id="nueva-cat-padre"
+              aria-label="Categoría general (opcional)"
+              value={nuevaCatPadre}
+              onChange={(e) => setNuevaCatPadre(e.target.value)}
+            >
               <option value="">— Es una categoría general —</option>
               {generales(categorias).map(general => (
                 <option key={general.id} value={general.id}>Dentro de: {general.nombre}</option>
@@ -122,11 +127,12 @@ const CategoriasTab = ({
             </select>
           </div>
           <div className="file-input-wrapper">
-            <label>Imagen de la Categoría:</label>
+            <label htmlFor="categoria-file-input">Imagen de la Categoría:</label>
             <input
               type="file"
               id="categoria-file-input"
               accept="image/*"
+              aria-label="Imagen de la Categoría"
               onChange={(e) => setCategoriaFile(e.target.files[0])}
               required
             />

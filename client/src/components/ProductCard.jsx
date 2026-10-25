@@ -39,6 +39,8 @@ const ProductCard = ({ mueble }) => {
         <div className="product-image-container">
           <img
             src={imageUrl}
+            srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
             alt={mueble.nombre || 'Mueble'}
             className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
             loading="lazy"
@@ -72,6 +74,7 @@ const ProductCard = ({ mueble }) => {
               strokeLinecap="round"
               strokeLinejoin="round"
               className="card-fav-svg"
+              aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>

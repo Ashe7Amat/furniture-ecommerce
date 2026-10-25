@@ -40,6 +40,7 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
         <div className="pedidos-toolbar-filtros">
           <select
             className="n5-input pedidos-filtro-select"
+            aria-label="Filtrar pedidos por estado"
             value={filtroEstadoPedido}
             onChange={(e) => setFiltroEstadoPedido(e.target.value)}
           >

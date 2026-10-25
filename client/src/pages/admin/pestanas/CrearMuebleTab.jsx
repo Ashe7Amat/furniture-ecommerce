@@ -88,15 +88,15 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, re
           <input name="precio_alquiler" type="number" placeholder="Precio Alquiler (€/día)" value={formData.precio_alquiler} onChange={handleInputChange} />
         </div>
 
-        <select name="estado" value={formData.estado} onChange={handleInputChange}>
+        <select name="estado" aria-label="Estado del mueble" value={formData.estado} onChange={handleInputChange}>
           <option value="disponible">Disponible</option>
           <option value="vendido">Vendido</option>
           <option value="alquilado">Alquilado</option>
         </select>
 
         <div className="file-input-wrapper">
-          <label>Imágenes (Selecciona varias):</label>
-          <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} required />
+          <label htmlFor="mueble-file-input">Imágenes (Selecciona varias):</label>
+          <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} aria-label="Imágenes del mueble" required />
         </div>
 
         <button type="submit" className="admin-btn" disabled={envio.enviando}>Guardar Producto</button>

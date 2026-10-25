@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
 const ajustesRoutes = require('./routes/ajustesRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const sitemapRoutes = require('./routes/sitemapRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -76,6 +77,8 @@ const origenesPermitidos = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:4173',
+  'http://localhost:5175',
   ...(process.env.ALLOWED_ORIGINS || '').split(',').map((origen) => origen.trim())
 ].filter(Boolean);
 
@@ -108,7 +111,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/ajustes', ajustesRoutes);
 
-// Ruta base de comprobación
+// Ruta base de comprobación y sitemap
+app.use('/sitemap.xml', sitemapRoutes);
 app.get('/', (req, res) => {
   res.send('API del Catálogo de Muebles funcionando');
 });
