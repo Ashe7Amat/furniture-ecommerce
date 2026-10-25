@@ -32,14 +32,14 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
   return (
     <div className="admin-view fade-in">
       <div className="admin-view-head">
-        <h2>Pedidos</h2>
+        <h2 className="admin-title-h2">Pedidos</h2>
         <p>{pedidosFiltrados.length} de {infoPedidos.total} pedidos</p>
       </div>
 
       <div className="admin-toolbar pedidos-toolbar">
         <div className="pedidos-toolbar-filtros">
           <select
-            className="n5-input pedidos-filtro-select"
+            className="n5-input pedidos-filtro-select admin-select"
             aria-label="Filtrar pedidos por estado"
             value={filtroEstadoPedido}
             onChange={(e) => setFiltroEstadoPedido(e.target.value)}
@@ -126,7 +126,7 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                         <select
                           value={pedido.estado}
                           disabled
-                          className="pedido-estado-select pedido-estado-select--deshabilitado"
+                          className="pedido-estado-select pedido-estado-select--deshabilitado admin-select"
                           aria-label="Estado del pedido"
                         >
                           <option value={pedido.estado}>{ETIQUETA_ESTADO_PEDIDO[pedido.estado] || pedido.estado}</option>
@@ -139,7 +139,7 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                       <select
                         value={pedido.estado}
                         onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
-                        className={`pedido-estado-select estado-${pedido.estado}`}
+                        className={`pedido-estado-select estado-${pedido.estado} admin-select`}
                       >
                         {ESTADOS_PEDIDO.map(estado => (
                           <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
@@ -182,9 +182,9 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
 
       {infoPedidos.totalPaginas > 1 && (
         <div className="admin-pagination">
-          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina - 1 })} disabled={infoPedidos.pagina <= 1}>← Anterior</button>
+          <button className="admin-btn-secondary" onClick={() => cargarPedidos({ pagina: infoPedidos.pagina - 1 })} disabled={infoPedidos.pagina <= 1}>← Anterior</button>
           <span>Página {infoPedidos.pagina} de {infoPedidos.totalPaginas}</span>
-          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
+          <button className="admin-btn-secondary" onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
         </div>
       )}
 

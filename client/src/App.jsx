@@ -80,6 +80,7 @@ function App() {
 
                       {/* Para entrar aquí SÍ hace falta ser administrador obligatoriamente */}
                       <Route path="/admin" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />
+                      <Route path="/admin/:seccion" element={<ProtectedRoute adminOnly={true}><Admin /></ProtectedRoute>} />
 
                       {/* Cualquier otra ruta: página 404 (siempre al final) */}
                       <Route path="*" element={<NotFound />} />

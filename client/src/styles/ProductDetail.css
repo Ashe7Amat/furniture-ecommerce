@@ -1,3 +1,5 @@
+@import '../theme/tokens.css';
+
 /* ==========================================================================
    ProductDetail — Rediseño Interior Premium (Nave 5 Barcelona)
    ========================================================================== */
@@ -73,6 +75,13 @@
   justify-content: center;
 }
 
+.pd-main-image-picture,
+.pd-thumbnail-picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .pd-main-image {
   width: 100%;
   height: 100%;
@@ -82,7 +91,6 @@
   padding: 12px;
   box-sizing: border-box;
   transition: transform 0.4s ease, filter 0.3s ease;
-  animation: pdFadeIn 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 
 .pd-main-image--sold {

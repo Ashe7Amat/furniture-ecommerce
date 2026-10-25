@@ -112,7 +112,7 @@ const BuscarPiezaModal = ({ muebles, onElegir, onCerrar }) => {
 
 const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onReservar, onBuscar, onCerrar }) => (
   <div className="admin-modal-overlay">
-    <div className="admin-modal-content mensaje-modal" role="dialog" aria-modal="true" aria-labelledby="mensaje-titulo">
+    <div className="admin-modal-content mensaje-modal admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="mensaje-titulo">
       <div className="admin-modal-header">
         <h3 id="mensaje-titulo">Mensaje de {mensaje.nombre}</h3>
         <button className="admin-modal-close" onClick={onCerrar} aria-label="Cerrar"><Icon name="close" /></button>
@@ -143,7 +143,7 @@ const MensajeModal = ({ mensaje, piezas, marcando, onMarcarLeido, onEditar, onRe
       )}
       <div className="mensaje-acciones">
         {!mensaje.leido && (
-          <button className="admin-btn" onClick={onMarcarLeido} disabled={marcando}>
+          <button className="admin-btn admin-btn-primary" onClick={onMarcarLeido} disabled={marcando}>
             {marcando ? 'Guardando…' : 'Marcar como leído'}
           </button>
         )}
@@ -222,7 +222,7 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
   return (
     <div className="admin-view fade-in">
       <div className="admin-view-head">
-        <h2>Mensajes</h2>
+        <h2 className="admin-title-h2">Mensajes</h2>
         <p>{mensajes.length} mensaje{mensajes.length === 1 ? '' : 's'} · {noLeidos} sin leer</p>
       </div>
 
@@ -234,7 +234,7 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
       ) : (
         <>
           <div className="admin-toolbar">
-            <select value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar mensajes">
+            <select className="admin-select" value={filtro} onChange={(e) => setFiltro(e.target.value)} aria-label="Filtrar mensajes">
               <option value="todos">Todos</option>
               <option value="no-leidos">No leídos</option>
             </select>
@@ -245,32 +245,34 @@ const MensajesTab = ({ mensajes, setMensajes, errorMensajes, recargarMensajes, m
               {mensajes.length === 0 ? 'Todavía no ha llegado ningún mensaje.' : 'No hay mensajes sin leer.'}
             </p>
           ) : (
-            <table className="mensajes-tabla">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Email</th>
-                  <th>Mensaje</th>
-                  <th>Fecha</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibles.map((m) => (
-                  <tr key={m.id} className={m.leido ? 'is-leido' : 'is-no-leido'} onClick={() => setAbierto(m)}>
-                    <td>
-                      <button className="mensajes-abrir" onClick={(e) => { e.stopPropagation(); setAbierto(m); }}>
-                        {m.nombre}
-                      </button>
-                    </td>
-                    <td title={m.email}>{recortar(m.email, 28)}</td>
-                    <td title={m.mensaje}>{recortar(m.mensaje, 60)}</td>
-                    <td>{fechaMensaje(m.created_at)}</td>
-                    <td><span className={`mensaje-estado ${m.leido ? 'leido' : 'no-leido'}`}>{m.leido ? 'Leído' : 'Sin leer'}</span></td>
+            <div className="admin-table-container">
+              <table className="mensajes-tabla admin-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Mensaje</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visibles.map((m) => (
+                    <tr key={m.id} className={m.leido ? 'is-leido' : 'is-no-leido'} onClick={() => setAbierto(m)}>
+                      <td>
+                        <button className="mensajes-abrir" onClick={(e) => { e.stopPropagation(); setAbierto(m); }}>
+                          {m.nombre}
+                        </button>
+                      </td>
+                      <td title={m.email}>{recortar(m.email, 28)}</td>
+                      <td title={m.mensaje}>{recortar(m.mensaje, 60)}</td>
+                      <td>{fechaMensaje(m.created_at)}</td>
+                      <td><span className={`mensaje-estado ${m.leido ? 'leido' : 'no-leido'} admin-badge-${m.leido ? 'neutral' : 'warning'}`}>{m.leido ? 'Leído' : 'Sin leer'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}

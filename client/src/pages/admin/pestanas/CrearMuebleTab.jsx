@@ -72,34 +72,34 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, re
 
   return (
     <div className="admin-view fade-in">
-      <div className="admin-view-head"><h2>Añadir Nuevo Producto</h2></div>
+      <div className="admin-view-head"><h2 className="admin-title-h2">Añadir Nuevo Producto</h2></div>
       <form onSubmit={handleSubmit} className="admin-form">
-        <input name="nombre" placeholder="Nombre del mueble" value={formData.nombre} onChange={handleInputChange} required />
+        <input className="admin-input" name="nombre" placeholder="Nombre del mueble" value={formData.nombre} onChange={handleInputChange} required />
         <SelectorCategoria categorias={categorias} name="categoria" value={formData.categoria} onChange={handleInputChange} />
         {/* A5: la referencia la pone siempre el servidor, con el código de la categoría elegida
             (utils/referencia.js); aquí solo se avisa. No se puede escribir a mano. */}
         <div className="field-group">
-          <span className="field-label">Referencia:</span>
+          <span className="field-label admin-label">Referencia:</span>
           <p className="field-ref-auto">Se generará automáticamente (NAV-XXX-000)</p>
         </div>
-        <textarea name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
+        <textarea className="admin-input" name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
         <div className="admin-form-row">
-          <input name="precio_venta" type="number" placeholder="Precio Venta (€)" value={formData.precio_venta} onChange={handleInputChange} />
-          <input name="precio_alquiler" type="number" placeholder="Precio Alquiler (€/día)" value={formData.precio_alquiler} onChange={handleInputChange} />
+          <input className="admin-input" name="precio_venta" type="number" placeholder="Precio Venta (€)" value={formData.precio_venta} onChange={handleInputChange} />
+          <input className="admin-input" name="precio_alquiler" type="number" placeholder="Precio Alquiler (€/día)" value={formData.precio_alquiler} onChange={handleInputChange} />
         </div>
 
-        <select name="estado" aria-label="Estado del mueble" value={formData.estado} onChange={handleInputChange}>
+        <select className="admin-select" name="estado" aria-label="Estado del mueble" value={formData.estado} onChange={handleInputChange}>
           <option value="disponible">Disponible</option>
           <option value="vendido">Vendido</option>
           <option value="alquilado">Alquilado</option>
         </select>
 
         <div className="file-input-wrapper">
-          <label htmlFor="mueble-file-input">Imágenes (Selecciona varias):</label>
+          <label className="admin-label" htmlFor="mueble-file-input">Imágenes (Selecciona varias):</label>
           <input type="file" id="mueble-file-input" multiple accept="image/*" onChange={handleFileChange} aria-label="Imágenes del mueble" required />
         </div>
 
-        <button type="submit" className="admin-btn" disabled={envio.enviando}>Guardar Producto</button>
+        <button type="submit" className="admin-btn admin-btn-primary" disabled={envio.enviando}>Guardar Producto</button>
       </form>
       {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
     </div>
