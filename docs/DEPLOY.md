@@ -303,6 +303,16 @@ curl -I https://api.tutienda.com/api/health
 3. Comprueba que cargan las pestañas: Resumen (KPIs), Inventario, Pedidos, Reservas, Mensajes y Actividad (Audit Log).
 4. Sube una imagen de prueba y verifica que se genera correctamente en Supabase Storage.
 
+### 8.5 Optimización por Lotes de Imágenes WebP
+Si importaste un catálogo existente con imágenes JPEG o PNG pesadas, puedes generar las variantes responsive (400w, 800w, 1200w) en formato WebP con el script por lotes:
+```bash
+cd server
+npm run images:optimize
+```
+- Lee el bucket `imagenes` (carpeta `muebles`) y procesa cada imagen con `sharp` (calidad 82).
+- Es idempotente: solo procesa archivos que no tengan aún su variante WebP generada.
+- Una vez procesado el lote, activa en el frontend `VITE_WEBP_OPTIMIZADAS=true` para que `<picture>` sirva automáticamente el `srcset` WebP.
+
 ---
 
 ## 9. Paso 8: Procedimientos de Rollback y Contingencia

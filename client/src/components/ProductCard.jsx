@@ -17,7 +17,10 @@ const ProductCard = ({ mueble }) => {
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
     ? miniatura(mueble.imagenes[0])
     : PLACEHOLDER_IMG;
-  const variantesWebp = obtenerVariantesWebp(imageUrl);
+  // Las variantes WebP se activan cuando el bucket ha sido optimizado por lotes (VITE_WEBP_OPTIMIZADAS=true)
+  const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+  const [errorWebp, setErrorWebp] = useState(false);
+  const variantesWebp = (habilitarWebp && !errorWebp) ? obtenerVariantesWebp(imageUrl) : null;
 
   const handleFavClick = (e) => {
     e.preventDefault();
@@ -56,6 +59,7 @@ const ProductCard = ({ mueble }) => {
               decoding="async"
               width="320"
               height="320"
+              onError={() => setErrorWebp(true)}
             />
           </picture>
 

@@ -295,7 +295,8 @@ const ProductDetail = () => {
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
             {(() => {
-              const variantesWebp = obtenerVariantesWebp(mainImage);
+              const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+              const variantesWebp = habilitarWebp ? obtenerVariantesWebp(mainImage) : null;
               return (
                 <picture className="pd-main-image-picture">
                   {variantesWebp && (
@@ -329,7 +330,8 @@ const ProductDetail = () => {
           {mueble.imagenes && mueble.imagenes.length > 1 && (
             <div className="pd-thumbnails" role="region" aria-label="Galería de imágenes">
               {mueble.imagenes.map((img, index) => {
-                const variantesThumb = obtenerVariantesWebp(img);
+                const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+                const variantesThumb = habilitarWebp ? obtenerVariantesWebp(img) : null;
                 return (
                   <button 
                     key={index} 

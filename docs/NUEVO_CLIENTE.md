@@ -219,6 +219,7 @@ Comprobaciones rápidas para certificar que la tienda está 100% operativa:
 - [ ] RLS activado en todas las tablas sensibles.
 - [ ] Bucket `muebles` creado y público.
 - [ ] Secretos únicos generados con `npm run secrets:generate`.
+- [ ] Optimización de imágenes ejecutada con `npm run images:optimize` (si se importó catálogo previo de fotos pesadas).
 - [ ] Stripe en modo Live con Webhook HTTPS registrado.
 - [ ] Resend con dominio verificado (SPF/DKIM/DMARC) y dirección `RESEND_FROM` válida.
 - [ ] Variables de entorno cargadas en ambos proyectos de Vercel.

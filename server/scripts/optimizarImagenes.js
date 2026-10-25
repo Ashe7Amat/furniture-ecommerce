@@ -130,15 +130,16 @@ const optimizarDirectorioLocal = async (inputDir, outputDir) => {
  * Procesa imágenes directamente en el bucket de Supabase Storage.
  * @param {object} supabaseClient
  * @param {string} bucketName
+ * @param {string} carpeta Prefijo dentro del bucket ('muebles' o 'uploads')
  */
-const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes') => {
-  const { data: archivos, error } = await supabaseClient.storage.from(bucketName).list('uploads', {
+const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes', carpeta = 'muebles') => {
+  const { data: archivos, error } = await supabaseClient.storage.from(bucketName).list(carpeta, {
     limit: 500,
     sortBy: { column: 'name', order: 'asc' }
   });
 
   if (error) {
-    throw new Error(`Error al listar archivos de Supabase Storage: ${error.message}`);
+    throw new Error(`Error al listar archivos de Supabase Storage en ${bucketName}/${carpeta}: ${error.message}`);
   }
 
   const imagenes = (archivos || []).filter((f) => /\.(jpe?g|png)$/i.test(f.name));
@@ -151,7 +152,7 @@ const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes') 
     const base = img.name.replace(/\.(jpe?g|png)$/i, '');
 
     // Comprobar idempotencia: si ya existe el -800.webp, consideramos procesada
-    const { data: yaExiste } = await supabaseClient.storage.from(bucketName).list('uploads', {
+    const { data: yaExiste } = await supabaseClient.storage.from(bucketName).list(carpeta, {
       search: `${base}-800.webp`
     });
 
@@ -161,12 +162,13 @@ const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes') 
     }
 
     // Descargar imagen original
+    const rutaOrigen = carpeta ? `${carpeta}/${img.name}` : img.name;
     const { data: blob, error: errDescarga } = await supabaseClient.storage
       .from(bucketName)
-      .download(`uploads/${img.name}`);
+      .download(rutaOrigen);
 
     if (errDescarga || !blob) {
-      console.warn(`No se pudo descargar uploads/${img.name}:`, errDescarga?.message);
+      console.warn(`No se pudo descargar ${rutaOrigen}:`, errDescarga?.message);
       continue;
     }
 
@@ -176,9 +178,10 @@ const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes') 
 
     let pesoVariantes = 0;
     for (const v of variantes) {
+      const rutaDestino = carpeta ? `${carpeta}/${v.nombreArchivo}` : v.nombreArchivo;
       const { error: errSubida } = await supabaseClient.storage
         .from(bucketName)
-        .upload(`uploads/${v.nombreArchivo}`, v.buffer, {
+        .upload(rutaDestino, v.buffer, {
           contentType: 'image/webp',
           upsert: true
         });
