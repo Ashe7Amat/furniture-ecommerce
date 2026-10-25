@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
+import { BRAND } from '../theme/brand.config';
 
-const DEFAULT_TITLE = 'Nave 5 Barcelona | Almacén de ideas';
-const DEFAULT_DESCRIPTION =
-  'Almacén de ideas en el corazón de Barcelona: muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios.';
+const DEFAULT_TITLE = `${BRAND.nombre} | ${BRAND.eslogan}`;
+const DEFAULT_DESCRIPTION = BRAND.descripcion;
 const DEFAULT_IMAGE = '/og-image.png';
-const BASE_URL = 'https://www.nave5barcelona.com';
+const BASE_URL = BRAND.web;
 
 const setMetaByAttr = (attr, key, content) => {
   let tag = document.querySelector(`meta[${attr}="${key}"]`);
@@ -59,7 +59,7 @@ export function useDocumentMeta({
   useEffect(() => {
     let fullTitle = DEFAULT_TITLE;
     if (title) {
-      fullTitle = title.includes('Nave 5 Barcelona') ? title : `${title} | Nave 5 Barcelona`;
+      fullTitle = title.includes(BRAND.nombre) ? title : `${title} | ${BRAND.nombre}`;
     }
 
     const finalDescription = description || DEFAULT_DESCRIPTION;

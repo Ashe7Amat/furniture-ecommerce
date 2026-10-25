@@ -1,3 +1,5 @@
+@import '../theme/tokens.css';
+
 :root {
   /* ─── PALETA VERANO CÁLIDO ─── */
   --bg-color:        #F5F2EC;  /* Arena/avena — fondo de lienzo */

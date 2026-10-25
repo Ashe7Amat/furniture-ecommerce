@@ -1,0 +1,61 @@
+/* ─── TEMA CLIENTE DEMO: AZUL MARINO + DORADO ───
+   Ejemplo documentado de personalización visual para un nuevo cliente.
+   Para activar este tema, sustituye o importa este archivo después de tokens.css.
+*/
+
+:root[data-theme="cliente-demo"],
+.theme-cliente-demo {
+  /* Lienzo y superficies: Azul marino suave / Porcelana */
+  --color-bg:            #F4F6F9;  /* Blanco hielo / porcelana fría */
+  --color-primary:       #0F1E36;  /* Azul marino profundo (espresso del cliente) */
+  --color-secondary:     #4A5A73;  /* Gris pizarra azulado */
+  --color-text:          #0F1E36;  /* Texto principal */
+  --color-text-muted:    #4A5A73;  /* Texto atenuado */
+  
+  /* Acentos y marca: Dorado noble / Latón cepillado */
+  --color-accent:        #C5A059;  /* Oro satinado */
+  --color-accent-hover:  #A9853F;  /* Oro envejecido hover */
+  --color-accent-text:   #8C6B28;  /* Dorado oscuro con contraste AA sobre claro */
+  
+  --color-surface:       #FFFFFF;  /* Blanco puro tarjetas */
+  --color-surface-alt:   #E8ECF2;  /* Azul hielo claro */
+  --color-border:        #D3DBE6;  /* Borde frío */
+
+  /* Estados */
+  --color-success:       #2A6F55;
+  --color-success-bg:    #E4F2EC;
+  --color-danger:        #A83232;
+  --color-danger-bg:     #F9E8E8;
+  --color-warning:       #8A6518;
+  --color-warning-bg:    #FAF0DA;
+
+  /* Etiqueta / SKU */
+  --color-etiqueta-bg:   #DDE5F0;
+  --color-etiqueta-text: #0F1E36;
+
+  /* Tipografía boutique: Serif editorial + sans moderna */
+  --font-display: 'Cinzel', 'Fraunces', serif;
+  --font-body:    'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono:    ui-monospace, 'JetBrains Mono', monospace;
+}
+
+/* Modo oscuro demo */
+:root[data-theme="cliente-demo"][data-mode="dark"],
+.theme-cliente-demo.dark {
+  --color-bg:            #0A111F;  /* Azul noche abisal */
+  --color-primary:       #EBF1FA;  /* Blanco hielo */
+  --color-secondary:     #9AB0CF;  /* Azul bruma */
+  --color-text:          #EBF1FA;
+  --color-text-muted:    #9AB0CF;
+  
+  --color-accent:        #E2C285;  /* Oro cálido luminoso */
+  --color-accent-hover:  #F0D7A7;
+  --color-accent-text:   #E2C285;
+
+  --color-surface:       #131F36;  /* Azul marino de elevación */
+  --color-surface-alt:   #1A2B4A;
+  --color-border:        #243B63;
+
+  --color-etiqueta-bg:   #1E3354;
+  --color-etiqueta-text: #EBF1FA;
+}

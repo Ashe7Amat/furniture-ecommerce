@@ -1,3 +1,5 @@
+@import '../theme/tokens.css';
+
 /* Pestaña "Reservas" del panel (pages/admin/pestanas/ReservasTab.jsx). Reutiliza las piezas del
    panel (Admin.css: .pedido-card, .admin-form, .admin-modal-*...) y añade solo lo suyo. */
 
