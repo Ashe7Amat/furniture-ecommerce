@@ -194,8 +194,25 @@ const ProductDetail = () => {
 
   if (loading) {
     return (
-      <div className="pd-loading-container">
-        <div className="pd-loader"></div>
+      <div className="pd-container pd-skeleton" aria-busy="true">
+        <div className="pd-top-nav">
+          <span className="pd-back-link" style={{ visibility: 'hidden' }}>&larr; Volver a la colección</span>
+        </div>
+        <div className="pd-grid">
+          <div className="pd-gallery">
+            <div className="pd-main-image-wrapper">
+              <div className="pd-loader" role="status" aria-label="Cargando pieza..."></div>
+            </div>
+          </div>
+          <div className="pd-info">
+            <div className="pd-skeleton-header">
+              <div className="pd-skeleton-line pd-skeleton-ref"></div>
+              <div className="pd-skeleton-line pd-skeleton-title"></div>
+              <div className="pd-skeleton-line pd-skeleton-price"></div>
+            </div>
+            <div className="pd-skeleton-block"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -281,8 +298,15 @@ const ProductDetail = () => {
               key={mainImage}
               src={mainImage}
               alt={mueble.nombre}
+              width="600"
+              height="600"
               className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
               decoding="async"
+              loading="eager"
+              // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+              // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+              // eslint-disable-next-line react/no-unknown-property
+              fetchpriority="high"
             />
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
@@ -297,7 +321,17 @@ const ProductDetail = () => {
                   onClick={() => setMainImage(img)}
                   aria-label={`Ver imagen ${index + 1}`}
                 >
-                  <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
+                  <img
+                    src={img}
+                    alt={`Miniatura ${index + 1}`}
+                    className="pd-thumbnail-img"
+                    width="80"
+                    height="80"
+                    loading="lazy"
+                    decoding="async"
+                    // eslint-disable-next-line react/no-unknown-property
+                    fetchpriority="low"
+                  />
                 </button>
               ))}
             </div>

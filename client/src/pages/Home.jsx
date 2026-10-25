@@ -144,6 +144,8 @@ export default function Home() {
                             <img
                                 src={slide.src}
                                 alt={slide.alt}
+                                width="800"
+                                height="600"
                                 decoding="async"
                                 // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
                                 // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.

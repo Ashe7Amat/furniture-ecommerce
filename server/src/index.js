@@ -77,6 +77,8 @@ const origenesPermitidos = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:4173',
+  'http://localhost:5175',
   ...(process.env.ALLOWED_ORIGINS || '').split(',').map((origen) => origen.trim())
 ].filter(Boolean);
 

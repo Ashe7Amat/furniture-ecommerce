@@ -9,14 +9,14 @@ import Footer from './components/Footer';
 import CartDrawer from './components/CartDrawer';
 import ProtectedRoute from './components/ProtectedRoute';
 import CookieConsent from './components/CookieConsent';
-import MusicaDeFondo from './components/MusicaDeFondo';
 import Home from './pages/Home'; // Inmediato (landing)
 import Catalog from './pages/Catalog'; // Inmediato (catálogo principal)
 import PageLoader from './components/PageLoader';
 import ScrollToTop from './components/ScrollToTop';
 
-// Carga perezosa (code-splitting): el resto de páginas solo se descargan cuando el
+// Carga perezosa (code-splitting): el resto de páginas y utilidades secundarias solo se descargan cuando el
 // visitante realmente navega a ellas, en vez de venir todas en el paquete inicial.
+const MusicaDeFondo = lazy(() => import('./components/MusicaDeFondo'));
 const ProductDetail = lazy(() => import('./pages/ProductDetail'));
 const Login = lazy(() => import('./pages/Login'));
 // AdminRuta monta Admin.jsx con el ?editar={id} de la URL (ver AdminRuta.jsx).
@@ -88,7 +88,9 @@ function App() {
                 </main>
                 <Footer />
                 <CartDrawer />
-                <MusicaDeFondo />
+                <Suspense fallback={null}>
+                  <MusicaDeFondo />
+                </Suspense>
                 <CookieConsent />
               </div>
             </BrowserRouter>
