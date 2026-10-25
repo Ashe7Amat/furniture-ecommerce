@@ -17,10 +17,10 @@ const ProductCard = ({ mueble }) => {
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
     ? miniatura(mueble.imagenes[0])
     : PLACEHOLDER_IMG;
-  // Las variantes WebP se activan cuando el bucket ha sido optimizado por lotes (VITE_WEBP_OPTIMIZADAS=true)
-  const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
-  const [errorWebp, setErrorWebp] = useState(false);
-  const variantesWebp = (habilitarWebp && !errorWebp) ? obtenerVariantesWebp(imageUrl) : null;
+  // <picture> solo se renderiza cuando las variantes .webp existen en el bucket.
+  // Mientras no se haya ejecutado npm run images:optimize, usar <img> plano evita CLS por 400s.
+  const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+  const variantesWebp = usarPictureWebp ? obtenerVariantesWebp(imageUrl) : null;
 
   const handleFavClick = (e) => {
     e.preventDefault();
@@ -41,14 +41,26 @@ const ProductCard = ({ mueble }) => {
     <>
       <Link to={`/mueble/${mueble.id}`} className={`product-card ${esVendido ? 'is-sold' : ''}`}>
         <div className="product-image-container">
-          <picture className="product-picture">
-            {variantesWebp && (
+          {usarPictureWebp && variantesWebp ? (
+            <picture className="product-picture">
               <source
                 type="image/webp"
                 srcSet={variantesWebp.srcset}
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
               />
-            )}
+              <img
+                src={imageUrl}
+                srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+                alt={mueble.nombre || 'Mueble'}
+                className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
+                loading="lazy"
+                decoding="async"
+                width="320"
+                height="320"
+              />
+            </picture>
+          ) : (
             <img
               src={imageUrl}
               srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
@@ -59,9 +71,8 @@ const ProductCard = ({ mueble }) => {
               decoding="async"
               width="320"
               height="320"
-              onError={() => setErrorWebp(true)}
             />
-          </picture>
+          )}
 
           {/* Overlay esquina superior izquierda: Pieza Única (disponible) o Vendido (grayscale) */}
           <div className="product-badge-overlay">

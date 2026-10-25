@@ -294,33 +294,51 @@ const ProductDetail = () => {
         {/* COLUMNA IZQUIERDA (60%): GALERÍA DE FOTOS */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
+            {/* <picture> solo se renderiza cuando las variantes .webp existen en el bucket.
+                Mientras no se haya ejecutado npm run images:optimize, usar <img> plano evita CLS por 400s. */}
             {(() => {
-              const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
-              const variantesWebp = habilitarWebp ? obtenerVariantesWebp(mainImage) : null;
-              return (
-                <picture className="pd-main-image-picture">
-                  {variantesWebp && (
+              const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+              const variantesWebp = usarPictureWebp ? obtenerVariantesWebp(mainImage) : null;
+              if (usarPictureWebp && variantesWebp) {
+                return (
+                  <picture className="pd-main-image-picture">
                     <source
                       type="image/webp"
                       srcSet={variantesWebp.srcset}
                       sizes="(max-width: 768px) 100vw, 600px"
                     />
-                  )}
-                  <img
-                    key={mainImage}
-                    src={mainImage}
-                    alt={mueble.nombre}
-                    width="600"
-                    height="600"
-                    className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
-                    decoding="async"
-                    loading="eager"
-                    // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
-                    // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
-                    // eslint-disable-next-line react/no-unknown-property
-                    fetchpriority="high"
-                  />
-                </picture>
+                    <img
+                      key={mainImage}
+                      src={mainImage}
+                      alt={mueble.nombre}
+                      width="600"
+                      height="600"
+                      className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+                      decoding="async"
+                      loading="eager"
+                      // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                      // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                      // eslint-disable-next-line react/no-unknown-property
+                      fetchpriority="high"
+                    />
+                  </picture>
+                );
+              }
+              return (
+                <img
+                  key={mainImage}
+                  src={mainImage}
+                  alt={mueble.nombre}
+                  width="600"
+                  height="600"
+                  className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+                  decoding="async"
+                  loading="eager"
+                  // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                  // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                  // eslint-disable-next-line react/no-unknown-property
+                  fetchpriority="high"
+                />
               );
             })()}
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
@@ -330,8 +348,8 @@ const ProductDetail = () => {
           {mueble.imagenes && mueble.imagenes.length > 1 && (
             <div className="pd-thumbnails" role="region" aria-label="Galería de imágenes">
               {mueble.imagenes.map((img, index) => {
-                const habilitarWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
-                const variantesThumb = habilitarWebp ? obtenerVariantesWebp(img) : null;
+                const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+                const variantesThumb = usarPictureWebp ? obtenerVariantesWebp(img) : null;
                 return (
                   <button 
                     key={index} 
@@ -339,14 +357,26 @@ const ProductDetail = () => {
                     onClick={() => setMainImage(img)}
                     aria-label={`Ver imagen ${index + 1}`}
                   >
-                    <picture className="pd-thumbnail-picture">
-                      {variantesThumb && (
+                    {usarPictureWebp && variantesThumb ? (
+                      <picture className="pd-thumbnail-picture">
                         <source
                           type="image/webp"
                           srcSet={`${variantesThumb.w400} 400w`}
                           sizes="80px"
                         />
-                      )}
+                        <img
+                          src={img}
+                          alt={`Miniatura ${index + 1}`}
+                          className="pd-thumbnail-img"
+                          width="80"
+                          height="80"
+                          loading="lazy"
+                          decoding="async"
+                          // eslint-disable-next-line react/no-unknown-property
+                          fetchpriority="low"
+                        />
+                      </picture>
+                    ) : (
                       <img
                         src={img}
                         alt={`Miniatura ${index + 1}`}
@@ -358,7 +388,7 @@ const ProductDetail = () => {
                         // eslint-disable-next-line react/no-unknown-property
                         fetchpriority="low"
                       />
-                    </picture>
+                    )}
                   </button>
                 );
               })}
