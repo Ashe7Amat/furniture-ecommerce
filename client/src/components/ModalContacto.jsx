@@ -85,7 +85,7 @@ const ModalContacto = ({ mueble, onClose }) => {
           </h2>
           {mueble && (
             <div className="mc-piece-preview">
-              <img src={imagen} alt={mueble.nombre} className="mc-piece-thumb" />
+              <img src={imagen} alt={mueble.nombre} className="mc-piece-thumb" loading="lazy" decoding="async" />
               <div className="mc-piece-info">
                 <span className="mc-piece-name font-display">{mueble.nombre}</span>
                 {mueble.referencia && (

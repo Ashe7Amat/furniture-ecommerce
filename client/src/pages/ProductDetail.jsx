@@ -553,6 +553,8 @@ const ProductDetail = () => {
                 src={mainImage || PLACEHOLDER_IMG}
                 alt={mueble.nombre}
                 className="pd-sticky-thumb"
+                loading="lazy"
+                decoding="async"
               />
               <div className="pd-sticky-text">
                 <span className="pd-sticky-nombre font-display">{mueble.nombre}</span>
