@@ -184,7 +184,6 @@
   font-weight: 400;
   color: var(--secondary-color);
   letter-spacing: 0.04em;
-  opacity: 0.85;
 }
 
 .product-description {
@@ -221,7 +220,7 @@
 .product-cta {
   font-size: clamp(0.76rem, 2.2vw, 0.85rem);
   font-weight: 600;
-  color: var(--accent-color);
+  color: var(--accent-text);
   letter-spacing: 0.01em;
   display: inline-flex;
   align-items: center;
@@ -232,6 +231,6 @@
 }
 
 .product-card:hover .product-cta {
-  color: var(--accent-hover);
+  color: var(--accent-text);
   transform: translateX(3px);
 }

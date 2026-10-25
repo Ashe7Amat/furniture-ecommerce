@@ -278,6 +278,10 @@
   color: var(--secondary-color);
 }
 
+.pd-ref.ref-producto--etiqueta {
+  color: var(--etiqueta-text);
+}
+
 .pd-price {
   font-family: var(--font-display);
   font-size: 1.8rem;
@@ -517,7 +521,7 @@
 }
 
 .pd-accordion-header:hover {
-  color: var(--accent-color);
+  color: var(--accent-text);
 }
 
 .pd-accordion-icon {

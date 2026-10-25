@@ -1298,7 +1298,7 @@
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--accent-color);
+  color: var(--accent-text);
   font-weight: 600;
   margin: 0 0 12px 0;
   padding-bottom: 8px;
@@ -1478,7 +1478,7 @@
   font-size: 0.75rem;
   font-weight: 500;
 }
-.mensaje-estado.no-leido { background: var(--accent-color); color: #fff; }
+.mensaje-estado.no-leido { background: var(--accent-text); color: #fff; }
 .mensaje-estado.leido { background: var(--bg-color); color: var(--secondary-color); }
 .mensajes-error { padding: 20px; border: 1px solid var(--danger-color); border-radius: 6px; }
 .mensajes-error p { margin: 0 0 12px; color: var(--danger-color); }

@@ -44,8 +44,7 @@ function App() {
             <BrowserRouter>
               <ScrollToTop />
               <div className="app-container">
-                {/* Accesibilidad (WCAG 2.4.1): con el teclado, saltar la cabecera e ir directo al contenido. */}
-                <a href="#contenido" className="saltar-al-contenido">Saltar al contenido</a>
+                <a href="#contenido" className="skip-link saltar-al-contenido">Saltar al contenido</a>
                 <Header />
                 <main id="contenido" tabIndex={-1}>
                   <Suspense fallback={<PageLoader />}>
