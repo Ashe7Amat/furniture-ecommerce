@@ -11,9 +11,16 @@ const SB = 'https://ejemplo.supabase.co';
 const pub = (ruta) => `${SB}/storage/v1/object/public/imagenes/${ruta}`;
 
 const jpg = (width, height) =>
-  sharp({ create: { width, height, channels: 3, background: { r: 140, g: 100, b: 70 } } }).jpeg({ quality: 95 }).toBuffer();
+  sharp({ create: { width, height, channels: 3, background: { r: 140, g: 100, b: 70 } } })
+    .jpeg({ quality: 95 })
+    .toBuffer();
 
-const crearSupabase = async ({ muebles, archivos, fallaDescarga = () => false, fallaUpdate = false }) => {
+const crearSupabase = async ({
+  muebles,
+  archivos,
+  fallaDescarga = () => false,
+  fallaUpdate = false
+}) => {
   const subidas = [];
   const updates = [];
   const bucket = { ...archivos };
@@ -40,9 +47,16 @@ const crearSupabase = async ({ muebles, archivos, fallaDescarga = () => false, f
         return {
           getPublicUrl: (ruta) => ({ data: { publicUrl: pub(ruta) } }),
           download: async (ruta) => {
-            if (fallaDescarga(ruta) || !bucket[ruta]) return { data: null, error: { message: 'no existe' } };
+            if (fallaDescarga(ruta) || !bucket[ruta])
+              return { data: null, error: { message: 'no existe' } };
             const buf = bucket[ruta];
-            return { data: { arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length) }, error: null };
+            return {
+              data: {
+                arrayBuffer: async () =>
+                  buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length)
+              },
+              error: null
+            };
           },
           upload: async (ruta, buffer, opciones) => {
             subidas.push({ ruta, buffer, opciones });
@@ -83,10 +97,18 @@ describe('miniaturasFotosAntiguas: qué fotos toca', () => {
 describe('miniaturasFotosAntiguas: procesar', () => {
   const datos = async () => ({
     muebles: [
-      { id: 1, referencia: 'NAV-BAU-001', imagenes: [pub('muebles/001-baul-1.jpg'), pub('muebles/nueva-1-full.webp')] },
+      {
+        id: 1,
+        referencia: 'NAV-BAU-001',
+        imagenes: [pub('muebles/001-baul-1.jpg'), pub('muebles/nueva-1-full.webp')]
+      },
       { id: 2, referencia: 'NAV-SIL-001', imagenes: [pub('muebles/nueva-2-full.webp')] },
       // La misma foto antigua en dos muebles: se procesa una vez.
-      { id: 3, referencia: 'NAV-OBJ-001', imagenes: [pub('muebles/001-baul-1.jpg'), 'https://otro.com/foto.jpg'] },
+      {
+        id: 3,
+        referencia: 'NAV-OBJ-001',
+        imagenes: [pub('muebles/001-baul-1.jpg'), 'https://otro.com/foto.jpg']
+      },
       { id: 4, referencia: 'NAV-OBJ-002', imagenes: null }
     ],
     archivos: { 'muebles/001-baul-1.jpg': await jpg(2400, 1800) }
@@ -98,15 +120,24 @@ describe('miniaturasFotosAntiguas: procesar', () => {
     assert.equal(sb.subidas.length, 0);
     assert.equal(sb.updates.length, 0);
     assert.equal(r.fotos, 1);
-    assert.deepEqual(r.muebles.map((m) => m.id), [1, 3]);
-    assert.deepEqual(r.muebles[0].despues, [pub('muebles/001-baul-1-full.webp'), pub('muebles/nueva-1-full.webp')]);
+    assert.deepEqual(
+      r.muebles.map((m) => m.id),
+      [1, 3]
+    );
+    assert.deepEqual(r.muebles[0].despues, [
+      pub('muebles/001-baul-1-full.webp'),
+      pub('muebles/nueva-1-full.webp')
+    ]);
   });
 
   it('con aplicar: sube miniatura (400 px) y grande (1600 px) en WebP, y cambia solo las URLs antiguas', async () => {
     const sb = await crearSupabase(await datos());
     const r = await procesar(sb, { supabaseUrl: SB, aplicar: true });
 
-    assert.deepEqual(sb.subidas.map((s) => s.ruta), ['muebles/001-baul-1-thumb.webp', 'muebles/001-baul-1-full.webp']);
+    assert.deepEqual(
+      sb.subidas.map((s) => s.ruta),
+      ['muebles/001-baul-1-thumb.webp', 'muebles/001-baul-1-full.webp']
+    );
     for (const s of sb.subidas) assert.equal(s.opciones.contentType, 'image/webp');
     const mini = await sharp(sb.subidas[0].buffer).metadata();
     const grande = await sharp(sb.subidas[1].buffer).metadata();
@@ -121,9 +152,15 @@ describe('miniaturasFotosAntiguas: procesar', () => {
     ]);
     // No se borra nada: la foto antigua sigue en el bucket, y el informe guarda la lista de antes.
     assert.ok(sb.bucket['muebles/001-baul-1.jpg']);
-    assert.deepEqual(r.muebles[0].antes, [pub('muebles/001-baul-1.jpg'), pub('muebles/nueva-1-full.webp')]);
+    assert.deepEqual(r.muebles[0].antes, [
+      pub('muebles/001-baul-1.jpg'),
+      pub('muebles/nueva-1-full.webp')
+    ]);
     assert.equal(r.errores.length, 0);
-    assert.equal(r.muebles.every((m) => m.guardado), true);
+    assert.equal(
+      r.muebles.every((m) => m.guardado),
+      true
+    );
   });
 
   it('se puede repetir: la segunda vez no queda nada por hacer', async () => {
@@ -141,7 +178,10 @@ describe('miniaturasFotosAntiguas: procesar', () => {
     d.muebles[0].imagenes.push(pub('muebles/rota.jpg'));
     const sb = await crearSupabase(d);
     const r = await procesar(sb, { supabaseUrl: SB, aplicar: true });
-    assert.deepEqual(r.errores.map((e) => e.ruta), ['muebles/rota.jpg']);
+    assert.deepEqual(
+      r.errores.map((e) => e.ruta),
+      ['muebles/rota.jpg']
+    );
     assert.deepEqual(sb.updates[0].imagenes, [
       pub('muebles/001-baul-1-full.webp'),
       pub('muebles/nueva-1-full.webp'),
@@ -154,6 +194,9 @@ describe('miniaturasFotosAntiguas: procesar', () => {
     const sb = await crearSupabase({ ...(await datos()), fallaUpdate: true });
     const r = await procesar(sb, { supabaseUrl: SB, aplicar: true });
     assert.equal(r.errores.length, 2);
-    assert.equal(r.muebles.every((m) => m.guardado === false), true);
+    assert.equal(
+      r.muebles.every((m) => m.guardado === false),
+      true
+    );
   });
 });
