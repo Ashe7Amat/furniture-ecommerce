@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useDocumentMeta } from '../utils/useDocumentMeta';
+import Seo from '../components/Seo';
 import { useCatalogView } from '../utils/useCatalogView';
 import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -159,15 +159,44 @@ export default function Catalog() {
     setSearchParams(newParams);
   };
 
-  const tituloPagina = showFavorites ? 'Tus Favoritos' : (categoriaUrl || 'Catálogo');
+  const tituloPagina = showFavorites
+    ? 'Tus Favoritos'
+    : (categoriaUrl ? `${categoriaUrl} · Catálogo` : 'Catálogo');
 
-  useDocumentMeta({
-    title: tituloPagina,
-    description: 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.',
-  });
+  const jsonLdCatalog = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': [
+      {
+        '@type': 'ListItem',
+        'position': 1,
+        'name': 'Inicio',
+        'item': 'https://www.nave5barcelona.com/'
+      },
+      {
+        '@type': 'ListItem',
+        'position': 2,
+        'name': 'Catálogo',
+        'item': 'https://www.nave5barcelona.com/catalogo'
+      },
+      ...(categoriaUrl ? [{
+        '@type': 'ListItem',
+        'position': 3,
+        'name': categoriaUrl,
+        'item': `https://www.nave5barcelona.com/catalogo?categoria=${encodeURIComponent(categoriaUrl)}`
+      }] : [])
+    ]
+  };
 
   return (
     <div className="catalog-container">
+      <Seo
+        title={tituloPagina}
+        description="Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona."
+        url={categoriaUrl ? `/catalogo?categoria=${encodeURIComponent(categoriaUrl)}` : '/catalogo'}
+        canonical="/catalogo"
+        jsonLd={jsonLdCatalog}
+      />
       {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}
       <header className="catalog-header">
         <span style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--secondary-color)', textTransform: 'uppercase' }}>

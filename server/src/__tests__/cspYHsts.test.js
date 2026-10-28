@@ -20,14 +20,14 @@ describe('cabeceras de seguridad del servidor', () => {
     assert.equal(res.headers['content-security-policy'], "default-src 'none'");
   });
 
-  test('HSTS sigue activo (lo activa helmet() por defecto; no se ha desactivado sin querer)', async () => {
+  test('HSTS sigue activo con max-age=63072000 (2 años) y preload', async () => {
     const res = await request(app).get('/');
-    assert.match(res.headers['strict-transport-security'], /max-age=\d+/);
+    assert.match(res.headers['strict-transport-security'], /max-age=63072000/);
   });
 
-  test('X-Content-Type-Options y demás cabeceras de helmet por defecto siguen presentes', async () => {
+  test('X-Content-Type-Options y X-Frame-Options DENY están presentes', async () => {
     const res = await request(app).get('/');
     assert.equal(res.headers['x-content-type-options'], 'nosniff');
-    assert.equal(res.headers['x-frame-options'], 'SAMEORIGIN');
+    assert.equal(res.headers['x-frame-options'], 'DENY');
   });
 });

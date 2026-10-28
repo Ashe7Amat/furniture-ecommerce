@@ -23,7 +23,8 @@ const {
   accionSobreReserva,
   crearBloqueoAdmin,
   crearAlquilerAdmin,
-  crearVentaAdmin
+  crearVentaAdmin,
+  cancelarReservaAdmin
 } = require('../controllers/adminReservasController');
 const { verificarAdmin } = require('../middleware/auth');
 const { validar } = require('../middleware/validar');
@@ -109,7 +110,7 @@ router.get(
   calendarioReservasAdmin
 );
 router.post(
-  '/reservas/bloqueos',
+  ['/reservas/bloqueos', '/reservas/bloqueo'],
   ...reservas,
   exigirObjeto,
   validar(schemaBloqueo),
@@ -129,8 +130,26 @@ router.post(
   validar(schemaVentaFueraDeLaWeb),
   crearVentaAdmin
 );
+
+// Cancelar reserva con reembolso y log de auditoría (R-d)
+router.post('/reservas/:id/cancelar', ...reservas, cancelarReservaAdmin);
+
 // entregar, recoger, ampliar, cancelar, reintentar-reembolso, dar-por-reembolsado o
 // levantar-bloqueo
 router.post('/reservas/:id/:accion', ...reservas, prepararAccion, accionSobreReserva);
+
+// Endpoints PATCH dedicados para marcar entrega y recogida (R-d)
+router.patch('/reservas/:id/entregar', ...reservas, (req, res, next) => {
+  req.params.accion = 'entregar';
+  req.body = req.body || {};
+  if (req.body.antes_de_tiempo === undefined) req.body.antes_de_tiempo = true;
+  next();
+}, prepararAccion, accionSobreReserva);
+
+router.patch('/reservas/:id/recoger', ...reservas, (req, res, next) => {
+  req.params.accion = 'recoger';
+  req.body = req.body || {};
+  next();
+}, prepararAccion, accionSobreReserva);
 
 module.exports = router;

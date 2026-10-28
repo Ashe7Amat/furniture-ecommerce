@@ -5,6 +5,7 @@ import { useScrollReveal } from '../utils/useScrollReveal';
 import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
 import ProductCard from '../components/ProductCard';
 import VistosEn from '../components/VistosEn';
+import Seo from '../components/Seo';
 import '../styles/Home.css';
 
 // Fotos reales del almacén para el slider del hero (estilo banner rotativo tipo IKEA/Kave Home).
@@ -88,9 +89,41 @@ export default function Home() {
     }, []);
 
     const fotosGaleria = ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
+    // En el móvil la galería va a todo el ancho y 300 px de alto: basta la versión de 800 px de cada foto
+    // (61 y 121 KB en vez de 167 y 311). Los originales miden 1200 de ancho.
+    const srcSetGaleria = (src) => `${src.replace(/\.webp$/, '-800.webp')} 800w, ${src} 1200w`;
+    const sizesGaleria = '(max-width: 768px) 100vw, 34vw';
+
+    const jsonLdLocalBusiness = {
+        '@context': 'https://schema.org',
+        '@type': 'LocalBusiness',
+        '@id': 'https://www.nave5barcelona.com/#localbusiness',
+        'name': 'Nave 5 Barcelona',
+        'image': 'https://www.nave5barcelona.com/og-image.png',
+        'url': 'https://www.nave5barcelona.com',
+        'telephone': '+34 930 00 00 00',
+        'address': {
+            '@type': 'PostalAddress',
+            'streetAddress': 'Carrer del Plom, 32-34, interior',
+            'addressLocality': 'Barcelona',
+            'postalCode': '08038',
+            'addressCountry': 'ES'
+        },
+        'openingHours': 'Mo-Fr 10:00-19:00',
+        'sameAs': [
+            'https://www.instagram.com/nave5bcn'
+        ]
+    };
 
     return (
         <>
+            <Seo
+                title="Nave 5 Barcelona · Muebles vintage y alquiler"
+                description="Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios."
+                url="/"
+                canonical="/"
+                jsonLd={jsonLdLocalBusiness}
+            />
             {/* HERO A PANTALLA COMPLETA: fuera de .home-page para no quedar limitado a su ancho máximo
                 ni a su relleno lateral. En móvil, foto arriba y texto debajo sobre fondo oscuro. */}
             <section className="home-hero">
@@ -115,6 +148,8 @@ export default function Home() {
                             <img
                                 src={slide.src}
                                 alt={slide.alt}
+                                width="800"
+                                height="600"
                                 decoding="async"
                                 // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
                                 // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
@@ -190,6 +225,8 @@ export default function Home() {
                     <div className={`gallery-grid${fotosGaleria.length >= 3 ? ' gallery-grid--tres' : ''}`}>
                         <img
                             src={fotosGaleria[0]}
+                            srcSet={srcSetGaleria(fotosGaleria[0])}
+                            sizes={sizesGaleria}
                             alt="Espacio decorativo en Nave 5 Barcelona"
                             className="gallery-img"
                             loading="lazy"
@@ -200,6 +237,8 @@ export default function Home() {
                         </div>
                         <img
                             src={fotosGaleria[1]}
+                            srcSet={srcSetGaleria(fotosGaleria[1])}
+                            sizes={sizesGaleria}
                             alt="Detalle de muebles restaurados en Nave 5 Barcelona"
                             className="gallery-img"
                             loading="lazy"
@@ -208,6 +247,8 @@ export default function Home() {
                         {fotosGaleria.length >= 3 && (
                             <img
                                 src={fotosGaleria[2]}
+                                srcSet={srcSetGaleria(fotosGaleria[2])}
+                                sizes={sizesGaleria}
                                 alt="Ambiente singular en Nave 5 Barcelona"
                                 className="gallery-img"
                                 loading="lazy"

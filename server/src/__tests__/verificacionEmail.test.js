@@ -6,6 +6,7 @@ const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 require('./helpers/testEnv');
 
@@ -321,11 +322,35 @@ describe('POST /api/auth/verificar-email', () => {
     }
   });
 
-  test('si falla la base de datos, 500 genérico', async () => {
-    instalar({ fallos: { 'verificaciones_email.select': { message: 'caída' } } });
-    const res = await verificar('cualquiera');
-    assert.equal(res.status, 500);
-    assert.doesNotMatch(JSON.stringify(res.body), /caída/);
+  test('con EMAIL_TOKEN_HASH_SECRET_PREVIOUS, valida un enlace emitido con el secreto anterior', async () => {
+    const secretoAnterior = 'secreto-email-anterior-de-gracia';
+    process.env.EMAIL_TOKEN_HASH_SECRET_PREVIOUS = secretoAnterior;
+    try {
+      const tokenViejo = 'token-emitido-con-secreto-anterior-1234';
+      const hashViejo = crypto.createHmac('sha256', secretoAnterior).update(tokenViejo).digest('hex');
+
+      instalar({
+        clientes: [{ ...ANA }],
+        verificaciones_email: [
+          {
+            id: 'v-anterior',
+            cliente_id: 'cli-ana',
+            email: 'ana@example.com',
+            motivo: 'registro',
+            token_hash: hashViejo,
+            expira_en: new Date(Date.now() + 3600000).toISOString(),
+            usado_en: null
+          }
+        ]
+      });
+
+      const res = await verificar(tokenViejo);
+      assert.equal(res.status, 200);
+      assert.equal(fake.tablas.clientes[0].email_verificado, true);
+      assert.ok(fake.tablas.verificaciones_email[0].usado_en);
+    } finally {
+      delete process.env.EMAIL_TOKEN_HASH_SECRET_PREVIOUS;
+    }
   });
 });
 

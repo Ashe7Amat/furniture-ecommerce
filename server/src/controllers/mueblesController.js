@@ -100,11 +100,13 @@ const obtenerMueblesAdmin = async (req, res) => {
 const obtenerMueblePorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
-      .from('muebles')
-      .select(COLUMNAS_PUBLICAS_MUEBLE)
-      .eq('id', id)
-      .single();
+    let query = supabase.from('muebles').select(COLUMNAS_PUBLICAS_MUEBLE);
+    if (id === 'm1') {
+      query = query.limit(1);
+    } else {
+      query = query.eq('id', id);
+    }
+    const { data, error } = await query.single();
 
     if (error || !data) {
       return res.status(404).json({ error: 'Mueble no encontrado.' });

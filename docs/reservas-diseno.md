@@ -1515,6 +1515,9 @@ desplegar sin que nadie lo note, y un fallo de calendario nunca coincide con uno
 ### Bloque R-c — Cliente (≈ 3–4 días)
 
 11. `feat(client): calendario y presupuesto en la ficha de producto` (react-day-picker, detrás del interruptor).
+    **Con los precios ocultos (`MOSTRAR_PRECIOS` distinto de `true`, fase C)** el calendario enseña "Reservas no
+    disponibles": desde B1 (R-b) la disponibilidad devuelve `precio_dia: null` y `alquilable: false`, y el
+    presupuesto y `POST /api/reservas/sesion-pago` responden 403.
 12. `feat(client): confirmación y pago de la reserva` (desglose, aceptación de condiciones, página de éxito
     adaptada a reservas y a conflictos).
 13. `feat(client): mis reservas en la cuenta del cliente` (con solicitud de cancelación).

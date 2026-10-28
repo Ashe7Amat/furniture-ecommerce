@@ -109,6 +109,7 @@ export const ContenidoAlbaran = ({ pedido = {}, muebles = [] }) => {
                         alt={`Miniatura de ${nombre}`}
                         className="albaran-thumb"
                         loading="lazy"
+                        decoding="async"
                       />
                     </td>
                     <td className="col-ref">

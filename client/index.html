@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nave 5 Barcelona | Almacén de ideas</title>
+    <title>Nave 5 Barcelona · Muebles vintage y alquiler</title>
     <meta name="description" content="Almacén de ideas en el corazón de Barcelona: muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios." />
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -12,18 +12,31 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Nave 5 Barcelona" />
-    <meta property="og:title" content="Nave 5 Barcelona | Almacén de ideas" />
+    <meta property="og:title" content="Nave 5 Barcelona · Muebles vintage y alquiler" />
     <meta property="og:description" content="Muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios." />
     <meta property="og:image" content="https://www.nave5barcelona.com/og-image.png" />
     <meta property="og:locale" content="es_ES" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Nave 5 Barcelona | Almacén de ideas" />
+    <meta name="twitter:title" content="Nave 5 Barcelona · Muebles vintage y alquiler" />
     <meta name="twitter:description" content="Muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios." />
     <meta name="twitter:image" content="https://www.nave5barcelona.com/og-image.png" />
 
+    <!-- Precarga de la foto del hero (el LCP de la portada), solo en la portada: con <link rel="preload">
+         fijos, quien entraba por el catálogo o una ficha (enlaces de Google o Wallapop) descargaba también
+         esta foto (100-370 KB) con prioridad alta, compitiendo con la suya. Los tamaños y los cortes son los
+         del hero en Home.jsx. Si se cambia este script, hay que poner su nuevo hash en la CSP (vercel.json). -->
+    <script>if(location.pathname==='/'){[['/img/hero-almacen-800.webp','(max-width: 767.98px)'],['/img/hero-almacen-1200.webp','(min-width: 768px) and (max-width: 1200px)'],['/img/hero-almacen.webp','(min-width: 1200.02px)']].forEach(function(f){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/webp';l.href=f[0];l.media=f[1];l.setAttribute('fetchpriority','high');document.head.appendChild(l)})}</script>
+
+    <!-- Preconnect to image CDN for product detail LCP -->
+    <link rel="preconnect" href="https://gdrmpxcpucmaxvtpljge.supabase.co" crossorigin />
+    <link rel="dns-prefetch" href="https://gdrmpxcpucmaxvtpljge.supabase.co" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preload" as="font" type="font/woff2" href="https://fonts.gstatic.com/s/fraunces/v38/6NU78FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0KxC9TeP2Xz5c.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="https://fonts.gstatic.com/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7W0Q5nw.woff2" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>

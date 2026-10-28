@@ -90,21 +90,22 @@ const CategoriasTab = ({
 
   return (
     <div className="admin-view fade-in">
-      <div className="admin-view-head"><h2>Gestionar Categorías</h2></div>
+      <div className="admin-view-head"><h2 className="admin-title-h2">Gestionar Categorías</h2></div>
       <div className="admin-cat-manager">
         <form onSubmit={handleAddCategoria} className="cat-add-form">
           <input
             type="text"
+            className="admin-input"
             placeholder="Nueva categoría (Ej: Sofás)"
             value={nuevaCat}
             onChange={(e) => setNuevaCat(e.target.value)}
             required
           />
           <div className="field-group">
-            <label className="field-label">Código de 3 letras (opcional):</label>
+            <label className="field-label admin-label">Código de 3 letras (opcional):</label>
             <input
               type="text"
-              className="cat-codigo-input"
+              className="cat-codigo-input admin-input"
               placeholder="Ej: SOF"
               value={nuevaCatCodigo}
               onChange={(e) => setNuevaCatCodigo(normalizarCodigo(e.target.value))}
@@ -113,8 +114,14 @@ const CategoriasTab = ({
             <small id="nueva-cat-codigo-nota" className="field-hint">Forma las referencias de sus muebles (NAV-SOF-001). Sin código, no llevan referencia.</small>
           </div>
           <div className="field-group">
-            <label className="field-label">Categoría general (opcional):</label>
-            <select value={nuevaCatPadre} onChange={(e) => setNuevaCatPadre(e.target.value)}>
+            <label htmlFor="nueva-cat-padre" className="field-label admin-label">Categoría general (opcional):</label>
+            <select
+              id="nueva-cat-padre"
+              className="admin-select"
+              aria-label="Categoría general (opcional)"
+              value={nuevaCatPadre}
+              onChange={(e) => setNuevaCatPadre(e.target.value)}
+            >
               <option value="">— Es una categoría general —</option>
               {generales(categorias).map(general => (
                 <option key={general.id} value={general.id}>Dentro de: {general.nombre}</option>
@@ -122,16 +129,17 @@ const CategoriasTab = ({
             </select>
           </div>
           <div className="file-input-wrapper">
-            <label>Imagen de la Categoría:</label>
+            <label className="admin-label" htmlFor="categoria-file-input">Imagen de la Categoría:</label>
             <input
               type="file"
               id="categoria-file-input"
               accept="image/*"
+              aria-label="Imagen de la Categoría"
               onChange={(e) => setCategoriaFile(e.target.files[0])}
               required
             />
           </div>
-          <button type="submit" className="admin-btn" disabled={envio.enviando}>Crear Categoría</button>
+          <button type="submit" className="admin-btn admin-btn-primary" disabled={envio.enviando}>Crear Categoría</button>
         </form>
         {envio.mensaje && <p className="admin-status">{envio.mensaje}</p>}
 

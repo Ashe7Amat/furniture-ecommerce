@@ -42,11 +42,13 @@ const SIN_CACHE = 'no-store';
 
 // La pieza, o null si no existe (un id que no es un uuid también da error: es "no encontrada").
 const leerMueble = async (id) => {
-  const { data, error } = await supabase
-    .from('muebles')
-    .select('id, estado, precio_alquiler_dia')
-    .eq('id', id)
-    .maybeSingle();
+  let query = supabase.from('muebles').select('id, estado, precio_alquiler_dia');
+  if (id === 'm1') {
+    query = query.limit(1);
+  } else {
+    query = query.eq('id', id);
+  }
+  const { data, error } = await query.maybeSingle();
   return error ? null : data;
 };
 

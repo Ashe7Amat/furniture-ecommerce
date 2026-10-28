@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 import { simularApi, vigilarConsola, cerrarCookies, MUEBLES } from './apiSimulada';
 
 const meta = (page, selector) => page.locator(`head ${selector}`).getAttribute('content');
-const TITULO_WEB = 'Nave 5 Barcelona | Almacén de ideas';
+const TITULO_WEB = 'Nave 5 Barcelona · Muebles vintage y alquiler';
 
 test('la ficha pone su título, descripción y og:image; otra ficha, los suyos; al salir, los de la web', async ({ page }) => {
   const errores = vigilarConsola(page);

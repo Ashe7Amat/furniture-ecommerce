@@ -9,14 +9,17 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --test src/**/*.test.js",
+    "test": "node --test src/**/*.test.js scripts/**/*.test.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"src/__tests__/**\" --test-coverage-lines=98 --test-coverage-branches=91 --test-coverage-functions=99 src/**/*.test.js",
     "test:stripe": "node --test src/__tests__/contract/stripe.contract.js",
     "test:supabase-ilike": "node --test src/__tests__/contract/supabaseIlike.contract.js",
     "test:supabase-rls": "node --test src/__tests__/contract/rlsPedidos.contract.js",
-    "lint": "eslint src/",
-    "format": "prettier --write src/",
-    "format:check": "prettier --check src/"
+    "lint": "eslint src/ scripts/",
+    "format": "prettier --write src/ scripts/",
+    "format:check": "prettier --check src/ scripts/",
+    "secrets:generate": "node scripts/generarSecretos.js",
+    "images:optimize": "node scripts/optimizarImagenes.js",
+    "fotos:miniaturas": "node scripts/miniaturasFotosAntiguas.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
