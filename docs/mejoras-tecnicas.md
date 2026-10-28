@@ -3127,7 +3127,7 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 ### H64 · MEDIA · TESTS · PENDIENTE (anotada el 28 oct 2026) · E2E que fallan en `feature/mejoras-tecnicas`
 
 - **Qué pasa:** en `4900ba3`, sin ningún cambio, `npx playwright test` daba 11 fallos de 67 (con `/ajustes/home`
-  simulada, 9). En `caf6b1d` (la rama al día con `main`) son 18, con o sin el PR #22: 14 de `cesta.spec.js`,
+  simulada, 9). En `caf6b1d` (la rama al día con `main`) son 18, con o sin el PR #22: 15 de `cesta.spec.js`,
   1 de `admin.spec.js` (modo admin en la ficha), 1 de `home.spec.js` (destacadas) y 1 de `imagenes.spec.js`.
 - **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
   rama sin PR a `main`.
