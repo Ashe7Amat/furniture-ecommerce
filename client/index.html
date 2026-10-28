@@ -21,10 +21,11 @@
     <meta name="twitter:description" content="Muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios." />
     <meta name="twitter:image" content="https://www.nave5barcelona.com/og-image.png" />
 
-    <!-- Preload hero image responsive for instant LCP discovery -->
-    <link rel="preload" as="image" href="/img/hero-almacen-800.webp" media="(max-width: 767.98px)" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/img/hero-almacen-1200.webp" media="(min-width: 768px) and (max-width: 1200px)" type="image/webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="/img/hero-almacen.webp" media="(min-width: 1200.02px)" type="image/webp" fetchpriority="high" />
+    <!-- Precarga de la foto del hero (el LCP de la portada), solo en la portada: con <link rel="preload">
+         fijos, quien entraba por el catálogo o una ficha (enlaces de Google o Wallapop) descargaba también
+         esta foto (100-370 KB) con prioridad alta, compitiendo con la suya. Los tamaños y los cortes son los
+         del hero en Home.jsx. Si se cambia este script, hay que poner su nuevo hash en la CSP (vercel.json). -->
+    <script>if(location.pathname==='/'){[['/img/hero-almacen-800.webp','(max-width: 767.98px)'],['/img/hero-almacen-1200.webp','(min-width: 768px) and (max-width: 1200px)'],['/img/hero-almacen.webp','(min-width: 1200.02px)']].forEach(function(f){var l=document.createElement('link');l.rel='preload';l.as='image';l.type='image/webp';l.href=f[0];l.media=f[1];l.setAttribute('fetchpriority','high');document.head.appendChild(l)})}</script>
 
     <!-- Preconnect to image CDN for product detail LCP -->
     <link rel="preconnect" href="https://gdrmpxcpucmaxvtpljge.supabase.co" crossorigin />

@@ -334,6 +334,10 @@ describe('Home — galería de inspiración y sostenibilidad estáticas', () => 
     expect(imgs).toHaveLength(2);
     expect(imgs[0]).toHaveAttribute('src', '/img/galeria-rincon.webp');
     expect(imgs[1]).toHaveAttribute('src', '/img/galeria-butacas.webp');
+    // En el móvil, la versión de 800 px (las fotos de la galería pesan 167 y 311 KB a 1200 px).
+    expect(imgs[0]).toHaveAttribute('srcset', '/img/galeria-rincon-800.webp 800w, /img/galeria-rincon.webp 1200w');
+    expect(imgs[1]).toHaveAttribute('srcset', '/img/galeria-butacas-800.webp 800w, /img/galeria-butacas.webp 1200w');
+    expect(imgs[1]).toHaveAttribute('sizes', '(max-width: 768px) 100vw, 34vw');
     expect(screen.getByText('El mueble más sostenible es el que ya existe')).toBeInTheDocument();
   });
 });

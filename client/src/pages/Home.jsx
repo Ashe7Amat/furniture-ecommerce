@@ -89,6 +89,10 @@ export default function Home() {
     }, []);
 
     const fotosGaleria = ['/img/galeria-rincon.webp', '/img/galeria-butacas.webp'];
+    // En el móvil la galería va a todo el ancho y 300 px de alto: basta la versión de 800 px de cada foto
+    // (61 y 121 KB en vez de 167 y 311). Los originales miden 1200 de ancho.
+    const srcSetGaleria = (src) => `${src.replace(/\.webp$/, '-800.webp')} 800w, ${src} 1200w`;
+    const sizesGaleria = '(max-width: 768px) 100vw, 34vw';
 
     const jsonLdLocalBusiness = {
         '@context': 'https://schema.org',
@@ -221,6 +225,8 @@ export default function Home() {
                     <div className={`gallery-grid${fotosGaleria.length >= 3 ? ' gallery-grid--tres' : ''}`}>
                         <img
                             src={fotosGaleria[0]}
+                            srcSet={srcSetGaleria(fotosGaleria[0])}
+                            sizes={sizesGaleria}
                             alt="Espacio decorativo en Nave 5 Barcelona"
                             className="gallery-img"
                             loading="lazy"
@@ -231,6 +237,8 @@ export default function Home() {
                         </div>
                         <img
                             src={fotosGaleria[1]}
+                            srcSet={srcSetGaleria(fotosGaleria[1])}
+                            sizes={sizesGaleria}
                             alt="Detalle de muebles restaurados en Nave 5 Barcelona"
                             className="gallery-img"
                             loading="lazy"
@@ -239,6 +247,8 @@ export default function Home() {
                         {fotosGaleria.length >= 3 && (
                             <img
                                 src={fotosGaleria[2]}
+                                srcSet={srcSetGaleria(fotosGaleria[2])}
+                                sizes={sizesGaleria}
                                 alt="Ambiente singular en Nave 5 Barcelona"
                                 className="gallery-img"
                                 loading="lazy"
