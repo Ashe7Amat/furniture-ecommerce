@@ -38,7 +38,8 @@ const rutaEnBucket = (url, supabaseUrl) => {
 };
 
 // Solo las fotos de muebles del bucket que aún no tienen el formato -full.webp + -thumb.webp.
-const esAntigua = (ruta) => Boolean(ruta) && ruta.startsWith('muebles/') && !ruta.endsWith(SUFIJO_GRANDE);
+const esAntigua = (ruta) =>
+  Boolean(ruta) && ruta.startsWith('muebles/') && !ruta.endsWith(SUFIJO_GRANDE);
 
 const rutasNuevas = (ruta) => {
   const base = ruta.replace(/\.[a-z0-9]+$/i, '');
@@ -64,7 +65,9 @@ const generarVersiones = async (buffer) => {
  * @returns {Promise<{ muebles: Array, fotos: number, bytesAntes: number, bytesDespues: number, errores: Array }>}
  */
 const procesar = async (supabase, { supabaseUrl, aplicar = false, log = () => {} }) => {
-  const { data: muebles, error } = await supabase.from('muebles').select('id, referencia, imagenes');
+  const { data: muebles, error } = await supabase
+    .from('muebles')
+    .select('id, referencia, imagenes');
   if (error) throw new Error(`No se pudieron leer los muebles: ${error.message}`);
 
   const hechas = new Map(); // ruta antigua -> URL nueva (una foto puede estar en más de un mueble)
@@ -95,11 +98,16 @@ const procesar = async (supabase, { supabaseUrl, aplicar = false, log = () => {}
 
       if (aplicar) {
         try {
-          const { data: blob, error: errDescarga } = await supabase.storage.from(BUCKET).download(ruta);
+          const { data: blob, error: errDescarga } = await supabase.storage
+            .from(BUCKET)
+            .download(ruta);
           if (errDescarga || !blob) throw new Error(errDescarga?.message || 'descarga vacía');
           const original = Buffer.from(await blob.arrayBuffer());
           const versiones = await generarVersiones(original);
-          for (const [destino, buffer] of [[miniatura, versiones.miniatura], [grande, versiones.grande]]) {
+          for (const [destino, buffer] of [
+            [miniatura, versiones.miniatura],
+            [grande, versiones.grande]
+          ]) {
             const { error: errSubida } = await supabase.storage
               .from(BUCKET)
               .upload(destino, buffer, { contentType: 'image/webp', upsert: true });
@@ -107,7 +115,9 @@ const procesar = async (supabase, { supabaseUrl, aplicar = false, log = () => {}
           }
           bytesAntes += original.length;
           bytesDespues += versiones.grande.length;
-          log(`  ${ruta}: ${Math.round(original.length / 1024)} KB -> ${Math.round(versiones.grande.length / 1024)} KB + miniatura ${Math.round(versiones.miniatura.length / 1024)} KB`);
+          log(
+            `  ${ruta}: ${Math.round(original.length / 1024)} KB -> ${Math.round(versiones.grande.length / 1024)} KB + miniatura ${Math.round(versiones.miniatura.length / 1024)} KB`
+          );
         } catch (e) {
           errores.push({ id: mueble.id, referencia: mueble.referencia, ruta, error: e.message });
           log(`  ERROR ${ruta}: ${e.message}`);
@@ -125,9 +135,16 @@ const procesar = async (supabase, { supabaseUrl, aplicar = false, log = () => {}
     cambios.push({ id: mueble.id, referencia: mueble.referencia, antes, despues, parcial: fallo });
 
     if (aplicar) {
-      const { error: errUpdate } = await supabase.from('muebles').update({ imagenes: despues }).eq('id', mueble.id);
+      const { error: errUpdate } = await supabase
+        .from('muebles')
+        .update({ imagenes: despues })
+        .eq('id', mueble.id);
       if (errUpdate) {
-        errores.push({ id: mueble.id, referencia: mueble.referencia, error: `no se pudo guardar: ${errUpdate.message}` });
+        errores.push({
+          id: mueble.id,
+          referencia: mueble.referencia,
+          error: `no se pudo guardar: ${errUpdate.message}`
+        });
         cambios[cambios.length - 1].guardado = false;
       } else {
         cambios[cambios.length - 1].guardado = true;
@@ -141,17 +158,34 @@ const procesar = async (supabase, { supabaseUrl, aplicar = false, log = () => {}
 const main = async () => {
   const aplicar = process.argv.includes('--aplicar');
   const supabase = require('../src/data/supabase');
-  console.log(aplicar ? 'Aplicando (sube fotos y cambia muebles.imagenes)...' : 'Simulación: no se sube ni se cambia nada (añade --aplicar para hacerlo).');
+  console.log(
+    aplicar
+      ? 'Aplicando (sube fotos y cambia muebles.imagenes)...'
+      : 'Simulación: no se sube ni se cambia nada (añade --aplicar para hacerlo).'
+  );
 
-  const resultado = await procesar(supabase, { supabaseUrl: process.env.SUPABASE_URL, aplicar, log: console.log });
-  const archivo = path.resolve(__dirname, `miniaturas-${aplicar ? 'aplicado' : 'simulacion'}-${Date.now()}.json`);
+  const resultado = await procesar(supabase, {
+    supabaseUrl: process.env.SUPABASE_URL,
+    aplicar,
+    log: console.log
+  });
+  const archivo = path.resolve(
+    __dirname,
+    `miniaturas-${aplicar ? 'aplicado' : 'simulacion'}-${Date.now()}.json`
+  );
   fs.writeFileSync(archivo, JSON.stringify(resultado, null, 2));
 
-  console.log(`Muebles con fotos antiguas: ${resultado.muebles.length}. Fotos: ${resultado.fotos}.`);
+  console.log(
+    `Muebles con fotos antiguas: ${resultado.muebles.length}. Fotos: ${resultado.fotos}.`
+  );
   if (aplicar) {
-    console.log(`Peso de las fotos grandes: ${(resultado.bytesAntes / 1048576).toFixed(1)} MB -> ${(resultado.bytesDespues / 1048576).toFixed(1)} MB.`);
+    console.log(
+      `Peso de las fotos grandes: ${(resultado.bytesAntes / 1048576).toFixed(1)} MB -> ${(resultado.bytesDespues / 1048576).toFixed(1)} MB.`
+    );
   }
-  console.log(`Errores: ${resultado.errores.length}. Detalle (antes y después de cada mueble) en ${archivo}`);
+  console.log(
+    `Errores: ${resultado.errores.length}. Detalle (antes y después de cada mueble) en ${archivo}`
+  );
   if (resultado.errores.length) process.exitCode = 1;
 };
 
