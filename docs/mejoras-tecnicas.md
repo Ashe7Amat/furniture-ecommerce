@@ -2687,7 +2687,8 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
   corre en Node 24, no la última (v7). Comprobado en el `action.yml` de cada etiqueta: `runs.using: node24`, y
   siguen las entradas que usa el CI (`node-version`, `cache`, `cache-dependency-path`; `name`, `path`,
   `retention-days`). **Sin probar en GitHub:** el CI solo corre en los PR a `main`, así que se verá al llevar
-  la rama a `main`.
+  la rama a `main`. **En ese merge, comprobar que los tres jobs arrancan en verde con las acciones nuevas**
+  (apunte de Ashe en la revisión del PR #23).
 
 ### H47 · CRÍTICA · ACCESIBILIDAD · RESUELTO (6 oct 2026, `2d39756`) · Mi cuenta: campos sin etiqueta, poco contraste y dos `<main>`
 
@@ -3149,6 +3150,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
   rama sin PR a `main`.
 - **Qué hacer:** revisarlos antes del próximo PR a `main`, que sí los pasará por CI.
+- **28 oct 2026, con el PR #23:** los 15 de `cesta.spec.js` quedan arreglados (el botón de la cabecera se llama
+  «Carrito, N artículo(s)» desde `3ba92a5`, y el test lo buscaba como «Cesta»). Quedan 3, y **no son por carga
+  de la máquina**: con la rama al día (incluye #21 y #22) fallan también solos y con `--workers=1`:
+  - `admin.spec.js` «modo admin en la ficha»: axe devuelve violaciones en la ficha con la barra de administrador;
+  - `home.spec.js` «la portada carga con sus piezas destacadas»: no encuentra las destacadas;
+  - `imagenes.spec.js` «en el móvil, la tarjeta baja la miniatura»: la foto de la ficha en móvil mide 163 px y el
+    test espera 400 (cambio de la galería ligera en móvil del PR #21).
+  - Además, `admin.spec.js` «H57: arrastrar...» falla a veces en la pasada completa en paralelo y pasa sola.
+  - Antes de traer #21 y #22 (rama sobre `main` en `011ccc9`), los tres primeros pasaban solos y fallaban a veces
+    en la pasada completa: por eso se creyó primero que era carga.
+- **Si se monta CI para esta rama:** correr los E2E con menos paralelismo (`--workers=2`) o en un runner con más
+  memoria, para separar los fallos reales de los de carga.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
