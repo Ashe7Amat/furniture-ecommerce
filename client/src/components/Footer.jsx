@@ -63,11 +63,11 @@ const Footer = () => {
         </div>
       </div>
       <div className="footer-bottom">
+        {/* Solo los medios que acepta el pago de verdad (tarjeta, `payment_method_types: ['card']` en el
+            servidor). PayPal y Apple Pay salían aquí sin funcionar; vuelven cuando se activen en Stripe. */}
         <div className="payment-icons">
           <span>Visa</span>
           <span>Mastercard</span>
-          <span>PayPal</span>
-          <span>Apple Pay</span>
         </div>
         <div className="copyright">
           © 2026 Nave 5 Barcelona. Todos los derechos reservados.

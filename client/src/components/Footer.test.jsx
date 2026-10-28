@@ -27,6 +27,15 @@ describe('Footer', () => {
     expect(enlace('Contacto')).toHaveAttribute('href', '/contacto');
   });
 
+  it('solo anuncia los medios de pago que funcionan: tarjeta, sin PayPal ni Apple Pay', () => {
+    const { container } = pintar();
+    const medios = container.querySelector('.payment-icons');
+    expect(medios).toHaveTextContent('Visa');
+    expect(medios).toHaveTextContent('Mastercard');
+    expect(medios).not.toHaveTextContent('PayPal');
+    expect(medios).not.toHaveTextContent('Apple Pay');
+  });
+
   it('Instagram se abre en otra pestaña, sin darle acceso a esta (noopener)', () => {
     pintar();
     const instagram = enlace('Instagram @nave5bcn');
