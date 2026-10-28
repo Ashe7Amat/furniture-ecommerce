@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { solicitarRecuperacionPassword } from '../services/api';
 import '../styles/Login.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 const ForgotPassword = () => {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Recuperar contraseña', noindex: true });
   const [email, setEmail] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');

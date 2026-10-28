@@ -4,6 +4,7 @@ import { confirmarSesionPago } from '../services/api';
 import { CartContext } from '../context/CartContext';
 import { reservasActivas } from '../utils/reservas';
 import '../styles/CheckoutResultado.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 // Vuelta del pago de una reserva por fechas (docs/reservas-diseno.md, 6.4): confirmar-sesion responde
 // con `tipo: 'reserva'` y el estado en que ha quedado. El texto de cada caso lo da el servidor; estos
@@ -33,6 +34,8 @@ const RESERVA = {
 };
 
 const CheckoutExito = () => {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Confirmación del pago', noindex: true });
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session_id');
   const { emptyCart } = useContext(CartContext);
