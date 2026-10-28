@@ -36,6 +36,13 @@ describe('Footer', () => {
     expect(medios).not.toHaveTextContent('Apple Pay');
   });
 
+  it('no ofrece una newsletter que no guarda nada (quitada el 28 oct 2026)', () => {
+    pintar();
+    expect(screen.queryByRole('button', { name: 'Suscribirme' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Tu email')).not.toBeInTheDocument();
+    expect(screen.getByText(/Carrer del Plom, 32-34/)).toBeInTheDocument();
+  });
+
   it('Instagram se abre en otra pestaña, sin darle acceso a esta (noopener)', () => {
     pintar();
     const instagram = enlace('Instagram @nave5bcn');

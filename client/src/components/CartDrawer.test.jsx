@@ -123,27 +123,13 @@ describe('CartDrawer — con productos', () => {
   });
 });
 
-describe('CartDrawer — cupón de descuento', () => {
-  it('un código válido aplica el 10% de descuento y muestra el precio original tachado', async () => {
-    const user = userEvent.setup();
-    const { showToast } = renderDrawer({ cartItems: [itemBase()], cartTotal: 100 });
+describe('CartDrawer — sin cupón de descuento (quitado el 28 oct 2026)', () => {
+  // El cupón BIENVENIDA10 restaba un 10 % solo en pantalla: Stripe cobraba el precio entero.
+  it('no hay casilla de cupón, y el subtotal es el total de la cesta', () => {
+    renderDrawer({ cartItems: [itemBase()], cartTotal: 100 });
 
-    await user.type(screen.getByPlaceholderText('Código de descuento'), 'bienvenida10');
-    await user.click(screen.getByText('Aplicar'));
-
-    expect(showToast).toHaveBeenCalledWith('Cupón del 10% aplicado con éxito', 'success');
-    expect(screen.getByText('100.00 €')).toBeInTheDocument();
-    expect(screen.getByText('90.00 €')).toBeInTheDocument();
-  });
-
-  it('un código inválido no aplica descuento y avisa con un toast de error', async () => {
-    const user = userEvent.setup();
-    const { showToast } = renderDrawer({ cartItems: [itemBase()], cartTotal: 100 });
-
-    await user.type(screen.getByPlaceholderText('Código de descuento'), 'CUALQUIERA');
-    await user.click(screen.getByText('Aplicar'));
-
-    expect(showToast).toHaveBeenCalledWith('Cupón inválido', 'error');
+    expect(screen.queryByPlaceholderText('Código de descuento')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Aplicar' })).not.toBeInTheDocument();
     expect(screen.getByText('100.00 €')).toBeInTheDocument();
   });
 });
