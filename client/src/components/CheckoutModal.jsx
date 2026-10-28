@@ -1,5 +1,5 @@
 // client/src/components/CheckoutModal.jsx
-import { useState, useContext, useEffect, useRef } from 'react';
+import { useState, useContext, useEffect, useRef, useId } from 'react';
 import { CartContext, lineaSinPrecio, SIN_PRECIO_EN_CESTA } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { crearSesionPago } from '../services/api';
@@ -7,6 +7,8 @@ import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/CheckoutModal.css';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
+  // H53: cada etiqueta va unida a su campo. useId, porque el modal puede convivir con otros formularios.
+  const idCampos = useId();
   const { cartItems, cartTotal, validateCart } = useContext(CartContext);
   // H6/H18: con sesión y el email de la cuenta verificado, la compra usa ese email, sin poder
   // cambiarlo (así la confirmación y el pedido van a una dirección comprobada). Sin sesión, o sin
@@ -220,8 +222,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
             <div className="form-row">
               <div className="form-group half">
-                <label>Nombre y Apellidos</label>
+                <label htmlFor={`${idCampos}-nombre`}>Nombre y Apellidos</label>
                 <input
+                  id={`${idCampos}-nombre`}
                   type="text"
                   placeholder="Ej. Ana Martínez"
                   maxLength="100"
@@ -232,8 +235,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 {touched.fullName && errors.fullName && <span className="error-text">{errors.fullName}</span>}
               </div>
               <div className="form-group half">
-                <label>Teléfono de Contacto</label>
+                <label htmlFor={`${idCampos}-telefono`}>Teléfono de Contacto</label>
                 <input
+                  id={`${idCampos}-telefono`}
                   type="tel"
                   placeholder="Ej. 600123456"
                   maxLength="9"
@@ -246,8 +250,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label>Correo Electrónico</label>
+              <label htmlFor={`${idCampos}-email`}>Correo Electrónico</label>
               <input
+                id={`${idCampos}-email`}
                 type="email"
                 placeholder="ana@ejemplo.com"
                 maxLength="254"
@@ -266,8 +271,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label>Dirección de Envío (Calle, número, piso, puerta)</label>
+              <label htmlFor={`${idCampos}-direccion`}>Dirección de Envío (Calle, número, piso, puerta)</label>
               <input
+                id={`${idCampos}-direccion`}
                 type="text"
                 placeholder="Calle Mayor 15, 2º B"
                 maxLength="200"
@@ -280,8 +286,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
 
             <div className="form-row">
               <div className="form-group third">
-                <label>Ciudad</label>
+                <label htmlFor={`${idCampos}-ciudad`}>Ciudad</label>
                 <input
+                  id={`${idCampos}-ciudad`}
                   type="text"
                   placeholder="Ej. Barcelona"
                   maxLength="80"
@@ -292,8 +299,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 {touched.city && errors.city && <span className="error-text">{errors.city}</span>}
               </div>
               <div className="form-group third">
-                <label>Código Postal</label>
+                <label htmlFor={`${idCampos}-cp`}>Código Postal</label>
                 <input
+                  id={`${idCampos}-cp`}
                   type="text"
                   placeholder="Ej. 08001"
                   maxLength="5"
@@ -304,8 +312,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 {touched.zipCode && errors.zipCode && <span className="error-text">{errors.zipCode}</span>}
               </div>
               <div className="form-group third">
-                <label>Provincia</label>
+                <label htmlFor={`${idCampos}-provincia`}>Provincia</label>
                 <input
+                  id={`${idCampos}-provincia`}
                   type="text"
                   placeholder="Ej. Barcelona"
                   maxLength="60"
@@ -318,8 +327,9 @@ const CheckoutModal = ({ isOpen, onClose }) => {
             </div>
 
             <div className="form-group">
-              <label>Notas de Entrega / Alquiler (Opcional)</label>
+              <label htmlFor={`${idCampos}-notas`}>Notas de Entrega / Alquiler (Opcional)</label>
               <textarea
+                id={`${idCampos}-notas`}
                 placeholder="Ej. Horario de entrega preferente, ascensor disponible, etc."
                 maxLength="200"
                 value={notes}

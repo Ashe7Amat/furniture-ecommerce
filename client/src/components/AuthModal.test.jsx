@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import AuthModal from './AuthModal';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
@@ -191,6 +192,23 @@ describe('AuthModal — accesibilidad (H55)', () => {
     const { onClose } = abrir();
     fireEvent.keyDown(document.activeElement, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AuthModal — etiquetas unidas a sus campos (H53)', () => {
+  it('cada etiqueta nombra su campo, también el nombre en modo registro', () => {
+    abrir();
+    expect(screen.getByLabelText('Correo Electrónico')).toBe(screen.getByPlaceholderText('tu@correo.com'));
+    expect(screen.getByLabelText('Contraseña')).toBe(screen.getByPlaceholderText('••••••••'));
+    aRegistro();
+    expect(screen.getByLabelText('Nombre Completo')).toBe(screen.getByPlaceholderText('Ej. Ana Martínez'));
+  });
+
+  it('pulsar la etiqueta lleva el foco al campo', async () => {
+    const user = userEvent.setup();
+    abrir();
+    await user.click(screen.getByText('Correo Electrónico'));
+    expect(screen.getByPlaceholderText('tu@correo.com')).toHaveFocus();
   });
 });
 

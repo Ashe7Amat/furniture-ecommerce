@@ -27,6 +27,22 @@ describe('Footer', () => {
     expect(enlace('Contacto')).toHaveAttribute('href', '/contacto');
   });
 
+  it('solo anuncia los medios de pago que funcionan: tarjeta, sin PayPal ni Apple Pay', () => {
+    const { container } = pintar();
+    const medios = container.querySelector('.payment-icons');
+    expect(medios).toHaveTextContent('Visa');
+    expect(medios).toHaveTextContent('Mastercard');
+    expect(medios).not.toHaveTextContent('PayPal');
+    expect(medios).not.toHaveTextContent('Apple Pay');
+  });
+
+  it('no ofrece una newsletter que no guarda nada (quitada el 28 oct 2026)', () => {
+    pintar();
+    expect(screen.queryByRole('button', { name: 'Suscribirme' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Tu email')).not.toBeInTheDocument();
+    expect(screen.getByText(/Carrer del Plom, 32-34/)).toBeInTheDocument();
+  });
+
   it('Instagram se abre en otra pestaña, sin darle acceso a esta (noopener)', () => {
     pintar();
     const instagram = enlace('Instagram @nave5bcn');

@@ -16,8 +16,8 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -48,8 +48,8 @@ jobs:
       SUPABASE_URL: https://ci-test.supabase.co
       SUPABASE_SERVICE_ROLE_KEY: clave-de-prueba-solo-para-ci
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -77,8 +77,8 @@ jobs:
       run:
         working-directory: client
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -90,7 +90,7 @@ jobs:
       # Arranca la web con Vite (webServer en playwright.config.js) y simula la API en el navegador:
       # no hace falta servidor ni base de datos.
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: informe-playwright

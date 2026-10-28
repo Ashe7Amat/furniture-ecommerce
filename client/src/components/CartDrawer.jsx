@@ -21,8 +21,6 @@ const CartDrawer = () => {
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState(0);
   // Los dos modales se montan la primera vez que hacen falta y se quedan montados (sus animaciones
   // de cierre y su limpieza necesitan seguir montados después de cerrarse).
   const [modalesUsados, setModalesUsados] = useState(false);
@@ -58,18 +56,6 @@ const CartDrawer = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCartOpen]);
-
-  const applyCoupon = () => {
-    if (couponCode.toUpperCase() === 'BIENVENIDA10') {
-      setDiscount(0.10);
-      showToast('Cupón del 10% aplicado con éxito', 'success');
-    } else {
-      setDiscount(0);
-      showToast('Cupón inválido', 'error');
-    }
-  };
-
-  const finalTotal = discount > 0 ? cartTotal * (1 - discount) : cartTotal;
 
   const handleCheckoutClick = () => {
     if (!user) {
@@ -176,31 +162,15 @@ const CartDrawer = () => {
           )}
         </div>
 
-        {/* Footer del Carrito (Subtotal, Cupón y Pago Seguro) */}
+        {/* Footer del Carrito (Subtotal y Pago Seguro). Aquí iba la casilla del cupón BIENVENIDA10: restaba un
+            10 % solo en pantalla y Stripe cobraba el precio entero. Se quitó el 28 oct 2026 (decisión de Ashe);
+            si vuelve un cupón, tiene que aplicarlo el servidor al crear el pago. */}
         {cartItems.length > 0 && (
           <div className="cart-footer">
-            <div className="cart-coupon-section">
-              <input 
-                type="text" 
-                placeholder="Código de descuento" 
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                className="cart-coupon-input"
-              />
-              <button onClick={applyCoupon} className="cart-coupon-apply-btn">
-                Aplicar
-              </button>
-            </div>
-            
             <div className="cart-subtotal-row">
               <span>Subtotal</span>
               <div>
-                {discount > 0 && (
-                  <span style={{ textDecoration: 'line-through', marginRight: '10px', opacity: 0.5, fontSize: '0.95rem' }}>
-                    {cartTotal.toFixed(2)} €
-                  </span>
-                )}
-                <span>{finalTotal.toFixed(2)} €</span>
+                <span>{cartTotal.toFixed(2)} €</span>
               </div>
             </div>
             

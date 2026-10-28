@@ -39,11 +39,19 @@ const renderCheckout = ({
   return { ...utils, onClose, validateCart };
 };
 
-// Las etiquetas no usan htmlFor/id (son <label> hermanos del <input>, no envolventes), así
-// que getByLabelText no las asocia -- y "Ciudad"/"Provincia" comparten placeholder ("Ej.
-// Barcelona"), así que tampoco sirve getByPlaceholderText. Se localiza el <label> por su
-// texto (único en cada caso) y se sube al .form-group que comparte con su campo.
-const campoPor = (texto) => screen.getByText(texto).closest('.form-group').querySelector('input, textarea');
+// Cada etiqueta va unida a su campo con htmlFor/id (H53), así que el campo se busca por su etiqueta.
+// Antes no lo estaban, y "Ciudad"/"Provincia" comparten placeholder ("Ej. Barcelona").
+const campoPor = (texto) => screen.getByLabelText(texto);
+const ETIQUETAS = [
+  'Nombre y Apellidos',
+  'Teléfono de Contacto',
+  'Correo Electrónico',
+  'Dirección de Envío (Calle, número, piso, puerta)',
+  'Ciudad',
+  'Código Postal',
+  'Provincia',
+  'Notas de Entrega / Alquiler (Opcional)'
+];
 
 // Rellena el formulario de datos de entrega con valores válidos, para dejar el botón de
 // pago habilitado sin repetir esto en cada test que necesite llegar hasta ahí.
@@ -240,6 +248,30 @@ describe('CheckoutModal — accesibilidad (H55)', () => {
 });
 
 // H6/H18: con sesión y el email verificado, la compra usa el email de la cuenta, sin poder cambiarlo.
+describe('CheckoutModal — etiquetas unidas a sus campos (H53)', () => {
+  it('las 8 etiquetas nombran cada una un campo distinto', () => {
+    renderCheckout();
+    const campos = ETIQUETAS.map((texto) => screen.getByLabelText(texto));
+    expect(new Set(campos).size).toBe(ETIQUETAS.length);
+    expect(screen.getByLabelText('Ciudad')).not.toBe(screen.getByLabelText('Provincia'));
+  });
+
+  it('pulsar la etiqueta lleva el foco al campo', async () => {
+    const user = userEvent.setup();
+    renderCheckout();
+    await user.click(screen.getByText('Código Postal'));
+    expect(screen.getByLabelText('Código Postal')).toHaveFocus();
+  });
+
+  it('con dos modales en la página, los id no se repiten', () => {
+    renderCheckout();
+    renderCheckout();
+    const ids = [...document.querySelectorAll('.form-group input, .form-group textarea')].map((c) => c.id);
+    expect(ids).toHaveLength(ETIQUETAS.length * 2);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
 describe('CheckoutModal — email de la cuenta (H18)', () => {
   const conSesion = (user) =>
     render(
