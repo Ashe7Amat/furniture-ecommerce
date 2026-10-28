@@ -1,16 +1,37 @@
 import { describe, it, expect } from 'vitest';
-import { descripcionParaMeta, MAX_DESCRIPCION_META } from './descripcionMeta';
+import { descripcionParaMeta, MAX_DESCRIPCION_META, MIN_DESCRIPCION_SOLA } from './descripcionMeta';
 
 describe('descripcionParaMeta', () => {
-  it('una descripción corta va entera', () => {
-    expect(descripcionParaMeta({ nombre: 'Silla', descripcion: 'Silla de haya restaurada.' })).toBe(
-      'Silla de haya restaurada.'
-    );
+  const DE_80 =
+    'Silla de haya restaurada a mano en el taller, con el asiento de enea nuevo y barniz.';
+
+  it('una descripción de 80 caracteres o más que cabe va entera', () => {
+    expect(DE_80.length).toBeGreaterThanOrEqual(MIN_DESCRIPCION_SOLA);
+    expect(descripcionParaMeta({ nombre: 'Silla', descripcion: DE_80 })).toBe(DE_80);
   });
 
   it('junta los saltos de línea y los espacios de más en uno', () => {
-    expect(descripcionParaMeta({ nombre: 'Silla', descripcion: '  Silla de haya.\n\nRestaurada   a mano.  ' })).toBe(
-      'Silla de haya. Restaurada a mano.'
+    expect(
+      descripcionParaMeta({ nombre: 'Silla', descripcion: `  Silla de haya.\n\n${DE_80.slice(16)}   ` })
+    ).toBe(`Silla de haya. ${DE_80.slice(16)}`);
+  });
+
+  it('una descripción corta va con el nombre delante y la tienda detrás', () => {
+    expect(descripcionParaMeta({ nombre: 'Colgante', descripcion: 'Colgante en forma de cruz' })).toBe(
+      'Colgante. Colgante en forma de cruz. Pieza única en Nave 5 Barcelona.'
+    );
+    expect(
+      descripcionParaMeta({ nombre: 'Radio antigua (1954)', descripcion: 'Radio de 1954. Funciona.' })
+    ).toBe('Radio antigua (1954). Radio de 1954. Funciona. Pieza única en Nave 5 Barcelona.');
+  });
+
+  it('una descripción corta sin nombre va sola', () => {
+    expect(descripcionParaMeta({ descripcion: 'Colgante en forma de cruz' })).toBe('Colgante en forma de cruz');
+  });
+
+  it('una descripción sin letras (como «.») cuenta como vacía', () => {
+    expect(descripcionParaMeta({ nombre: 'Mesa', descripcion: '.' })).toBe(
+      'Mesa — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.'
     );
   });
 
@@ -38,14 +59,16 @@ describe('descripcionParaMeta', () => {
   });
 
   it('sin descripción (o solo espacios), una frase con el nombre de la pieza', () => {
-    const esperado = 'Mesa de roble — pieza única disponible en Nave 5 Barcelona.';
+    const esperado =
+      'Mesa de roble — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.';
     expect(descripcionParaMeta({ nombre: 'Mesa de roble', descripcion: null })).toBe(esperado);
     expect(descripcionParaMeta({ nombre: 'Mesa de roble', descripcion: '   ' })).toBe(esperado);
     expect(descripcionParaMeta({ nombre: 'Mesa de roble' })).toBe(esperado);
   });
 
   it('sin descripción ni nombre, la frase sin nombre', () => {
-    expect(descripcionParaMeta({})).toBe('Pieza única disponible en Nave 5 Barcelona.');
-    expect(descripcionParaMeta()).toBe('Pieza única disponible en Nave 5 Barcelona.');
+    const esperado = 'Pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.';
+    expect(descripcionParaMeta({})).toBe(esperado);
+    expect(descripcionParaMeta()).toBe(esperado);
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState, useContext, lazy, Suspense, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { descripcionParaMeta } from '../utils/descripcionMeta';
+import { useJsonLd, productoJsonLd, migasJsonLd, urlDeFicha } from '../utils/datosEstructurados';
 import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -130,7 +131,10 @@ const ProductDetail = () => {
     title: mueble?.nombre,
     description: mueble ? descripcionParaMeta(mueble) : undefined,
     image: mueble?.imagenes?.[0],
+    canonical: mueble ? urlDeFicha(mueble.id) : undefined,
   });
+  useJsonLd('producto', mueble ? productoJsonLd(mueble) : null);
+  useJsonLd('migas', mueble ? migasJsonLd(mueble) : null);
 
   if (loading) {
     return (
@@ -218,7 +222,7 @@ const ProductDetail = () => {
                   onClick={() => setMainImage(img)}
                   aria-label={`Ver imagen ${index + 1}`}
                 >
-                  <img src={img} alt={`Miniatura ${index + 1}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
+                  <img src={img} alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -231,9 +235,18 @@ const ProductDetail = () => {
           <nav className="pd-breadcrumbs" aria-label="Migas de pan">
             <Link to="/" className="pd-breadcrumb-link">Inicio</Link>
             <span className="pd-breadcrumb-sep">/</span>
-            <Link to="/#catalogo" className="pd-breadcrumb-link">Catálogo</Link>
-            <span className="pd-breadcrumb-sep">/</span>
-            <span className="pd-breadcrumb-current">{mueble.categoria || 'Selected Collection'}</span>
+            <Link to="/catalogo" className="pd-breadcrumb-link">Catálogo</Link>
+            {mueble.categoria && (
+              <>
+                <span className="pd-breadcrumb-sep">/</span>
+                <Link
+                  to={`/catalogo?categoria=${encodeURIComponent(mueble.categoria)}`}
+                  className="pd-breadcrumb-link"
+                >
+                  {mueble.categoria}
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Título Enorme y Favoritos */}

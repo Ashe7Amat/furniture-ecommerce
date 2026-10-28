@@ -154,9 +154,9 @@ describe('ProductDetail', () => {
     const { user } = await montar();
     expect(imagenPrincipal()).toHaveAttribute('src', 'https://img.test/1.jpg');
 
-    await user.click(screen.getByRole('img', { name: 'Miniatura 2' }).closest('button'));
+    await user.click(screen.getByRole('img', { name: /, foto 2 de \d+$/ }).closest('button'));
     expect(imagenPrincipal()).toHaveAttribute('src', 'https://img.test/2.jpg');
-    expect(screen.getByRole('img', { name: 'Miniatura 2' }).closest('button')).toHaveClass('active');
+    expect(screen.getByRole('img', { name: /, foto 2 de \d+$/ }).closest('button')).toHaveClass('active');
   });
 
   it('la foto principal es la grande aunque tenga miniatura para las tarjetas (H61)', async () => {
@@ -223,9 +223,11 @@ describe('ProductDetail', () => {
     expect(screen.getByRole('button', { name: boton })).toBeDisabled();
   });
 
-  it('sin categoría, enseña "Selected Collection"', async () => {
+  it('sin categoría, las migas acaban en "Catálogo" (antes salía "Selected Collection", en inglés)', async () => {
     await montar({ ...MUEBLE, categoria: null });
-    expect(screen.getByText('Selected Collection')).toBeInTheDocument();
+    const breadcrumbs = screen.getByRole('navigation', { name: 'Migas de pan' });
+    expect(within(breadcrumbs).getAllByRole('link').map((a) => a.textContent)).toEqual(['Inicio', 'Catálogo']);
+    expect(screen.queryByText('Selected Collection')).not.toBeInTheDocument();
   });
 
   it('el acordeón abre una sección cada vez y se cierra al pulsarla otra vez', async () => {
@@ -329,8 +331,8 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
     await montar();
 
     expect(document.title).toBe('Aparador de roble | Nave 5 Barcelona');
-    expect(meta('meta[name="description"]')).toBe('Restaurado en el taller');
-    expect(meta('meta[property="og:description"]')).toBe('Restaurado en el taller');
+    expect(meta('meta[name="description"]')).toBe('Aparador de roble. Restaurado en el taller. Pieza única en Nave 5 Barcelona.');
+    expect(meta('meta[property="og:description"]')).toBe('Aparador de roble. Restaurado en el taller. Pieza única en Nave 5 Barcelona.');
     expect(meta('meta[property="og:title"]')).toBe('Aparador de roble | Nave 5 Barcelona');
     expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
     expect(meta('meta[name="twitter:image"]')).toBe('https://img.test/1.jpg');
@@ -349,7 +351,7 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
   it('el og:image sigue siendo la primera foto aunque se mire otra en la ficha', async () => {
     const { user } = await montar();
 
-    await user.click(screen.getByRole('img', { name: 'Miniatura 2' }).closest('button'));
+    await user.click(screen.getByRole('img', { name: /, foto 2 de \d+$/ }).closest('button'));
 
     expect(imagenPrincipal()).toHaveAttribute('src', 'https://img.test/2.jpg');
     expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
@@ -369,7 +371,7 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
 
     expect(document.title).toBe('Lámpara de latón | Nave 5 Barcelona');
     expect(meta('meta[name="description"]')).toBe(
-      'Lámpara de latón — pieza única disponible en Nave 5 Barcelona.'
+      'Lámpara de latón — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.'
     );
     expect(meta('meta[property="og:image"]')).toBe('https://img.test/lampara-1.jpg');
 
@@ -744,8 +746,11 @@ describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
 
     const breadcrumbs = screen.getByRole('navigation', { name: 'Migas de pan' });
     expect(within(breadcrumbs).getByRole('link', { name: 'Inicio' })).toHaveAttribute('href', '/');
-    expect(within(breadcrumbs).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/#catalogo');
-    expect(within(breadcrumbs).getByText('Iluminación y lámparas')).toBeInTheDocument();
+    expect(within(breadcrumbs).getByRole('link', { name: 'Catálogo' })).toHaveAttribute('href', '/catalogo');
+    expect(within(breadcrumbs).getByRole('link', { name: 'Iluminación y lámparas' })).toHaveAttribute(
+      'href',
+      '/catalogo?categoria=Iluminaci%C3%B3n%20y%20l%C3%A1mparas'
+    );
   });
 
   it('muestra los tres sellos de confianza de Nave 5', async () => {
@@ -796,3 +801,40 @@ describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
   });
 });
 
+
+describe('ProductDetail, SEO: datos estructurados y canonical', () => {
+  const jsonLd = (id) => {
+    const script = document.head.querySelector(`script[type="application/ld+json"][data-jsonld="${id}"]`);
+    return script ? JSON.parse(script.textContent) : null;
+  };
+
+  it('pone el Product y las migas de la pieza, y el canonical a /mueble/:id', async () => {
+    await montar();
+    await waitFor(() => expect(jsonLd('producto')).not.toBeNull());
+
+    expect(jsonLd('producto')).toMatchObject({
+      '@type': 'Product',
+      name: 'Aparador de roble',
+      sku: 'NAV-MES-004',
+      url: `https://www.nave5barcelona.com/mueble/${MUEBLE.id}`,
+    });
+    expect(jsonLd('migas').itemListElement.map((m) => m.name)).toEqual([
+      'Inicio',
+      'Catálogo',
+      'Mesas y mobiliario',
+      'Aparador de roble',
+    ]);
+    expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      'href',
+      `https://www.nave5barcelona.com/mueble/${MUEBLE.id}`
+    );
+  });
+
+  it('con los precios ocultos (la API los manda a null), el Product no lleva oferta ni precio', async () => {
+    await montar({ ...MUEBLE, precio_venta: null, precio_alquiler_dia: null });
+    await waitFor(() => expect(jsonLd('producto')).not.toBeNull());
+
+    expect(jsonLd('producto').offers).toBeUndefined();
+    expect(document.head.innerHTML).not.toMatch(/"price"/);
+  });
+});

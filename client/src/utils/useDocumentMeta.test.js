@@ -93,3 +93,35 @@ describe('useDocumentMeta', () => {
     expect(document.title).toBe('Página B | Nave 5 Barcelona');
   });
 });
+
+describe('useDocumentMeta, canonical y og:url', () => {
+  const canonical = () => document.querySelector('link[rel="canonical"]');
+
+  it('con canonical, pone <link rel="canonical"> y og:url, y los quita al desmontar', () => {
+    const { unmount } = renderHook(() =>
+      useDocumentMeta({ title: 'X', canonical: 'https://www.nave5barcelona.com/mueble/m1' })
+    );
+    expect(canonical()).toHaveAttribute('href', 'https://www.nave5barcelona.com/mueble/m1');
+    expect(contenidoDe('meta[property="og:url"]')).toBe('https://www.nave5barcelona.com/mueble/m1');
+
+    unmount();
+    expect(canonical()).toBeNull();
+    expect(document.querySelector('meta[property="og:url"]')).toBeNull();
+  });
+
+  it('sin canonical no pone ninguno (H34: nunca uno fijo para todas las rutas)', () => {
+    renderHook(() => useDocumentMeta({ title: 'X' }));
+    expect(canonical()).toBeNull();
+    expect(document.querySelector('meta[property="og:url"]')).toBeNull();
+  });
+
+  it('al cambiar de página, actualiza el mismo canonical en vez de añadir otro', () => {
+    const { rerender, unmount } = renderHook(({ url }) => useDocumentMeta({ canonical: url }), {
+      initialProps: { url: 'https://www.nave5barcelona.com/mueble/m1' },
+    });
+    rerender({ url: 'https://www.nave5barcelona.com/mueble/m2' });
+    expect(document.querySelectorAll('link[rel="canonical"]')).toHaveLength(1);
+    expect(canonical()).toHaveAttribute('href', 'https://www.nave5barcelona.com/mueble/m2');
+    unmount();
+  });
+});

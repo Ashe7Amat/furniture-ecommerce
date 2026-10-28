@@ -8,12 +8,15 @@ import { PLACEHOLDER_IMG } from '../utils/images';
 import { Link, useSearchParams } from 'react-router-dom';
 import { reservasActivas } from '../utils/reservas';
 import './Profile.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 // Reservas por fechas (docs/reservas-diseno.md): "Mis Reservas" solo se descarga si se abre su
 // pestaña, que solo existe con el interruptor encendido.
 const MisReservas = lazy(() => import('../components/reservas/MisReservas'));
 
 export default function Profile() {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Mi cuenta', noindex: true });
   const { user, login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
   const { favorites } = useContext(FavoritesContext);

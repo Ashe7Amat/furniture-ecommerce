@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
 import { useScrollReveal } from '../utils/useScrollReveal';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
+import { WEB_PUBLICA } from '../utils/datosEstructurados';
 import { RUTA_ALQUILER } from '../utils/preguntarPorPieza';
 import ProductCard from '../components/ProductCard';
 import VistosEn from '../components/VistosEn';
@@ -27,6 +29,8 @@ const HERO_SLIDE_INTERVAL_MS = 5500;
 const HERO_PRECARGA_MS = 3000;
 
 export default function Home() {
+    // Título y descripción, los de la web (index.html); el canonical, solo aquí (H34).
+    useDocumentMeta({ canonical: `${WEB_PUBLICA}/` });
     const [categorias, setCategorias] = useState([]);
     const [destacados, setDestacados] = useState([]);
     const [loading, setLoading] = useState(true);

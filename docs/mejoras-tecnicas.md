@@ -4,6 +4,34 @@ Este documento recoge el estado de las mejoras técnicas de la rama, lo que qued
 hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
 "Hallazgos"), para que no dependan del historial de una conversación.
 
+## 🔄 SEO del catálogo: 28 oct 2026 (borrador, sin merge)
+
+En `claude/project-thread-rro41c`, desde `feature/mejoras-tecnicas` (`4900ba3`). Sin tocar `main`, Vercel ni la
+base de datos (solo una lectura del catálogo publicado para medir: 83 piezas, todas `disponible`, precios a
+`null` en el público).
+
+- **Sitemap con todas las fichas:** `GET /api/sitemap.xml` (`server/src/controllers/sitemapController.js`) con las
+  5 páginas fijas, una por categoría con piezas y una por ficha (`/mueble/:id`). La web lo sirve en
+  `https://www.nave5barcelona.com/sitemap.xml` con un rewrite en `client/vercel.json`; el archivo fijo de
+  `client/public/` se borra (Vercel lo serviría antes que el rewrite). Solo lee `id` y `categoria`. Si la base de
+  datos falla, da las páginas fijas con caché corta.
+- **Datos estructurados (schema.org):** `FurnitureStore` con la dirección, fijo en `index.html`; en cada ficha,
+  `Product` (nombre, descripción, fotos, referencia como `sku`, categoría) y `BreadcrumbList`, con JavaScript
+  (`client/src/utils/datosEstructurados.js`). **Sin precio mientras `MOSTRAR_PRECIOS` no sea `true`:** la oferta
+  (`offers`) solo sale si la API devuelve `precio_venta`.
+- **`canonical` y `og:url` (H34):** solo con JavaScript y solo en la portada, el catálogo (con su categoría, sin
+  `?orden=`) y las fichas (`/producto/:id` apunta a `/mueble/:id`). Nunca fijo en `index.html`.
+- **Descripción para buscadores:** una descripción de menos de 80 caracteres va con el nombre delante y la tienda
+  detrás; una sin letras (NAV-MES-012 tiene «.») cuenta como vacía.
+- **Migas de pan de la ficha:** «Catálogo» iba a `/#catalogo` (la portada) y sin categoría salía «Selected
+  Collection»; ahora van a `/catalogo` y a `/catalogo?categoria=…`.
+- **Fotos:** las miniaturas de la galería dicen «{nombre}, foto N de M» en vez de «Miniatura N».
+- **`noindex`:** acceso, recuperar y nueva contraseña, confirmar email, resultado del pago, Mi cuenta y favoritos.
+- **Pendiente del usuario:** 25 piezas sin descripción y 10 con menos de 60 caracteres. Escribirlas es un cambio
+  en la base de datos de producción: necesita un OK escrito.
+- **E2E:** la API simulada no tenía `/ajustes/home` (desde el gestor de portada, 22 oct); añadido. Quedan 9 E2E
+  que ya fallaban en `4900ba3` sin estos cambios: H64.
+
 ## 🔄 Bloque A (referencias de muebles): A1-A7 hechas, 2 oct 2026
 
 Sesiones del 1-2 oct 2026. **A1-A7 completadas** (A5-A7: informe en `docs/reporte-a5-a7.md`).
@@ -2415,6 +2443,8 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   previas al compartir una ficha (WhatsApp y redes), y no compensa montar un render en el servidor (Next.js o
   similar) solo para eso. Se queda como está: el SEO por ficha funciona en el navegador y en los buscadores que
   ejecutan JavaScript. Por lo mismo, `canonical` y `og:url` siguen sin añadirse (ver arriba).
+- **28 oct 2026 (SEO del catálogo):** `canonical` y `og:url` se añaden **solo con JavaScript**, por página, como el
+  título: portada, catálogo y fichas. En `index.html` sigue sin haber ninguno fijo.
 
 ### H35 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `72393f0`) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
 
@@ -3090,6 +3120,15 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Decisiones a tomar antes de implementar:** retención de datos (ej. 90 días), si guardar IP (GDPR), quién puede ver el log.
 - **Cuándo:** En una sesión aparte, después de terminar las features 5 y 6 del panel admin.
 - **Esfuerzo estimado:** 2-3 días.
+
+### H64 · MEDIA · TESTS · PENDIENTE (anotada el 28 oct 2026) · 9 E2E fallan en `feature/mejoras-tecnicas`
+
+- **Qué pasa:** en `4900ba3`, sin ningún cambio, `npx playwright test` da 11 fallos de 67. Con la ruta
+  `/ajustes/home` añadida a `e2e/apiSimulada.js` (SEO del catálogo, 28 oct) bajan a 9: los 4 de
+  `accesibilidad.spec.js`, 4 de `admin.spec.js` y «la portada carga con sus piezas destacadas» de `home.spec.js`.
+- **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
+  rama sin PR a `main`.
+- **Qué hacer:** revisarlos antes del próximo PR a `main`, que sí los pasará por CI.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

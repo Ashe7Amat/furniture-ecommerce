@@ -19,19 +19,32 @@ test('la ficha pone su título, descripción y og:image; otra ficha, los suyos; 
 
   await page.locator('.products-grid .product-card', { hasText: silla.nombre }).click();
   await expect(page).toHaveTitle(`${silla.nombre} | Nave 5 Barcelona`);
-  expect(await meta(page, 'meta[name="description"]')).toBe(silla.descripcion);
+  // Las descripciones de prueba son cortas: van con el nombre delante y la tienda detrás.
+  expect(await meta(page, 'meta[name="description"]')).toContain(silla.descripcion);
+  const producto = JSON.parse(
+    await page.locator('head script[type="application/ld+json"][data-jsonld="producto"]').textContent()
+  );
+  expect(producto).toMatchObject({ '@type': 'Product', name: silla.nombre });
+  expect(await page.locator('head link[rel="canonical"]').getAttribute('href')).toBe(
+    `https://www.nave5barcelona.com/mueble/${silla.id}`
+  );
   expect(await meta(page, 'meta[property="og:title"]')).toBe(`${silla.nombre} | Nave 5 Barcelona`);
   expect(await meta(page, 'meta[property="og:image"]')).toBe(silla.imagenes[0]);
 
   await page.goBack();
   await page.locator('.products-grid .product-card', { hasText: mesa.nombre }).click();
   await expect(page).toHaveTitle(`${mesa.nombre} | Nave 5 Barcelona`);
-  expect(await meta(page, 'meta[name="description"]')).toBe(mesa.descripcion);
-  expect(await meta(page, 'meta[property="og:description"]')).toBe(mesa.descripcion);
+  expect(await meta(page, 'meta[name="description"]')).toContain(mesa.descripcion);
+  expect(await meta(page, 'meta[property="og:description"]')).toContain(mesa.descripcion);
+  await expect(page.locator('head script[data-jsonld="producto"]')).toHaveCount(1);
 
   await page.goto('/');
   await expect(page).toHaveTitle(TITULO_WEB);
   expect(await meta(page, 'meta[property="og:image"]')).toMatch(/og-image\.png$/);
+  await expect(page.locator('head script[data-jsonld]')).toHaveCount(0);
+  // La portada pone el suyo (y uno solo: el de la ficha se ha ido).
+  await expect(page.locator('head link[rel="canonical"]')).toHaveCount(1);
+  expect(await page.locator('head link[rel="canonical"]').getAttribute('href')).toBe('https://www.nave5barcelona.com/');
   expect(errores).toEqual([]);
 });
 

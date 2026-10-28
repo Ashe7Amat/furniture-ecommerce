@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
+import { WEB_PUBLICA, urlDeCategoria } from '../utils/datosEstructurados';
 import { useCatalogView } from '../utils/useCatalogView';
 import { getMuebles, getCategorias } from '../services/api';
 import ProductCard from '../components/ProductCard';
@@ -163,7 +164,17 @@ export default function Catalog() {
 
   useDocumentMeta({
     title: tituloPagina,
-    description: 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.',
+    description: categoriaUrl && !showFavorites
+      ? `${categoriaUrl}: piezas únicas restauradas a mano en Nave 5 Barcelona, almacén de muebles y atrezo vintage.`
+      : 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.',
+    // Los favoritos son de cada visitante: no se indexan. El orden (?orden=) no cambia las piezas,
+    // así que el canonical es la misma página sin él.
+    noindex: showFavorites,
+    canonical: showFavorites
+      ? undefined
+      : categoriaUrl
+        ? urlDeCategoria(categoriaUrl)
+        : `${WEB_PUBLICA}/catalogo`,
   });
 
   return (

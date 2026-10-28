@@ -21,6 +21,29 @@
     <meta name="twitter:description" content="Muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios." />
     <meta name="twitter:image" content="https://www.nave5barcelona.com/og-image.png" />
 
+    <!-- La tienda, para los buscadores (schema.org). Vale para toda la web, así que va aquí y no con
+         JavaScript; los datos de cada pieza los pone su ficha (src/utils/datosEstructurados.js). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FurnitureStore",
+        "name": "Nave 5 Barcelona",
+        "description": "Almacén de muebles y atrezo vintage en Barcelona: piezas restauradas con historia, a la venta y en alquiler para rodajes y eventos.",
+        "url": "https://www.nave5barcelona.com/",
+        "image": "https://www.nave5barcelona.com/og-image.png",
+        "logo": "https://www.nave5barcelona.com/favicon.svg",
+        "email": "hola@nave5barcelona.com",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Carrer del Plom, 32-34",
+          "postalCode": "08038",
+          "addressLocality": "Barcelona",
+          "addressCountry": "ES"
+        },
+        "sameAs": ["https://www.instagram.com/nave5bcn"]
+      }
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />

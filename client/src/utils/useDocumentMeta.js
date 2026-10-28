@@ -19,7 +19,14 @@ const setMetaByAttr = (attr, key, content) => {
 // actualizar el <head> después del primer cambio de ruta (problema conocido de esa
 // librería con React 18 StrictMode) -- esta versión manipula el DOM directamente, sin
 // depender de un tercero.
-export function useDocumentMeta({ title, description, image, noindex = false }) {
+//
+// `canonical` (una URL absoluta de la web pública) pone <link rel="canonical"> y og:url solo en
+// las páginas que lo pasan, y los quita al salir. Nunca va fijo en index.html (H34): ahí diría
+// que todas las rutas son la portada. Puesto con JavaScript lo lee Google al renderizar, y sirve
+// sobre todo para que /producto/:id y /mueble/:id cuenten como la misma ficha.
+const quitar = (selector) => document.querySelectorAll(selector).forEach((el) => el.remove());
+
+export function useDocumentMeta({ title, description, image, noindex = false, canonical }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | Nave 5 Barcelona` : DEFAULT_TITLE;
     const finalDescription = description || DEFAULT_DESCRIPTION;
@@ -46,6 +53,19 @@ export function useDocumentMeta({ title, description, image, noindex = false }) 
       metaRobots.remove();
     }
 
+    if (canonical) {
+      let enlace = document.querySelector('link[rel="canonical"]');
+      if (!enlace) {
+        enlace = document.createElement('link');
+        enlace.setAttribute('rel', 'canonical');
+        document.head.appendChild(enlace);
+      }
+      enlace.setAttribute('href', canonical);
+      setMetaByAttr('property', 'og:url', canonical);
+    } else {
+      quitar('link[rel="canonical"], meta[property="og:url"]');
+    }
+
     return () => {
       document.title = DEFAULT_TITLE;
       setMetaByAttr('name', 'description', DEFAULT_DESCRIPTION);
@@ -57,6 +77,7 @@ export function useDocumentMeta({ title, description, image, noindex = false }) 
       setMetaByAttr('name', 'twitter:image', DEFAULT_IMAGE);
       const leftoverRobots = document.querySelector('meta[name="robots"]');
       if (leftoverRobots) leftoverRobots.remove();
+      quitar('link[rel="canonical"], meta[property="og:url"]');
     };
-  }, [title, description, image, noindex]);
+  }, [title, description, image, noindex, canonical]);
 }
