@@ -10,27 +10,30 @@ En `claude/project-thread-rro41c`, desde `feature/mejoras-tecnicas` (`4900ba3`).
 base de datos (solo una lectura del catálogo publicado para medir: 83 piezas, todas `disponible`, precios a
 `null` en el público).
 
-- **Sitemap con todas las fichas:** `GET /api/sitemap.xml` (`server/src/controllers/sitemapController.js`) con las
-  5 páginas fijas, una por categoría con piezas y una por ficha (`/mueble/:id`). La web lo sirve en
-  `https://www.nave5barcelona.com/sitemap.xml` con un rewrite en `client/vercel.json`; el archivo fijo de
-  `client/public/` se borra (Vercel lo serviría antes que el rewrite). Solo lee `id` y `categoria`. Si la base de
-  datos falla, da las páginas fijas con caché corta.
-- **Datos estructurados (schema.org):** `FurnitureStore` con la dirección, fijo en `index.html`; en cada ficha,
-  `Product` (nombre, descripción, fotos, referencia como `sku`, categoría) y `BreadcrumbList`, con JavaScript
-  (`client/src/utils/datosEstructurados.js`). **Sin precio mientras `MOSTRAR_PRECIOS` no sea `true`:** la oferta
-  (`offers`) solo sale si la API devuelve `precio_venta`.
-- **`canonical` y `og:url` (H34):** solo con JavaScript y solo en la portada, el catálogo (con su categoría, sin
-  `?orden=`) y las fichas (`/producto/:id` apunta a `/mueble/:id`). Nunca fijo en `index.html`.
+- **Base:** el SEO que llegó de `main` con el PR #21 (`82dbfec`, 25 oct: `Seo.jsx`, `useDocumentMeta` con
+  `canonical` y `jsonLd`, `GET /sitemap.xml` en la API). Encima, lo de esta sesión.
+- **Sitemap con todas las fichas:** el de `82dbfec` pedía `updated_at`, que `muebles` no tiene; la consulta fallaba
+  en silencio y en producción salía **sin ninguna ficha** (comprobado el 28 oct en `nave5-api.vercel.app/sitemap.xml`),
+  y con todas las categorías de la tabla, también las vacías. Ahora (`sitemapController.js`) lee solo `id` y
+  `categoria` de `muebles`: páginas fijas, una por categoría con piezas y una por ficha. Si la base de datos falla,
+  da las páginas fijas con caché corta. Además la web no lo servía en su dominio (robots.txt apunta a
+  `www.nave5barcelona.com/sitemap.xml`, que daba la SPA): ahora con un rewrite en `client/vercel.json`.
+- **Datos estructurados (schema.org):** en cada ficha, `Product` (nombre, descripción, fotos, referencia como
+  `sku`, categoría) y `BreadcrumbList` (`client/src/utils/datosEstructurados.js`). **Sin precio mientras
+  `MOSTRAR_PRECIOS` no sea `true`:** la oferta solo sale si la API devuelve `precio_venta` (antes salía con precio
+  0). La tienda de la portada pasa a `FurnitureStore`, sin el teléfono ni el horario de ejemplo de
+  `brand.config.js` y con el email real.
+- **`canonical` (H34):** solo con JavaScript. Cada categoría del catálogo apunta a sí misma (antes todas a
+  `/catalogo`); los favoritos, `noindex`.
 - **Descripción para buscadores:** una descripción de menos de 80 caracteres va con el nombre delante y la tienda
   detrás; una sin letras (NAV-MES-012 tiene «.») cuenta como vacía.
 - **Migas de pan de la ficha:** «Catálogo» iba a `/#catalogo` (la portada) y sin categoría salía «Selected
   Collection»; ahora van a `/catalogo` y a `/catalogo?categoria=…`.
 - **Fotos:** las miniaturas de la galería dicen «{nombre}, foto N de M» en vez de «Miniatura N».
 - **`noindex`:** acceso, recuperar y nueva contraseña, confirmar email, resultado del pago, Mi cuenta y favoritos.
-- **Pendiente del usuario:** 25 piezas sin descripción y 10 con menos de 60 caracteres. Escribirlas es un cambio
-  en la base de datos de producción: necesita un OK escrito.
-- **E2E:** la API simulada no tenía `/ajustes/home` (desde el gestor de portada, 22 oct); añadido. Quedan 9 E2E
-  que ya fallaban en `4900ba3` sin estos cambios: H64.
+- **Pendiente del usuario:** 26 piezas sin descripción y 9 con menos de 60 caracteres. Escribirlas es un cambio
+  en la base de datos de producción: necesita un OK escrito y revisar antes la tabla de propuestas.
+- **E2E:** `seo.spec.js` en verde. Con la rama al día (`caf6b1d`), fallan 18 E2E, los mismos 18 sin este PR: H64.
 
 ## 🔄 Bloque A (referencias de muebles): A1-A7 hechas, 2 oct 2026
 
@@ -3121,11 +3124,11 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Cuándo:** En una sesión aparte, después de terminar las features 5 y 6 del panel admin.
 - **Esfuerzo estimado:** 2-3 días.
 
-### H64 · MEDIA · TESTS · PENDIENTE (anotada el 28 oct 2026) · 9 E2E fallan en `feature/mejoras-tecnicas`
+### H64 · MEDIA · TESTS · PENDIENTE (anotada el 28 oct 2026) · E2E que fallan en `feature/mejoras-tecnicas`
 
-- **Qué pasa:** en `4900ba3`, sin ningún cambio, `npx playwright test` da 11 fallos de 67. Con la ruta
-  `/ajustes/home` añadida a `e2e/apiSimulada.js` (SEO del catálogo, 28 oct) bajan a 9: los 4 de
-  `accesibilidad.spec.js`, 4 de `admin.spec.js` y «la portada carga con sus piezas destacadas» de `home.spec.js`.
+- **Qué pasa:** en `4900ba3`, sin ningún cambio, `npx playwright test` daba 11 fallos de 67 (con `/ajustes/home`
+  simulada, 9). En `caf6b1d` (la rama al día con `main`) son 18, con o sin el PR #22: 14 de `cesta.spec.js`,
+  1 de `admin.spec.js` (modo admin en la ficha), 1 de `home.spec.js` (destacadas) y 1 de `imagenes.spec.js`.
 - **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
   rama sin PR a `main`.
 - **Qué hacer:** revisarlos antes del próximo PR a `main`, que sí los pasará por CI.
