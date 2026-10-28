@@ -465,8 +465,10 @@ const ProductDetail = () => {
               )
             ) : (
               <>
-                <div className="pd-quantity-wrapper">
-                  <label className="pd-label">Cantidad</label>
+                {/* H53: "Cantidad" y "Modalidad" titulan un grupo de botones, no un campo: role="group" con
+                    aria-labelledby, en vez de un <label> sin campo al que apuntar. */}
+                <div className="pd-quantity-wrapper" role="group" aria-labelledby="pd-cantidad-titulo">
+                  <span className="pd-label" id="pd-cantidad-titulo">Cantidad</span>
                   <div className="pd-quantity-selector">
                     <button className="pd-qty-btn" disabled>−</button>
                     <span className="pd-qty-val">1</span>
@@ -475,12 +477,13 @@ const ProductDetail = () => {
                 </div>
 
                 {!conReservas && (
-                  <div className="pd-options-wrapper">
-                    <label className="pd-label">Modalidad</label>
+                  <div className="pd-options-wrapper" role="group" aria-labelledby="pd-modalidad-titulo">
+                    <span className="pd-label" id="pd-modalidad-titulo">Modalidad</span>
                     <div className="pd-options-grid">
                       <button 
                         className={`pd-option-btn ${modalidad === 'compra' ? 'active' : ''}`}
                         disabled={mueble.estado === 'vendido'}
+                        aria-pressed={modalidad === 'compra'}
                         onClick={() => setModalidad('compra')}
                       >
                         <span className="pd-opt-title">Comprar pieza única</span>
@@ -489,6 +492,7 @@ const ProductDetail = () => {
                       <button 
                         className={`pd-option-btn outline ${modalidad === 'alquiler' ? 'active' : ''}`}
                         disabled={!mueble.precio_alquiler_dia || mueble.estado === 'vendido'}
+                        aria-pressed={modalidad === 'alquiler'}
                         onClick={() => setModalidad('alquiler')}
                       >
                         <span className="pd-opt-title">Alquilar por días</span>
