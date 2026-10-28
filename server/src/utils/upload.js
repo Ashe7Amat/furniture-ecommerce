@@ -101,5 +101,8 @@ const uploadToSupabase = async (file, folder = 'uploads', { conMiniatura = false
 module.exports = {
   upload,
   uploadToSupabase,
-  ANCHO_MINIATURA
+  ANCHO_MINIATURA,
+  // scripts/miniaturasFotosAntiguas.js pasa las fotos anteriores a H61 con los mismos ajustes.
+  LADO_MAXIMO,
+  CALIDAD_WEBP
 };
