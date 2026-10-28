@@ -12,6 +12,7 @@ const stripeRoutes = require('./routes/stripeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
 const ajustesRoutes = require('./routes/ajustesRoutes');
+const { obtenerSitemap } = require('./controllers/sitemapController');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -99,6 +100,8 @@ app.use('/api/contacto', contactoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/ajustes', ajustesRoutes);
+// Sitemap de la web pública: client/vercel.json lo sirve como https://www.nave5barcelona.com/sitemap.xml.
+app.get('/api/sitemap.xml', obtenerSitemap);
 
 // Ruta base de comprobación
 app.get('/', (req, res) => {
