@@ -2,14 +2,14 @@ import { useEffect, useState, useContext, lazy, Suspense, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { descripcionParaMeta } from '../utils/descripcionMeta';
-import { useJsonLd, productoJsonLd, migasJsonLd, urlDeFicha } from '../utils/datosEstructurados';
+import { productoJsonLd, migasJsonLd } from '../utils/datosEstructurados';
 import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { AuthContext } from '../context/AuthContext';
 import { formatPrice, textoPrecio, tienePrecio } from '../utils/format';
 import { rutaPreguntarPorPieza, TEXTO_PREGUNTAR } from '../utils/preguntarPorPieza';
-import { PLACEHOLDER_IMG } from '../utils/images';
+import { PLACEHOLDER_IMG, obtenerVariantesWebp } from '../utils/images';
 import '../styles/ProductDetail.css';
 import ReferenciaProducto from '../components/ReferenciaProducto';
 import ModalContacto from '../components/ModalContacto';
@@ -73,7 +73,9 @@ const ProductDetail = () => {
   useEffect(() => {
     if (!conReservas || !muebleId) return undefined;
     let vigente = true;
-    getDisponibilidad(muebleId).then(({ data }) => {
+    const peticion = getDisponibilidad(muebleId);
+    if (!peticion || typeof peticion.then !== 'function') return undefined;
+    peticion.then(({ data } = {}) => {
       if (!vigente) return;
       setDisponibilidad((anterior) =>
         data
@@ -81,6 +83,11 @@ const ProductDetail = () => {
           : anterior.para === muebleId
             ? anterior
             : { para: muebleId, estado: 'fallo' }
+      );
+    }).catch(() => {
+      if (!vigente) return;
+      setDisponibilidad((anterior) =>
+        anterior.para === muebleId ? anterior : { para: muebleId, estado: 'fallo' }
       );
     });
     return () => {
@@ -127,19 +134,42 @@ const ProductDetail = () => {
     };
   }, [stickyVisible]);
 
+  // Datos estructurados de la ficha (SEO del catálogo, 28 oct 2026): sin oferta mientras los precios
+  // estén ocultos. Antes iba una oferta con precio 0, que Google tomaba como «gratis».
+  const jsonLdFicha = mueble
+    ? { '@context': 'https://schema.org', '@graph': [productoJsonLd(mueble), migasJsonLd(mueble)] }
+    : null;
+
   useDocumentMeta({
     title: mueble?.nombre,
     description: mueble ? descripcionParaMeta(mueble) : undefined,
     image: mueble?.imagenes?.[0],
-    canonical: mueble ? urlDeFicha(mueble.id) : undefined,
+    url: mueble ? `/mueble/${mueble.id}` : undefined,
+    canonical: mueble ? `/mueble/${mueble.id}` : undefined,
+    jsonLd: jsonLdFicha
   });
-  useJsonLd('producto', mueble ? productoJsonLd(mueble) : null);
-  useJsonLd('migas', mueble ? migasJsonLd(mueble) : null);
 
   if (loading) {
     return (
-      <div className="pd-loading-container">
-        <div className="pd-loader"></div>
+      <div className="pd-container pd-skeleton" aria-busy="true">
+        <div className="pd-top-nav">
+          <span className="pd-back-link" style={{ visibility: 'hidden' }}>&larr; Volver a la colección</span>
+        </div>
+        <div className="pd-grid">
+          <div className="pd-gallery">
+            <div className="pd-main-image-wrapper">
+              <div className="pd-loader" role="status" aria-label="Cargando pieza..."></div>
+            </div>
+          </div>
+          <div className="pd-info">
+            <div className="pd-skeleton-header">
+              <div className="pd-skeleton-line pd-skeleton-ref"></div>
+              <div className="pd-skeleton-line pd-skeleton-title"></div>
+              <div className="pd-skeleton-line pd-skeleton-price"></div>
+            </div>
+            <div className="pd-skeleton-block"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -169,6 +199,25 @@ const ProductDetail = () => {
   const conCalendario = Boolean(
     datosDisp?.alquilable && datosDisp.precio_dia_centimos != null && mueble.estado !== 'alquilado'
   );
+
+  const datosDispNormalizados = datosDisp ? {
+    ...datosDisp,
+    precio_dia_centimos: datosDisp.precio_dia_centimos ?? (mueble.precio_alquiler_dia ? Math.round(Number(mueble.precio_alquiler_dia) * 100) : null)
+  } : null;
+
+  if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
+    console.log('[ProductDetail Reservas]', {
+      conReservas,
+      muebleId: mueble.id,
+      referencia: mueble.referencia,
+      precioAlquilerDia: mueble.precio_alquiler_dia,
+      estado: mueble.estado,
+      disponibilidad,
+      datosDisp,
+      conCalendario
+    });
+  }
+
   const bloqueadaPorReservas =
     datosDisp?.comprable === false && datosDisp.motivo_no_comprable === 'reservas_activas';
   const noComprable = datosDisp?.comprable === false;
@@ -202,29 +251,104 @@ const ProductDetail = () => {
         {/* COLUMNA IZQUIERDA (60%): GALERÍA DE FOTOS */}
         <div className="pd-gallery">
           <div className="pd-main-image-wrapper">
-            <img
-              key={mainImage}
-              src={mainImage}
-              alt={mueble.nombre}
-              className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
-              decoding="async"
-            />
+            {/* <picture> solo se renderiza cuando las variantes .webp existen en el bucket.
+                Mientras no se haya ejecutado npm run images:optimize, usar <img> plano evita CLS por 400s. */}
+            {(() => {
+              const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+              const variantesWebp = usarPictureWebp ? obtenerVariantesWebp(mainImage) : null;
+              if (usarPictureWebp && variantesWebp) {
+                return (
+                  <picture className="pd-main-image-picture">
+                    <source
+                      type="image/webp"
+                      srcSet={variantesWebp.srcset}
+                      sizes="(max-width: 768px) 100vw, 600px"
+                    />
+                    <img
+                      key={mainImage}
+                      src={mainImage}
+                      alt={mueble.nombre}
+                      width="600"
+                      height="600"
+                      className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+                      decoding="async"
+                      loading="eager"
+                      // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                      // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                      // eslint-disable-next-line react/no-unknown-property
+                      fetchpriority="high"
+                    />
+                  </picture>
+                );
+              }
+              return (
+                <img
+                  key={mainImage}
+                  src={mainImage}
+                  alt={mueble.nombre}
+                  width="600"
+                  height="600"
+                  className={`pd-main-image ${mueble.estado === 'vendido' ? 'pd-main-image--sold' : ''}`}
+                  decoding="async"
+                  loading="eager"
+                  // React 18 solo reconoce la grafía en minúsculas: con "fetchPriority" avisa de
+                  // prop desconocida. ESLint (react/no-unknown-property) espera la de React 19.
+                  // eslint-disable-next-line react/no-unknown-property
+                  fetchpriority="high"
+                />
+              );
+            })()}
             {mueble.estado === 'vendido' && <div className="pd-status-banner sold">Vendido</div>}
             {mueble.estado === 'alquilado' && <div className="pd-status-banner rented">Alquilado</div>}
           </div>
 
           {mueble.imagenes && mueble.imagenes.length > 1 && (
             <div className="pd-thumbnails" role="region" aria-label="Galería de imágenes">
-              {mueble.imagenes.map((img, index) => (
-                <button 
-                  key={index} 
-                  className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
-                  onClick={() => setMainImage(img)}
-                  aria-label={`Ver imagen ${index + 1}`}
-                >
-                  <img src={img} alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`} className="pd-thumbnail-img" loading="lazy" decoding="async" />
-                </button>
-              ))}
+              {mueble.imagenes.map((img, index) => {
+                const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+                const variantesThumb = usarPictureWebp ? obtenerVariantesWebp(img) : null;
+                return (
+                  <button 
+                    key={index} 
+                    className={`pd-thumbnail-btn ${mainImage === img ? 'active' : ''}`}
+                    onClick={() => setMainImage(img)}
+                    aria-label={`Ver imagen ${index + 1}`}
+                  >
+                    {usarPictureWebp && variantesThumb ? (
+                      <picture className="pd-thumbnail-picture">
+                        <source
+                          type="image/webp"
+                          srcSet={`${variantesThumb.w400} 400w`}
+                          sizes="80px"
+                        />
+                        <img
+                          src={img}
+                          alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`}
+                          className="pd-thumbnail-img"
+                          width="80"
+                          height="80"
+                          loading="lazy"
+                          decoding="async"
+                          // eslint-disable-next-line react/no-unknown-property
+                          fetchpriority="low"
+                        />
+                      </picture>
+                    ) : (
+                      <img
+                        src={img}
+                        alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`}
+                        className="pd-thumbnail-img"
+                        width="80"
+                        height="80"
+                        loading="lazy"
+                        decoding="async"
+                        // eslint-disable-next-line react/no-unknown-property
+                        fetchpriority="low"
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -428,7 +552,7 @@ const ProductDetail = () => {
               <PanelReserva
                 key={mueble.id}
                 mueble={mueble}
-                disponibilidad={datosDisp}
+                disponibilidad={datosDispNormalizados}
                 onRecargar={() => setRecargas((n) => n + 1)}
                 precioEnCabecera={!mueble.precio_venta}
               />
@@ -487,6 +611,8 @@ const ProductDetail = () => {
                 src={mainImage || PLACEHOLDER_IMG}
                 alt={mueble.nombre}
                 className="pd-sticky-thumb"
+                loading="lazy"
+                decoding="async"
               />
               <div className="pd-sticky-text">
                 <span className="pd-sticky-nombre font-display">{mueble.nombre}</span>

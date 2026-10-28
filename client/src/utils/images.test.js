@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getImagen, miniatura, PLACEHOLDER_IMG } from './images';
+import { getImagen, miniatura, PLACEHOLDER_IMG, obtenerVariantesWebp } from './images';
 
 describe('getImagen', () => {
   it('devuelve la imagen en la posición pedida cuando existe', () => {
@@ -47,5 +47,28 @@ describe('miniatura (H61)', () => {
   it('lo que no es un texto se devuelve tal cual', () => {
     expect(miniatura(undefined)).toBeUndefined();
     expect(miniatura(null)).toBeNull();
+  });
+});
+
+describe('obtenerVariantesWebp', () => {
+  it('genera las 3 variantes y el srcset para URLs estándar', () => {
+    const res = obtenerVariantesWebp('https://img.test/uploads/pieza.jpg');
+    expect(res).toEqual({
+      w400: 'https://img.test/uploads/pieza-400.webp',
+      w800: 'https://img.test/uploads/pieza-800.webp',
+      w1200: 'https://img.test/uploads/pieza-1200.webp',
+      srcset: 'https://img.test/uploads/pieza-400.webp 400w, https://img.test/uploads/pieza-800.webp 800w, https://img.test/uploads/pieza-1200.webp 1200w',
+    });
+  });
+
+  it('limpia sufijos previos como -full.webp o -thumb.webp antes de generar variantes', () => {
+    const res = obtenerVariantesWebp('https://img.test/uploads/mesa-full.webp');
+    expect(res.w800).toBe('https://img.test/uploads/mesa-800.webp');
+  });
+
+  it('devuelve null si es un SVG o no es una URL de imagen válida', () => {
+    expect(obtenerVariantesWebp('/img/sin-imagen.svg')).toBeNull();
+    expect(obtenerVariantesWebp(null)).toBeNull();
+    expect(obtenerVariantesWebp('')).toBeNull();
   });
 });

@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test';
 import { simularApi, vigilarConsola, cerrarCookies, MUEBLES } from './apiSimulada';
 
 const meta = (page, selector) => page.locator(`head ${selector}`).getAttribute('content');
-const TITULO_WEB = 'Nave 5 Barcelona | Almacén de ideas';
+const TITULO_WEB = 'Nave 5 Barcelona · Muebles vintage y alquiler';
 
 test('la ficha pone su título, descripción y og:image; otra ficha, los suyos; al salir, los de la web', async ({ page }) => {
   const errores = vigilarConsola(page);
@@ -21,9 +21,7 @@ test('la ficha pone su título, descripción y og:image; otra ficha, los suyos; 
   await expect(page).toHaveTitle(`${silla.nombre} | Nave 5 Barcelona`);
   // Las descripciones de prueba son cortas: van con el nombre delante y la tienda detrás.
   expect(await meta(page, 'meta[name="description"]')).toContain(silla.descripcion);
-  const producto = JSON.parse(
-    await page.locator('head script[type="application/ld+json"][data-jsonld="producto"]').textContent()
-  );
+  const producto = JSON.parse(await page.locator('head #structured-data-jsonld').textContent())['@graph'][0];
   expect(producto).toMatchObject({ '@type': 'Product', name: silla.nombre });
   expect(await page.locator('head link[rel="canonical"]').getAttribute('href')).toBe(
     `https://www.nave5barcelona.com/mueble/${silla.id}`
@@ -36,13 +34,14 @@ test('la ficha pone su título, descripción y og:image; otra ficha, los suyos; 
   await expect(page).toHaveTitle(`${mesa.nombre} | Nave 5 Barcelona`);
   expect(await meta(page, 'meta[name="description"]')).toContain(mesa.descripcion);
   expect(await meta(page, 'meta[property="og:description"]')).toContain(mesa.descripcion);
-  await expect(page.locator('head script[data-jsonld="producto"]')).toHaveCount(1);
+  await expect(page.locator('head script[type="application/ld+json"]')).toHaveCount(1);
 
   await page.goto('/');
   await expect(page).toHaveTitle(TITULO_WEB);
   expect(await meta(page, 'meta[property="og:image"]')).toMatch(/og-image\.png$/);
-  await expect(page.locator('head script[data-jsonld]')).toHaveCount(0);
-  // La portada pone el suyo (y uno solo: el de la ficha se ha ido).
+  // La portada pone los suyos (la tienda y su canonical), y uno solo de cada: los de la ficha se han ido.
+  const tienda = JSON.parse(await page.locator('head #structured-data-jsonld').textContent());
+  expect(tienda['@type']).toBe('FurnitureStore');
   await expect(page.locator('head link[rel="canonical"]')).toHaveCount(1);
   expect(await page.locator('head link[rel="canonical"]').getAttribute('href')).toBe('https://www.nave5barcelona.com/');
   expect(errores).toEqual([]);

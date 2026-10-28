@@ -1,602 +1,1335 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
-import { getReservasAdmin, accionReservaAdmin, crearEnCalendarioAdmin } from '../../../services/api';
-import { eurosDeCentimos, fechaCorta, fechaLarga } from '../../../utils/reservas';
-import { VISTAS, centimosDeEuros, hoyMasReciente, textoResultados } from '../reservasAdmin';
-import TarjetaReserva from '../TarjetaReserva';
-import AgendaReservas from '../AgendaReservas';
-import BuscadorReservas from '../BuscadorReservas';
-import CalendarioPieza from '../CalendarioPieza';
-import VistaGeneral from '../VistaGeneral';
-import useAgendaReservas from '../hooks/useAgendaReservas';
-import ConfirmarReservaModal from '../modales/ConfirmarReservaModal';
-import AmpliarReservaModal from '../modales/AmpliarReservaModal';
-import CancelarReservaModal from '../modales/CancelarReservaModal';
-import AltaCalendarioModal from '../modales/AltaCalendarioModal';
-import RecogerReservaModal from '../modales/RecogerReservaModal';
+import {
+  getReservasAdmin,
+  entregarReservaAdmin,
+  recogerReservaAdmin,
+  cancelarReservaAdmin,
+  bloquearFechasAdmin
+} from '../../../services/api';
+import { formatPrice } from '../../../utils/format';
+import {
+  semanasDelMes,
+  nombreDelMes,
+  sumarMeses,
+  mesDe,
+  primerDiaDe,
+  sumarDias,
+  diasEntre,
+  diaDeLaSemana
+} from '../../../utils/reservas';
 import '../../../styles/AdminReservas.css';
 
-// Pestaña "Reservas" (docs/reservas-diseno.md, 8.1, 8.2 y 8.3; bloque R-d): arriba la agenda de hoy y
-// mañana, y debajo tres formas de ver las reservas: la lista por vistas con su buscador y las acciones,
-// el calendario de una pieza y la vista general de todas las piezas por días. Solo existe con el
-// interruptor VITE_RESERVAS_ACTIVAS encendido: Admin.jsx no la pinta si está apagado.
-// Las acciones van de una en una: mientras se guarda una, los botones están desactivados y un
-// segundo envío (doble clic, Intro en un formulario) no sale. Si va bien, la reserva que devuelve
-// el servidor sustituye a la de la lista (con su aviso, si lo trae, en la tarjeta); si no, su mensaje
-// sale tal cual. Un 502 con el código 'reembolso_a_medias' es una acción hecha con el reembolso a
-// medias (8.6; un 502 sin él, de la pasarela, es un error más, que pudo guardarse): su mensaje (con la
-// reserva) se queda arriba hasta que se cierra, y se pasa a «Reembolsos a medias», donde está su
-// botón «Reintentar». Un 409 o un 404 que no pide confirmar es una lista que ya no está al día: se
-// recarga conservando el mensaje. Los que sí piden confirmar llevan un `codigo`: entregar antes de
-// tiempo, y dar por reembolsado algo que Stripe no muestra (solo si se devolvió por otro medio).
-
-const EXITO = {
-  entregar: 'Reserva marcada como entregada',
-  recoger: 'Reserva marcada como recogida',
-  ampliar: 'Ocupación ampliada',
-  cancelar: 'Reserva cancelada',
-  'reintentar-reembolso': 'Reembolso registrado',
-  'dar-por-reembolsado': 'Reembolso dado por hecho',
-  'levantar-bloqueo': 'Bloqueo levantado'
+const ETIQUETAS_ESTADO = {
+  confirmada: 'Confirmada',
+  en_curso: 'En curso',
+  devuelta: 'Devuelta',
+  cancelada: 'Cancelada',
+  expirada: 'Expirada'
 };
-// Un 409 con alguno de estos códigos no es una lista desfasada: pide confirmar y volver a mandar.
-const CODIGOS_CON_CONFIRMACION = ['entrega_anticipada', 'reembolso_no_consta'];
-// El código del 502 del servidor cuando la acción se hizo y el reembolso quedó a medias.
-const CODIGO_A_MEDIAS = 'reembolso_a_medias';
-const esReembolsoAMedias = ({ status, codigo }) => status === 502 && codigo === CODIGO_A_MEDIAS;
-const EXITO_ALTA = { bloqueo: 'Fechas bloqueadas', alquiler: 'Alquiler registrado', venta: 'Venta registrada' };
-// «Todas» muestra como mucho las 200 más recientes (MAX_TODAS del servidor). Una búsqueda mira las 1000
-// más recientes (MAX_BUSQUEDA) y enseña como mucho esas mismas 200.
-const MAX_TODAS = 200;
-const MAX_BUSQUEDA = 1000;
-// Lo que se añade a un error sin respuesta del servidor (red, un 504, un 500): la acción pudo hacerse.
-const PUDO_GUARDARSE = ' Puede que sí se haya guardado: pulsa «Actualizar» y mira cómo ha quedado antes de repetirlo.';
-// Las tres formas de ver las reservas. Los calendarios se montan al abrirlos por primera vez y se quedan
-// (escondidos) cuando se vuelve a la lista, para encontrar la misma pieza y el mismo mes al volver.
-const MODOS_DE_VER = [
-  ['lista', 'Lista'],
-  ['pieza', 'Calendario por pieza'],
-  ['general', 'Vista general']
-];
-const ALTAS = [
-  ['bloqueo', 'Bloquear fechas'],
-  ['alquiler', 'Registrar alquiler fuera de la web'],
-  ['venta', 'Registrar venta fuera de la web']
-];
 
-const ReservasTab = ({ muebles, resumen = null, alCambiar }) => {
+const DIAS_CABECERA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+const formatearFecha = (fechaStr) => {
+  if (!fechaStr) return '—';
+  const partes = fechaStr.split('-');
+  if (partes.length === 3) {
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+  return fechaStr;
+};
+
+const hoyEnMadrid = () => {
+  const hoy = new Date();
+  return hoy.toISOString().slice(0, 10);
+};
+
+const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
   const { showToast } = useContext(ToastContext);
-  const [vista, setVista] = useState('proximas');
-  // La vista de ahora mismo, para lo que responde el servidor después: una respuesta tardía no recarga
-  // la vista que ya se dejó.
-  const vistaRef = useRef(vista);
-  vistaRef.current = vista;
-  const [lista, setLista] = useState({ cargando: true, error: '', hoy: null, reservas: [], limitada: false });
-  // La búsqueda hecha ({ q, desde, hasta }) o null: mientras la hay, la lista son sus resultados en todas las
-  // reservas y ninguna vista está elegida. Su ref es la de ahora mismo, para lo que se carga después.
-  const [busqueda, setBusqueda] = useState(null);
-  const busquedaRef = useRef(null);
-  // Error y aviso de la última acción de cada reserva (por id), debajo de su tarjeta.
-  const [errores, setErrores] = useState({});
-  const [avisos, setAvisos] = useState({});
-  // El mensaje de un 502 (reembolso a medias), arriba de la lista hasta que se cierra.
-  const [avisoGeneral, setAvisoGeneral] = useState('');
-  // El error de un alta del calendario cuyo diálogo se cerró mientras se guardaba (no tiene tarjeta donde salir).
-  const [avisoAlta, setAvisoAlta] = useState('');
-  // El diálogo abierto: { tipo: 'confirmar' | 'recoger' | 'ampliar' | 'cancelar' | 'alta', ... }, y su error.
-  const [dialogo, setDialogo] = useState(null);
-  const [errorDialogo, setErrorDialogo] = useState('');
-  // El diálogo abierto ahora mismo, para lo que responde el servidor después: si se cerró mientras
-  // se guardaba (Escape, la "X"), su error no tiene dónde salir y va a un aviso.
-  const dialogoAbierto = useRef(null);
-  dialogoAbierto.current = dialogo;
-  // Lo que se está guardando ('<id>:<acción>' o 'alta'): desactiva los botones. La ref es la guarda
-  // del doble envío, que no espera a que se pinte el botón desactivado.
-  const [enviando, setEnviando] = useState(null);
-  const enviandoRef = useRef(false);
-  // La reserva a la que llevar el foco cuando acabe una acción cuyo botón ya no está (si no, el foco
-  // cae en el <body>).
-  const [foco, setFoco] = useState(null);
-  // Número de la última carga: si se cambia de vista antes de que llegue una respuesta, esa
-  // respuesta ya no se pinta.
-  const ultimaCarga = useRef(0);
-  // true después de una acción: la tarjeta cambiada se queda en su sitio con su estado nuevo (si
-  // desapareciera, no se vería el resultado), pero la lista ya puede no ser la de esta vista. Lo dice
-  // un aviso con el botón «Actualizar» hasta la siguiente carga.
-  const [listaMovida, setListaMovida] = useState(false);
-  // La agenda de hoy y mañana, encima de las vistas. «Ver reserva» lleva a la tarjeta de su reserva: la
-  // vista de destino se carga primero (`tarjetaPendiente`) y entonces se enfoca (`enfocar`).
-  const { datos: datosAgenda, error: errorAgenda, recargar: recargarAgenda } = useAgendaReservas();
-  const tarjetaPendiente = useRef(null);
-  const [enfocar, setEnfocar] = useState(null);
-  // La forma de ver las reservas, cuáles se han abierto ya, y un número que sube con cada cambio para que
-  // los calendarios abiertos se vuelvan a leer. `hoyInicial` es el día con que se abren (el de Madrid).
-  const [modo, setModo] = useState('lista');
-  const [abiertos, setAbiertos] = useState(['lista']);
-  const [version, setVersion] = useState(0);
-  const [hoyInicial] = useState(() => hoyMasReciente(null));
+  const [reservas, setReservas] = useState([]);
+  const [cargando, setCargando] = useState(true);
+  const [procesandoId, setProcesandoId] = useState(null);
 
-  // `conservar`: la recarga de una lista que ya no estaba al día no borra el mensaje de la tarjeta.
-  const cargar = useCallback(async (vistaPedida, conservar = false) => {
-    const numero = ++ultimaCarga.current;
-    setListaMovida(false);
-    setLista((l) => ({ ...l, cargando: true, error: '' }));
-    const { data, error } = await getReservasAdmin({ vista: vistaPedida, ...busquedaRef.current });
-    if (numero !== ultimaCarga.current) return;
-    if (!conservar) {
-      setErrores({});
-      setAvisos({});
+  // Toggle Vista: 'lista' | 'calendario'
+  const [vistaModo, setVistaModo] = useState('lista');
+
+  // Filtros Avanzados en Tabla
+  const [busquedaTexto, setBusquedaTexto] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('todos');
+  const [filtroFecha, setFiltroFecha] = useState('');
+
+  // Estado Modal Cancelación y Reembolso en céntimos
+  const [reservaACancelar, setReservaACancelar] = useState(null);
+  const [reembolsarTotal, setReembolsarTotal] = useState(true);
+  const [importeReembolsoEuros, setImporteReembolsoEuros] = useState(0);
+  const [cancelando, setCancelando] = useState(false);
+
+  // Estado Modal Bloqueo de Fechas
+  const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false);
+  const [bloqueoMuebleId, setBloqueoMuebleId] = useState('');
+  const [bloqueoFechaInicio, setBloqueoFechaInicio] = useState('');
+  const [bloqueoFechaFin, setBloqueoFechaFin] = useState('');
+  const [bloqueoMotivo, setBloqueoMotivo] = useState('');
+  const [guardandoBloqueo, setGuardandoBloqueo] = useState(false);
+  const [errorBloqueo, setErrorBloqueo] = useState(null);
+
+  // Estado Vista Calendario e Inspector Lateral
+  const [mesCalendario, setMesCalendario] = useState(() => mesDe(hoyEnMadrid()));
+  const [muebleCalendarioId, setMuebleCalendarioId] = useState('');
+  const [diaSeleccionadoInfo, setDiaSeleccionadoInfo] = useState(null);
+
+  const cargarReservas = useCallback(async () => {
+    setCargando(true);
+    try {
+      const res = await getReservasAdmin({ vista: 'todas' });
+      const lista = res?.data?.reservas || res?.reservas || (Array.isArray(res?.data) ? res.data : []);
+      setReservas(Array.isArray(lista) ? lista : []);
+    } catch (err) {
+      console.error('Error al cargar reservas:', err);
+      showToast('Error al cargar las reservas', 'error');
+    } finally {
+      setCargando(false);
     }
-    setLista({
-      cargando: false,
-      error: error ?? '',
-      hoy: data?.hoy ?? null,
-      reservas: Array.isArray(data?.reservas) ? data.reservas : [],
-      limitada: data?.limitada === true
+  }, [showToast]);
+
+  useEffect(() => {
+    cargarReservas();
+  }, [cargarReservas]);
+
+  // Lista de muebles para selectores (combinando prop muebles y muebles que aparecen en reservas)
+  const listaMuebles = useMemo(() => {
+    const mapa = new Map();
+    (muebles || []).forEach((m) => {
+      if (m?.id) mapa.set(m.id, { id: m.id, nombre: m.nombre, referencia: m.referencia });
     });
-    if (tarjetaPendiente.current) {
-      setEnfocar(tarjetaPendiente.current);
-      tarjetaPendiente.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    cargar(vista);
-  }, [cargar, vista]);
-
-  // `hoy` del diálogo: el de la lista o, si la pestaña lleva abierta desde ayer, el del reloj.
-  const abrir = (nuevo) => {
-    setErrorDialogo('');
-    if (nuevo.tipo === 'alta') setAvisoAlta('');
-    setDialogo({ ...nuevo, hoy: hoyMasReciente(lista.hoy) });
-  };
-
-  useEffect(() => {
-    if (!foco || dialogo) return;
-    if (!document.activeElement || document.activeElement === document.body) {
-      document.getElementById(`reserva-tarjeta-${foco}`)?.focus();
-    }
-    setFoco(null);
-  }, [foco, dialogo]);
-
-  // Llevar el foco (y la vista) a una tarjeta que se pidió desde la agenda, cuando ya está pintada.
-  useEffect(() => {
-    if (!enfocar) return;
-    const tarjeta = document.getElementById(`reserva-tarjeta-${enfocar}`);
-    tarjeta?.focus();
-    tarjeta?.scrollIntoView?.({ block: 'start' });
-    setEnfocar(null);
-  }, [enfocar]);
-
-  // Algo cambió (una acción, un alta, «Actualizar»): lo que cuenta el contenedor y la agenda ya no es lo mismo.
-  const avisarCambio = () => {
-    alCambiar?.();
-    recargarAgenda();
-    setVersion((v) => v + 1);
-  };
-
-  // Manda una petición si no hay otra en curso. Devuelve su resultado, o null si no se mandó.
-  const enviar = async (clave, peticion) => {
-    if (enviandoRef.current) return null;
-    enviandoRef.current = true;
-    setEnviando(clave);
-    const resultado = await peticion();
-    enviandoRef.current = false;
-    setEnviando(null);
-    return resultado;
-  };
-
-  const ejecutar = async (reserva, accion, datos = {}) => {
-    let resultado = await enviar(`${reserva.id}:${accion}`, () => accionReservaAdmin(reserva.id, accion, datos));
-    if (!resultado) return resultado;
-    const aMedias = esReembolsoAMedias(resultado);
-    if (resultado.error && !aMedias && (resultado.status === 0 || resultado.status >= 500)) {
-      resultado = { ...resultado, error: `${resultado.error}${PUDO_GUARDARSE}` };
-    }
-    const { status, codigo } = resultado;
-    if (aMedias) {
-      setAvisoGeneral(
-        `Reserva ${reserva.referencia} (${reserva.pieza.nombre}): ${resultado.error} Está en «Reembolsos a medias».`
-      );
-      showToast(resultado.error, 'error');
-      avisarCambio();
-      // Su botón «Reintentar» está en esa vista: una búsqueda se deja.
-      dejarBusqueda();
-      if (vistaRef.current === 'reembolsos') cargar('reembolsos');
-      else setVista('reembolsos');
-    } else if (!resultado.error) {
-      const nueva = resultado.data?.reserva;
-      if (nueva) {
-        setLista((l) => ({ ...l, reservas: l.reservas.map((r) => (r.id === nueva.id ? nueva : r)) }));
-        setListaMovida(true);
-        setFoco(nueva.id);
-      } else {
-        cargar(vistaRef.current);
+    reservas.forEach((r) => {
+      const p = r.pieza || r.mueble;
+      const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
+      if (mId && !mapa.has(mId)) {
+        mapa.set(mId, { id: mId, nombre: p?.nombre || 'Pieza', referencia: p?.referencia || '' });
       }
-      avisarCambio();
-      if (resultado.data?.aviso) setAvisos((a) => ({ ...a, [reserva.id]: resultado.data.aviso }));
-      // El aviso de arriba era de un reembolso a medias: ya está resuelto.
-      if (accion === 'reintentar-reembolso' || accion === 'dar-por-reembolsado') setAvisoGeneral('');
-      showToast(accion === 'cancelar' && reserva.tipo === 'venta' ? 'Venta cancelada' : EXITO[accion], 'success');
-    } else if ((status === 409 && !CODIGOS_CON_CONFIRMACION.includes(codigo)) || status === 404) {
-      // Otra pestaña (u otra persona) cambió la reserva: se recarga, y el mensaje se queda.
-      // La recarga desmonta las tarjetas, y con ellas el botón que se pulsó: al volver, el foco va a la tarjeta.
-      cargar(vistaRef.current, true).then(() => setFoco(reserva.id));
-      resultado = { ...resultado, obsoleta: true };
+    });
+    return Array.from(mapa.values());
+  }, [muebles, reservas]);
+
+  // Preseleccionar mueble en el calendario si no está elegido
+  useEffect(() => {
+    if (!muebleCalendarioId && listaMuebles.length > 0) {
+      setMuebleCalendarioId(listaMuebles[0].id);
     }
-    return resultado;
+  }, [muebleCalendarioId, listaMuebles]);
+
+  // Sincronizar el panel lateral del calendario si cambia el estado de la reserva seleccionada
+  useEffect(() => {
+    if (diaSeleccionadoInfo?.reserva?.id) {
+      const actualizada = reservas.find((r) => r.id === diaSeleccionadoInfo.reserva.id);
+      if (actualizada) {
+        setDiaSeleccionadoInfo((prev) => (prev ? { ...prev, reserva: actualizada } : null));
+      }
+    }
+  }, [reservas, diaSeleccionadoInfo?.reserva?.id]);
+
+  // A. Métricas del Dashboard Operativo Superior (Hoy en el almacén)
+  const metricasOperativas = useMemo(() => {
+    const hoy = hoyEnMadrid();
+    let entregasPendientesHoy = 0;
+    let recogidasPendientesHoy = 0;
+    let ingresosActivos = 0;
+
+    reservas.forEach((r) => {
+      const esBloqueo = r.tipo === 'bloqueo';
+      if (r.estado === 'confirmada' && r.fecha_inicio === hoy && !esBloqueo) {
+        entregasPendientesHoy += 1;
+      }
+      if (r.estado === 'en_curso' && r.fecha_fin === hoy && !esBloqueo) {
+        recogidasPendientesHoy += 1;
+      }
+      if ((r.estado === 'confirmada' || r.estado === 'en_curso') && !esBloqueo) {
+        ingresosActivos += Number(r.importe_total ?? 0);
+      }
+    });
+
+    return {
+      entregasPendientesHoy,
+      recogidasPendientesHoy,
+      ingresosActivos
+    };
+  }, [reservas]);
+
+  // B. Reservas filtradas para la tabla
+  const reservasFiltradas = useMemo(() => {
+    const termino = busquedaTexto.trim().toLowerCase();
+
+    return reservas.filter((reserva) => {
+      if (filtroEstado !== 'todos' && reserva.estado !== filtroEstado) {
+        return false;
+      }
+
+      if (filtroFecha) {
+        const fin = reserva.fin_ocupacion || reserva.fecha_fin || '';
+        const inicio = reserva.fecha_inicio || '';
+        if (filtroFecha < inicio || filtroFecha > fin) {
+          return false;
+        }
+      }
+
+      if (termino) {
+        const pieza = reserva.pieza || reserva.mueble || {};
+        const contacto = reserva.contacto || reserva.datos_contacto || {};
+        const nombreMueble = (pieza.nombre || '').toLowerCase();
+        const refMueble = (pieza.referencia || '').toLowerCase();
+        const nombreCliente = (
+          contacto.nombre ||
+          reserva.cliente?.nombre ||
+          reserva.motivo ||
+          reserva.motivo_cancelacion ||
+          ''
+        ).toLowerCase();
+        const emailCliente = (contacto.email || reserva.cliente?.email || '').toLowerCase();
+        const telCliente = (contacto.telefono || '').toLowerCase();
+
+        const coincide =
+          nombreMueble.includes(termino) ||
+          refMueble.includes(termino) ||
+          nombreCliente.includes(termino) ||
+          emailCliente.includes(termino) ||
+          telCliente.includes(termino);
+
+        if (!coincide) return false;
+      }
+
+      return true;
+    });
+  }, [reservas, busquedaTexto, filtroEstado, filtroFecha]);
+
+  const refrescarDatosGlobales = () => {
+    if (typeof recargarMuebles === 'function') {
+      recargarMuebles();
+    }
+    if (typeof alCambiar === 'function') {
+      alCambiar();
+    }
   };
 
-  const pulsarAccion = async (reserva, accion) => {
-    setErrores((e) => ({ ...e, [reserva.id]: '' }));
-    setAvisos((a) => ({ ...a, [reserva.id]: '' }));
-    if (['ampliar', 'cancelar', 'recoger'].includes(accion)) {
-      abrir({ tipo: accion, reserva, accion });
-      return;
+  const handleMarcarEntregada = async (id) => {
+    setProcesandoId(id);
+    try {
+      const res = await entregarReservaAdmin(id);
+      if (res?.error) {
+        showToast(res.error, 'error');
+      } else {
+        showToast('Reserva marcada como entregada. Mueble actualizado a alquilado.', 'success');
+        setReservas((prev) => prev.map((r) => (r.id === id ? { ...r, estado: 'en_curso' } : r)));
+        refrescarDatosGlobales();
+      }
+    } catch (err) {
+      console.error('Error al marcar entregada:', err);
+      showToast('No se pudo marcar como entregada', 'error');
+    } finally {
+      setProcesandoId(null);
     }
-    // Mueve dinero (aunque antes se comprueba en Stripe si ya se hizo): se dice cuánto.
-    if (accion === 'reintentar-reembolso') {
-      const cuanto = reserva.reembolso ? `${eurosDeCentimos(centimosDeEuros(reserva.reembolso.importe))} ` : '';
-      abrir({
-        tipo: 'confirmar',
-        reserva,
-        accion,
-        datos: {},
-        titulo: 'Reintentar el reembolso',
-        mensaje:
-          `Se devolverán ${cuanto}al cliente en Stripe por la reserva ${reserva.referencia} (${reserva.pieza.nombre}). ` +
-          'Antes se comprueba en Stripe si ya se devolvió, para no devolverlo dos veces.',
-        textoConfirmar: 'Reintentar reembolso'
-      });
-      return;
-    }
-    // No mueve dinero: cierra un reembolso a medias que ya se hizo desde el Dashboard de Stripe.
-    if (accion === 'dar-por-reembolsado') {
-      abrir({
-        tipo: 'confirmar',
-        reserva,
-        accion,
-        datos: {},
-        titulo: 'Dar por reembolsado',
-        mensaje:
-          `Esto no mueve dinero: solo da por cerrado el reembolso a medias de la reserva ${reserva.referencia} ` +
-          `(${reserva.pieza.nombre}). Úsalo solo si ya has devuelto el dinero desde el Dashboard de Stripe: ` +
-          'antes se comprueba allí que conste.',
-        textoConfirmar: 'Dar por reembolsado'
-      });
-      return;
-    }
-    const resultado = await ejecutar(reserva, accion);
-    // Un reembolso a medias ya sale arriba (y la recarga puede haber llegado antes): no se repite en la tarjeta.
-    if (!resultado?.error || esReembolsoAMedias(resultado)) return;
-    // Entregar antes de la fecha prevista: el servidor responde 409 con el código 'entrega_anticipada'.
-    // Se pide confirmación y se vuelve a mandar con antes_de_tiempo.
-    if (accion === 'entregar' && resultado.codigo === 'entrega_anticipada') {
-      abrir({
-        tipo: 'confirmar',
-        reserva,
-        accion,
-        datos: { antes_de_tiempo: true },
-        titulo: 'Entregar antes de la fecha',
-        mensaje:
-          `La entrega está prevista para el ${fechaCorta(reserva.fecha_inicio)}. ` +
-          `¿Marcas la reserva ${reserva.referencia} (${reserva.pieza.nombre}) como entregada antes de tiempo? ` +
-          'El alquiler pasará a empezar hoy.',
-        textoConfirmar: 'Marcar entregada'
-      });
-      return;
-    }
-    setErrores((e) => ({ ...e, [reserva.id]: resultado.error }));
-    // Si la reserva ya no está en esta vista, su tarjeta (y el mensaje) desaparece con la recarga.
-    if (resultado.obsoleta) showToast(resultado.error, 'error');
   };
 
-  // El error de lo que se mandó desde un diálogo sale en él. Si ya se cerró (Escape, la "X"), sale en un
-  // toast (se ve aunque se haya cambiado de vista o de pestaña) y además en un aviso que se queda y que el
-  // lector de pantalla lee (el toast dura 3 s y no se anuncia): bajo la tarjeta de su reserva, o arriba, con
-  // el nombre del alta, si es un alta del calendario (no tiene tarjeta).
-  const errorDeDialogo = (error, reserva, nombreAlta) => {
-    if (dialogoAbierto.current) {
-      setErrorDialogo(error);
-      return;
+  const handleMarcarRecogida = async (id) => {
+    setProcesandoId(id);
+    try {
+      const res = await recogerReservaAdmin(id);
+      if (res?.error) {
+        showToast(res.error, 'error');
+      } else {
+        showToast('Reserva marcada como recogida. Mueble disponible.', 'success');
+        setReservas((prev) => prev.map((r) => (r.id === id ? { ...r, estado: 'devuelta' } : r)));
+        refrescarDatosGlobales();
+      }
+    } catch (err) {
+      console.error('Error al marcar recogida:', err);
+      showToast('No se pudo marcar como recogida', 'error');
+    } finally {
+      setProcesandoId(null);
     }
-    showToast(error, 'error');
-    if (reserva) setErrores((e) => ({ ...e, [reserva.id]: error }));
-    else setAvisoAlta(`${nombreAlta}: ${error}`);
   };
 
-  // Lo que se manda desde un diálogo de acción: si falla, el error sale en el diálogo. Con un 502
-  // la acción sí se ha hecho: el diálogo se cierra y el mensaje sale arriba.
-  const enviarDialogo = async (datos) => {
-    const resultado = await ejecutar(dialogo.reserva, dialogo.accion, datos);
-    if (!resultado) return;
-    // El reembolso no consta en Stripe: segundo paso, solo si se hizo por otro medio.
-    if (resultado.codigo === 'reembolso_no_consta' && dialogoAbierto.current) {
-      abrir({
-        tipo: 'confirmar',
-        reserva: dialogo.reserva,
-        accion: dialogo.accion,
-        datos: { aunque_no_conste: true },
-        titulo: 'No consta en Stripe',
-        mensaje:
-          `${resultado.error} Si el dinero se devolvió por otro medio, por ejemplo con una transferencia, ` +
-          'puedes darlo por reembolsado igualmente. Si solo devolviste una parte desde el Dashboard de Stripe, ' +
-          'devuelve el resto allí y vuelve a pulsar «Dar por reembolsado». Si no has devuelto nada, ' +
-          'vuelve y usa «Reintentar reembolso».',
-        textoConfirmar: 'Dar por reembolsado igualmente'
+  // 1. Abrir modal de cancelación inicializando el importe a reembolsar por defecto al 100%
+  const abrirModalCancelar = (reserva) => {
+    const totalReserva = Number(reserva?.importe_total ?? 0);
+    setReservaACancelar(reserva);
+    setReembolsarTotal(true);
+    setImporteReembolsoEuros(totalReserva);
+  };
+
+  const cerrarModalCancelar = () => {
+    if (cancelando) return;
+    setReservaACancelar(null);
+  };
+
+  const handleToggleReembolsoTotal = (checked) => {
+    setReembolsarTotal(checked);
+    if (checked && reservaACancelar) {
+      setImporteReembolsoEuros(Number(reservaACancelar.importe_total ?? 0));
+    }
+  };
+
+  const handleConfirmarCancelar = async () => {
+    if (!reservaACancelar) return;
+    setCancelando(true);
+    try {
+      const totalOriginal = Number(reservaACancelar.importe_total ?? 0);
+      const importeElegido = reembolsarTotal ? totalOriginal : Number(importeReembolsoEuros || 0);
+      const reembolsoEnCentimos = Math.max(0, Math.round(importeElegido * 100));
+
+      const res = await cancelarReservaAdmin(reservaACancelar.id, {
+        motivo: 'Cancelada por el administrador',
+        reembolso_importe: reembolsoEnCentimos
       });
+      if (res?.error) {
+        showToast(res.error, 'error');
+      } else {
+        showToast('Reserva cancelada y reembolsada', 'success');
+        setReservas((prev) =>
+          prev.map((r) => (r.id === reservaACancelar.id ? { ...r, estado: 'cancelada' } : r))
+        );
+        cerrarModalCancelar();
+        refrescarDatosGlobales();
+        cargarReservas();
+      }
+    } catch (err) {
+      console.error('Error al cancelar reserva:', err);
+      showToast('No se pudo cancelar la reserva', 'error');
+    } finally {
+      setCancelando(false);
+    }
+  };
+
+  const abrirModalBloqueo = (fechaPreseleccionada = null, mueblePreseleccionado = null) => {
+    setErrorBloqueo(null);
+    const fechaBase =
+      typeof fechaPreseleccionada === 'string' && fechaPreseleccionada
+        ? fechaPreseleccionada
+        : hoyEnMadrid();
+
+    const muebleObjetivo =
+      mueblePreseleccionado ||
+      bloqueoMuebleId ||
+      muebleCalendarioId ||
+      (listaMuebles.length > 0 ? listaMuebles[0].id : '');
+
+    setBloqueoMuebleId(muebleObjetivo);
+    setBloqueoFechaInicio(fechaBase);
+    setBloqueoFechaFin(fechaBase);
+    setBloqueoMotivo('');
+    setModalBloqueoAbierto(true);
+  };
+
+  const cerrarModalBloqueo = () => {
+    if (guardandoBloqueo) return;
+    setModalBloqueoAbierto(false);
+    setErrorBloqueo(null);
+  };
+
+  const handleGuardarBloqueo = async (e) => {
+    e.preventDefault();
+    if (!bloqueoMuebleId || !bloqueoFechaInicio || !bloqueoFechaFin) {
+      setErrorBloqueo('Por favor completa todos los campos de fechas y mueble.');
       return;
     }
-    if (resultado.error && !esReembolsoAMedias(resultado)) {
-      errorDeDialogo(resultado.error, dialogo.reserva);
+    if (bloqueoFechaFin < bloqueoFechaInicio) {
+      setErrorBloqueo('La fecha de fin no puede ser anterior a la fecha de inicio.');
+      return;
+    }
+
+    setGuardandoBloqueo(true);
+    setErrorBloqueo(null);
+    try {
+      const payload = {
+        mueble_id: bloqueoMuebleId,
+        fecha_inicio: bloqueoFechaInicio,
+        fecha_fin: bloqueoFechaFin,
+        motivo: bloqueoMotivo.trim() || 'Bloqueo administrativo'
+      };
+      const res = await bloquearFechasAdmin(payload);
+      if (res?.error) {
+        setErrorBloqueo(res.error);
+        showToast(res.error, 'error');
+      } else {
+        showToast('Fechas bloqueadas correctamente', 'success');
+        cerrarModalBloqueo();
+        cargarReservas();
+        refrescarDatosGlobales();
+      }
+    } catch (err) {
+      console.error('Error al bloquear fechas:', err);
+      setErrorBloqueo('Error al bloquear fechas');
+      showToast('Error al bloquear fechas', 'error');
+    } finally {
+      setGuardandoBloqueo(false);
+    }
+  };
+
+  // Reservas activas del mueble seleccionado para el calendario
+  const reservasMuebleCalendario = useMemo(() => {
+    if (!muebleCalendarioId) return [];
+    return reservas.filter((r) => {
+      const p = r.pieza || r.mueble;
+      const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
+      return (
+        String(mId) === String(muebleCalendarioId) &&
+        r.estado !== 'cancelada' &&
+        r.estado !== 'expirada'
+      );
+    });
+  }, [reservas, muebleCalendarioId]);
+
+  // Semanas del mes actual para la cuadrícula del calendario
+  const semanas = useMemo(() => semanasDelMes(mesCalendario), [mesCalendario]);
+
+  // Buscar si un día está ocupado en el calendario
+  const obtenerOcupacionDia = (fechaStr) => {
+    if (!fechaStr) return null;
+    return reservasMuebleCalendario.find((r) => {
+      const fin = r.fin_ocupacion || r.fecha_fin;
+      return r.fecha_inicio <= fechaStr && fin >= fechaStr;
+    });
+  };
+
+  // C & D. Interacción al hacer clic en un día del calendario
+  const handleClickCeldaCalendario = (fecha, ocupacion) => {
+    if (!fecha) return;
+    if (ocupacion) {
+      setDiaSeleccionadoInfo({ fecha, reserva: ocupacion });
     } else {
-      setDialogo(null);
+      setDiaSeleccionadoInfo(null);
+      abrirModalBloqueo(fecha, muebleCalendarioId);
     }
   };
 
-  const enviarAlta = async (datos) => {
-    const tipo = dialogo.alta;
-    const resultado = await enviar('alta', () => crearEnCalendarioAdmin(tipo, datos));
-    if (!resultado) return;
-    if (resultado.error) {
-      const pudoGuardarse = resultado.status === 0 || resultado.status >= 500;
-      const nombreAlta = ALTAS.find(([clave]) => clave === tipo)[1];
-      errorDeDialogo(pudoGuardarse ? `${resultado.error}${PUDO_GUARDARSE}` : resultado.error, null, nombreAlta);
-      return;
-    }
-    setDialogo(null);
-    showToast(EXITO_ALTA[tipo], 'success');
-    cargar(vistaRef.current);
-    avisarCambio();
-  };
+  // Días del mes para la vista Master (Gantt)
+  const diasDelMes = useMemo(() => {
+    const primero = primerDiaDe(mesCalendario);
+    const totalDias = diasEntre(primero, primerDiaDe(sumarMeses(mesCalendario, 1)));
+    return Array.from({ length: totalDias }, (_, i) => {
+      const fecha = sumarDias(primero, i);
+      const numeroDia = i + 1;
+      const diaSemana = DIAS_CABECERA[diaDeLaSemana(fecha)];
+      return { fecha, numeroDia, diaSemana };
+    });
+  }, [mesCalendario]);
 
-  const actualizar = () => {
-    cargar(vista);
-    avisarCambio();
-  };
-
-  const dejarBusqueda = () => {
-    busquedaRef.current = null;
-    setBusqueda(null);
-  };
-
-  const buscar = (filtros) => {
-    tarjetaPendiente.current = null;
-    busquedaRef.current = filtros;
-    setBusqueda(filtros);
-    cargar(vistaRef.current);
-  };
-
-  const quitarBusqueda = () => {
-    if (!busquedaRef.current) return;
-    dejarBusqueda();
-    cargar(vistaRef.current);
-  };
-
-  // Elegir una vista deja la búsqueda. Si era la que ya estaba elegida no cambia el estado: se recarga a mano.
-  const elegirVista = (id) => {
-    tarjetaPendiente.current = null;
-    if (busquedaRef.current) {
-      dejarBusqueda();
-      if (id === vistaRef.current) cargar(id);
-    }
-    setVista(id);
-  };
-
-  const elegirModo = (id) => {
-    setAbiertos((a) => (a.includes(id) ? a : [...a, id]));
-    setModo(id);
-  };
-
-  // «Ver reserva» de la agenda: la vista donde está esa entrega o recogida, recargada, y el foco en su tarjeta.
-  const verTrayecto = ({ tipo, reserva }) => {
-    const destino = tipo === 'entrega' ? 'entregas' : 'recogidas';
-    tarjetaPendiente.current = reserva.id;
-    dejarBusqueda();
-    setModo('lista');
-    if (vistaRef.current === destino) cargar(destino);
-    else setVista(destino);
-  };
-
-  // «Ver reserva» de un calendario: la lista, buscando su referencia, y el foco en su tarjeta, que es
-  // donde están las acciones.
-  const verEnLista = (reserva) => {
-    const filtros = { q: reserva.referencia, desde: '', hasta: '' };
-    busquedaRef.current = filtros;
-    setBusqueda(filtros);
-    tarjetaPendiente.current = reserva.id;
-    setModo('lista');
-    cargar(vistaRef.current);
-  };
-
-  const cerrarDialogo = () => setDialogo(null);
-  const propsDialogo = { enviando: enviando !== null, error: errorDialogo, onCerrar: cerrarDialogo };
-  const { cargando, error, hoy, reservas, limitada } = lista;
-  const avisoLimite = busqueda && limitada && (
-    <p className="reservas-busqueda-limite" role="status">
-      Hay más reservas de las que caben en una búsqueda: se miran las {MAX_BUSQUEDA} más recientes y se enseñan{' '}
-      {MAX_TODAS} como mucho. Afina el texto o las fechas.
-    </p>
+  // Buscar si un día está ocupado para un mueble específico (usado en Vista Master)
+  const obtenerOcupacionMuebleDia = useCallback(
+    (muebleId, fechaStr) => {
+      if (!fechaStr || !muebleId) return null;
+      return reservas.find((r) => {
+        const p = r.pieza || r.mueble;
+        const mId = r.mueble_id || p?.id || p?.referencia || p?.nombre || (r.id ? `mueble-${r.id}` : null);
+        if (String(mId) !== String(muebleId)) return false;
+        if (r.estado === 'cancelada' || r.estado === 'expirada') return false;
+        const fin = r.fin_ocupacion || r.fecha_fin;
+        return r.fecha_inicio <= fechaStr && fin >= fechaStr;
+      });
+    },
+    [reservas]
   );
 
-  let contenido;
-  if (cargando) {
-    contenido = <p className="admin-empty-note" role="status">Cargando reservas…</p>;
-  } else if (error) {
-    contenido = (
-      <div className="mensajes-error" role="alert">
-        <p>{error}</p>
-        <button type="button" className="admin-btn-ghost" onClick={actualizar}>Reintentar</button>
-      </div>
-    );
-  } else if (reservas.length === 0) {
-    contenido = (
-      <>
-        <p className="admin-empty-note">
-          {busqueda ? textoResultados(busqueda, 0) : VISTAS.find((v) => v.id === vista).vacia}
-        </p>
-        {avisoLimite}
-      </>
-    );
-  } else {
-    contenido = (
-      <>
-        {busqueda ? (
-          <p className="reservas-busqueda-resumen" role="status">
-            {textoResultados(busqueda, reservas.length)}
-          </p>
-        ) : (
-          <p className="admin-result-count">
-            {reservas.length === 1 ? '1 reserva' : `${reservas.length} reservas`}
-            {vista === 'todas' && reservas.length >= MAX_TODAS && ', las más recientes'}
-          </p>
-        )}
-        {avisoLimite}
-        {listaMovida && (
-          <div className="reservas-lista-movida" role="status">
-            <p>
-              Has cambiado una reserva. Actualiza la lista para quitar de {busqueda ? 'esta búsqueda' : 'esta vista'} las
-              que ya no encajan.
-            </p>
-            <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar la lista</button>
+  // Inspector Lateral reutilizado en Vista Calendario y Vista Master
+  const renderInspectorLateral = () => {
+    if (!diaSeleccionadoInfo || !diaSeleccionadoInfo.reserva) return null;
+    return (
+      <aside className="n5-calendar-inspector" aria-label="Detalle de reserva seleccionada">
+        <div className="n5-inspector-head">
+          <div>
+            <span className="n5-eyebrow">
+              Fecha seleccionada · {formatearFecha(diaSeleccionadoInfo.fecha)}
+            </span>
+            <h4 className="n5-inspector-title">
+              {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                ? 'Bloqueo de Almacén'
+                : 'Detalle de la Reserva'}
+            </h4>
           </div>
-        )}
-        <ul className="reservas-lista">
-          {reservas.map((r) => (
-            <TarjetaReserva
-              key={r.id}
-              reserva={r}
-              aviso={avisos[r.id]}
-              error={errores[r.id]}
-              enviando={enviando}
-              onAccion={pulsarAccion}
-            />
-          ))}
-        </ul>
-      </>
+          <button
+            type="button"
+            className="n5-inspector-close"
+            onClick={() => setDiaSeleccionadoInfo(null)}
+            aria-label="Cerrar panel de detalle"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="n5-inspector-body">
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Cliente / Concepto</span>
+            <strong className="n5-inspector-value">
+              {diaSeleccionadoInfo.reserva.tipo === 'bloqueo'
+                ? diaSeleccionadoInfo.reserva.motivo_cancelacion ||
+                  diaSeleccionadoInfo.reserva.motivo ||
+                  'Bloqueo administrativo'
+                : diaSeleccionadoInfo.reserva.contacto?.nombre ||
+                  diaSeleccionadoInfo.reserva.cliente?.nombre ||
+                  'Cliente'}
+            </strong>
+          </div>
+
+          {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+            <div className="n5-inspector-row">
+              <span className="n5-inspector-label">Email de contacto</span>
+              <span className="n5-inspector-value">
+                {diaSeleccionadoInfo.reserva.contacto?.email ||
+                  diaSeleccionadoInfo.reserva.cliente?.email ||
+                  'No especificado'}
+              </span>
+            </div>
+          )}
+
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Periodo reservado</span>
+            <span className="n5-inspector-value">
+              {formatearFecha(diaSeleccionadoInfo.reserva.fecha_inicio)} —{' '}
+              {formatearFecha(diaSeleccionadoInfo.reserva.fecha_fin)}
+            </span>
+          </div>
+
+          <div className="n5-inspector-row">
+            <span className="n5-inspector-label">Estado actual</span>
+            <div>
+              <span
+                className={`reserva-estado-badge estado-${diaSeleccionadoInfo.reserva.estado}`}
+              >
+                <span className="n5-badge-dot" />
+                {ETIQUETAS_ESTADO[diaSeleccionadoInfo.reserva.estado] ||
+                  diaSeleccionadoInfo.reserva.estado}
+              </span>
+            </div>
+          </div>
+
+          {diaSeleccionadoInfo.reserva.tipo !== 'bloqueo' && (
+            <div className="n5-inspector-row">
+              <span className="n5-inspector-label">Importe total</span>
+              <strong className="n5-inspector-value">
+                {formatPrice(diaSeleccionadoInfo.reserva.importe_total ?? 0)} €
+              </strong>
+            </div>
+          )}
+        </div>
+
+        <div className="n5-inspector-actions">
+          {diaSeleccionadoInfo.reserva.estado === 'confirmada' && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-deliver"
+              onClick={() => handleMarcarEntregada(diaSeleccionadoInfo.reserva.id)}
+              disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+            >
+              {procesandoId === diaSeleccionadoInfo.reserva.id
+                ? 'Guardando…'
+                : 'Marcar Entregada'}
+            </button>
+          )}
+
+          {diaSeleccionadoInfo.reserva.estado === 'en_curso' && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-pickup"
+              onClick={() => handleMarcarRecogida(diaSeleccionadoInfo.reserva.id)}
+              disabled={procesandoId === diaSeleccionadoInfo.reserva.id}
+            >
+              {procesandoId === diaSeleccionadoInfo.reserva.id
+                ? 'Guardando…'
+                : 'Marcar Recogida'}
+            </button>
+          )}
+
+          {(diaSeleccionadoInfo.reserva.estado === 'confirmada' ||
+            diaSeleccionadoInfo.reserva.estado === 'en_curso') && (
+            <button
+              type="button"
+              className="n5-btn n5-btn-action-cancel"
+              onClick={() => abrirModalCancelar(diaSeleccionadoInfo.reserva)}
+            >
+              ✕ Cancelar
+            </button>
+          )}
+        </div>
+      </aside>
     );
-  }
+  };
+
+  const limpiarFiltros = () => {
+    setBusquedaTexto('');
+    setFiltroEstado('todos');
+    setFiltroFecha('');
+  };
+
+  const hayFiltrosActivos =
+    busquedaTexto.trim() !== '' || filtroEstado !== 'todos' || filtroFecha !== '';
 
   return (
-    <div className="admin-view fade-in">
-      <div className="admin-view-head">
-        <h2>Reservas</h2>
-        <p>{hoy ? `Hoy es ${fechaLarga(hoy)}` : 'Alquileres, bloqueos y ventas del calendario'}</p>
-      </div>
+    <div className="admin-view n5-reservas-wrapper fade-in">
+      {/* CABECERA EDITORIAL */}
+      <div className="admin-view-head n5-reservas-header">
+        <div>
+          <span className="n5-eyebrow">Nave 5 Barcelona · Operaciones</span>
+          <h2 className="n5-title">Gestión de Reservas</h2>
+          <p className="n5-subtitle">
+            {reservas.length} {reservas.length === 1 ? 'reserva registrada' : 'reservas registradas'}
+          </p>
+        </div>
 
-      <AgendaReservas datos={datosAgenda} error={errorAgenda} onRecargar={recargarAgenda} onVer={verTrayecto} />
-
-      <div className="reservas-modos" role="group" aria-label="Cómo ver las reservas">
-        {MODOS_DE_VER.map(([id, etiqueta]) => (
+        {/* Toggle Lista / Calendario / Master */}
+        <div className="reservas-toggle-modo n5-view-switcher">
           <button
-            key={id}
             type="button"
-            className="reservas-modo"
-            aria-pressed={id === modo}
-            onClick={() => elegirModo(id)}
+            className={`n5-switch-btn ${vistaModo === 'lista' ? 'is-active' : ''}`}
+            onClick={() => setVistaModo('lista')}
           >
-            {etiqueta}
+            📋 Vista Lista
           </button>
-        ))}
+          <button
+            type="button"
+            className={`n5-switch-btn ${vistaModo === 'calendario' ? 'is-active' : ''}`}
+            onClick={() => setVistaModo('calendario')}
+          >
+            📅 Vista Calendario
+          </button>
+          <button
+            type="button"
+            className={`n5-switch-btn ${vistaModo === 'master' ? 'is-active' : ''}`}
+            onClick={() => setVistaModo('master')}
+          >
+            📊 Vista Master
+          </button>
+        </div>
       </div>
 
-      {/* Las vistas y el buscador se quedan montados (ocultos) con un calendario abierto: lo que se había
-          escrito en el buscador sigue ahí al volver. */}
-      <div hidden={modo !== 'lista'}>
-        <div className="reservas-vistas" role="group" aria-label="Qué reservas ver">
-          {VISTAS.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              className="reservas-vista"
-              aria-pressed={!busqueda && v.id === vista}
-              onClick={() => elegirVista(v.id)}
+      {/* A. DASHBOARD OPERATIVO SUPERIOR (HOY EN EL ALMACÉN) */}
+      <section className="n5-kpi-section" aria-label="Hoy en el almacén">
+        <div className="n5-kpi-grid">
+          <article className="n5-kpi-card">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Entregas pendientes hoy</span>
+              <span className="n5-kpi-icon" aria-hidden="true">↗</span>
+            </div>
+            <div className="n5-kpi-value">{metricasOperativas.entregasPendientesHoy}</div>
+            <p className="n5-kpi-caption">Salidas de almacén confirmadas para hoy</p>
+          </article>
+
+          <article className="n5-kpi-card">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Recogidas pendientes hoy</span>
+              <span className="n5-kpi-icon" aria-hidden="true">↙</span>
+            </div>
+            <div className="n5-kpi-value">{metricasOperativas.recogidasPendientesHoy}</div>
+            <p className="n5-kpi-caption">Retornos previstos de alquileres en curso</p>
+          </article>
+
+          <article className="n5-kpi-card n5-kpi-card--highlight">
+            <div className="n5-kpi-top">
+              <span className="n5-kpi-label">Ingresos Activos</span>
+              <span className="n5-kpi-icon" aria-hidden="true">€</span>
+            </div>
+            <div className="n5-kpi-value">{formatPrice(metricasOperativas.ingresosActivos)} €</div>
+            <p className="n5-kpi-caption">Volumen total en reservas confirmadas y en curso</p>
+          </article>
+        </div>
+      </section>
+
+      {/* BARRA DE HERRAMIENTAS Y FILTROS */}
+      <div className="admin-toolbar n5-toolbar">
+        {vistaModo === 'lista' ? (
+          <div className="n5-filters-bar">
+            <div className="n5-search-box">
+              <span className="n5-search-icon" aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                className="n5-input n5-search-input"
+                placeholder="Buscar por cliente, email, pieza o referencia…"
+                value={busquedaTexto}
+                onChange={(e) => setBusquedaTexto(e.target.value)}
+                aria-label="Buscar reservas"
+              />
+            </div>
+
+            <select
+              className="n5-input n5-filter-select"
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              aria-label="Filtrar por estado"
             >
-              {v.etiqueta}
-              {v.aviso && resumen?.[v.aviso] > 0 && (
-                <>
-                  {' '}
-                  <span className="reservas-vista-n">{resumen[v.aviso]}</span>
-                </>
-              )}
-            </button>
-          ))}
-        </div>
-        {!busqueda && <p className="reservas-vista-ayuda">{VISTAS.find((v) => v.id === vista).descripcion}</p>}
+              <option value="todos">Todos los estados</option>
+              <option value="confirmada">Confirmada</option>
+              <option value="en_curso">En curso</option>
+              <option value="devuelta">Devuelta</option>
+              <option value="cancelada">Cancelada</option>
+              <option value="expirada">Expirada</option>
+            </select>
 
-        <BuscadorReservas activa={busqueda} onBuscar={buscar} onQuitar={quitarBusqueda} />
+            <input
+              type="date"
+              className="n5-input n5-filter-date"
+              value={filtroFecha}
+              onChange={(e) => setFiltroFecha(e.target.value)}
+              aria-label="Filtrar por fecha activa"
+              title="Filtrar reservas activas en esta fecha"
+            />
+
+            {hayFiltrosActivos && (
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={limpiarFiltros}
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+        ) : vistaModo === 'master' ? (
+          <div className="n5-calendar-hint">
+            <span>💡 Vista Gantt de ocupación global. Haz clic en una celda para ver el detalle de la reserva o bloquear fechas.</span>
+          </div>
+        ) : (
+          <div className="n5-calendar-hint">
+            <span>💡 Haz clic en un día libre para bloquear fechas o en uno ocupado para gestionar la entrega.</span>
+          </div>
+        )}
+
+        <div className="n5-toolbar-actions">
+          <button
+            type="button"
+            className="n5-btn n5-btn-ghost"
+            onClick={cargarReservas}
+            disabled={cargando}
+          >
+            {cargando ? 'Cargando…' : 'Actualizar'}
+          </button>
+          <button
+            type="button"
+            className="n5-btn n5-btn-secondary"
+            onClick={() => abrirModalBloqueo()}
+          >
+            🔒 Bloquear fechas
+          </button>
+        </div>
       </div>
 
-      <div className="admin-toolbar">
-        <button type="button" className="admin-btn-ghost" onClick={actualizar}>Actualizar</button>
-        <div className="admin-toolbar-acciones reservas-altas">
-          {ALTAS.map(([tipo, texto]) => (
-            <button
-              key={tipo}
-              type="button"
-              className="admin-btn-ghost"
-              disabled={enviando !== null}
-              onClick={() => abrir({ tipo: 'alta', alta: tipo })}
-            >
-              {texto}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* VISTA LISTA */}
+      {vistaModo === 'lista' && (
+        <>
+          {cargando && reservas.length === 0 ? (
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">Cargando reservas…</p>
+            </div>
+          ) : reservas.length === 0 ? (
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">Todavía no se ha registrado ninguna reserva.</p>
+            </div>
+          ) : reservasFiltradas.length === 0 ? (
+            <div className="n5-empty-state">
+              <p className="admin-empty-note">No se encontraron reservas que coincidan con los filtros aplicados.</p>
+            </div>
+          ) : (
+            <div className="admin-table-container n5-table-card">
+              <table className="admin-table reservas-table n5-luxury-table">
+                <thead>
+                  <tr>
+                    <th>Mueble</th>
+                    <th>Cliente</th>
+                    <th>Fechas (Inicio - Fin)</th>
+                    <th>Estado</th>
+                    <th>Total</th>
+                    <th style={{ textAlign: 'right' }}>Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reservasFiltradas.map((reserva) => {
+                    const pieza = reserva.pieza || reserva.mueble || {};
+                    const contacto = reserva.contacto || reserva.datos_contacto || {};
+                    const nombreMueble =
+                      pieza.nombre ||
+                      (reserva.tipo === 'bloqueo' ? 'Bloqueo administrativo' : 'Pieza de alquiler');
+                    const refMueble = pieza.referencia || null;
+                    const nombreCliente =
+                      reserva.tipo === 'bloqueo'
+                        ? reserva.motivo_cancelacion || reserva.motivo || 'Bloqueo manual'
+                        : contacto.nombre || reserva.cliente?.nombre || 'Cliente';
+                    const emailCliente = contacto.email || reserva.cliente?.email || '';
+                    const telefonoCliente = contacto.telefono || '';
+                    const fechasTexto = `${formatearFecha(reserva.fecha_inicio)} - ${formatearFecha(reserva.fecha_fin)}`;
+                    const totalTexto =
+                      reserva.tipo === 'bloqueo' ? '—' : `${formatPrice(reserva.importe_total ?? 0)} €`;
+                    const estado = reserva.estado;
+                    const enProceso = procesandoId === reserva.id;
+                    const esCancelable = estado === 'confirmada' || estado === 'en_curso';
 
-      {avisoGeneral && (
-        <div className="reservas-aviso-general" role="alert">
-          <p>{avisoGeneral}</p>
-          <button type="button" className="admin-btn-ghost" onClick={() => setAvisoGeneral('')}>Entendido</button>
+                    return (
+                      <tr key={reserva.id} className={reserva.tipo === 'bloqueo' ? 'n5-row-bloqueo' : ''}>
+                        <td>
+                          <div className="reserva-celda-mueble">
+                            <strong className="reserva-mueble-nombre">{nombreMueble}</strong>
+                            {refMueble && <span className="reserva-mueble-ref">Ref. {refMueble}</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="reserva-celda-cliente">
+                            <strong className="reserva-cliente-nombre">{nombreCliente}</strong>
+                            {emailCliente && <span className="reserva-cliente-email">{emailCliente}</span>}
+                            {telefonoCliente && <span className="reserva-cliente-tel">{telefonoCliente}</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="reserva-fechas-rango">{fechasTexto}</span>
+                        </td>
+                        <td>
+                          <div className="reserva-celda-estado">
+                            <span className={`reserva-estado-badge estado-${estado}`}>
+                              <span className="n5-badge-dot" />
+                              {ETIQUETAS_ESTADO[estado] || estado}
+                            </span>
+                            {reserva.cancelacion_solicitada && (
+                              <span
+                                className="reserva-solicitud-badge"
+                                title={
+                                  reserva.cancelacion_solicitada_motivo
+                                    ? `Motivo: ${reserva.cancelacion_solicitada_motivo}`
+                                    : 'El cliente ha solicitado cancelar'
+                                }
+                              >
+                                ⚠️ Cancelación solicitada
+                              </span>
+                            )}
+                            {reserva.cancelacion_solicitada_motivo &&
+                              reserva.cancelacion_solicitada_motivo !== 'Sin motivo.' && (
+                                <small className="reserva-motivo-hint">
+                                  «{reserva.cancelacion_solicitada_motivo}»
+                                </small>
+                              )}
+                          </div>
+                        </td>
+                        <td>
+                          <strong className="n5-price-cell">{totalTexto}</strong>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <div className="n5-actions-group">
+                            {estado === 'confirmada' && (
+                              <button
+                                type="button"
+                                className="n5-btn n5-btn-action-deliver n5-btn-sm"
+                                onClick={() => handleMarcarEntregada(reserva.id)}
+                                disabled={enProceso}
+                              >
+                                {enProceso ? 'Guardando…' : 'Marcar Entregada'}
+                              </button>
+                            )}
+
+                            {estado === 'en_curso' && (
+                              <button
+                                type="button"
+                                className="n5-btn n5-btn-action-pickup n5-btn-sm"
+                                onClick={() => handleMarcarRecogida(reserva.id)}
+                                disabled={enProceso}
+                              >
+                                {enProceso ? 'Guardando…' : 'Marcar Recogida'}
+                              </button>
+                            )}
+
+                            {estado === 'devuelta' && (
+                              <button
+                                type="button"
+                                className="n5-btn n5-btn-finished n5-btn-sm"
+                                disabled
+                              >
+                                Finalizada
+                              </button>
+                            )}
+
+                            {esCancelable && (
+                              <button
+                                type="button"
+                                className="n5-btn n5-btn-action-cancel n5-btn-sm"
+                                onClick={() => abrirModalCancelar(reserva)}
+                                title="Cancelar reserva y tramitar reembolso"
+                              >
+                                ✕ Cancelar
+                              </button>
+                            )}
+
+                            {!esCancelable && estado !== 'devuelta' && (
+                              <span className="admin-text-muted">—</span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* VISTA CALENDARIO */}
+      {vistaModo === 'calendario' && (
+        <div className="admin-calendario-vista n5-calendar-card">
+          {/* Selector de mueble y navegación mensual */}
+          <div className="n5-calendar-header">
+            <div className="n5-calendar-selector">
+              <label htmlFor="select-mueble-calendario" className="n5-label-inline">
+                Mueble a consultar:
+              </label>
+              <select
+                id="select-mueble-calendario"
+                aria-label="Mueble a consultar"
+                className="n5-input n5-select-piece"
+                value={muebleCalendarioId}
+                onChange={(e) => {
+                  setMuebleCalendarioId(e.target.value);
+                  setDiaSeleccionadoInfo(null);
+                }}
+              >
+                {listaMuebles.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nombre} {m.referencia ? `(${m.referencia})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="n5-calendar-nav">
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, -1))}
+              >
+                ◀ Mes anterior
+              </button>
+              <span className="n5-calendar-month-label">{nombreDelMes(mesCalendario)}</span>
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, 1))}
+              >
+                Mes siguiente ▶
+              </button>
+            </div>
+          </div>
+
+          {/* Layout: Cuadrícula + Panel Lateral de Detalle */}
+          <div className={`n5-calendar-layout ${diaSeleccionadoInfo ? 'has-inspector' : ''}`}>
+            <div className="n5-calendar-grid-wrapper">
+              <table className="n5-calendar-table">
+                <thead>
+                  <tr>
+                    {DIAS_CABECERA.map((d) => (
+                      <th key={d}>{d}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {semanas.map((semana, sIdx) => (
+                    <tr key={sIdx}>
+                      {semana.map((fecha, dIdx) => {
+                        if (!fecha) {
+                          return <td key={dIdx} className="n5-cal-cell is-empty" />;
+                        }
+                        const ocupacion = obtenerOcupacionDia(fecha);
+                        const diaNum = parseInt(fecha.slice(8), 10);
+                        const esHoy = fecha === hoyEnMadrid();
+                        const esBloqueo = ocupacion?.tipo === 'bloqueo';
+                        const estaSeleccionado = diaSeleccionadoInfo?.fecha === fecha;
+
+                        const clasesCelda = [
+                          'n5-cal-cell',
+                          ocupacion ? (esBloqueo ? 'is-blocked' : 'is-booked') : 'is-free',
+                          esHoy ? 'is-today' : '',
+                          estaSeleccionado ? 'is-selected' : ''
+                        ]
+                          .filter(Boolean)
+                          .join(' ');
+
+                        return (
+                          <td
+                            key={dIdx}
+                            className={clasesCelda}
+                            onClick={() => handleClickCeldaCalendario(fecha, ocupacion)}
+                            title={
+                              ocupacion
+                                ? esBloqueo
+                                  ? `Bloqueo: ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Mantenimiento'}`
+                                  : `Reserva: ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Cliente'} (${ocupacion.estado}) — Clic para ver detalles`
+                                : `Día disponible (${formatearFecha(fecha)}) — Clic para bloquear fecha`
+                            }
+                          >
+                            <div className="n5-cal-cell-inner">
+                              <div className="n5-cal-day-top">
+                                <span className="n5-cal-day-number">{diaNum}</span>
+                                {!ocupacion && <span className="n5-cal-add-hint">+ Bloquear</span>}
+                              </div>
+
+                              {ocupacion && (
+                                <div className="n5-cal-pill">
+                                  {esBloqueo
+                                    ? `🔒 ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Bloqueado'}`
+                                    : `📦 ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Alquilado'}`}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Inspector Lateral de Detalle */}
+            {renderInspectorLateral()}
+          </div>
+
+          {/* Leyenda y resumen inferior */}
+          <div className="n5-calendar-footer">
+            <div className="n5-calendar-legend">
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-booked" />
+                Alquiler activo / Confirmado
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-blocked" />
+                Bloqueo administrativo (Patrón rayado)
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-free" />
+                Día libre (Clic para bloquear)
+              </span>
+            </div>
+            <div className="n5-calendar-summary">
+              {reservasMuebleCalendario.length}{' '}
+              {reservasMuebleCalendario.length === 1
+                ? 'evento activo para este mueble'
+                : 'eventos activos para este mueble'}
+            </div>
+          </div>
         </div>
       )}
 
-      {avisoAlta && (
-        <div className="reservas-aviso-general" role="alert">
-          <p>{avisoAlta}</p>
-          <button type="button" className="admin-btn-ghost" onClick={() => setAvisoAlta('')}>Entendido</button>
+      {/* VISTA MASTER (CALENDARIO GLOBAL / GANTT) */}
+      {vistaModo === 'master' && (
+        <div className="admin-calendario-vista n5-calendar-card n5-master-card">
+          {/* Navegación mensual */}
+          <div className="n5-calendar-header">
+            <div>
+              <h3 className="n5-master-title">Ocupación Global de Catálogo</h3>
+              <p className="n5-master-subtitle">
+                Línea temporal de alquileres y bloqueos de todos los muebles para el mes seleccionado.
+              </p>
+            </div>
+
+            <div className="n5-calendar-nav">
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, -1))}
+              >
+                ◀ Mes anterior
+              </button>
+              <span className="n5-calendar-month-label">{nombreDelMes(mesCalendario)}</span>
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost n5-btn-sm"
+                onClick={() => setMesCalendario((prev) => sumarMeses(prev, 1))}
+              >
+                Mes siguiente ▶
+              </button>
+            </div>
+          </div>
+
+          {/* Layout: Cuadrícula Gantt + Panel Lateral de Detalle */}
+          <div className={`n5-calendar-layout ${diaSeleccionadoInfo ? 'has-inspector' : ''}`}>
+            <div className="n5-master-table-wrapper">
+              <table className="n5-master-table" aria-label="Calendario global de muebles">
+                <thead>
+                  <tr>
+                    <th className="n5-master-th-mueble">Mueble / Referencia</th>
+                    {diasDelMes.map(({ fecha, numeroDia, diaSemana }) => {
+                      const esHoy = fecha === hoyEnMadrid();
+                      return (
+                        <th
+                          key={fecha}
+                          className={`n5-master-th-dia ${esHoy ? 'is-today' : ''}`}
+                          title={`${fecha} (${diaSemana})`}
+                        >
+                          <span className="n5-master-dia-num">{numeroDia}</span>
+                          <span className="n5-master-dia-sem">{diaSemana}</span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaMuebles.length === 0 ? (
+                    <tr>
+                      <td colSpan={diasDelMes.length + 1} style={{ textAlign: 'center', padding: '32px' }}>
+                        No hay muebles disponibles en el catálogo.
+                      </td>
+                    </tr>
+                  ) : (
+                    listaMuebles.map((mueble) => (
+                      <tr key={mueble.id} className="n5-master-row">
+                        <th className="n5-master-td-mueble" scope="row">
+                          <strong className="n5-master-mueble-nombre">{mueble.nombre}</strong>
+                          {mueble.referencia && (
+                            <span className="n5-master-mueble-ref">Ref. {mueble.referencia}</span>
+                          )}
+                        </th>
+                        {diasDelMes.map(({ fecha }) => {
+                          const ocupacion = obtenerOcupacionMuebleDia(mueble.id, fecha);
+                          const esBloqueo = ocupacion?.tipo === 'bloqueo';
+                          const esHoy = fecha === hoyEnMadrid();
+                          const estaSeleccionado =
+                            diaSeleccionadoInfo?.fecha === fecha &&
+                            (diaSeleccionadoInfo?.reserva?.mueble_id === mueble.id ||
+                              diaSeleccionadoInfo?.reserva?.pieza?.id === mueble.id);
+
+                          const clases = [
+                            'n5-master-cell',
+                            ocupacion ? (esBloqueo ? 'is-blocked' : 'is-booked') : 'is-free',
+                            esHoy ? 'is-today' : '',
+                            estaSeleccionado ? 'is-selected' : ''
+                          ]
+                            .filter(Boolean)
+                            .join(' ');
+
+                          return (
+                            <td
+                              key={fecha}
+                              className={clases}
+                              onClick={() => {
+                                if (ocupacion) {
+                                  setDiaSeleccionadoInfo({ fecha, reserva: ocupacion });
+                                } else {
+                                  setDiaSeleccionadoInfo(null);
+                                  abrirModalBloqueo(fecha, mueble.id);
+                                }
+                              }}
+                              title={
+                                ocupacion
+                                  ? esBloqueo
+                                    ? `${mueble.nombre} · Bloqueo: ${ocupacion.motivo_cancelacion || ocupacion.motivo || 'Mantenimiento'}`
+                                    : `${mueble.nombre} · Reserva: ${ocupacion.contacto?.nombre || ocupacion.cliente?.nombre || 'Cliente'} (${ocupacion.estado})`
+                                  : `${mueble.nombre} · Disponible (${formatearFecha(fecha)}) — Clic para bloquear`
+                              }
+                            >
+                              <span className="n5-master-cell-indicator" />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {renderInspectorLateral()}
+          </div>
+
+          {/* Leyenda y resumen inferior */}
+          <div className="n5-calendar-footer">
+            <div className="n5-calendar-legend">
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-booked" />
+                Alquiler activo / Confirmado
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-blocked" />
+                Bloqueo administrativo (Patrón rayado)
+              </span>
+              <span className="n5-legend-item">
+                <span className="n5-legend-swatch is-free" />
+                Día libre (Clic para bloquear)
+              </span>
+            </div>
+            <div className="n5-calendar-summary">
+              {listaMuebles.length} {listaMuebles.length === 1 ? 'mueble en catálogo' : 'muebles en catálogo'}
+            </div>
+          </div>
         </div>
       )}
 
-      {modo === 'lista' && contenido}
+      {/* MODAL CANCELAR RESERVA (CON REEMBOLSO EN CÉNTIMOS) */}
+      {reservaACancelar && (
+        <div className="admin-modal-overlay n5-modal-overlay">
+          <div className="admin-modal-card n5-modal-card">
+            <h3 className="n5-modal-title n5-modal-title--danger">¿Cancelar reserva?</h3>
+            <p className="n5-modal-description">
+              ¿Cancelar la reserva? Se intentará reembolsar al cliente el importe total a través de Stripe.
+            </p>
 
-      {abiertos.includes('pieza') && (
-        <div hidden={modo !== 'pieza'}>
-          <CalendarioPieza muebles={muebles} hoy={hoyInicial} version={version} activo={modo === 'pieza'} onVer={verEnLista} />
+            {reservaACancelar.cancelacion_solicitada_motivo && (
+              <div className="n5-client-motive-callout">
+                <strong>Motivo indicado por el cliente:</strong>
+                <p>«{reservaACancelar.cancelacion_solicitada_motivo}»</p>
+              </div>
+            )}
+
+            <div className="n5-refund-box">
+              <label className="n5-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={reembolsarTotal}
+                  onChange={(e) => handleToggleReembolsoTotal(e.target.checked)}
+                />
+                <span>
+                  Reembolsar el 100% del importe ({formatPrice(reservaACancelar.importe_total ?? 0)} €)
+                </span>
+              </label>
+
+              <div className="n5-refund-input-group">
+                <label htmlFor="input-reembolso-euros" className="n5-form-label">
+                  Importe a reembolsar (€):
+                </label>
+                <input
+                  id="input-reembolso-euros"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={Number(reservaACancelar.importe_total ?? 0)}
+                  className="n5-input"
+                  value={importeReembolsoEuros}
+                  disabled={reembolsarTotal}
+                  onChange={(e) => {
+                    setReembolsarTotal(false);
+                    setImporteReembolsoEuros(e.target.value);
+                  }}
+                />
+                <small className="n5-refund-helper">
+                  Se enviarán{' '}
+                  <strong>
+                    {Math.max(
+                      0,
+                      Math.round(
+                        Number(
+                          reembolsarTotal
+                            ? reservaACancelar.importe_total ?? 0
+                            : importeReembolsoEuros || 0
+                        ) * 100
+                      )
+                    )}{' '}
+                    céntimos
+                  </strong>{' '}
+                  (`reembolso_importe`) a la pasarela de pago.
+                </small>
+              </div>
+            </div>
+
+            <div className="n5-modal-actions">
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost"
+                onClick={cerrarModalCancelar}
+                disabled={cancelando}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className="n5-btn n5-btn-danger"
+                onClick={handleConfirmarCancelar}
+                disabled={cancelando}
+              >
+                {cancelando ? 'Cancelando y reembolsando…' : 'Cancelar reserva'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
-      {abiertos.includes('general') && (
-        <div hidden={modo !== 'general'}>
-          <VistaGeneral hoy={hoyInicial} version={version} activo={modo === 'general'} onVer={verEnLista} />
-        </div>
-      )}
 
-      {dialogo?.tipo === 'confirmar' && (
-        <ConfirmarReservaModal
-          key={dialogo.titulo}
-          {...propsDialogo}
-          titulo={dialogo.titulo}
-          mensaje={dialogo.mensaje}
-          textoConfirmar={dialogo.textoConfirmar}
-          onConfirmar={() => enviarDialogo(dialogo.datos)}
-        />
-      )}
-      {dialogo?.tipo === 'recoger' && (
-        <RecogerReservaModal {...propsDialogo} reserva={dialogo.reserva} hoy={dialogo.hoy} onEnviar={enviarDialogo} />
-      )}
-      {dialogo?.tipo === 'ampliar' && (
-        <AmpliarReservaModal {...propsDialogo} reserva={dialogo.reserva} hoy={dialogo.hoy} onEnviar={enviarDialogo} />
-      )}
-      {dialogo?.tipo === 'cancelar' && (
-        <CancelarReservaModal
-          {...propsDialogo}
-          reserva={dialogo.reserva}
-          onEnviar={enviarDialogo}
-          onBorrarError={() => setErrorDialogo('')}
-        />
-      )}
-      {dialogo?.tipo === 'alta' && (
-        <AltaCalendarioModal {...propsDialogo} tipo={dialogo.alta} muebles={muebles} hoy={dialogo.hoy} onEnviar={enviarAlta} />
+      {/* MODAL BLOQUEAR FECHAS */}
+      {modalBloqueoAbierto && (
+        <div className="admin-modal-overlay n5-modal-overlay">
+          <div className="admin-modal-card n5-modal-card">
+            <h3 className="n5-modal-title">🔒 Bloquear fechas manualmente</h3>
+
+            {errorBloqueo && <div className="n5-alert-error">{errorBloqueo}</div>}
+
+            <form onSubmit={handleGuardarBloqueo}>
+              <div className="n5-form-group">
+                <label className="n5-form-label" htmlFor="bloqueo-mueble-select">
+                  Mueble:
+                </label>
+                <select
+                  id="bloqueo-mueble-select"
+                  className="n5-input"
+                  value={bloqueoMuebleId}
+                  onChange={(e) => setBloqueoMuebleId(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>
+                    Selecciona un mueble…
+                  </option>
+                  {listaMuebles.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre} {m.referencia ? `(${m.referencia})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="n5-form-row-2">
+                <div className="n5-form-group">
+                  <label className="n5-form-label">Fecha Inicio:</label>
+                  <input
+                    type="date"
+                    className="n5-input"
+                    value={bloqueoFechaInicio}
+                    onChange={(e) => setBloqueoFechaInicio(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="n5-form-group">
+                  <label className="n5-form-label">Fecha Fin:</label>
+                  <input
+                    type="date"
+                    className="n5-input"
+                    value={bloqueoFechaFin}
+                    onChange={(e) => setBloqueoFechaFin(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="n5-form-group">
+                <label className="n5-form-label">Motivo:</label>
+                <input
+                  type="text"
+                  className="n5-input"
+                  placeholder="Ej. Exposición, Mantenimiento, Restauración"
+                  value={bloqueoMotivo}
+                  onChange={(e) => setBloqueoMotivo(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="n5-modal-actions">
+                <button
+                  type="button"
+                  className="n5-btn n5-btn-ghost"
+                  onClick={cerrarModalBloqueo}
+                  disabled={guardandoBloqueo}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="n5-btn n5-btn-primary"
+                  disabled={guardandoBloqueo}
+                >
+                  {guardandoBloqueo ? 'Guardando bloqueo…' : 'Bloquear fechas'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

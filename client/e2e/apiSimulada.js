@@ -74,10 +74,17 @@ export const simularApi = async (page, { usuarios = [ADMIN, CLIENTE] } = {}) => 
       const limite = Number(url.searchParams.get('limit')) || MUEBLES.length;
       return json(route, MUEBLES.slice(0, limite));
     }
+    const disp = ruta.match(/^\/muebles\/([^/]+)\/disponibilidad$/);
+    if (metodo === 'GET' && disp) {
+      return json(route, { disponible: true, fechasOcupadas: [] });
+    }
     const detalle = ruta.match(/^\/muebles\/([^/]+)$/);
     if (metodo === 'GET' && detalle) {
       const encontrado = MUEBLES.find((m) => m.id === detalle[1]);
       return encontrado ? json(route, encontrado) : json(route, { error: 'Mueble no encontrado.' }, 404);
+    }
+    if (metodo === 'GET' && ruta === '/ajustes/home') {
+      return json(route, { productos_destacados: [] });
     }
 
     if (metodo === 'POST' && ruta === '/auth/login') {
@@ -123,6 +130,12 @@ export const simularApi = async (page, { usuarios = [ADMIN, CLIENTE] } = {}) => 
       // H37: el panel pide los pedidos por páginas, con el total y los pendientes.
       if (ruta === '/pedidos') {
         return json(route, { pedidos: [], total: 0, pagina: 1, porPagina: 20, totalPaginas: 1, pendientes: 0 });
+      }
+      if (ruta.startsWith('/admin/dashboard/metricas')) {
+        return json(route, { ventas: 0, pedidos: 0, clientes: 0, productos: 0 });
+      }
+      if (ruta.startsWith('/admin/reservas')) {
+        return json(route, { reservas: [], total: 0 });
       }
     }
 

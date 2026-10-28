@@ -9,9 +9,9 @@ const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
 const vercel = JSON.parse(leer('../vercel.json'));
 
 describe('sitemap.xml', () => {
-  it('se sirve desde la API, con un rewrite que va antes del de la SPA', () => {
+  it('se sirve desde la API (/sitemap.xml), con un rewrite que va antes del de la SPA', () => {
     const indice = vercel.rewrites.findIndex((r) => r.source === '/sitemap.xml');
-    expect(vercel.rewrites[indice]?.destination).toBe('https://nave5-api.vercel.app/api/sitemap.xml');
+    expect(vercel.rewrites[indice]?.destination).toBe('https://nave5-api.vercel.app/sitemap.xml');
     expect(indice).toBeLessThan(vercel.rewrites.findIndex((r) => r.source === '/(.*)'));
   });
 
@@ -26,25 +26,16 @@ describe('sitemap.xml', () => {
 
 describe('index.html', () => {
   const html = leer('../index.html');
-  const bloques = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) =>
-    JSON.parse(m[1])
-  );
-
-  it('describe la tienda con su dirección, en un JSON-LD válido', () => {
-    expect(bloques).toHaveLength(1);
-    expect(bloques[0]).toMatchObject({
-      '@type': 'FurnitureStore',
-      name: 'Nave 5 Barcelona',
-      url: 'https://www.nave5barcelona.com/',
-      address: { streetAddress: 'Carrer del Plom, 32-34', postalCode: '08038', addressLocality: 'Barcelona' },
-    });
-  });
-
-  it('sin precios ni rango de precios (MOSTRAR_PRECIOS)', () => {
-    expect(JSON.stringify(bloques)).not.toMatch(/price/i);
-  });
 
   it('sin canonical ni og:url fijos (H34: dirían que todas las rutas son la portada)', () => {
     expect(html).not.toMatch(/rel="canonical"|og:url/);
+  });
+});
+
+describe('datos de la tienda (Home.jsx)', () => {
+  const home = leer('./pages/Home.jsx');
+
+  it('sin el teléfono ni el horario de ejemplo de brand.config.js', () => {
+    expect(home).not.toMatch(/930 00 00 00|openingHours|telephone/);
   });
 });

@@ -149,7 +149,7 @@ describe('Header — favoritos y cesta', () => {
     const user = userEvent.setup();
     const { toggleCart } = await renderHeader({ cartItems: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
 
-    const boton = screen.getByRole('button', { name: 'Cesta' });
+    const boton = screen.getByRole('button', { name: 'Carrito, 3 artículos' });
     expect(within(boton).getByText('3')).toBeInTheDocument();
 
     await user.click(boton);

@@ -1,0 +1,133 @@
+/* ─── DESIGN TOKENS (Nave 5 / Theme Base) ───
+   Valores canónicos de color, tipografía, espaciado, radios y sombras.
+   Mantiene alias hacia los nombres de variable clásicos (--primary-color, --accent-color, etc.)
+   para asegurar retrocompatibilidad total sin romper componentes existentes.
+*/
+
+:root {
+  /* ─── COLORES: PALETA VERANO CÁLIDO ─── */
+  --color-bg:            #F5F2EC;  /* Arena/avena — fondo de lienzo */
+  --color-primary:       #3E322A;  /* Espresso oscuro — texto y elementos principales */
+  --color-secondary:     #6E5D51;  /* Marrón grisáceo — texto secundario (contraste AA) */
+  --color-text:          #3E322A;  /* Texto principal */
+  --color-text-muted:    #6E5D51;  /* Texto atenuado */
+  --color-accent:        #B38A70;  /* Terracota/arcilla — botones, acentos, íconos */
+  --color-accent-hover:  #9D735A;  /* Terracota oscuro — hover */
+  --color-accent-text:   #7E5A42;  /* Terracota para texto con contraste AA (4,67:1) */
+  --color-surface:       #FCFAF8;  /* Blanco roto — fondo de tarjetas */
+  --color-surface-alt:   #EDE8E0;  /* Superficie alternativa / rellenos */
+  --color-border:        #E2DCD0;  /* Divisores y bordes */
+
+  /* Estados y semántica */
+  --color-success:       #4D6E4A;  /* Verde sobrio (4,86:1 AA) */
+  --color-success-bg:    #E7EEE1;
+  --color-danger:        #9C4A31;  /* Teja/óxido (4,98:1 AA) */
+  --color-danger-bg:     #F5E5DD;
+  --color-warning:       #7A591E;  /* Ocre/ámbar (5,27:1 AA) */
+  --color-warning-bg:    #F2E8D2;
+
+  /* Etiqueta kraft de almacén */
+  --color-etiqueta-bg:   #E3CFB3;
+  --color-etiqueta-text: #3E322A;
+
+  /* ─── ALIAS RETROCOMPATIBLES (No modificar; preserva código existente) ─── */
+  --bg-color:            var(--color-bg);
+  --primary-color:       var(--color-primary);
+  --secondary-color:     var(--color-secondary);
+  --accent-color:        var(--color-accent);
+  --accent-hover:        var(--color-accent-hover);
+  --accent-text:         var(--color-accent-text);
+  --card-bg:             var(--color-surface);
+  --surface-alt:         var(--color-surface-alt);
+  --border-color:        var(--color-border);
+  --text-color:          var(--color-text);
+  --success-color:       var(--color-success);
+  --success-bg:          var(--color-success-bg);
+  --danger-color:        var(--color-danger);
+  --danger-bg:           var(--color-danger-bg);
+  --warning-color:       var(--color-warning);
+  --warning-bg:          var(--color-warning-bg);
+  --etiqueta-bg:         var(--color-etiqueta-bg);
+  --etiqueta-text:       var(--color-etiqueta-text);
+
+  /* ─── TIPOGRAFÍA ─── */
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Fraunces', ui-serif, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-mono:    ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* ─── ESPACIADO ─── */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+
+  /* ─── RADIOS DE BORDE ─── */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-full: 9999px;
+
+  /* ─── SOMBRAS Y ELEVACIÓN ─── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+
+  color-scheme: light;
+}
+
+/* ─── MODO OSCURO (Sistema y data-theme="dark") ─── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg:            #221B16;
+    --color-primary:       #F1EAE0;
+    --color-secondary:     #C7B8AA;
+    --color-text:          #F1EAE0;
+    --color-text-muted:    #C7B8AA;
+    --color-accent:        #DDAE81;
+    --color-accent-hover:  #EFCBA0;
+    --color-accent-text:   #DDAE81;
+    --color-surface:       #2A211A;
+    --color-surface-alt:   #362A21;
+    --color-border:        #42352B;
+
+    --color-success:       #93B48E;
+    --color-success-bg:    #2B3527;
+    --color-danger:        #DE8467;
+    --color-danger-bg:     #3A2620;
+    --color-warning:       #D9B36C;
+    --color-warning-bg:    #3A311F;
+
+    --color-etiqueta-bg:   #5A4634;
+    --color-etiqueta-text: #F1EAE0;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg:            #221B16;
+  --color-primary:       #F1EAE0;
+  --color-secondary:     #C7B8AA;
+  --color-text:          #F1EAE0;
+  --color-text-muted:    #C7B8AA;
+  --color-accent:        #DDAE81;
+  --color-accent-hover:  #EFCBA0;
+  --color-accent-text:   #DDAE81;
+  --color-surface:       #2A211A;
+  --color-surface-alt:   #362A21;
+  --color-border:        #42352B;
+
+  --color-success:       #93B48E;
+  --color-success-bg:    #2B3527;
+  --color-danger:        #DE8467;
+  --color-danger-bg:     #3A2620;
+  --color-warning:       #D9B36C;
+  --color-warning-bg:    #3A311F;
+
+  --color-etiqueta-bg:   #5A4634;
+  --color-etiqueta-text: #F1EAE0;
+
+  color-scheme: dark;
+}

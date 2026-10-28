@@ -1,4 +1,4 @@
-// Tests de GET /api/sitemap.xml (SEO del catálogo, 28 oct 2026): páginas fijas, una por categoría
+// Tests de GET /sitemap.xml (SEO del catálogo, 28 oct 2026): páginas fijas, una por categoría
 // con piezas y una por ficha, sin precios, y con un sitemap mínimo si la base de datos falla.
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,7 +15,7 @@ const urls = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
 
 afterEach(() => mock.restoreAll());
 
-describe('GET /api/sitemap.xml', () => {
+describe('GET /sitemap.xml', () => {
   let fake;
   let columnasPedidas;
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('GET /api/sitemap.xml', () => {
   });
 
   test('es XML, cacheable por la CDN, con las páginas fijas, las categorías y todas las fichas', async () => {
-    const res = await request(app).get('/api/sitemap.xml');
+    const res = await request(app).get('/sitemap.xml');
 
     assert.equal(res.status, 200);
     assert.match(res.headers['content-type'], /^application\/xml/);
@@ -69,6 +69,9 @@ describe('GET /api/sitemap.xml', () => {
       `${WEB}/sobre-nosotros`,
       `${WEB}/sostenibilidad`,
       `${WEB}/contacto`,
+      `${WEB}/legal`,
+      `${WEB}/privacidad`,
+      `${WEB}/terminos`,
       `${WEB}/catalogo?categoria=Mesas%20y%20mobiliario`,
       `${WEB}/catalogo?categoria=Sillas%20y%20asientos`,
       `${WEB}/mueble/m4`,
@@ -79,7 +82,7 @@ describe('GET /api/sitemap.xml', () => {
   });
 
   test('solo pide id y categoría: los precios no pueden salir en el sitemap', async () => {
-    const res = await request(app).get('/api/sitemap.xml');
+    const res = await request(app).get('/sitemap.xml');
 
     assert.deepEqual(columnasPedidas, ['id, categoria']);
     assert.doesNotMatch(res.text, /950|precio/);
@@ -91,11 +94,11 @@ describe('GET /api/sitemap.xml', () => {
     mock.method(supabase, 'from', fake.from);
     mock.method(console, 'error', () => {});
 
-    const res = await request(app).get('/api/sitemap.xml');
+    const res = await request(app).get('/sitemap.xml');
 
     assert.equal(res.status, 200);
     assert.equal(res.headers['cache-control'], 'public, max-age=300');
-    assert.equal(urls(res.text).length, 5);
+    assert.equal(urls(res.text).length, 8);
   });
 });
 
@@ -109,6 +112,6 @@ describe('generarSitemap', () => {
   });
 
   test('sin muebles, solo las páginas fijas', () => {
-    assert.equal(urls(generarSitemap([])).length, 5);
+    assert.equal(urls(generarSitemap([])).length, 8);
   });
 });

@@ -23,3 +23,6 @@ server/.env
 Thumbs.db
 # Archivos temporales de Vite
 client/vite.config.js.timestamp-*
+
+# Salida temporal del script de optimización de imágenes
+server/scripts/__fixtures__/output/

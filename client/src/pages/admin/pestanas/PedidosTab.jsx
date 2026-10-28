@@ -2,6 +2,7 @@ import { useContext, useState } from 'react';
 import { ToastContext } from '../../../context/ToastContext';
 import { actualizarEstadoPedido } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
+import { reservasActivas } from '../../../utils/reservas';
 import AlbaranPedido from '../AlbaranPedido';
 
 const ESTADOS_PEDIDO = ['procesando', 'enviado', 'entregado', 'cancelado'];
@@ -31,18 +32,47 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
   return (
     <div className="admin-view fade-in">
       <div className="admin-view-head">
-        <h2>Pedidos</h2>
+        <h2 className="admin-title-h2">Pedidos</h2>
         <p>{pedidosFiltrados.length} de {infoPedidos.total} pedidos</p>
       </div>
 
-      <div className="admin-toolbar">
-        <select value={filtroEstadoPedido} onChange={(e) => setFiltroEstadoPedido(e.target.value)}>
-          <option value="">Todos los estados</option>
-          {ESTADOS_PEDIDO.map(estado => (
-            <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-          ))}
-        </select>
-        <button className="admin-btn-ghost" onClick={cargarPedidos}>Actualizar</button>
+      <div className="admin-toolbar pedidos-toolbar">
+        <div className="pedidos-toolbar-filtros">
+          <select
+            className="n5-input pedidos-filtro-select admin-select"
+            aria-label="Filtrar pedidos por estado"
+            value={filtroEstadoPedido}
+            onChange={(e) => setFiltroEstadoPedido(e.target.value)}
+          >
+            <option value="">Todos los estados</option>
+            {ESTADOS_PEDIDO.map(estado => (
+              <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="admin-btn-ghost pedidos-btn-actualizar"
+          onClick={cargarPedidos}
+          title="Actualizar listado de pedidos"
+        >
+          <svg
+            className="pedidos-btn-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 2v6h-6" />
+            <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+            <path d="M3 22v-6h6" />
+            <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
+          Actualizar
+        </button>
       </div>
 
       {pedidosFiltrados.length === 0 ? (
@@ -56,16 +86,18 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
           {pedidosFiltrados.map(pedido => {
             const cliente = pedido.cliente_info || {};
             const items = Array.isArray(pedido.items) ? pedido.items : [];
+            const esAlquiler = reservasActivas() && (items.some(item => item.modalidad === 'alquiler') || pedido.tipo === 'alquiler' || Boolean(pedido.reserva_id));
             const fecha = pedido.created_at
               ? new Date(pedido.created_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' })
               : '—';
 
             return (
-              <div key={pedido.id} className="pedido-card">
+              <div key={pedido.id} className={`pedido-card ${esAlquiler ? 'pedido-card--alquiler' : ''}`}>
                 <div className="pedido-card-header">
-                  <div>
+                  <div className="pedido-cabecera-meta">
                     <span className="pedido-fecha">{fecha}</span>
                     <span className="pedido-id">Ref. {pedido.id.slice(0, 8).toUpperCase()}</span>
+                    {esAlquiler && <span className="pedido-badge-alquiler">ALQUILER</span>}
                   </div>
                   <div className="pedido-card-acciones">
                     <button
@@ -73,17 +105,47 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
                       className="admin-btn-ghost pedido-btn-albaran"
                       onClick={() => setPedidoAlbaran(pedido)}
                     >
+                      <svg
+                        className="pedido-btn-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                      </svg>
                       Imprimir albarán
                     </button>
-                    <select
-                      value={pedido.estado}
-                      onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
-                      className={`pedido-estado-select estado-${pedido.estado}`}
-                    >
-                      {ESTADOS_PEDIDO.map(estado => (
-                        <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
-                      ))}
-                    </select>
+                    {esAlquiler ? (
+                      <div className="pedido-alquiler-control" title="Este pedido corresponde a un alquiler. Gestiónalo desde la pestaña Reservas.">
+                        <select
+                          value={pedido.estado}
+                          disabled
+                          className="pedido-estado-select pedido-estado-select--deshabilitado admin-select"
+                          aria-label="Estado del pedido"
+                        >
+                          <option value={pedido.estado}>{ETIQUETA_ESTADO_PEDIDO[pedido.estado] || pedido.estado}</option>
+                        </select>
+                        <span className="pedido-alquiler-aviso">
+                          Este pedido corresponde a un alquiler. Gestiónalo desde la pestaña Reservas.
+                        </span>
+                      </div>
+                    ) : (
+                      <select
+                        value={pedido.estado}
+                        onChange={(e) => handleCambiarEstadoPedido(pedido.id, e.target.value)}
+                        className={`pedido-estado-select estado-${pedido.estado} admin-select`}
+                      >
+                        {ESTADOS_PEDIDO.map(estado => (
+                          <option key={estado} value={estado}>{ETIQUETA_ESTADO_PEDIDO[estado]}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -120,9 +182,9 @@ const PedidosTab = ({ pedidos, setPedidos, infoPedidos, ajustarTrasCambioDeEstad
 
       {infoPedidos.totalPaginas > 1 && (
         <div className="admin-pagination">
-          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina - 1 })} disabled={infoPedidos.pagina <= 1}>← Anterior</button>
+          <button className="admin-btn-secondary" onClick={() => cargarPedidos({ pagina: infoPedidos.pagina - 1 })} disabled={infoPedidos.pagina <= 1}>← Anterior</button>
           <span>Página {infoPedidos.pagina} de {infoPedidos.totalPaginas}</span>
-          <button onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
+          <button className="admin-btn-secondary" onClick={() => cargarPedidos({ pagina: infoPedidos.pagina + 1 })} disabled={infoPedidos.pagina >= infoPedidos.totalPaginas}>Siguiente →</button>
         </div>
       )}
 

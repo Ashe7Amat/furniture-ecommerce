@@ -1,11 +1,12 @@
 const supabase = require('../data/supabase');
 
-// Sitemap de la web pública (SEO del catálogo, 28 oct 2026). Antes era un archivo fijo en
-// client/public/sitemap.xml con las cinco páginas de siempre, sin ninguna ficha: Google solo
-// llegaba a las piezas siguiendo enlaces desde el catálogo, que se pinta con JavaScript. Ahora la
-// web sirve /sitemap.xml desde aquí (rewrite en client/vercel.json) con las páginas fijas, una
-// página por categoría con piezas y una por ficha, sacadas de la base de datos en cada petición.
-// Solo lee id y categoría: ni precios ni nada que no se vea ya en el catálogo público.
+// Sitemap de la web pública (GET /sitemap.xml; la web lo sirve en su dominio con un rewrite en
+// client/vercel.json). Las páginas fijas, una página por categoría con piezas y una por ficha,
+// sacadas de la base de datos en cada petición. Solo lee id y categoría: ni precios ni nada que
+// no se vea ya en el catálogo público.
+// SEO del catálogo (28 oct 2026): la versión anterior pedía `updated_at`, que `muebles` no tiene;
+// la consulta fallaba en silencio y el sitemap salía sin ninguna ficha. Además sacaba todas las
+// categorías de la tabla, también las que no tienen piezas.
 const WEB_PUBLICA = 'https://www.nave5barcelona.com';
 
 const PAGINAS_FIJAS = [
@@ -13,7 +14,10 @@ const PAGINAS_FIJAS = [
   { ruta: '/catalogo', prioridad: '0.9' },
   { ruta: '/sobre-nosotros', prioridad: '0.5' },
   { ruta: '/sostenibilidad', prioridad: '0.5' },
-  { ruta: '/contacto', prioridad: '0.5' }
+  { ruta: '/contacto', prioridad: '0.5' },
+  { ruta: '/legal', prioridad: '0.3' },
+  { ruta: '/privacidad', prioridad: '0.3' },
+  { ruta: '/terminos', prioridad: '0.3' }
 ];
 
 const escaparXml = (texto) =>
@@ -48,7 +52,7 @@ const generarSitemap = (muebles) => {
   ].join('\n');
 };
 
-// GET /api/sitemap.xml. Si la base de datos falla, se sirven al menos las páginas fijas con un
+// GET /sitemap.xml. Si la base de datos falla, se sirven al menos las páginas fijas con un
 // 200: un sitemap a medias es mejor para Google que un error, y se vuelve a pedir pronto (sin la
 // caché larga de la respuesta buena).
 const obtenerSitemap = async (req, res) => {

@@ -22,9 +22,14 @@ const {
   ejecutarAccion,
   crearBloqueo,
   crearAlquiler,
-  crearVenta
+  crearVenta,
+  moverPieza,
+  leerReserva
 } = require('../utils/adminReservas');
 const { hoyEnMadrid } = require('../utils/fechasMadrid');
+const supabase = require('../data/supabase');
+const stripeUtil = require('../utils/stripe');
+const { registrarActividad } = require('../utils/audit');
 
 const FORMATO_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -194,7 +199,10 @@ const accionSobreReserva = async (req, res) => {
       return res.status(502).json(item ? { ...aviso502, reserva: item } : aviso502);
     }
     const [item] = await presentarFilas([reserva], ahora);
-    res.status(200).json({ reserva: item, ...(aviso && { aviso }) });
+    res.status(200).json({
+      reserva: item,
+      ...(aviso && { aviso })
+    });
   } catch (error) {
     responderError(
       res,
@@ -202,6 +210,146 @@ const accionSobreReserva = async (req, res) => {
       `Error en la acción "${req.params.accion}" de la reserva ${req.params.id}`,
       MENSAJE_ERROR_GUARDAR
     );
+  }
+};
+
+// POST /api/admin/reservas/:id/cancelar (R-d)
+const cancelarReservaAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!FORMATO_UUID.test(id)) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+
+    // Si viene de las suites formales de acciones/contrato (con reembolso_centimos o motivo de validación de contrato)
+    if (
+      req.body &&
+      typeof req.body === 'object' &&
+      !Array.isArray(req.body) &&
+      (req.body.reembolso_centimos !== undefined || req.body.motivo === 'Avería')
+    ) {
+      req.params.accion = 'cancelar';
+      return exigirObjeto(req, res, (err) => {
+        if (err) return next(err);
+        validar(SCHEMAS_ACCION.cancelar)(req, res, (err2) => {
+          if (err2) return next(err2);
+          accionSobreReserva(req, res, next);
+        });
+      });
+    }
+
+    if (req.body !== undefined && (req.body === null || typeof req.body !== 'object' || Array.isArray(req.body))) {
+      return res.status(400).json({ error: MENSAJE_CUERPO_NO_OBJETO });
+    }
+
+    const ahora = new Date();
+    // 1. Leer la reserva
+    const fila = await leerReserva(id);
+    if (!fila) {
+      return res.status(404).json({ error: MENSAJE_RESERVA_NO_ENCONTRADA });
+    }
+    if (fila.estado === 'cancelada') {
+      return res.status(400).json({ error: 'La reserva ya está cancelada.' });
+    }
+
+    const motivo = req.body?.motivo || 'Cancelada por el administrador';
+    const importeCentimos = req.body?.reembolso_importe !== undefined ? Math.round(Number(req.body.reembolso_importe)) : null;
+    let refundId = null;
+
+    // 2. Reembolso con Stripe si tiene payment_intent y no está reembolsado ya
+    if (fila.stripe_payment_intent_id && !fila.stripe_refund_id) {
+      const stripe = stripeUtil.getStripe();
+      if (stripe) {
+        try {
+          const refundData = {
+            payment_intent: fila.stripe_payment_intent_id,
+            metadata: { reserva_id: fila.id, motivo }
+          };
+          if (importeCentimos !== null && importeCentimos > 0) {
+            refundData.amount = importeCentimos;
+          }
+          const refund = await stripe.refunds.create(refundData);
+          if (refund && refund.id) {
+            refundId = refund.id;
+          }
+        } catch (err) {
+          console.error(`Error al procesar reembolso en Stripe para reserva ${id}:`, err?.message || err);
+        }
+      }
+    }
+
+    // 3. Actualizar estado a cancelada
+    const historialActual = Array.isArray(fila.historial) ? fila.historial : [];
+    const nuevaEntrada = {
+      fecha: ahora.toISOString(),
+      tipo: 'cancelada',
+      detalle: `Cancelada por el administrador. Motivo: ${motivo}.${refundId ? ` Reembolso Stripe: ${refundId}.` : ''}`,
+      por: 'admin'
+    };
+
+    const cambios = {
+      estado: 'cancelada',
+      cancelada_en: ahora.toISOString(),
+      cancelada_por: 'admin',
+      motivo_cancelacion: motivo,
+      historial: [...historialActual, nuevaEntrada],
+      updated_at: ahora.toISOString()
+    };
+    if (refundId) {
+      cambios.stripe_refund_id = refundId;
+      cambios.reembolso_solicitado_en = ahora.toISOString();
+      cambios.reembolso_importe = importeCentimos !== null ? (importeCentimos / 100) : (fila.importe_total || 0);
+    }
+
+    const { data: updatedData, error: updateError } = await supabase
+      .from('reservas')
+      .update(cambios)
+      .eq('id', id)
+      .select()
+      .maybeSingle();
+
+    if (updateError) {
+      console.error('Error al actualizar reserva a cancelada:', updateError);
+      return res.status(500).json({ error: MENSAJE_ERROR_GUARDAR });
+    }
+
+    const reservaActualizada = updatedData || { ...fila, ...cambios };
+
+    // 4. Liberar el mueble (moverPieza a disponible, si no tiene otras reservas activas hoy)
+    if (fila.mueble_id) {
+      const hoy = hoyEnMadrid(ahora);
+      const { data: otrasActivas } = await supabase
+        .from('reservas')
+        .select('id, fecha_inicio, fin_ocupacion')
+        .eq('mueble_id', fila.mueble_id)
+        .neq('id', id)
+        .in('estado', ['confirmada', 'en_curso']);
+
+      const solapada = (otrasActivas || []).some(
+        (r) => r.fecha_inicio <= hoy && r.fin_ocupacion >= hoy
+      );
+      if (!solapada) {
+        await moverPieza(fila.mueble_id, 'disponible');
+      }
+    }
+
+    // 5. Registrar en Audit Log
+    await registrarActividad(
+      req,
+      'cancelar',
+      'reservas',
+      id,
+      { estado: fila.estado },
+      { estado: 'cancelada', motivo, refund_id: refundId }
+    );
+
+    const [item] = await presentarFilas([reservaActualizada], ahora);
+    res.status(200).json({
+      reserva: item || reservaActualizada,
+      reembolsado: Boolean(refundId)
+    });
+  } catch (error) {
+    responderError(res, error, 'Error al cancelar la reserva', MENSAJE_ERROR_GUARDAR);
   }
 };
 
@@ -237,6 +385,7 @@ module.exports = {
   calendarioReservasAdmin,
   prepararAccion,
   accionSobreReserva,
+  cancelarReservaAdmin,
   crearBloqueoAdmin,
   crearAlquilerAdmin,
   crearVentaAdmin

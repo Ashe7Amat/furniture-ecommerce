@@ -57,6 +57,10 @@ const opcion = (texto) => screen.getByText(texto).closest('button');
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.stubEnv('VITE_RESERVAS_ACTIVAS', '');
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe('ProductDetail — cesta llena (H35)', () => {
@@ -803,9 +807,11 @@ describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
 
 
 describe('ProductDetail, SEO: datos estructurados y canonical', () => {
+  // useDocumentMeta pone un solo bloque JSON-LD; la ficha lleva dentro un @graph con los dos.
+  const TIPOS = { producto: 'Product', migas: 'BreadcrumbList' };
   const jsonLd = (id) => {
-    const script = document.head.querySelector(`script[type="application/ld+json"][data-jsonld="${id}"]`);
-    return script ? JSON.parse(script.textContent) : null;
+    const script = document.getElementById('structured-data-jsonld');
+    return script ? JSON.parse(script.textContent)['@graph']?.find((d) => d['@type'] === TIPOS[id]) ?? null : null;
   };
 
   it('pone el Product y las migas de la pieza, y el canonical a /mueble/:id', async () => {

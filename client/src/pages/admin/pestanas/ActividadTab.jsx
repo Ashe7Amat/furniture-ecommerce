@@ -85,7 +85,7 @@ const ActividadTab = ({ initialLogs = null }) => {
   return (
     <div className="admin-view fade-in">
       <div className="admin-view-head">
-        <h2>Actividad</h2>
+        <h2 className="admin-title-h2">Actividad</h2>
         <p>
           {logsVisibles.length} {logsVisibles.length === 1 ? 'registro' : 'registros'} de actividad
         </p>
@@ -94,6 +94,7 @@ const ActividadTab = ({ initialLogs = null }) => {
       <div className="admin-toolbar audit-toolbar">
         {/* Filtro por Fecha */}
         <select
+          className="admin-select"
           value={filtroFecha}
           onChange={(e) => setFiltroFecha(e.target.value)}
           aria-label="Filtrar por fecha"
@@ -105,6 +106,7 @@ const ActividadTab = ({ initialLogs = null }) => {
 
         {/* Filtro por Admin */}
         <select
+          className="admin-select"
           value={filtroAdmin}
           onChange={(e) => setFiltroAdmin(e.target.value)}
           aria-label="Filtrar por admin"
@@ -119,6 +121,7 @@ const ActividadTab = ({ initialLogs = null }) => {
 
         {/* Filtro por Acción */}
         <select
+          className="admin-select"
           value={filtroAccion}
           onChange={(e) => setFiltroAccion(e.target.value)}
           aria-label="Filtrar por acción"
@@ -165,8 +168,8 @@ const ActividadTab = ({ initialLogs = null }) => {
             : 'No hay actividades que coincidan con estos filtros.'}
         </p>
       ) : (
-        <div className="audit-table-wrapper">
-          <table className="audit-tabla">
+        <div className="audit-table-wrapper admin-table-container">
+          <table className="audit-tabla admin-table">
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -203,10 +206,10 @@ const ActividadTab = ({ initialLogs = null }) => {
                     <td className="audit-col-fecha">{fecha}</td>
                     <td className="audit-col-admin">{log.admin_email || 'Sistema'}</td>
                     <td className="audit-col-accion">
-                      <span className={`audit-badge badge-${log.accion}`}>{accionEtiqueta}</span>
+                      <span className={`audit-badge badge-${log.accion} admin-badge-${log.accion === 'crear' ? 'success' : log.accion === 'eliminar' ? 'danger' : 'info'}`}>{accionEtiqueta}</span>
                     </td>
                     <td className="audit-col-entidad">
-                      <span className="audit-entidad-tag">{entidadEtiqueta}</span>
+                      <span className="audit-entidad-tag admin-badge-neutral">{entidadEtiqueta}</span>
                     </td>
                     <td className="audit-col-detalle">{detalle}</td>
                   </tr>

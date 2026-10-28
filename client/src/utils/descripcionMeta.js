@@ -1,3 +1,5 @@
+import { BRAND } from '../theme/brand.config';
+
 // Descripción de la ficha de una pieza para <meta name="description"> y las de Open Graph y Twitter
 // (useDocumentMeta): el principio de su descripción, hasta 150 caracteres, cortado en un espacio y
 // con "…" si sigue.
@@ -26,11 +28,11 @@ export const descripcionParaMeta = ({ nombre, descripcion } = {}) => {
   const texto = /\p{L}/u.test(limpio) ? limpio : '';
   if (!texto) {
     return nombre
-      ? cortar(`${nombre} — pieza única en Nave 5 Barcelona, ${TIENDA}.`)
-      : `Pieza única en Nave 5 Barcelona, ${TIENDA}.`;
+      ? cortar(`${nombre} — pieza única en ${BRAND.nombre}, ${TIENDA}.`)
+      : `Pieza única en ${BRAND.nombre}, ${TIENDA}.`;
   }
   if (texto.length < MIN_DESCRIPCION_SOLA && nombre) {
-    return cortar(`${conPunto(nombre)} ${conPunto(texto)} Pieza única en Nave 5 Barcelona.`);
+    return cortar(`${conPunto(nombre)} ${conPunto(texto)} Pieza única en ${BRAND.nombre}.`);
   }
   return cortar(texto);
 };

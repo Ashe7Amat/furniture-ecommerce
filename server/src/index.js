@@ -12,7 +12,8 @@ const stripeRoutes = require('./routes/stripeRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
 const ajustesRoutes = require('./routes/ajustesRoutes');
-const { obtenerSitemap } = require('./controllers/sitemapController');
+const healthRoutes = require('./routes/healthRoutes');
+const sitemapRoutes = require('./routes/sitemapRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
 const app = express();
@@ -48,7 +49,13 @@ app.use((req, res, next) => {
 app.use(
   helmet({
     contentSecurityPolicy: { useDefaults: false, directives: { defaultSrc: ["'none'"] } },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    frameguard: { action: 'deny' },
+    hsts: {
+      maxAge: 63072000,
+      includeSubDomains: true,
+      preload: true
+    }
   })
 );
 
@@ -70,6 +77,8 @@ const origenesPermitidos = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://localhost:4173',
+  'http://localhost:5175',
   ...(process.env.ALLOWED_ORIGINS || '').split(',').map((origen) => origen.trim())
 ].filter(Boolean);
 
@@ -92,6 +101,7 @@ app.use('/api/stripe', stripeRoutes);
 app.use(express.json());
 
 // Enrutamiento de la API
+app.use('/api/health', healthRoutes);
 app.use('/api/muebles', mueblesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/categorias', categoriasRoutes);
@@ -100,10 +110,10 @@ app.use('/api/contacto', contactoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/ajustes', ajustesRoutes);
-// Sitemap de la web pública: client/vercel.json lo sirve como https://www.nave5barcelona.com/sitemap.xml.
-app.get('/api/sitemap.xml', obtenerSitemap);
 
-// Ruta base de comprobación
+// Ruta base de comprobación y sitemap (client/vercel.json lo sirve también como
+// https://www.nave5barcelona.com/sitemap.xml, que es el que anuncia robots.txt)
+app.use('/sitemap.xml', sitemapRoutes);
 app.get('/', (req, res) => {
   res.send('API del Catálogo de Muebles funcionando');
 });

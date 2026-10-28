@@ -3,7 +3,7 @@ import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { textoPrecio, tienePrecio } from '../utils/format';
-import { PLACEHOLDER_IMG, miniatura } from '../utils/images';
+import { PLACEHOLDER_IMG, miniatura, obtenerVariantesWebp } from '../utils/images';
 import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
 import ReferenciaProducto from './ReferenciaProducto';
@@ -17,6 +17,10 @@ const ProductCard = ({ mueble }) => {
   const imageUrl = mueble.imagenes && mueble.imagenes.length > 0
     ? miniatura(mueble.imagenes[0])
     : PLACEHOLDER_IMG;
+  // <picture> solo se renderiza cuando las variantes .webp existen en el bucket.
+  // Mientras no se haya ejecutado npm run images:optimize, usar <img> plano evita CLS por 400s.
+  const usarPictureWebp = typeof import.meta !== 'undefined' && import.meta.env?.VITE_WEBP_OPTIMIZADAS === 'true';
+  const variantesWebp = usarPictureWebp ? obtenerVariantesWebp(imageUrl) : null;
 
   const handleFavClick = (e) => {
     e.preventDefault();
@@ -37,13 +41,38 @@ const ProductCard = ({ mueble }) => {
     <>
       <Link to={`/mueble/${mueble.id}`} className={`product-card ${esVendido ? 'is-sold' : ''}`}>
         <div className="product-image-container">
-          <img
-            src={imageUrl}
-            alt={mueble.nombre || 'Mueble'}
-            className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
-            loading="lazy"
-            decoding="async"
-          />
+          {usarPictureWebp && variantesWebp ? (
+            <picture className="product-picture">
+              <source
+                type="image/webp"
+                srcSet={variantesWebp.srcset}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+              />
+              <img
+                src={imageUrl}
+                srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+                alt={mueble.nombre || 'Mueble'}
+                className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
+                loading="lazy"
+                decoding="async"
+                width="320"
+                height="320"
+              />
+            </picture>
+          ) : (
+            <img
+              src={imageUrl}
+              srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+              alt={mueble.nombre || 'Mueble'}
+              className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
+              loading="lazy"
+              decoding="async"
+              width="320"
+              height="320"
+            />
+          )}
 
           {/* Overlay esquina superior izquierda: Pieza Única (disponible) o Vendido (grayscale) */}
           <div className="product-badge-overlay">
@@ -72,6 +101,7 @@ const ProductCard = ({ mueble }) => {
               strokeLinecap="round"
               strokeLinejoin="round"
               className="card-fav-svg"
+              aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>

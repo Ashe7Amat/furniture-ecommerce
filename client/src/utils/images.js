@@ -18,3 +18,23 @@ export const miniatura = (url) =>
   typeof url === 'string' && FOTO_CON_MINIATURA.test(url)
     ? url.replace(FOTO_CON_MINIATURA, '-thumb.webp')
     : url;
+
+/**
+ * Devuelve las variantes optimizadas WebP (400w, 800w, 1200w) y el srcset correspondiente.
+ * Si la URL no es procesable (ej. placeholder SVG), devuelve null para usar el fallback simple.
+ */
+export const obtenerVariantesWebp = (url) => {
+  if (!url || typeof url !== 'string' || url.endsWith('.svg') || url.startsWith('data:')) {
+    return null;
+  }
+  const base = url
+    .replace(/-(full|thumb|400|800|1200)\.webp$/i, '')
+    .replace(/\.(jpe?g|png|webp|avif)$/i, '');
+
+  return {
+    w400: `${base}-400.webp`,
+    w800: `${base}-800.webp`,
+    w1200: `${base}-1200.webp`,
+    srcset: `${base}-400.webp 400w, ${base}-800.webp 800w, ${base}-1200.webp 1200w`,
+  };
+};

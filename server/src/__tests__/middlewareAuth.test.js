@@ -72,6 +72,50 @@ describe('verificarToken', () => {
     const r = pasarPor(verificarToken, 'Bearer esto-no-es-un-jwt');
     assert.equal(r.status, 401);
   });
+
+  test('con JWT_SECRET_FALLBACK configurado, acepta token firmado con el secreto anterior', () => {
+    process.env.JWT_SECRET_FALLBACK = 'secreto-anterior-de-gracia';
+    try {
+      const tokenViejo = jwt.sign(
+        { email: 'antiguo@correo.es', rol: 'cliente', nombre: 'Antiguo' },
+        process.env.JWT_SECRET_FALLBACK,
+        { expiresIn: '1h' }
+      );
+      const r = pasarPor(verificarToken, `Bearer ${tokenViejo}`);
+      assert.equal(r.siguio, true);
+      assert.equal(r.req.usuario.email, 'antiguo@correo.es');
+    } finally {
+      delete process.env.JWT_SECRET_FALLBACK;
+    }
+  });
+
+  test('con JWT_SECRET_PREVIOUS configurado, acepta token firmado con el secreto anterior', () => {
+    process.env.JWT_SECRET_PREVIOUS = 'secreto-anterior-previous';
+    try {
+      const tokenViejo = jwt.sign(
+        { email: 'previous@correo.es', rol: 'cliente', nombre: 'Previous' },
+        process.env.JWT_SECRET_PREVIOUS,
+        { expiresIn: '1h' }
+      );
+      const r = pasarPor(verificarToken, `Bearer ${tokenViejo}`);
+      assert.equal(r.siguio, true);
+      assert.equal(r.req.usuario.email, 'previous@correo.es');
+    } finally {
+      delete process.env.JWT_SECRET_PREVIOUS;
+    }
+  });
+
+  test('con JWT_SECRET_FALLBACK configurado, rechaza token que no coincide con ninguno', () => {
+    process.env.JWT_SECRET_FALLBACK = 'secreto-anterior-de-gracia';
+    try {
+      const tokenInvalido = jwt.sign({ email: 'hacker@correo.es' }, 'secreto-totalmente-ajeno');
+      const r = pasarPor(verificarToken, `Bearer ${tokenInvalido}`);
+      assert.equal(r.siguio, false);
+      assert.equal(r.status, 401);
+    } finally {
+      delete process.env.JWT_SECRET_FALLBACK;
+    }
+  });
 });
 
 describe('verificarAdmin', () => {

@@ -191,11 +191,11 @@ const Header = () => {
             aria-pressed={isDarkTheme}
           >
             {isDarkTheme ? (
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" className="header-icon-svg">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" className="header-icon-svg" aria-hidden="true">
                 <path d="M20 14.6A8.6 8.6 0 0 1 9.4 4a8.6 8.6 0 1 0 10.6 10.6z" />
               </svg>
             ) : (
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="header-icon-svg">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" className="header-icon-svg" aria-hidden="true">
                 <circle cx="12" cy="12" r="4.2" />
                 <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />
               </svg>
@@ -203,7 +203,7 @@ const Header = () => {
           </button>
 
           <Link to="/cuenta?tab=favoritos" className="icon-btn header-fav-btn" aria-label="Favoritos">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={favorites.length > 0 ? "var(--accent-color)" : "none"} stroke={favorites.length > 0 ? "var(--accent-color)" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={favorites.length > 0 ? "var(--accent-color)" : "none"} stroke={favorites.length > 0 ? "var(--accent-color)" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
             {favorites.length > 0 && <span className="fav-badge">{favorites.length}</span>}
@@ -212,7 +212,7 @@ const Header = () => {
           {user ? (
             <div className="user-menu" ref={dropdownRef}>
               <button className="icon-btn user-menu-btn" onClick={toggleDropdown} aria-label="Cuenta">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
@@ -236,15 +236,19 @@ const Header = () => {
             </div>
           ) : (
             <Link to="/login" className="icon-btn" aria-label="Cuenta">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </Link>
           )}
           
-          <button className="icon-btn header-fav-btn" aria-label="Cesta" onClick={toggleCart}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg">
+          <button
+            className="icon-btn header-fav-btn"
+            aria-label={cartItems.length > 0 ? `Carrito, ${cartItems.length} ${cartItems.length === 1 ? 'artículo' : 'artículos'}` : 'Cesta'}
+            onClick={toggleCart}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="header-icon-svg" aria-hidden="true">
               <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <line x1="3" y1="6" x2="21" y2="6" />
               <path d="M16 10a4 4 0 0 1-8 0" />

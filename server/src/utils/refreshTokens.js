@@ -45,8 +45,8 @@ const secreto = () => {
 
 const generarToken = () => crypto.randomBytes(32).toString('base64url');
 
-const hashear = (token) =>
-  crypto.createHmac('sha256', secreto()).update(String(token)).digest('hex');
+const hashear = (token, secretoAlternativo) =>
+  crypto.createHmac('sha256', secretoAlternativo || secreto()).update(String(token)).digest('hex');
 
 // user_agent e ip solo sirven para una futura pantalla de "sesiones activas": no se usan para
 // ninguna decisión de seguridad. La ip solo se guarda si es una dirección válida (la columna es
@@ -142,11 +142,18 @@ const tratarRevocado = async (fila, meta) => {
   return { ok: false, motivo: 'reuso', familia: fila.family_id };
 };
 
+const secretoFallback = () =>
+  process.env.REFRESH_TOKEN_HASH_SECRET_PREVIOUS || process.env.REFRESH_TOKEN_HASH_FALLBACK;
+
 // Rota el refresh token presentado. Devuelve { ok: true, userId, familia, refreshToken } o
 // { ok: false, motivo: 'inexistente' | 'reuso' | 'caducado' }. El motivo es solo para el log:
 // al cliente se le responde igual en los tres casos.
 const rotar = async (token, meta = {}) => {
-  const fila = await leer('token_hash', hashear(token));
+  let fila = await leer('token_hash', hashear(token));
+  const fallback = secretoFallback();
+  if (!fila && fallback) {
+    fila = await leer('token_hash', hashear(token, fallback));
+  }
   if (!fila) return { ok: false, motivo: 'inexistente' };
   if (fila.revoked_at) return tratarRevocado(fila, meta);
   return reclamarYRotar(fila, meta);
@@ -154,7 +161,11 @@ const rotar = async (token, meta = {}) => {
 
 // Cierre de sesión: revoca la familia del token presentado. Si no existe, no hace nada.
 const revocarFamiliaDeToken = async (token) => {
-  const fila = await leer('token_hash', hashear(token));
+  let fila = await leer('token_hash', hashear(token));
+  const fallback = secretoFallback();
+  if (!fila && fallback) {
+    fila = await leer('token_hash', hashear(token, fallback));
+  }
   if (fila) await revocarFamilia(fila.family_id);
 };
 

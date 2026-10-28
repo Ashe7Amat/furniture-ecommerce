@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
+import Seo from '../components/Seo';
 import Admin from './Admin';
 
 // La ruta /admin: pasa al panel el ?editar={id} de la URL (el enlace «Editar en panel» de la barra de
@@ -12,7 +13,12 @@ const AdminRuta = () => {
       return actuales;
     }, { replace: true });
 
-  return <Admin idEditar={params.get('editar')} onEnlaceUsado={olvidarEnlace} />;
+  return (
+    <>
+      <Seo title="Administración" noindex nofollow />
+      <Admin idEditar={params.get('editar')} onEnlaceUsado={olvidarEnlace} />
+    </>
+  );
 };
 
 export default AdminRuta;

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderHook } from '@testing-library/react';
-import { productoJsonLd, migasJsonLd, useJsonLd, urlDeFicha } from './datosEstructurados';
+import { productoJsonLd, migasJsonLd, urlDeFicha } from './datosEstructurados';
 
 const MUEBLE = {
   id: 'm1',
@@ -14,12 +13,9 @@ const MUEBLE = {
   referencia: 'NAV-MES-011',
 };
 
-const bloques = () => [...document.head.querySelectorAll('script[type="application/ld+json"]')];
-
 describe('productoJsonLd', () => {
   it('describe la pieza con nombre, descripción limpia, fotos, referencia y categoría', () => {
     expect(productoJsonLd(MUEBLE)).toEqual({
-      '@context': 'https://schema.org',
       '@type': 'Product',
       name: 'Banco de trabajo de madera y mármol',
       url: 'https://www.nave5barcelona.com/mueble/m1',
@@ -37,7 +33,7 @@ describe('productoJsonLd', () => {
 
   it('sin descripción, fotos, referencia ni categoría, no pone esos campos vacíos', () => {
     const datos = productoJsonLd({ id: 'x', nombre: 'Pieza', imagenes: [] });
-    expect(Object.keys(datos).sort()).toEqual(['@context', '@type', 'itemCondition', 'name', 'url']);
+    expect(Object.keys(datos).sort()).toEqual(['@type', 'itemCondition', 'name', 'url']);
   });
 
   it.each([
@@ -93,38 +89,5 @@ describe('migasJsonLd', () => {
 describe('urlDeFicha', () => {
   it('codifica el id', () => {
     expect(urlDeFicha('a b')).toBe('https://www.nave5barcelona.com/mueble/a%20b');
-  });
-});
-
-describe('useJsonLd', () => {
-  it('pone un bloque JSON-LD mientras está montado y lo quita al desmontar', () => {
-    const { unmount } = renderHook(() => useJsonLd('prueba', { a: 1 }));
-    expect(bloques()).toHaveLength(1);
-    expect(bloques()[0].dataset.jsonld).toBe('prueba');
-    expect(JSON.parse(bloques()[0].textContent)).toEqual({ a: 1 });
-    unmount();
-    expect(bloques()).toHaveLength(0);
-  });
-
-  it('sin datos no pone nada', () => {
-    renderHook(() => useJsonLd('prueba', null));
-    expect(bloques()).toHaveLength(0);
-  });
-
-  it('al cambiar los datos, sustituye el bloque en vez de añadir otro', () => {
-    const { rerender, unmount } = renderHook(({ datos }) => useJsonLd('prueba', datos), {
-      initialProps: { datos: { a: 1 } },
-    });
-    rerender({ datos: { a: 2 } });
-    expect(bloques()).toHaveLength(1);
-    expect(JSON.parse(bloques()[0].textContent)).toEqual({ a: 2 });
-    unmount();
-  });
-
-  it('escapa "<" para que un texto no pueda cerrar el <script>', () => {
-    const { unmount } = renderHook(() => useJsonLd('prueba', { d: '</script><img>' }));
-    expect(bloques()[0].textContent).not.toContain('</script>');
-    expect(JSON.parse(bloques()[0].textContent)).toEqual({ d: '</script><img>' });
-    unmount();
   });
 });
