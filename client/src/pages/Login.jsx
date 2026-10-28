@@ -6,10 +6,13 @@ import { loginUser, registerUser, loginConGoogle } from '../services/api';
 import { rutaInterna } from '../utils/rutaInterna';
 import { EyeIcon, EyeOffIcon } from '../components/EyeIcons';
 import '../styles/Login.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 const Login = () => {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Acceder', noindex: true });
   const [isRegister, setIsRegister] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');

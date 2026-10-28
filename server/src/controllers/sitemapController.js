@@ -1,119 +1,83 @@
 const supabase = require('../data/supabase');
 
-const BASE_URL = 'https://www.nave5barcelona.com';
+// Sitemap de la web pública (GET /sitemap.xml; la web lo sirve en su dominio con un rewrite en
+// client/vercel.json). Las páginas fijas, una página por categoría con piezas y una por ficha,
+// sacadas de la base de datos en cada petición. Solo lee id y categoría: ni precios ni nada que
+// no se vea ya en el catálogo público.
+// SEO del catálogo (28 oct 2026): la versión anterior pedía `updated_at`, que `muebles` no tiene;
+// la consulta fallaba en silencio y el sitemap salía sin ninguna ficha. Además sacaba todas las
+// categorías de la tabla, también las que no tienen piezas.
+const WEB_PUBLICA = 'https://www.nave5barcelona.com';
 
-const escaparXml = (cadena = '') =>
-  String(cadena)
+const PAGINAS_FIJAS = [
+  { ruta: '/', prioridad: '1.0' },
+  { ruta: '/catalogo', prioridad: '0.9' },
+  { ruta: '/sobre-nosotros', prioridad: '0.5' },
+  { ruta: '/sostenibilidad', prioridad: '0.5' },
+  { ruta: '/contacto', prioridad: '0.5' },
+  { ruta: '/legal', prioridad: '0.3' },
+  { ruta: '/privacidad', prioridad: '0.3' },
+  { ruta: '/terminos', prioridad: '0.3' }
+];
+
+const escaparXml = (texto) =>
+  String(texto)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-const fechaIso = (fecha) => {
-  try {
-    return new Date(fecha).toISOString().split('T')[0];
-  } catch {
-    return new Date().toISOString().split('T')[0];
-  }
+const entrada = ({ ruta, prioridad }) =>
+  `  <url><loc>${escaparXml(`${WEB_PUBLICA}${ruta}`)}</loc><priority>${prioridad}</priority></url>`;
+
+const generarSitemap = (muebles) => {
+  const categorias = [...new Set(muebles.map((m) => m.categoria).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, 'es')
+  );
+  const entradas = [
+    ...PAGINAS_FIJAS,
+    ...categorias.map((categoria) => ({
+      ruta: `/catalogo?categoria=${encodeURIComponent(categoria)}`,
+      prioridad: '0.7'
+    })),
+    ...muebles.map((m) => ({ ruta: `/mueble/${encodeURIComponent(m.id)}`, prioridad: '0.8' }))
+  ];
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...entradas.map(entrada),
+    '</urlset>',
+    ''
+  ].join('\n');
 };
 
-const generarSitemapXml = async (req, res) => {
+// GET /sitemap.xml. Si la base de datos falla, se sirven al menos las páginas fijas con un
+// 200: un sitemap a medias es mejor para Google que un error, y se vuelve a pedir pronto (sin la
+// caché larga de la respuesta buena).
+const obtenerSitemap = async (req, res) => {
+  let muebles = [];
+  let completo = true;
   try {
-    const hoy = new Date().toISOString().split('T')[0];
-
-    // Consultamos categorías y muebles activos en paralelo
-    const [categoriasResult, mueblesResult] = await Promise.all([
-      supabase.from('categorias').select('nombre').order('nombre', { ascending: true }),
-      supabase.from('muebles').select('id, updated_at, created_at, estado').eq('estado', 'disponible')
-    ]);
-
-    const categorias = categoriasResult.data || [];
-    const muebles = mueblesResult.data || [];
-
-    const urls = [
-      // 1. Home
-      {
-        loc: `${BASE_URL}/`,
-        lastmod: hoy,
-        changefreq: 'daily',
-        priority: '1.0'
-      },
-      // 2. Catálogo
-      {
-        loc: `${BASE_URL}/catalogo`,
-        lastmod: hoy,
-        changefreq: 'daily',
-        priority: '0.9'
-      }
-    ];
-
-    // 3. Categorías activas
-    for (const cat of categorias) {
-      urls.push({
-        loc: `${BASE_URL}/catalogo?categoria=${encodeURIComponent(cat.nombre)}`,
-        lastmod: hoy,
-        changefreq: 'weekly',
-        priority: '0.8'
-      });
-    }
-
-    // 4. Fichas de muebles activos
-    for (const m of muebles) {
-      urls.push({
-        loc: `${BASE_URL}/mueble/${m.id}`,
-        lastmod: fechaIso(m.updated_at || m.created_at || hoy),
-        changefreq: 'weekly',
-        priority: '0.7'
-      });
-    }
-
-    // 5. Páginas institucionales estáticas
-    const paginasEstaticas = [
-      { ruta: '/sobre-nosotros', priority: '0.5' },
-      { ruta: '/sostenibilidad', priority: '0.5' },
-      { ruta: '/contacto', priority: '0.5' },
-      { ruta: '/legal', priority: '0.3' },
-      { ruta: '/privacidad', priority: '0.3' },
-      { ruta: '/terminos', priority: '0.3' }
-    ];
-
-    for (const p of paginasEstaticas) {
-      urls.push({
-        loc: `${BASE_URL}${p.ruta}`,
-        lastmod: hoy,
-        changefreq: 'monthly',
-        priority: p.priority
-      });
-    }
-
-    const xmlItems = urls
-      .map(
-        (u) => `  <url>
-    <loc>${escaparXml(u.loc)}</loc>
-    <lastmod>${u.lastmod}</lastmod>
-    <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
-  </url>`
-      )
-      .join('\n');
-
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${xmlItems}
-</urlset>`.trim();
-
-    res.header('Content-Type', 'application/xml; charset=utf-8');
-    res.header('Cache-Control', 'public, max-age=3600, s-maxage=14400');
-    return res.status(200).send(xml);
+    const { data, error } = await supabase
+      .from('muebles')
+      .select('id, categoria')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    muebles = data || [];
   } catch (error) {
-    console.error('Error al generar sitemap.xml:', error.message);
-    return res.status(500).send('<?xml version="1.0" encoding="UTF-8"?><error>Error al generar sitemap</error>');
+    console.error('Error al generar el sitemap:', error.message);
+    completo = false;
   }
+
+  res.set('Content-Type', 'application/xml; charset=utf-8');
+  res.set(
+    'Cache-Control',
+    completo
+      ? 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400'
+      : 'public, max-age=300'
+  );
+  res.status(200).send(generarSitemap(muebles));
 };
 
-module.exports = {
-  generarSitemapXml,
-  escaparXml,
-  BASE_URL
-};
+module.exports = { obtenerSitemap, generarSitemap, WEB_PUBLICA };

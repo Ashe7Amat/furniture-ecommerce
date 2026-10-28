@@ -65,6 +65,11 @@ export const simularApi = async (page, { usuarios = [ADMIN, CLIENTE] } = {}) => 
     llamadas.push(`${metodo} ${ruta}${url.search}`);
 
     if (metodo === 'GET' && ruta === '/categorias') return json(route, CATEGORIAS);
+    // Portada sin ajustes guardados: la misma respuesta que da la API con la tabla vacía
+    // (ajustesController.js). Faltaba desde el gestor de portada (22 oct) y la portada lo daba como error.
+    if (metodo === 'GET' && ruta === '/ajustes/home') {
+      return json(route, { id: 1, hero_imagenes: [], productos_destacados: [], imagenes_seccion_inspiracion: [], imagen_seccion_sostenibilidad: null });
+    }
     if (metodo === 'GET' && ruta === '/muebles') {
       const limite = Number(url.searchParams.get('limit')) || MUEBLES.length;
       return json(route, MUEBLES.slice(0, limite));

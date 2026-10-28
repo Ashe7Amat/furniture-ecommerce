@@ -192,9 +192,22 @@ export default function Catalog() {
     <div className="catalog-container">
       <Seo
         title={tituloPagina}
-        description="Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona."
+        description={
+          categoriaUrl && !showFavorites
+            ? `${categoriaUrl}: piezas únicas restauradas a mano en Nave 5 Barcelona, almacén de muebles y atrezo vintage.`
+            : 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.'
+        }
         url={categoriaUrl ? `/catalogo?categoria=${encodeURIComponent(categoriaUrl)}` : '/catalogo'}
-        canonical="/catalogo"
+        // Cada categoría es su propia página (antes todas decían ser /catalogo). El orden (?orden=)
+        // no cambia las piezas, así que no entra. Los favoritos son de cada visitante: no se indexan.
+        canonical={
+          showFavorites
+            ? undefined
+            : categoriaUrl
+              ? `/catalogo?categoria=${encodeURIComponent(categoriaUrl)}`
+              : '/catalogo'
+        }
+        noindex={showFavorites}
         jsonLd={jsonLdCatalog}
       />
       {/* CABECERA EDITORIAL (TU DISEÑO ORIGINAL) */}

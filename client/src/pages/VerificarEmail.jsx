@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { verificarEmail, reenviarVerificacion } from '../services/api';
 import '../styles/CheckoutResultado.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 // H18 (docs/verificacion-email-diseno.md, partes 6 y 7): a esta página lleva el enlace del correo.
 // El token NO se manda al cargar: hace falta pulsar el botón. Algunos filtros de correo abren los
@@ -11,6 +12,8 @@ import '../styles/CheckoutResultado.css';
 const NO_VALIDO = 'El enlace no es válido o ha caducado.';
 
 export default function VerificarEmail() {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Confirmar email', noindex: true });
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const { user, actualizarUsuario, logout } = useContext(AuthContext);

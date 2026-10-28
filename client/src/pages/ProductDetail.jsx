@@ -2,6 +2,7 @@ import { useEffect, useState, useContext, lazy, Suspense, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
 import { descripcionParaMeta } from '../utils/descripcionMeta';
+import { productoJsonLd, migasJsonLd } from '../utils/datosEstructurados';
 import { getMuebleById, getDisponibilidad } from '../services/api';
 import { CartContext, CESTA_LLENA } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -133,55 +134,11 @@ const ProductDetail = () => {
     };
   }, [stickyVisible]);
 
-  const jsonLdFicha = mueble ? {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'Product',
-        'name': mueble.nombre,
-        'image': (mueble.imagenes && mueble.imagenes.length > 0) ? mueble.imagenes : ['https://www.nave5barcelona.com/og-image.png'],
-        'description': descripcionParaMeta(mueble),
-        'itemCondition': 'https://schema.org/UsedCondition',
-        'offers': {
-          '@type': 'Offer',
-          'price': mueble.precio_venta || (mueble.precio_alquiler_dia ? mueble.precio_alquiler_dia : 0),
-          'priceCurrency': 'EUR',
-          'availability': mueble.estado === 'disponible' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-          'url': `https://www.nave5barcelona.com/mueble/${mueble.id}`,
-          'itemCondition': 'https://schema.org/UsedCondition'
-        }
-      },
-      {
-        '@type': 'BreadcrumbList',
-        'itemListElement': [
-          {
-            '@type': 'ListItem',
-            'position': 1,
-            'name': 'Inicio',
-            'item': 'https://www.nave5barcelona.com/'
-          },
-          {
-            '@type': 'ListItem',
-            'position': 2,
-            'name': 'Catálogo',
-            'item': 'https://www.nave5barcelona.com/catalogo'
-          },
-          ...(mueble.categoria ? [{
-            '@type': 'ListItem',
-            'position': 3,
-            'name': mueble.categoria,
-            'item': `https://www.nave5barcelona.com/catalogo?categoria=${encodeURIComponent(mueble.categoria)}`
-          }] : []),
-          {
-            '@type': 'ListItem',
-            'position': mueble.categoria ? 4 : 3,
-            'name': mueble.nombre,
-            'item': `https://www.nave5barcelona.com/mueble/${mueble.id}`
-          }
-        ]
-      }
-    ]
-  } : null;
+  // Datos estructurados de la ficha (SEO del catálogo, 28 oct 2026): sin oferta mientras los precios
+  // estén ocultos. Antes iba una oferta con precio 0, que Google tomaba como «gratis».
+  const jsonLdFicha = mueble
+    ? { '@context': 'https://schema.org', '@graph': [productoJsonLd(mueble), migasJsonLd(mueble)] }
+    : null;
 
   useDocumentMeta({
     title: mueble?.nombre,
@@ -366,7 +323,7 @@ const ProductDetail = () => {
                         />
                         <img
                           src={img}
-                          alt={`Miniatura ${index + 1}`}
+                          alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`}
                           className="pd-thumbnail-img"
                           width="80"
                           height="80"
@@ -379,7 +336,7 @@ const ProductDetail = () => {
                     ) : (
                       <img
                         src={img}
-                        alt={`Miniatura ${index + 1}`}
+                        alt={`${mueble.nombre}, foto ${index + 1} de ${mueble.imagenes.length}`}
                         className="pd-thumbnail-img"
                         width="80"
                         height="80"
@@ -402,9 +359,18 @@ const ProductDetail = () => {
           <nav className="pd-breadcrumbs" aria-label="Migas de pan">
             <Link to="/" className="pd-breadcrumb-link">Inicio</Link>
             <span className="pd-breadcrumb-sep">/</span>
-            <Link to="/#catalogo" className="pd-breadcrumb-link">Catálogo</Link>
-            <span className="pd-breadcrumb-sep">/</span>
-            <span className="pd-breadcrumb-current">{mueble.categoria || 'Selected Collection'}</span>
+            <Link to="/catalogo" className="pd-breadcrumb-link">Catálogo</Link>
+            {mueble.categoria && (
+              <>
+                <span className="pd-breadcrumb-sep">/</span>
+                <Link
+                  to={`/catalogo?categoria=${encodeURIComponent(mueble.categoria)}`}
+                  className="pd-breadcrumb-link"
+                >
+                  {mueble.categoria}
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Título Enorme y Favoritos */}
