@@ -20,3 +20,17 @@ describe('Home — archivos de las fotos del hero (H42)', () => {
     expect(existsSync(new URL(`../../public${ruta}`, import.meta.url))).toBe(true);
   });
 });
+
+// Las fotos de la galería de ambiente y su versión de 800 px para el móvil (srcSetGaleria en Home.jsx).
+const galeria = [...new Set(codigo.match(/\/img\/galeria-[a-z0-9-]+\.webp/g))]
+  .flatMap((ruta) => [ruta, ruta.replace(/\.webp$/, '-800.webp')]);
+
+describe('Home — archivos de la galería de ambiente', () => {
+  it('Home.jsx pide 2 fotos de galería, cada una con su versión de 800', () => {
+    expect(galeria).toHaveLength(4);
+  });
+
+  it.each(galeria)('%s está en public/', (ruta) => {
+    expect(existsSync(new URL(`../../public${ruta}`, import.meta.url))).toBe(true);
+  });
+});

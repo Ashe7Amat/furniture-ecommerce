@@ -18,7 +18,8 @@
     "format": "prettier --write src/ scripts/",
     "format:check": "prettier --check src/ scripts/",
     "secrets:generate": "node scripts/generarSecretos.js",
-    "images:optimize": "node scripts/optimizarImagenes.js"
+    "images:optimize": "node scripts/optimizarImagenes.js",
+    "fotos:miniaturas": "node scripts/miniaturasFotosAntiguas.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
