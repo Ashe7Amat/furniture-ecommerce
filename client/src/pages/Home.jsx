@@ -96,12 +96,14 @@ export default function Home() {
 
     const jsonLdLocalBusiness = {
         '@context': 'https://schema.org',
-        '@type': 'LocalBusiness',
+        // FurnitureStore es el tipo de LocalBusiness para una tienda de muebles. Sin teléfono ni horario:
+        // los de brand.config.js son de ejemplo, y Google los enseñaría como reales.
+        '@type': 'FurnitureStore',
         '@id': 'https://www.nave5barcelona.com/#localbusiness',
         'name': 'Nave 5 Barcelona',
         'image': 'https://www.nave5barcelona.com/og-image.png',
         'url': 'https://www.nave5barcelona.com',
-        'telephone': '+34 930 00 00 00',
+        'email': 'hola@nave5barcelona.com',
         'address': {
             '@type': 'PostalAddress',
             'streetAddress': 'Carrer del Plom, 32-34, interior',
@@ -109,7 +111,6 @@ export default function Home() {
             'postalCode': '08038',
             'addressCountry': 'ES'
         },
-        'openingHours': 'Mo-Fr 10:00-19:00',
         'sameAs': [
             'https://www.instagram.com/nave5bcn'
         ]

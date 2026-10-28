@@ -1,81 +1,117 @@
+// Tests de GET /sitemap.xml (SEO del catálogo, 28 oct 2026): páginas fijas, una por categoría
+// con piezas y una por ficha, sin precios, y con un sitemap mínimo si la base de datos falla.
 const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 require('./helpers/testEnv');
 
-const app = require('../index');
 const supabase = require('../data/supabase');
+const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
+const { generarSitemap } = require('../controllers/sitemapController');
 
-let fake;
-
-beforeEach(() => {
-  fake = crearFakeSupabase({
-    categorias: [
-      { id: 'cat-1', nombre: 'Sillas' },
-      { id: 'cat-2', nombre: 'Mesas Vintage' }
-    ],
-    muebles: [
-      {
-        id: 'm-1',
-        nombre: 'Silla Thonet',
-        estado: 'disponible',
-        updated_at: '2026-10-20T10:00:00Z'
-      },
-      {
-        id: 'm-2',
-        nombre: 'Aparador Nórdico',
-        estado: 'disponible',
-        created_at: '2026-10-18T10:00:00Z'
-      },
-      {
-        id: 'm-vendido',
-        nombre: 'Mesa Vendida',
-        estado: 'vendido'
-      }
-    ]
-  });
-  mock.method(supabase, 'from', fake.from);
-});
+const WEB = 'https://www.nave5barcelona.com';
+const urls = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
 afterEach(() => mock.restoreAll());
 
 describe('GET /sitemap.xml', () => {
-  test('devuelve XML válido con Content-Type application/xml; charset=utf-8', async () => {
+  let fake;
+  let columnasPedidas;
+  beforeEach(() => {
+    fake = crearFakeSupabase({
+      muebles: [
+        {
+          id: 'm1',
+          nombre: 'Silla',
+          categoria: 'Sillas y asientos',
+          precio_venta: 90,
+          created_at: '2026-10-01'
+        },
+        {
+          id: 'm2',
+          nombre: 'Mesa',
+          categoria: 'Mesas y mobiliario',
+          precio_venta: 950,
+          created_at: '2026-10-02'
+        },
+        {
+          id: 'm3',
+          nombre: 'Otra silla',
+          categoria: 'Sillas y asientos',
+          created_at: '2026-10-03'
+        },
+        { id: 'm4', nombre: 'Sin categoría', categoria: null, created_at: '2026-10-04' }
+      ]
+    });
+    columnasPedidas = [];
+    mock.method(supabase, 'from', (tabla) => {
+      const consulta = fake.from(tabla);
+      const select = consulta.select.bind(consulta);
+      consulta.select = (columnas, ...resto) => {
+        columnasPedidas.push(columnas);
+        return select(columnas, ...resto);
+      };
+      return consulta;
+    });
+  });
+
+  test('es XML, cacheable por la CDN, con las páginas fijas, las categorías y todas las fichas', async () => {
     const res = await request(app).get('/sitemap.xml');
 
     assert.equal(res.status, 200);
-    assert.match(res.headers['content-type'], /^application\/xml;\s*charset=utf-8/i);
+    assert.match(res.headers['content-type'], /^application\/xml/);
+    assert.match(res.headers['cache-control'], /^public, max-age=3600/);
     assert.ok(res.text.startsWith('<?xml version="1.0" encoding="UTF-8"?>'));
-    assert.ok(res.text.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'));
+    assert.deepEqual(urls(res.text), [
+      `${WEB}/`,
+      `${WEB}/catalogo`,
+      `${WEB}/sobre-nosotros`,
+      `${WEB}/sostenibilidad`,
+      `${WEB}/contacto`,
+      `${WEB}/legal`,
+      `${WEB}/privacidad`,
+      `${WEB}/terminos`,
+      `${WEB}/catalogo?categoria=Mesas%20y%20mobiliario`,
+      `${WEB}/catalogo?categoria=Sillas%20y%20asientos`,
+      `${WEB}/mueble/m4`,
+      `${WEB}/mueble/m3`,
+      `${WEB}/mueble/m2`,
+      `${WEB}/mueble/m1`
+    ]);
   });
 
-  test('incluye Home con prioridad 1.0 y Catálogo con 0.9', async () => {
+  test('solo pide id y categoría: los precios no pueden salir en el sitemap', async () => {
     const res = await request(app).get('/sitemap.xml');
 
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/</loc>'));
-    assert.ok(res.text.includes('<priority>1.0</priority>'));
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/catalogo</loc>'));
-    assert.ok(res.text.includes('<priority>0.9</priority>'));
+    assert.deepEqual(columnasPedidas, ['id, categoria']);
+    assert.doesNotMatch(res.text, /950|precio/);
   });
 
-  test('incluye categorías activas con prioridad 0.8', async () => {
+  test('si la base de datos falla, sirve las páginas fijas con una caché corta', async () => {
+    fake = crearFakeSupabase({ muebles: [], fallos: { 'muebles.select': { message: 'caído' } } });
+    mock.restoreAll();
+    mock.method(supabase, 'from', fake.from);
+    mock.method(console, 'error', () => {});
+
     const res = await request(app).get('/sitemap.xml');
 
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/catalogo?categoria=Sillas</loc>'));
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/catalogo?categoria=Mesas%20Vintage</loc>'));
-    assert.ok(res.text.includes('<priority>0.8</priority>'));
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['cache-control'], 'public, max-age=300');
+    assert.equal(urls(res.text).length, 8);
+  });
+});
+
+describe('generarSitemap', () => {
+  test('escapa los caracteres especiales de XML', () => {
+    const xml = generarSitemap([{ id: 'a&b', categoria: 'Mesas & <sillas>' }]);
+
+    assert.ok(xml.includes(`<loc>${WEB}/catalogo?categoria=Mesas%20%26%20%3Csillas%3E</loc>`));
+    assert.ok(xml.includes(`<loc>${WEB}/mueble/a%26b</loc>`));
+    assert.doesNotMatch(xml, /&(?!amp;|lt;|gt;|quot;|apos;)/);
   });
 
-  test('incluye solo piezas disponibles con prioridad 0.7 y fecha lastmod', async () => {
-    const res = await request(app).get('/sitemap.xml');
-
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/mueble/m-1</loc>'));
-    assert.ok(res.text.includes('<lastmod>2026-10-20</lastmod>'));
-    assert.ok(res.text.includes('<loc>https://www.nave5barcelona.com/mueble/m-2</loc>'));
-    assert.ok(res.text.includes('<priority>0.7</priority>'));
-
-    // No debe incluir la pieza vendida
-    assert.equal(res.text.includes('/mueble/m-vendido'), false);
+  test('sin muebles, solo las páginas fijas', () => {
+    assert.equal(urls(generarSitemap([])).length, 8);
   });
 });

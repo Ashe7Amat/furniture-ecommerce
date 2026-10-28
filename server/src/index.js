@@ -111,7 +111,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/ajustes', ajustesRoutes);
 
-// Ruta base de comprobación y sitemap
+// Ruta base de comprobación y sitemap (client/vercel.json lo sirve también como
+// https://www.nave5barcelona.com/sitemap.xml, que es el que anuncia robots.txt)
 app.use('/sitemap.xml', sitemapRoutes);
 app.get('/', (req, res) => {
   res.send('API del Catálogo de Muebles funcionando');

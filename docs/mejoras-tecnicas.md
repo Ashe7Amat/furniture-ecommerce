@@ -4,6 +4,37 @@ Este documento recoge el estado de las mejoras técnicas de la rama, lo que qued
 hallazgos detectados, con su estado (la auditoría de seguridad se cerró el 29 sep 2026; resumen en
 "Hallazgos"), para que no dependan del historial de una conversación.
 
+## 🔄 SEO del catálogo: 28 oct 2026 (borrador, sin merge)
+
+En `claude/project-thread-rro41c`, desde `feature/mejoras-tecnicas` (`4900ba3`). Sin tocar `main`, Vercel ni la
+base de datos (solo una lectura del catálogo publicado para medir: 83 piezas, todas `disponible`, precios a
+`null` en el público).
+
+- **Base:** el SEO que llegó de `main` con el PR #21 (`82dbfec`, 25 oct: `Seo.jsx`, `useDocumentMeta` con
+  `canonical` y `jsonLd`, `GET /sitemap.xml` en la API). Encima, lo de esta sesión.
+- **Sitemap con todas las fichas:** el de `82dbfec` pedía `updated_at`, que `muebles` no tiene; la consulta fallaba
+  en silencio y en producción salía **sin ninguna ficha** (comprobado el 28 oct en `nave5-api.vercel.app/sitemap.xml`),
+  y con todas las categorías de la tabla, también las vacías. Ahora (`sitemapController.js`) lee solo `id` y
+  `categoria` de `muebles`: páginas fijas, una por categoría con piezas y una por ficha. Si la base de datos falla,
+  da las páginas fijas con caché corta. Además la web no lo servía en su dominio (robots.txt apunta a
+  `www.nave5barcelona.com/sitemap.xml`, que daba la SPA): ahora con un rewrite en `client/vercel.json`.
+- **Datos estructurados (schema.org):** en cada ficha, `Product` (nombre, descripción, fotos, referencia como
+  `sku`, categoría) y `BreadcrumbList` (`client/src/utils/datosEstructurados.js`). **Sin precio mientras
+  `MOSTRAR_PRECIOS` no sea `true`:** la oferta solo sale si la API devuelve `precio_venta` (antes salía con precio
+  0). La tienda de la portada pasa a `FurnitureStore`, sin el teléfono ni el horario de ejemplo de
+  `brand.config.js` y con el email real.
+- **`canonical` (H34):** solo con JavaScript. Cada categoría del catálogo apunta a sí misma (antes todas a
+  `/catalogo`); los favoritos, `noindex`.
+- **Descripción para buscadores:** una descripción de menos de 80 caracteres va con el nombre delante y la tienda
+  detrás; una sin letras (NAV-MES-012 tiene «.») cuenta como vacía.
+- **Migas de pan de la ficha:** «Catálogo» iba a `/#catalogo` (la portada) y sin categoría salía «Selected
+  Collection»; ahora van a `/catalogo` y a `/catalogo?categoria=…`.
+- **Fotos:** las miniaturas de la galería dicen «{nombre}, foto N de M» en vez de «Miniatura N».
+- **`noindex`:** acceso, recuperar y nueva contraseña, confirmar email, resultado del pago, Mi cuenta y favoritos.
+- **Pendiente del usuario:** 26 piezas sin descripción y 9 con menos de 60 caracteres. Escribirlas es un cambio
+  en la base de datos de producción: necesita un OK escrito y revisar antes la tabla de propuestas.
+- **E2E:** `seo.spec.js` en verde. Con la rama al día (`caf6b1d`), fallan 18 E2E, los mismos 18 sin este PR: H64.
+
 ## 🔄 Bloque A (referencias de muebles): A1-A7 hechas, 2 oct 2026
 
 Sesiones del 1-2 oct 2026. **A1-A7 completadas** (A5-A7: informe en `docs/reporte-a5-a7.md`).
@@ -2415,6 +2446,8 @@ nuevos (H26 a H30) van debajo; los hallazgos no se arreglan sin permiso.
   previas al compartir una ficha (WhatsApp y redes), y no compensa montar un render en el servidor (Next.js o
   similar) solo para eso. Se queda como está: el SEO por ficha funciona en el navegador y en los buscadores que
   ejecutan JavaScript. Por lo mismo, `canonical` y `og:url` siguen sin añadirse (ver arriba).
+- **28 oct 2026 (SEO del catálogo):** `canonical` y `og:url` se añaden **solo con JavaScript**, por página, como el
+  título: portada, catálogo y fichas. En `index.html` sigue sin haber ninguno fijo.
 
 ### H35 · MEDIA · RENDIMIENTO · RESUELTO (5 oct 2026, `72393f0`) · El carrito de pago no tiene número máximo de piezas y hace una consulta por pieza
 
@@ -3090,6 +3123,15 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Decisiones a tomar antes de implementar:** retención de datos (ej. 90 días), si guardar IP (GDPR), quién puede ver el log.
 - **Cuándo:** En una sesión aparte, después de terminar las features 5 y 6 del panel admin.
 - **Esfuerzo estimado:** 2-3 días.
+
+### H64 · MEDIA · TESTS · PENDIENTE (anotada el 28 oct 2026) · E2E que fallan en `feature/mejoras-tecnicas`
+
+- **Qué pasa:** en `4900ba3`, sin ningún cambio, `npx playwright test` daba 11 fallos de 67 (con `/ajustes/home`
+  simulada, 9). En `caf6b1d` (la rama al día con `main`) son 18, con o sin el PR #22: 15 de `cesta.spec.js`,
+  1 de `admin.spec.js` (modo admin en la ficha), 1 de `home.spec.js` (destacadas) y 1 de `imagenes.spec.js`.
+- **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
+  rama sin PR a `main`.
+- **Qué hacer:** revisarlos antes del próximo PR a `main`, que sí los pasará por CI.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

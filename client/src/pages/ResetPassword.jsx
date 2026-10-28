@@ -4,8 +4,11 @@ import { ToastContext } from '../context/ToastContext';
 import { restablecerPassword } from '../services/api';
 import { EyeIcon, EyeOffIcon } from '../components/EyeIcons';
 import '../styles/Login.css';
+import { useDocumentMeta } from '../utils/useDocumentMeta';
 
 const ResetPassword = () => {
+  // Página privada o de paso: fuera de los buscadores (SEO del catálogo, 28 oct 2026).
+  useDocumentMeta({ title: 'Nueva contraseña', noindex: true });
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
