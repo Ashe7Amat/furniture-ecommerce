@@ -51,8 +51,6 @@ const ProductCard = ({ mueble, nivelTitulo: Titulo = 'h2' }) => {
               />
               <img
                 src={imageUrl}
-                srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
                 alt={mueble.nombre || 'Mueble'}
                 className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
                 loading="lazy"
@@ -64,8 +62,6 @@ const ProductCard = ({ mueble, nivelTitulo: Titulo = 'h2' }) => {
           ) : (
             <img
               src={imageUrl}
-              srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
               alt={mueble.nombre || 'Mueble'}
               className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
               loading="lazy"

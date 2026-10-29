@@ -77,6 +77,16 @@ describe('ProductCard', () => {
     expect(vistaRapida.getByAltText('Butaca')).toHaveAttribute('src', `${foto}-full.webp`);
   });
 
+  // El srcset repetía la misma foto como 320w, 640w y 960w: el navegador tomaba la miniatura de 400 px por
+  // una de 960 y la daba por más pequeña (163 px en un Pixel 5, e2e/imagenes.spec.js).
+  it('la foto no lleva un srcset que repite la misma URL con otros anchos', () => {
+    renderProductCard({ id: '5', nombre: 'Cómoda', imagenes: ['comoda-full.webp'], estado: 'disponible' });
+
+    const img = screen.getByAltText('Cómoda');
+    expect(img).not.toHaveAttribute('srcset');
+    expect(img).not.toHaveAttribute('sizes');
+  });
+
   it('el nombre es un h2 (catálogo) y, con nivelTitulo="h3", un h3 (portada, bajo «Piezas destacadas»)', () => {
     const mueble = { id: '6', nombre: 'Aparador', estado: 'disponible' };
     const { unmount } = renderProductCard(mueble);
