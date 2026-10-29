@@ -327,7 +327,10 @@ describe('POST /api/auth/verificar-email', () => {
     process.env.EMAIL_TOKEN_HASH_SECRET_PREVIOUS = secretoAnterior;
     try {
       const tokenViejo = 'token-emitido-con-secreto-anterior-1234';
-      const hashViejo = crypto.createHmac('sha256', secretoAnterior).update(tokenViejo).digest('hex');
+      const hashViejo = crypto
+        .createHmac('sha256', secretoAnterior)
+        .update(tokenViejo)
+        .digest('hex');
 
       instalar({
         clientes: [{ ...ANA }],

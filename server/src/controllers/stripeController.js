@@ -100,10 +100,10 @@ const recibirWebhook = async (req, res) => {
 
     case 'payment_intent.payment_failed': {
       const errorMsg = objeto.last_payment_error?.message || 'motivo no especificado';
-      console.warn(
-        `Webhook de Stripe: pago fallido en PaymentIntent ${objeto.id}: ${errorMsg}`
-      );
-      return res.status(200).json({ recibido: true, evento: 'payment_intent.payment_failed', detalle: errorMsg });
+      console.warn(`Webhook de Stripe: pago fallido en PaymentIntent ${objeto.id}: ${errorMsg}`);
+      return res
+        .status(200)
+        .json({ recibido: true, evento: 'payment_intent.payment_failed', detalle: errorMsg });
     }
 
     case 'charge.refunded': {
@@ -111,7 +111,9 @@ const recibirWebhook = async (req, res) => {
       console.info(
         `Webhook de Stripe: reembolso registrado para el cargo ${objeto.id} (${importeReembolsado} €).`
       );
-      return res.status(200).json({ recibido: true, evento: 'charge.refunded', reembolsado: importeReembolsado });
+      return res
+        .status(200)
+        .json({ recibido: true, evento: 'charge.refunded', reembolsado: importeReembolsado });
     }
 
     default:

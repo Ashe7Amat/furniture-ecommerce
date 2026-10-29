@@ -3,11 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
-const {
-  generarVariantesWebp,
-  optimizarDirectorioLocal,
-  TAMANOS
-} = require('./optimizarImagenes');
+const { generarVariantesWebp, optimizarDirectorioLocal, TAMANOS } = require('./optimizarImagenes');
 
 const FIXTURES_INPUT = path.resolve(__dirname, '__fixtures__/input');
 const FIXTURES_OUTPUT = path.resolve(__dirname, '__fixtures__/output');
