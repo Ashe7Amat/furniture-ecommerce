@@ -1370,6 +1370,12 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   `CRON_SECRET`) con los recordatorios de entrega y devolución, la ampliación de la ocupación de los retrasados
   y su aviso; y los correos de cancelación y de reembolso hecho desde el panel. Detrás de `RESERVAS_ACTIVAS`.
   Sigue pendiente de R-e solo el paso 18, la fianza.
+- Bloque R-e, paso 18 (29 oct): la fianza del 30 % (`FIANZA_PORCENTAJE`) en el presupuesto, la ficha, la página
+  de pago («Fianza reembolsable») y el email de confirmación; la recogida, como mucho a 165 días de la reserva;
+  y «Gestionar fianza» en el panel (devolverla entera o retener una parte con su motivo), con registro de
+  actividad y correo al cliente. Sin migración. El panel cancela ya por la acción «cancelar» (`reembolso_centimos`);
+  antes iba por la ruta de `cancelarReservaAdmin` del controlador con `reembolso_importe`, que con 0 € devolvía el
+  pago entero.
 - Revisión del paso 9, último revisor (19 oct): si Stripe reintenta una compra cuya venta ya se había
   cancelado (anulada en un intento anterior, o la pieza vuelta a poner a la venta), ya no se vuelve a marcar
   como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a

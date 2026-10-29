@@ -23,6 +23,7 @@ export const esInicioPosible = (fecha, disp) => {
 export const esFinPosible = (inicio, fecha, disp) => {
   const dias = diasEntre(inicio, fecha);
   if (dias < duracionMinima(disp.reglas) || dias > disp.reglas.duracion_max_dias) return false;
+  if (disp.ultima_recogida_posible && fecha > disp.ultima_recogida_posible) return false;
   if (disp.hasta && fecha > sumarDias(disp.hasta, -disp.reglas.dias_margen)) return false;
   const ultimo = ultimoFinPosible(inicio, disp.ocupado, disp.reglas.dias_margen);
   return ultimo === null || fecha <= ultimo;
@@ -49,6 +50,7 @@ export const diaElegible = ({ inicio, fin }, fecha, disp) =>
 //   ocupado, sin_hueco ......... lo ocupa otra reserva (o su margen), o no cabe un alquiler antes de la siguiente
 //   pasado, antelacion, lejos ... fuera del plazo para reservar
 //   duracion_min, duracion_max . la recogida deja el alquiler más corto o más largo de lo permitido
+//   recogida_tope .............. la recogida pasa de la última posible (a 165 días de hoy, por la fianza)
 export const motivoNoElegible = (seleccion, fecha, disp) => {
   if (diaElegible(seleccion, fecha, disp)) return null;
   const { inicio, fin } = seleccion;
@@ -57,6 +59,7 @@ export const motivoNoElegible = (seleccion, fecha, disp) => {
     if (ultimo !== null && fecha > ultimo) return 'ocupado';
     const dias = diasEntre(inicio, fecha);
     if (dias > disp.reglas.duracion_max_dias) return 'duracion_max';
+    if (disp.ultima_recogida_posible && fecha > disp.ultima_recogida_posible) return 'recogida_tope';
     if (dias < duracionMinima(disp.reglas)) return 'duracion_min';
     return 'lejos';
   }
@@ -74,11 +77,14 @@ export const GRUPO_DE_MOTIVO = {
   antelacion: 'fuera',
   lejos: 'fuera',
   duracion_min: 'fuera',
-  duracion_max: 'fuera'
+  duracion_max: 'fuera',
+  recogida_tope: 'fuera'
 };
 
 // Los meses que se pueden ver: desde el de hoy hasta el de la última recogida posible.
 export const mesesVisibles = (disp) => ({
   primero: mesDe(disp.hoy),
-  ultimo: mesDe(sumarDias(disp.ultimo_inicio_posible, disp.reglas.duracion_max_dias))
+  ultimo: mesDe(
+    disp.ultima_recogida_posible ?? sumarDias(disp.ultimo_inicio_posible, disp.reglas.duracion_max_dias)
+  )
 });

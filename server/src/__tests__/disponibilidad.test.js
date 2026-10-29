@@ -122,18 +122,22 @@ describe('calcularDisponibilidad', () => {
     assert.equal(d.comprable_desde, null);
     assert.equal(d.precio_dia_centimos, 2500);
     assert.equal(d.primer_inicio_posible, '2026-10-15');
-    assert.equal(d.ultimo_inicio_posible, '2027-04-13');
+    // La última entrega la pone la recogida a 165 días (R-e, 29 oct), no los 6 meses de antelación.
+    assert.equal(d.ultimo_inicio_posible, '2027-03-26');
+    assert.equal(d.ultima_recogida_posible, '2027-03-27');
     assert.deepEqual(d.ocupado, []);
   });
 
   test('las reglas salen tal cual, sin nombres internos', () => {
     assert.deepEqual(disponibilidad([]).reglas, {
-      version: 1,
+      version: 2,
       duracion_min_dias: 1,
       duracion_max_dias: 180,
       antelacion_min_dias: 2,
       antelacion_max_meses: 6,
       dias_margen: 2,
+      dias_max_hasta_recogida: 165,
+      fianza_porcentaje: 30,
       tramos_descuento: [
         { desde_dias: 7, porcentaje: 0 },
         { desde_dias: 30, porcentaje: 0 }

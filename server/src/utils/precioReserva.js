@@ -28,11 +28,19 @@ const dias = (n) => (n === 1 ? '1 día' : `${n} días`);
 const diasFacturados = (fechaInicio, horaEntrega, fechaFin, horaRecogida) =>
   diasEntre(fechaInicio, fechaFin) + (horaRecogida > horaEntrega ? 1 : 0);
 
-// Primer y último día en que puede empezar un alquiler reservado hoy.
-const limitesDeInicio = (hoy, reglas = REGLAS_ALQUILER) => ({
-  primerInicio: sumarDias(hoy, reglas.antelacionMinDias),
-  ultimoInicio: sumarMeses(hoy, reglas.antelacionMaxMeses)
-});
+// Primer y último día en que puede empezar un alquiler reservado hoy, y el último en que puede
+// terminar (la recogida pactada, diasMaxHastaRecogida). El último inicio deja sitio a la duración
+// mínima antes de esa última recogida.
+const limitesDeInicio = (hoy, reglas = REGLAS_ALQUILER) => {
+  const ultimaRecogida = sumarDias(hoy, reglas.diasMaxHastaRecogida);
+  const porAntelacion = sumarMeses(hoy, reglas.antelacionMaxMeses);
+  const porRecogida = sumarDias(ultimaRecogida, -Math.max(1, reglas.duracionMinDias));
+  return {
+    primerInicio: sumarDias(hoy, reglas.antelacionMinDias),
+    ultimoInicio: porRecogida < porAntelacion ? porRecogida : porAntelacion,
+    ultimaRecogida
+  };
+};
 
 // El mayor tramo alcanzado, o null si no se llega a ninguno.
 const tramoPara = (n, reglas) =>
@@ -96,7 +104,7 @@ const calcularPrecioReserva = ({
     throw new ErrorValidacion('La recogida tiene que ser después del día de entrega.');
   }
 
-  const { primerInicio, ultimoInicio } = limitesDeInicio(hoy, reglas);
+  const { primerInicio, ultimoInicio, ultimaRecogida } = limitesDeInicio(hoy, reglas);
   if (fechaInicio < primerInicio) {
     throw new ErrorValidacion(
       `La entrega más temprana posible es el ${fechaLegible(primerInicio)}.`
@@ -105,6 +113,12 @@ const calcularPrecioReserva = ({
   if (fechaInicio > ultimoInicio) {
     throw new ErrorValidacion(
       `Por ahora solo se puede reservar con entrega hasta el ${fechaLegible(ultimoInicio)}.`
+    );
+  }
+
+  if (fechaFin > ultimaRecogida) {
+    throw new ErrorValidacion(
+      `Por ahora la recogida tiene que ser, como muy tarde, el ${fechaLegible(ultimaRecogida)}.`
     );
   }
 
@@ -128,6 +142,7 @@ const calcularPrecioReserva = ({
   );
 
   const alquiler = importeAlquilerCentimos(n, precioDiaCentimos, reglas);
+  const fianza = Math.round((alquiler.importe * reglas.fianzaPorcentaje) / 100);
   return {
     version_reglas: reglas.version,
     fecha_inicio: fechaInicio,
@@ -143,11 +158,15 @@ const calcularPrecioReserva = ({
     descuento_centimos: alquiler.descuento,
     entrega: { modo: entrega, importe_centimos: importeEntrega },
     recogida: { modo: recogida, importe_centimos: importeRecogida },
-    importe_total_centimos: alquiler.importe + importeEntrega + importeRecogida,
+    // La fianza se cobra en el mismo pago y se devuelve tras la recogida (6.6): va en el total, en
+    // su propia línea, y aparte para enseñarla como "reembolsable".
+    fianza: { porcentaje: reglas.fianzaPorcentaje, importe_centimos: fianza },
+    importe_total_centimos: alquiler.importe + importeEntrega + importeRecogida + fianza,
     lineas: [
       linea('alquiler', alquiler.importe, reglas),
       linea('entrega', importeEntrega, reglas),
-      linea('recogida', importeRecogida, reglas)
+      linea('recogida', importeRecogida, reglas),
+      linea('fianza', fianza, reglas)
     ]
   };
 };

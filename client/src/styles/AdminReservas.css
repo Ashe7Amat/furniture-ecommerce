@@ -2172,3 +2172,9 @@
 }
 
 
+
+/* La fianza de una devuelta (R-e), bajo su estado. */
+.reserva-fianza-estado {
+  font-size: 0.74rem;
+  color: var(--secondary-color);
+}

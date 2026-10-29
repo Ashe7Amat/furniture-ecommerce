@@ -173,6 +173,10 @@ const filaProvisional = ({ mueble, cuenta, contacto, presupuesto, expiraEn, ahor
     importe_alquiler: euros(importeDe(presupuesto, 'alquiler')),
     importe_envio: euros(importeDe(presupuesto, 'entrega') + importeDe(presupuesto, 'recogida')),
     importe_total: euros(presupuesto.importe_total_centimos),
+    // La fianza va en el mismo pago (6.6, opción A): 'pendiente' hasta que se pague, 'garantizada'
+    // al confirmar y resuelta desde el panel tras la recogida. Sin fianza (0 %), no aplica.
+    fianza_importe: euros(presupuesto.fianza.importe_centimos),
+    fianza_estado: presupuesto.fianza.importe_centimos > 0 ? 'pendiente' : 'no_aplica',
     precio_desglose: presupuesto,
     condiciones: {
       aceptadas_en: ahora.toISOString(),
@@ -218,6 +222,16 @@ const lineasDeStripe = (mueble, p) => {
       const donde = trayecto.modo === 'domicilio' ? 'a domicilio' : 'en la tienda';
       lineas.push(linea(`${nombre} ${donde}`, trayecto.importe_centimos));
     }
+  }
+  if (p.fianza.importe_centimos > 0) {
+    lineas.push(
+      linea(
+        'Fianza reembolsable',
+        p.fianza.importe_centimos,
+        `${p.fianza.porcentaje} % del alquiler. Te la devolvemos en esta misma tarjeta después ` +
+          'de la recogida, cuando revisemos la pieza.'
+      )
+    );
   }
   return lineas;
 };
@@ -387,7 +401,7 @@ const ESTADOS_YA_CONFIRMADA = ['confirmada', 'en_curso', 'devuelta'];
 const COLUMNAS_RESERVA_PAGADA =
   'id, mueble_id, estado, cliente_id, stripe_session_id, fecha_inicio, hora_entrega, fecha_fin, ' +
   'hora_recogida, modo_entrega, modo_devolucion, direccion_entrega, datos_contacto, ' +
-  'importe_alquiler, precio_desglose';
+  'importe_alquiler, precio_desglose, fianza_importe';
 
 const leerReserva = async (id, columnas) => {
   const { data, error } = await supabase
@@ -479,7 +493,9 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
         estado: 'confirmada',
         stripe_session_id: session.id,
         stripe_payment_intent_id: idPago(session),
-        expira_en: null
+        expira_en: null,
+        // Con el pago, la fianza queda cobrada y a la espera de la recogida.
+        ...(Number(reserva.fianza_importe) > 0 && { fianza_estado: 'garantizada' })
       })
       .eq('id', reserva.id)
       .in('estado', ['pendiente', 'expirada'])
@@ -584,6 +600,7 @@ const procesarReservaPagada = async (session, ahora = new Date()) => {
       modoEntrega: reserva.modo_entrega,
       modoRecogida: reserva.modo_devolucion,
       direccion: reserva.direccion_entrega,
+      fianza: Number(reserva.fianza_importe) || 0,
       total
     }
   };

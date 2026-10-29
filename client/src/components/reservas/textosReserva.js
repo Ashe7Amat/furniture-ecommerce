@@ -25,9 +25,22 @@ export const SESION_CADUCADA = 'Tu sesión ha caducado. Vuelve a iniciar sesión
 
 // Los plazos del calendario, escritos debajo de él para que la clienta sepa por qué hay días que no puede
 // elegir. Solo dice lo que el servidor ha mandado (`reglas` de GET /api/muebles/:id/disponibilidad).
-export const textoPlazos = ({ antelacion_min_dias: min, antelacion_max_meses: meses, dias_margen: margen }) => {
+export const textoPlazos = ({
+  antelacion_min_dias: min,
+  antelacion_max_meses: meses,
+  dias_margen: margen,
+  dias_max_hasta_recogida: tope
+}) => {
   const partes = [];
-  if (Number.isFinite(min) && Number.isFinite(meses)) {
+  // Con el tope de la recogida (R-e, por la fianza), es él quien pone el límite y no los meses vista.
+  if (Number.isFinite(min) && Number.isFinite(tope)) {
+    const recogida = `la recogida tiene que ser, como muy tarde, dentro de ${textoDias(tope)}`;
+    partes.push(
+      min > 0
+        ? `Se reserva con ${textoDias(min)} de antelación como mínimo, y ${recogida}.`
+        : `Se puede reservar desde hoy, y ${recogida}.`
+    );
+  } else if (Number.isFinite(min) && Number.isFinite(meses)) {
     partes.push(
       min > 0
         ? `Se reserva con ${textoDias(min)} de antelación como mínimo y hasta ${textoMeses(meses)} vista.`
@@ -60,6 +73,10 @@ export const textoMotivo = (motivo, reglas = {}) => {
       return Number.isFinite(reglas.duracion_max_dias)
         ? `el alquiler máximo es de ${textoDias(reglas.duracion_max_dias)}`
         : 'el alquiler es demasiado largo';
+    case 'recogida_tope':
+      return Number.isFinite(reglas.dias_max_hasta_recogida)
+        ? `la recogida tiene que ser dentro de ${textoDias(reglas.dias_max_hasta_recogida)} como mucho`
+        : 'la recogida queda demasiado lejos';
     default:
       return 'ocupado';
   }

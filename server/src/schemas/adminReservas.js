@@ -148,7 +148,27 @@ const SCHEMAS_ACCION = {
       })
       .optional()
   }),
-  'levantar-bloqueo': sinDatos
+  'levantar-bloqueo': sinDatos,
+  // Lo que se retiene de la fianza (0 = se devuelve entera) y, si se retiene algo, por qué. Que no
+  // pase de la fianza lo decide utils/adminReservas.js, que conoce la fila. Al terminar una que se
+  // quedó a medias, el cuerpo no cuenta: manda lo que se decidió la primera vez.
+  'devolver-fianza': z
+    .object({
+      retener_centimos: z
+        .number({ error: () => 'Indica lo que se retiene en céntimos (0 si se devuelve entera).' })
+        .int('Lo que se retiene tiene que ser un número entero de céntimos.')
+        .min(0, 'Lo que se retiene no puede ser negativo.')
+        .optional(),
+      motivo_retencion: z
+        .string()
+        .trim()
+        .max(MAX_MOTIVO, `El motivo es demasiado largo (máximo ${MAX_MOTIVO} caracteres).`)
+        .optional()
+    })
+    .refine((datos) => !(datos.retener_centimos > 0) || Boolean(datos.motivo_retencion), {
+      message: 'Escribe el motivo por el que retienes parte de la fianza.',
+      path: ['motivo_retencion']
+    })
 };
 
 // POST /api/admin/reservas/bloqueos
