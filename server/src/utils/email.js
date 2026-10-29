@@ -751,6 +751,146 @@ const construirConflictoReserva = ({ nombre, reserva }) => {
 const enviarConflictoReserva = ({ email, nombre, reserva }) =>
   enviarCorreoCuenta({ tipo: 'reserva sin confirmar', para: email, ...construirConflictoReserva({ nombre, reserva }) });
 
+// ─── El resto del ciclo de la reserva (R-e, paso 20) ─────────────────────────────────────────────
+// Los recordatorios y el aviso de retraso los envía la tarea diaria (utils/tareaDiariaReservas.js);
+// la cancelación y el reembolso, las acciones del panel (utils/adminReservas.js). `reserva` lleva lo
+// mismo que en la confirmación; cada correo usa solo lo que necesita. Nada de la fianza ni de la
+// penalización por retraso: llegan con su parte de R-e, cuando el cliente las confirme.
+const CONTACTO_RESERVA = 'Si necesitas cambiar algo, escríbenos desde la página de contacto o responde a este correo.';
+
+// Un correo de texto con su bloque de datos: frases antes, filas [etiqueta, valor] y frases después.
+const construirCorreoReserva = ({ titulo, asunto, antes, datos = [], despues = [] }) => {
+  const filas = datos.filter(([, valor]) => valor);
+  const cuerpo = [
+    ...antes.map((frase) => parrafo(escaparHtml(frase))),
+    filas.length > 0
+      ? bloqueDatos(filas.map(([etiqueta, valor]) => filaDato(etiqueta, escaparHtml(valor))).join(''))
+      : '',
+    ...despues.map((frase, i) => parrafo(`${i === 0 && filas.length > 0 ? '<br>' : ''}${escaparHtml(frase)}`))
+  ].join('');
+  return {
+    asunto,
+    html: maquetarEmail({ titulo, cuerpo }),
+    texto: textoPlano(titulo, [
+      ...antes,
+      ...(filas.length > 0 ? ['', ...filas.map(([etiqueta, valor]) => `${etiqueta}: ${valor}`)] : []),
+      ...(despues.length > 0 ? ['', ...despues] : [])
+    ])
+  };
+};
+
+const construirRecordatorioEntrega = ({ nombre, reserva }) => {
+  const enTienda = reserva.modoEntrega === 'tienda';
+  return construirCorreoReserva({
+    titulo: 'Tu alquiler empieza pronto',
+    asunto: `Recordatorio: ${reserva.pieza}, el ${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)}`,
+    antes: [
+      `Hola, ${nombre || ''}:`,
+      enTienda
+        ? `Te esperamos en la tienda el ${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)} para que recojas ${reserva.pieza}.`
+        : `Te llevaremos ${reserva.pieza} el ${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)} a la dirección que nos diste.`
+    ],
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Pieza', reserva.pieza],
+      ['Entrega', `${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)}, ${dondeTrayecto(reserva.modoEntrega)}`],
+      ['Dirección', enTienda ? null : reserva.direccion],
+      ['Devolución', `${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}, ${dondeTrayecto(reserva.modoRecogida)}`]
+    ],
+    despues: [CONTACTO_RESERVA]
+  });
+};
+
+const enviarRecordatorioEntrega = ({ email, nombre, reserva }) =>
+  enviarCorreoCuenta({ tipo: 'recordatorio de entrega', para: email, ...construirRecordatorioEntrega({ nombre, reserva }) });
+
+const construirRecordatorioRecogida = ({ nombre, reserva }) => {
+  const enTienda = reserva.modoRecogida === 'tienda';
+  return construirCorreoReserva({
+    titulo: 'Tu alquiler termina pronto',
+    asunto: `Recordatorio: devolución de ${reserva.pieza}, el ${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}`,
+    antes: [
+      `Hola, ${nombre || ''}:`,
+      enTienda
+        ? `Te recordamos que tienes que devolver ${reserva.pieza} en la tienda el ${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}.`
+        : `Pasaremos a recoger ${reserva.pieza} el ${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)} en la dirección de la entrega.`
+    ],
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Pieza', reserva.pieza],
+      ['Devolución', `${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}, ${dondeTrayecto(reserva.modoRecogida)}`]
+    ],
+    despues: [
+      'Si quieres alargar el alquiler, escríbenos cuanto antes y miramos si las fechas siguen libres.',
+      CONTACTO_RESERVA
+    ]
+  });
+};
+
+const enviarRecordatorioRecogida = ({ email, nombre, reserva }) =>
+  enviarCorreoCuenta({ tipo: 'recordatorio de devolución', para: email, ...construirRecordatorioRecogida({ nombre, reserva }) });
+
+const construirAvisoRetraso = ({ nombre, reserva }) =>
+  construirCorreoReserva({
+    titulo: 'Tu alquiler ha terminado',
+    asunto: `Devolución pendiente: ${reserva.pieza}`,
+    antes: [
+      `Hola, ${nombre || ''}:`,
+      `El alquiler de ${reserva.pieza} terminaba el ${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)} y todavía no nos consta la devolución.`,
+      'Escríbenos o llámanos hoy para acordar cuándo la devuelves. Puede que otra persona la tenga reservada para los próximos días.'
+    ],
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Pieza', reserva.pieza]
+    ],
+    despues: ['Si ya la has devuelto, no hagas caso de este correo: lo apuntaremos enseguida.']
+  });
+
+const enviarAvisoRetraso = ({ email, nombre, reserva }) =>
+  enviarCorreoCuenta({ tipo: 'aviso de retraso', para: email, ...construirAvisoRetraso({ nombre, reserva }) });
+
+// `reembolso`: lo que se devolverá, en euros (0 si la cancelación no lleva reembolso). El motivo que
+// escribe el administrador no sale en el correo: es una nota del panel.
+const construirCancelacionReserva = ({ nombre, reserva, reembolso }) =>
+  construirCorreoReserva({
+    titulo: 'Tu reserva está cancelada',
+    asunto: `Reserva cancelada: ${reserva.pieza}`,
+    antes: [
+      `Hola, ${nombre || ''}:`,
+      `Hemos cancelado tu reserva de ${reserva.pieza}.`,
+      reembolso > 0
+        ? `Te devolveremos ${eurosReserva(reembolso)} en la misma tarjeta con la que pagaste. Te escribiremos cuando el reembolso esté hecho.`
+        : 'Esta cancelación no lleva reembolso.'
+    ],
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Pieza', reserva.pieza],
+      ['Fechas', `del ${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)} al ${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}`]
+    ],
+    despues: ['Si tienes cualquier duda, escríbenos desde la página de contacto o responde a este correo.']
+  });
+
+const enviarCancelacionReserva = ({ email, nombre, reserva, reembolso }) =>
+  enviarCorreoCuenta({ tipo: 'cancelación de reserva', para: email, ...construirCancelacionReserva({ nombre, reserva, reembolso }) });
+
+const construirReembolsoReserva = ({ nombre, reserva, reembolso }) =>
+  construirCorreoReserva({
+    titulo: 'Reembolso hecho',
+    asunto: `Reembolso de tu reserva: ${reserva.pieza}`,
+    antes: [
+      `Hola, ${nombre || ''}:`,
+      `Ya hemos hecho el reembolso de ${eurosReserva(reembolso)} de tu reserva de ${reserva.pieza}, en la misma tarjeta con la que pagaste.`,
+      'Según el banco, puede tardar entre 5 y 10 días hábiles en aparecer en tu cuenta.'
+    ],
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Importe devuelto', eurosReserva(reembolso)]
+    ]
+  });
+
+const enviarReembolsoReserva = ({ email, nombre, reserva, reembolso }) =>
+  enviarCorreoCuenta({ tipo: 'reembolso de reserva', para: email, ...construirReembolsoReserva({ nombre, reserva, reembolso }) });
+
 // Aviso operativo al administrador: algo que requiere que una persona intervenga (una
 // doble venta, un pago cobrado que no se pudo registrar...). `detalles` es una lista de
 // frases; todo se escapa antes de ir al HTML. Como los avisos de venta, nunca lanza: un
@@ -850,6 +990,7 @@ module.exports = {
   enviarNotificacionVenta, enviarConfirmacionCliente, enviarEmailBienvenida, enviarMensajeContacto, enviarAlertaAdmin,
   enviarConfirmarRegistro, enviarCuentaActivada, enviarConfirmarCambioEmail, enviarAvisoCambioEmail,
   enviarCuentaProtegida, ocultarEmail, enviarConfirmacionReserva, enviarConflictoReserva,
-  enviarEmailRecuperacion
+  enviarRecordatorioEntrega, enviarRecordatorioRecogida, enviarAvisoRetraso, enviarCancelacionReserva,
+  enviarReembolsoReserva, enviarEmailRecuperacion
 };
 

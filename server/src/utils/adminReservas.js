@@ -13,6 +13,7 @@
 // hicieron fuera del panel y «Dar por reembolsado».
 const supabase = require('../data/supabase');
 const stripeUtil = require('./stripe');
+const email = require('./email');
 const { ErrorValidacion, ErrorConflicto, ErrorNoEncontrado } = require('./errores');
 const { ESTADOS_QUE_OCUPAN, ocupaElCalendario } = require('./disponibilidad');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
@@ -671,6 +672,43 @@ const moverPieza = async (muebleId, nuevo, desde = null) => {
   }
 };
 
+// ─── Correos al cliente (R-e, paso 20) ──────────────────────────────────────────────────────────
+
+// Lo que necesitan los correos de una reserva (el formato de la confirmación, utils/email.js).
+const datosDelCorreo = (fila, pieza) => ({
+  email: fila.datos_contacto?.email,
+  nombre: fila.datos_contacto?.nombre,
+  reserva: {
+    pedidoId: fila.pedido_id,
+    pieza: pieza || 'tu pieza',
+    fechaInicio: fila.fecha_inicio,
+    horaEntrega: horaCorta(fila.hora_entrega),
+    fechaFin: fila.fecha_fin,
+    horaRecogida: horaCorta(fila.hora_recogida),
+    modoEntrega: fila.modo_entrega,
+    modoRecogida: fila.modo_devolucion,
+    direccion: fila.direccion_entrega
+  }
+});
+
+// La cancelación y el reembolso de un alquiler se cuentan al cliente, si dejó email. No a los de un
+// contrato antiguo (origen 'legacy'), que el administrador lleva a mano, ni a bloqueos ni ventas. Un
+// fallo aquí no rompe la acción, que ya está hecha (como los demás correos, solo queda en el log).
+const avisarAlCliente = async (fila, enviar, extra = {}) => {
+  if (fila?.tipo !== 'alquiler' || fila.origen === 'legacy' || !fila.datos_contacto?.email) return;
+  try {
+    const piezas = await leerPiezas([fila.mueble_id]);
+    await enviar({ ...datosDelCorreo(fila, piezas.get(fila.mueble_id)?.nombre), ...extra });
+  } catch (error) {
+    console.error(`No se pudo avisar al cliente de la reserva ${fila.id}:`, error.message || error);
+  }
+};
+
+const avisarDelReembolso = (fila) =>
+  avisarAlCliente(fila, email.enviarReembolsoReserva, {
+    reembolso: Number(fila.reembolso_importe)
+  });
+
 // ─── Acciones sobre una reserva (8.3) ────────────────────────────────────────────────────────────
 
 const NO_SE_PUEDE = {
@@ -1203,15 +1241,30 @@ const cancelar = async (id, { motivo, reembolso_centimos: reembolso }, ahora) =>
     }
   });
   if (reserva.tipo === 'venta') await moverPieza(reserva.mueble_id, 'disponible', 'vendido');
+  await avisarAlCliente(reserva, email.enviarCancelacionReserva, {
+    reembolso: reembolso > 0 ? euros(reembolso) : 0
+  });
   if (!reembolsoAMedias(reserva)) return { reserva };
-  return reembolsar(reserva, { buscarAntes: false, ahora, siFalla: MENSAJE_REEMBOLSO_A_MEDIAS });
+  const resultado = await reembolsar(reserva, {
+    buscarAntes: false,
+    ahora,
+    siFalla: MENSAJE_REEMBOLSO_A_MEDIAS
+  });
+  if (resultado.reserva?.stripe_refund_id) await avisarDelReembolso(resultado.reserva);
+  return resultado;
 };
 
 // «Reintentar reembolso» (8.6, capa 3): solo para las que se quedaron a medias.
 const reintentarReembolso = async (id, _datos, ahora) => {
   const fila = await leerReserva(id);
   comprobarAccion(fila, 'reintentar-reembolso', contextoDe(ahora));
-  return reembolsar(fila, { buscarAntes: true, ahora, siFalla: MENSAJE_REINTENTO_FALLIDO });
+  const resultado = await reembolsar(fila, {
+    buscarAntes: true,
+    ahora,
+    siFalla: MENSAJE_REINTENTO_FALLIDO
+  });
+  if (resultado.reserva?.stripe_refund_id) await avisarDelReembolso(resultado.reserva);
+  return resultado;
 };
 
 // Lo que Stripe dice haber devuelto de este pago desde que se pidió el reembolso, en céntimos (cuenta lo
@@ -1277,6 +1330,9 @@ const darPorReembolsado = async (id, { aunque_no_conste: aunqueNoConste = false 
       };
     }
   });
+  // Solo si Stripe confirma lo devuelto: el correo dice «en la misma tarjeta», y con
+  // `aunque_no_conste` se devolvió por otro medio (una transferencia), que el administrador cuenta él.
+  if (!aunqueNoConste) await avisarDelReembolso(reserva);
   return { reserva };
 };
 
@@ -1501,5 +1557,8 @@ module.exports = {
   crearAlquiler,
   crearVenta,
   moverPieza,
-  leerReserva
+  leerReserva,
+  buscarChoques,
+  describirReserva,
+  datosDelCorreo
 };

@@ -1366,6 +1366,10 @@ colaborador. H34 · sin `canonical` ni `og:url`; se añaden cuando haya SEO por 
   servidor permite, y las tres altas sin pago web. Detrás de `VITE_RESERVAS_ACTIVAS`. Revisión de «Dar por
   reembolsado»: ahora comprueba en Stripe que conste lo devuelto. R-e (la fianza, bloqueada hasta que Stripe
   confirme por escrito el reembolso a ~194 días) y R-f (textos legales del cliente) siguen pendientes.
+- Bloque R-e, pasos 19 y 20 (29 oct, sin la fianza): la tarea diaria `GET /api/cron/reservas` (Vercel Cron,
+  `CRON_SECRET`) con los recordatorios de entrega y devolución, la ampliación de la ocupación de los retrasados
+  y su aviso; y los correos de cancelación y de reembolso hecho desde el panel. Detrás de `RESERVAS_ACTIVAS`.
+  Sigue pendiente de R-e solo el paso 18, la fianza.
 - Revisión del paso 9, último revisor (19 oct): si Stripe reintenta una compra cuya venta ya se había
   cancelado (anulada en un intento anterior, o la pieza vuelta a poner a la venta), ya no se vuelve a marcar
   como vendida en silencio: se avisa al administrador. El doble clic de una reserva recibe "vuelve a

@@ -2,5 +2,8 @@
   "version": 2,
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/cron/reservas", "schedule": "0 8 * * *" }
   ]
 }

@@ -13,6 +13,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const reservasRoutes = require('./routes/reservasRoutes');
 const ajustesRoutes = require('./routes/ajustesRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const cronRoutes = require('./routes/cronRoutes');
 const sitemapRoutes = require('./routes/sitemapRoutes');
 const { ErrorValidacion } = require('./utils/errores');
 
@@ -110,6 +111,7 @@ app.use('/api/contacto', contactoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/ajustes', ajustesRoutes);
+app.use('/api/cron', cronRoutes);
 
 // Ruta base de comprobación y sitemap (client/vercel.json lo sirve también como
 // https://www.nave5barcelona.com/sitemap.xml, que es el que anuncia robots.txt)
