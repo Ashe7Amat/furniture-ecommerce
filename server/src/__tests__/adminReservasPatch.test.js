@@ -113,36 +113,22 @@ describe('Endpoints R-d: Entrega, Recogida, Cancelación y Bloqueo', () => {
     assert.equal(mueble.estado, 'disponible');
   });
 
-  test('POST /api/admin/reservas/:id/cancelar cancela reserva, reembolsa con Stripe, libera mueble y anota en audit_log', async () => {
-    // Mueble alquilado porque la reserva pagada está en_curso
+  // La ruta antigua de cancelar (sin `reembolso_centimos`, que con 0 € devolvía el pago entero) ya no
+  // existe: la URL la atiende la acción «cancelar», que exige el importe y no toca Stripe sin él.
+  test('POST /api/admin/reservas/:id/cancelar sin reembolso_centimos: 400, sin reembolso ni cambios', async () => {
     fake.tablas.muebles.find((m) => m.id === MESA).estado = 'alquilado';
 
     const res = await request(app)
       .post(`/api/admin/reservas/${RESERVA_PAGADA}/cancelar`)
       .set('Authorization', `Bearer ${TOKEN_ADMIN}`)
-      .send({ motivo: 'Cancelada por el cliente' });
+      .send({ motivo: 'Cancelada por el cliente', reembolso_importe: 0 });
 
-    assert.equal(res.status, 200);
-    assert.equal(res.body.reserva.estado, 'cancelada');
-    assert.equal(res.body.reembolsado, true);
-
-    // Comprobamos llamada a Stripe refund
-    assert.equal(stripeMock.refunds.create.mock.calls.length, 1);
-    assert.equal(
-      stripeMock.refunds.create.mock.calls[0].arguments[0].payment_intent,
-      'pi_test_123'
-    );
-
-    // Mueble liberado a disponible (no tiene otras reservas ocupando hoy)
-    const mueble = fake.tablas.muebles.find((m) => m.id === MESA);
-    assert.equal(mueble.estado, 'disponible');
-
-    // Anotado en Audit Log
-    const audit = fake.tablas.audit_log.find(
-      (a) => a.entidad === 'reservas' && a.entidad_id === RESERVA_PAGADA
-    );
-    assert.ok(audit, 'Debe existir entrada en audit_log');
-    assert.equal(audit.accion, 'cancelar');
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'Indica el reembolso en céntimos (0 si no se devuelve nada).');
+    assert.equal(stripeMock.refunds.create.mock.calls.length, 0);
+    assert.equal(fake.tablas.reservas.find((r) => r.id === RESERVA_PAGADA).estado, 'en_curso');
+    assert.equal(fake.tablas.muebles.find((m) => m.id === MESA).estado, 'alquilado');
+    assert.equal(fake.tablas.audit_log.length, 0);
   });
 
   test('POST /api/admin/reservas/bloqueo crea una reserva de tipo bloqueo', async () => {
