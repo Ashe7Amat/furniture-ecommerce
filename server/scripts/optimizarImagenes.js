@@ -78,7 +78,14 @@ const optimizarDirectorioLocal = async (inputDir, outputDir) => {
 
   const archivos = fs.readdirSync(inputDir).filter((f) => /\.(jpe?g|png)$/i.test(f));
   if (archivos.length === 0) {
-    return { procesados: 0, omitidos: 0, bytesOriginales: 0, bytesNuevos: 0, ahorroBytes: 0, ahorroPorcentaje: 0 };
+    return {
+      procesados: 0,
+      omitidos: 0,
+      bytesOriginales: 0,
+      bytesNuevos: 0,
+      ahorroBytes: 0,
+      ahorroPorcentaje: 0
+    };
   }
 
   let totalOriginal = 0;
@@ -92,7 +99,9 @@ const optimizarDirectorioLocal = async (inputDir, outputDir) => {
     const statOriginal = fs.statSync(rutaEntrada);
 
     // Verificar si ya existen los 3 tamaños (idempotencia)
-    const existenTodos = TAMANOS.every((t) => fs.existsSync(path.join(outputDir, `${base}${t.sufijo}`)));
+    const existenTodos = TAMANOS.every((t) =>
+      fs.existsSync(path.join(outputDir, `${base}${t.sufijo}`))
+    );
     if (existenTodos) {
       omitidos++;
       continue;
@@ -132,14 +141,20 @@ const optimizarDirectorioLocal = async (inputDir, outputDir) => {
  * @param {string} bucketName
  * @param {string} carpeta Prefijo dentro del bucket ('muebles' o 'uploads')
  */
-const optimizarBucketSupabase = async (supabaseClient, bucketName = 'imagenes', carpeta = 'muebles') => {
+const optimizarBucketSupabase = async (
+  supabaseClient,
+  bucketName = 'imagenes',
+  carpeta = 'muebles'
+) => {
   const { data: archivos, error } = await supabaseClient.storage.from(bucketName).list(carpeta, {
     limit: 500,
     sortBy: { column: 'name', order: 'asc' }
   });
 
   if (error) {
-    throw new Error(`Error al listar archivos de Supabase Storage en ${bucketName}/${carpeta}: ${error.message}`);
+    throw new Error(
+      `Error al listar archivos de Supabase Storage en ${bucketName}/${carpeta}: ${error.message}`
+    );
   }
 
   const imagenes = (archivos || []).filter((f) => /\.(jpe?g|png)$/i.test(f.name));
@@ -229,7 +244,9 @@ const main = async () => {
       resultado = await optimizarBucketSupabase(supabase, 'imagenes');
       modo = 'Supabase Storage';
     } catch (err) {
-      console.warn(`Aviso de conexión con Supabase: ${err.message}. Pasando a procesamiento local...`);
+      console.warn(
+        `Aviso de conexión con Supabase: ${err.message}. Pasando a procesamiento local...`
+      );
       resultado = await optimizarDirectorioLocal(inputDir, outputDir);
     }
   } else {
@@ -243,7 +260,9 @@ const main = async () => {
   console.log(`  - Imágenes omitidas (ya existían): ${resultado.omitidos}`);
   console.log(`  - Peso original: ${(resultado.bytesOriginales / 1024).toFixed(1)} KiB`);
   console.log(`  - Peso optimizado WebP: ${(resultado.bytesNuevos / 1024).toFixed(1)} KiB`);
-  console.log(`  - Ahorro de espacio: ${(resultado.ahorroBytes / 1024).toFixed(1)} KiB (${resultado.ahorroPorcentaje}%)`);
+  console.log(
+    `  - Ahorro de espacio: ${(resultado.ahorroBytes / 1024).toFixed(1)} KiB (${resultado.ahorroPorcentaje}%)`
+  );
   console.log('====================================================');
 
   return resultado;

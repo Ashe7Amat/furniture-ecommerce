@@ -464,7 +464,10 @@ describe('mantenimiento y el doble', () => {
 
     try {
       const rawToken = 'token-antiguo-generado-previamente-1234';
-      const hashAntiguo = crypto.createHmac('sha256', fallbackSecret).update(rawToken).digest('hex');
+      const hashAntiguo = crypto
+        .createHmac('sha256', fallbackSecret)
+        .update(rawToken)
+        .digest('hex');
 
       fake = crearFakeSupabase({
         clientes: [cuenta('cli-ana', 'ana@example.com')],
@@ -510,7 +513,10 @@ describe('mantenimiento y el doble', () => {
 
     try {
       const rawToken = 'token-antiguo-para-logout-1234';
-      const hashAntiguo = crypto.createHmac('sha256', fallbackSecret).update(rawToken).digest('hex');
+      const hashAntiguo = crypto
+        .createHmac('sha256', fallbackSecret)
+        .update(rawToken)
+        .digest('hex');
 
       fake = crearFakeSupabase({
         refresh_tokens: [
@@ -537,4 +543,3 @@ describe('mantenimiento y el doble', () => {
     }
   });
 });
-

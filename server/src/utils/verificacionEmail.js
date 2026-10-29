@@ -38,7 +38,10 @@ const secretoFallback = () =>
   process.env.EMAIL_TOKEN_HASH_SECRET_PREVIOUS || process.env.EMAIL_TOKEN_HASH_FALLBACK;
 
 const hashear = (token, secretoAlternativo) =>
-  crypto.createHmac('sha256', secretoAlternativo || secreto()).update(String(token)).digest('hex');
+  crypto
+    .createHmac('sha256', secretoAlternativo || secreto())
+    .update(String(token))
+    .digest('hex');
 
 const tabla = () => supabase.from('verificaciones_email');
 

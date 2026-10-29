@@ -89,9 +89,9 @@ describe('Endpoints R-d: Entrega, Recogida, Cancelación y Bloqueo', () => {
 
     assert.equal(res.status, 200);
     assert.equal(res.body.reserva.estado, 'en_curso');
-    
+
     // Verificamos que el mueble pasó a alquilado
-    const mueble = fake.tablas.muebles.find(m => m.id === SOFA);
+    const mueble = fake.tablas.muebles.find((m) => m.id === SOFA);
     assert.equal(mueble.estado, 'alquilado');
   });
 
@@ -109,13 +109,13 @@ describe('Endpoints R-d: Entrega, Recogida, Cancelación y Bloqueo', () => {
     assert.equal(res.body.reserva.estado, 'devuelta');
 
     // Verificamos que el mueble pasó a disponible
-    const mueble = fake.tablas.muebles.find(m => m.id === SOFA);
+    const mueble = fake.tablas.muebles.find((m) => m.id === SOFA);
     assert.equal(mueble.estado, 'disponible');
   });
 
   test('POST /api/admin/reservas/:id/cancelar cancela reserva, reembolsa con Stripe, libera mueble y anota en audit_log', async () => {
     // Mueble alquilado porque la reserva pagada está en_curso
-    fake.tablas.muebles.find(m => m.id === MESA).estado = 'alquilado';
+    fake.tablas.muebles.find((m) => m.id === MESA).estado = 'alquilado';
 
     const res = await request(app)
       .post(`/api/admin/reservas/${RESERVA_PAGADA}/cancelar`)
@@ -134,12 +134,12 @@ describe('Endpoints R-d: Entrega, Recogida, Cancelación y Bloqueo', () => {
     );
 
     // Mueble liberado a disponible (no tiene otras reservas ocupando hoy)
-    const mueble = fake.tablas.muebles.find(m => m.id === MESA);
+    const mueble = fake.tablas.muebles.find((m) => m.id === MESA);
     assert.equal(mueble.estado, 'disponible');
 
     // Anotado en Audit Log
     const audit = fake.tablas.audit_log.find(
-      a => a.entidad === 'reservas' && a.entidad_id === RESERVA_PAGADA
+      (a) => a.entidad === 'reservas' && a.entidad_id === RESERVA_PAGADA
     );
     assert.ok(audit, 'Debe existir entrada en audit_log');
     assert.equal(audit.accion, 'cancelar');

@@ -56,7 +56,10 @@ const obtenerAjustesHome = async (req, res) => {
 // PUT /api/admin/ajustes/home (admin): actualiza hero_imagenes, productos_destacados,
 // imagenes_seccion_inspiracion y/o imagen_seccion_sostenibilidad
 const actualizarAjustesHome = async (req, res) => {
-  console.log('[PUT /api/admin/ajustes/home] req.body recibido:', JSON.stringify(req.body, null, 2));
+  console.log(
+    '[PUT /api/admin/ajustes/home] req.body recibido:',
+    JSON.stringify(req.body, null, 2)
+  );
   try {
     const {
       hero_imagenes,

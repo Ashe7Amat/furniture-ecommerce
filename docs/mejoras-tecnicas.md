@@ -3162,6 +3162,16 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
     en la pasada completa: por eso se creyó primero que era carga.
 - **Si se monta CI para esta rama:** correr los E2E con menos paralelismo (`--workers=2`) o en un runner con más
   memoria, para separar los fallos reales de los de carga.
+- **29 oct 2026, con el PR #28 en `main`** (E2E ya en `ubuntu-24.04`): la CI los pasa por primera vez. Los 3 se
+  arreglan, y en el primero la causa no era axe:
+  - «modo admin en la ficha»: bug real. El ResizeObserver de `BarraAdmin.jsx` medía `barra.current` cuando ya era
+    null (al pulsar «Editar en panel») y dejaba un error en la consola. Ahora mide sobre el nodo guardado.
+  - «destacadas»: el test estaba bien. Desde `3d78fe7` la portada usa `ProductCard` (título h2, al nivel de «Piezas
+    destacadas»). `ProductCard` acepta `nivelTitulo` y la portada pasa h3.
+  - «miniatura en móvil»: bug real. La foto de la tarjeta llevaba un `srcSet` con la misma URL como 320w, 640w y
+    960w, y el navegador le calculaba 163 px de ancho natural. Se quita.
+  - En local, con Chrome 153: 67/67. Quedan los 2 del hero (H49) en la CI, que usa el Chromium 141 de Playwright
+    1.56: la foto del hero aparece pedida dos veces. Pendiente de ver si es una segunda descarga real.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 

@@ -15,10 +15,7 @@ const conTimeout = (promesa, ms = 2000) => {
 
 const pingSupabase = async () => {
   try {
-    const res = await conTimeout(
-      supabase.from('muebles').select('id').limit(1),
-      2000
-    );
+    const res = await conTimeout(supabase.from('muebles').select('id').limit(1), 2000);
     if (res?.error) return 'fail';
     return 'ok';
   } catch {
@@ -38,10 +35,7 @@ const pingStripe = async () => {
 };
 
 const obtenerEstadoSalud = async (req, res) => {
-  const [supabaseCheck, stripeCheck] = await Promise.all([
-    pingSupabase(),
-    pingStripe()
-  ]);
+  const [supabaseCheck, stripeCheck] = await Promise.all([pingSupabase(), pingStripe()]);
 
   let status = 'ok';
   if (supabaseCheck === 'fail' && stripeCheck === 'fail') {

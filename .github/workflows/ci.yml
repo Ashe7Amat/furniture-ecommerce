@@ -69,7 +69,9 @@ jobs:
 
   e2e:
     name: E2E (Playwright, no bloqueante)
-    runs-on: ubuntu-latest
+    # Fijado a 24.04: desde oct 2026 ubuntu-latest es Ubuntu 26.04, y Playwright 1.56 no instala Chromium ahí
+    # ("Playwright does not support chromium on ubuntu26.04-x64"). Se puede volver a latest al subir Playwright.
+    runs-on: ubuntu-24.04
     # De momento no bloquea: si falla, el job sale en rojo pero el CI sigue en verde. Cuando lleven
     # un tiempo estables, se quita esta línea (ver docs/testing-e2e.md).
     continue-on-error: true
