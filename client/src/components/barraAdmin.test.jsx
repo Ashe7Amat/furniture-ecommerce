@@ -256,4 +256,23 @@ describe('Ficha pública — barra de modo admin', () => {
     await user.click(screen.getByRole('link', { name: 'Editar en panel' }));
     expect(desconectar).toHaveBeenCalledTimes(1);
   });
+
+  // e2e/admin.spec.js: al pulsar «Editar en panel», React pone la ref a null antes de la limpieza del efecto, y
+  // Chrome aún avisa una vez al observador (la barra sale del DOM). Medía sobre barra.current y saltaba
+  // «Cannot read properties of null (reading 'offsetHeight')». Aquí el aviso tardío se simula a mano.
+  it('un aviso del observador que llega con la barra ya desmontada no da error', async () => {
+    let avisar;
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(fn) { avisar = fn; }
+      observe() {}
+      disconnect() {}
+    });
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(50);
+    const { user } = await montar();
+    await screen.findByRole('region', { name: 'Modo admin' });
+
+    await user.click(screen.getByRole('link', { name: 'Editar en panel' }));
+    expect(screen.queryByRole('region', { name: 'Modo admin' })).toBeNull();
+    expect(() => avisar()).not.toThrow();
+  });
 });
