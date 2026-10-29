@@ -798,8 +798,10 @@ describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
     await user.click(botonDetalles);
 
     expect(screen.getByText('140 x 50 x 90 cm')).toBeInTheDocument();
-    expect(screen.getByText('Madera noble restaurada · Excelente conservación')).toBeInTheDocument();
-    expect(screen.getByText(/Mediados del siglo XX/)).toBeInTheDocument();
+    // Sin datos inventados iguales para todas las piezas
+    expect(screen.queryByText(/Madera noble/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/siglo XX|c\. 1960/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/restaurada en nuestro taller/)).not.toBeInTheDocument();
   });
 
   it('renderiza el contenedor con estructura de grid para el layout 60/40 y galería', async () => {

@@ -581,10 +581,6 @@
   text-align: right;
 }
 
-.pd-tech-p {
-  margin: 0;
-}
-
 /* 4. BARRA STICKY INFERIOR (Abajo) */
 .pd-sticky-bar {
   position: fixed;

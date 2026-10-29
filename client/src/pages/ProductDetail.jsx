@@ -576,18 +576,9 @@ const ProductDetail = () => {
                     <span className="pd-tech-label">Medidas:</span>
                     <span className="pd-tech-val">{medidasExtraidas}</span>
                   </div>
-                  <div className="pd-tech-row">
-                    <span className="pd-tech-label">Material / Estado:</span>
-                    <span className="pd-tech-val">Madera noble restaurada · Excelente conservación</span>
-                  </div>
-                  <div className="pd-tech-row">
-                    <span className="pd-tech-label">Año / Época:</span>
-                    <span className="pd-tech-val">Mediados del siglo XX (c. 1960) · Pieza original única</span>
-                  </div>
                 </div>
-                <p className="pd-tech-p">
-                  Esta pieza ha sido cuidadosamente restaurada en nuestro taller. Conserva su carácter original pero con acabados renovados para garantizar su durabilidad y adaptabilidad a espacios modernos.
-                </p>
+                {/* Sin material, época ni estado fijos: eran iguales para todas las piezas y no eran
+                    ciertos para la mayoría. Lo que se sepa de cada pieza va en su descripción. */}
               </div>
             </div>
             
