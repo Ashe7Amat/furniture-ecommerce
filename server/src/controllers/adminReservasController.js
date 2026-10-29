@@ -238,7 +238,10 @@ const cancelarReservaAdmin = async (req, res, next) => {
       });
     }
 
-    if (req.body !== undefined && (req.body === null || typeof req.body !== 'object' || Array.isArray(req.body))) {
+    if (
+      req.body !== undefined &&
+      (req.body === null || typeof req.body !== 'object' || Array.isArray(req.body))
+    ) {
       return res.status(400).json({ error: MENSAJE_CUERPO_NO_OBJETO });
     }
 
@@ -253,7 +256,10 @@ const cancelarReservaAdmin = async (req, res, next) => {
     }
 
     const motivo = req.body?.motivo || 'Cancelada por el administrador';
-    const importeCentimos = req.body?.reembolso_importe !== undefined ? Math.round(Number(req.body.reembolso_importe)) : null;
+    const importeCentimos =
+      req.body?.reembolso_importe !== undefined
+        ? Math.round(Number(req.body.reembolso_importe))
+        : null;
     let refundId = null;
 
     // 2. Reembolso con Stripe si tiene payment_intent y no está reembolsado ya
@@ -273,7 +279,10 @@ const cancelarReservaAdmin = async (req, res, next) => {
             refundId = refund.id;
           }
         } catch (err) {
-          console.error(`Error al procesar reembolso en Stripe para reserva ${id}:`, err?.message || err);
+          console.error(
+            `Error al procesar reembolso en Stripe para reserva ${id}:`,
+            err?.message || err
+          );
         }
       }
     }
@@ -298,7 +307,8 @@ const cancelarReservaAdmin = async (req, res, next) => {
     if (refundId) {
       cambios.stripe_refund_id = refundId;
       cambios.reembolso_solicitado_en = ahora.toISOString();
-      cambios.reembolso_importe = importeCentimos !== null ? (importeCentimos / 100) : (fila.importe_total || 0);
+      cambios.reembolso_importe =
+        importeCentimos !== null ? importeCentimos / 100 : fila.importe_total || 0;
     }
 
     const { data: updatedData, error: updateError } = await supabase

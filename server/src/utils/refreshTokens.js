@@ -46,7 +46,10 @@ const secreto = () => {
 const generarToken = () => crypto.randomBytes(32).toString('base64url');
 
 const hashear = (token, secretoAlternativo) =>
-  crypto.createHmac('sha256', secretoAlternativo || secreto()).update(String(token)).digest('hex');
+  crypto
+    .createHmac('sha256', secretoAlternativo || secreto())
+    .update(String(token))
+    .digest('hex');
 
 // user_agent e ip solo sirven para una futura pantalla de "sesiones activas": no se usan para
 // ninguna decisión de seguridad. La ip solo se guarda si es una dirección válida (la columna es
