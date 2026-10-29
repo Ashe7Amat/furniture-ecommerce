@@ -16,7 +16,7 @@ describe('brand.config.js', () => {
 
   it('brand.get resuelve rutas anidadas y proporciona valor por defecto', () => {
     expect(brand.get('prefijoSku')).toBe('NAV');
-    expect(brand.get('contacto.email')).toBe('info@nave5barcelona.com');
+    expect(brand.get('contacto.email')).toBe('hola@nave5barcelona.com');
     expect(brand.get('modulos.bookings')).toBe(true);
     expect(brand.get('inexistente', 'defecto')).toBe('defecto');
     expect(brand.get()).toEqual(BRAND);

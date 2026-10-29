@@ -19,7 +19,7 @@ export const BRAND = {
 
   // Datos de contacto y fiscales
   contacto: {
-    email: 'info@nave5barcelona.com',
+    email: 'hola@nave5barcelona.com',
     telefono: '+34 930 00 00 00',
     direccion: 'Carrer del Plom, 32-34, interior',
     ciudad: 'Barcelona',
