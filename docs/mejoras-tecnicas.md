@@ -3172,6 +3172,12 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
     960w, y el navegador le calculaba 163 px de ancho natural. Se quita.
   - En local, con Chrome 153: 67/67. Quedan los 2 del hero (H49) en la CI, que usa el Chromium 141 de Playwright
     1.56: la foto del hero aparece pedida dos veces. Pendiente de ver si es una segunda descarga real.
+  - **Hero, decidido el 29 oct:** la precarga de `index.html` se queda. Medido en local (build de producción, red
+    lenta y CPU x4, mediana de 5): sin ella, el LCP de la portada pasa de 2,15 a 3,35 s en móvil y de 4,82 a 5,05 s
+    en escritorio. Chrome 153 descarga la foto una sola vez. El test pasa a contar fotos distintas en vez de
+    peticiones; sigue fallando si la portada pide las demás fotos al cargar (comprobado rompiendo `Home.jsx`).
+  - Aparte: «H57: arrastrar...» también falla a veces sola (1 de 3 en local), con «Error en getCategorias: TypeError:
+    Failed to fetch» en la consola. En la CI del PR #28 pasó.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
