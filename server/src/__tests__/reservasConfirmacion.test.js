@@ -130,6 +130,31 @@ beforeEach(() => {
 
 afterEach(() => mock.restoreAll());
 
+describe('la fianza al confirmar (R-e)', () => {
+  test('con fianza: queda garantizada y el email al cliente la lleva', async () => {
+    instalar([
+      provisional({ importe_total: 97.5, fianza_importe: 22.5, fianza_estado: 'pendiente' })
+    ]);
+    const res = await pagado(sesionPagada({ amount_total: 9750 }));
+    assert.equal(res.status, 200);
+    assert.equal(reserva().fianza_estado, 'garantizada');
+    const [
+      {
+        arguments: [datos]
+      }
+    ] = correos.confirmacion.mock.calls;
+    assert.equal(datos.reserva.fianza, 22.5);
+    assert.equal(datos.reserva.total, 97.5);
+  });
+
+  test('sin fianza (las de antes, o al 0 %): no se toca su estado', async () => {
+    instalar([provisional({ fianza_importe: 0, fianza_estado: 'no_aplica' })]);
+    await pagado();
+    assert.equal(reserva().fianza_estado, 'no_aplica');
+    assert.equal(correos.confirmacion.mock.calls[0].arguments[0].reserva.fianza, 0);
+  });
+});
+
 describe('webhook checkout.session.completed de una reserva', () => {
   test('confirma la reserva, registra su pedido, los enlaza y envía los emails una vez', async () => {
     const res = await pagado();

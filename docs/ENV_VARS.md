@@ -98,6 +98,7 @@ Todas las variables del cliente se configuran en `client/.env` (o en las variabl
 |---|---|---|---|---|---|---|
 | `RESERVAS_ACTIVAS` | Habilita endpoints de reservas y disponibilidad de alquiler | `true` o `false` | No (default: false) | dev, test, prod | **No** | Requiere haber ejecutado las migraciones de reservas (`r1`, `r2`). |
 | `CRON_SECRET` | Secreto de la tarea diaria de reservas (`GET /api/cron/reservas`, Vercel Cron). Vercel lo manda solo en la cabecera `Authorization: Bearer ...` | Cadena larga aleatoria (`openssl rand -hex 32`) | Solo con `RESERVAS_ACTIVAS=true` | prod | 🔒 **SÍ** | Sin ella la tarea responde 503 y no hace nada. Con `RESERVAS_ACTIVAS` apagado, 404. |
+| `FIANZA_PORCENTAJE` | Fianza de las reservas, en % del importe del alquiler (sin trayectos). Se cobra en el mismo pago y se devuelve desde el panel tras la recogida | Entero de 0 a 100 (`0` = sin fianza) | No (default: 30) | prod | **No** | Un valor que no sea un entero de 0 a 100 se ignora (se usa el 30 % y queda en el log). Cambiarla solo afecta a las reservas nuevas. |
 | `RESERVAS_WEBHOOK_SECRET` | Secreto opcional para webhooks dedicados del flujo de alquiler | `whsec_...` | No | prod | 🔒 **SÍ** | Usado si se segregan endpoints de reservas respecto a ventas estándar. |
 
 ### 3.7 Autenticación con Terceros (Google OAuth)

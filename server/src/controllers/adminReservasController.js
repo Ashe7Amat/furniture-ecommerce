@@ -187,12 +187,30 @@ const presentarSiSePuede = async (reserva, ahora) => {
 const accionSobreReserva = async (req, res) => {
   try {
     const ahora = new Date();
-    const { reserva, aviso, avisoReembolso } = await ejecutarAccion(
+    const { reserva, aviso, avisoReembolso, fianza } = await ejecutarAccion(
       req.params.id,
       req.params.accion,
       req.body,
       ahora
     );
+    // La fianza resuelta queda en el registro de actividad: quién, cuánto se devolvió, cuánto se
+    // retuvo y por qué. Nunca rompe la respuesta (registrarActividad no lanza).
+    if (fianza) {
+      await registrarActividad(
+        req,
+        'resolver_fianza',
+        'reservas',
+        req.params.id,
+        { fianza_estado: 'garantizada' },
+        {
+          fianza_estado: reserva.fianza_estado,
+          devuelto: fianza.devuelto,
+          retenido: fianza.retenido,
+          motivo_retencion: fianza.motivo,
+          refund_id: reserva.fianza_stripe_ref ?? null
+        }
+      );
+    }
     if (avisoReembolso) {
       const item = await presentarSiSePuede(reserva, ahora);
       const aviso502 = { error: avisoReembolso, codigo: CODIGO_REEMBOLSO_A_MEDIAS };

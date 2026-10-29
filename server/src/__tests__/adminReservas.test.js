@@ -566,6 +566,7 @@ describe('cada reserva de la lista', () => {
       pagado: true,
       reembolso: null,
       reembolso_a_medias: false,
+      fianza: null,
       motivo: null,
       motivo_cancelacion: null,
       entregada_en: null,

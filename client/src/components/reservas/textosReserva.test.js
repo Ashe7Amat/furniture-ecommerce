@@ -22,6 +22,12 @@ describe('textoPlazos', () => {
 
   test('solo dice lo que ha mandado el servidor', () => {
     expect(textoPlazos({})).toBe('');
+    expect(textoPlazos({ antelacion_min_dias: 2, antelacion_max_meses: 6, dias_max_hasta_recogida: 165 })).toBe(
+      'Se reserva con 2 días de antelación como mínimo, y la recogida tiene que ser, como muy tarde, dentro de 165 días.'
+    );
+    expect(textoPlazos({ antelacion_min_dias: 0, dias_max_hasta_recogida: 165 })).toBe(
+      'Se puede reservar desde hoy, y la recogida tiene que ser, como muy tarde, dentro de 165 días.'
+    );
     expect(textoPlazos({ dias_margen: 2 })).toBe('Después de cada recogida dejamos 2 días libres antes de la siguiente reserva.');
     expect(textoPlazos({ antelacion_min_dias: 2 })).toBe('');
   });
@@ -42,6 +48,10 @@ describe('textoMotivo', () => {
     expect(textoMotivo('sin_hueco', reglas)).toBe('no cabe un alquiler antes de la siguiente reserva');
     expect(textoMotivo('duracion_min', reglas)).toBe('el alquiler mínimo es de 3 días');
     expect(textoMotivo('duracion_max', reglas)).toBe('el alquiler máximo es de 1 día');
+    expect(textoMotivo('recogida_tope', { dias_max_hasta_recogida: 165 })).toBe(
+      'la recogida tiene que ser dentro de 165 días como mucho'
+    );
+    expect(textoMotivo('recogida_tope', {})).toBe('la recogida queda demasiado lejos');
     expect(textoMotivo('ocupado', reglas)).toBe('ocupado');
   });
 

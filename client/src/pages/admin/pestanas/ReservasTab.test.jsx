@@ -332,7 +332,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
           'res-1',
           expect.objectContaining({
             motivo: 'Cancelada por el administrador',
-            reembolso_importe: 15000 // 150€ -> 15000 céntimos
+            reembolso_centimos: 15000 // 150€ -> 15000 céntimos
           })
         );
       });
@@ -364,7 +364,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
         expect(cancelarReservaAdmin).toHaveBeenCalledWith(
           'res-1',
           expect.objectContaining({
-            reembolso_importe: 200 // 2€ -> 200 céntimos
+            reembolso_centimos: 200 // 2€ -> 200 céntimos
           })
         );
       });

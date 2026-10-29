@@ -714,11 +714,12 @@ const construirConfirmacionReserva = ({ nombre, reserva }) => {
     ['Entrega', `${fechaHoraReserva(reserva.fechaInicio, reserva.horaEntrega)}, ${dondeTrayecto(reserva.modoEntrega)}`],
     ['Recogida', `${fechaHoraReserva(reserva.fechaFin, reserva.horaRecogida)}, ${dondeTrayecto(reserva.modoRecogida)}`],
     ['Duración', diasReserva(reserva.dias)],
+    ['Fianza (reembolsable)', reserva.fianza > 0 ? eurosReserva(reserva.fianza) : null],
     ['Total pagado', `${eurosReserva(reserva.total)} (IVA incluido)`],
     ['Dirección', reserva.direccion]
   ].filter(([, valor]) => valor);
   const saludo = `¡Gracias, ${nombre || ''}! Hemos recibido el pago y la pieza queda reservada para ti en estas fechas.`;
-  const despedida = 'Te escribiremos antes de la entrega para concretar los detalles. Si necesitas cambiar algo, escríbenos desde la página de contacto.';
+  const despedida = `${reserva.fianza > 0 ? 'La fianza te la devolvemos en la misma tarjeta después de la recogida, cuando revisemos la pieza. ' : ''}Te escribiremos antes de la entrega para concretar los detalles. Si necesitas cambiar algo, escríbenos desde la página de contacto.`;
   const cuerpo = `${parrafo(escaparHtml(saludo))}${bloqueDatos(
     datos.map(([etiqueta, valor]) => filaDato(etiqueta, escaparHtml(valor))).join('')
   )}${parrafo(`<br>${escaparHtml(despedida)}`)}`;
@@ -888,6 +889,44 @@ const construirReembolsoReserva = ({ nombre, reserva, reembolso }) =>
     ]
   });
 
+// La fianza resuelta tras la recogida (R-e, paso 18): lo devuelto y, si se retuvo algo, cuánto y
+// por qué (el motivo lo escribe el administrador para el cliente, y se escapa como lo demás).
+const construirDevolucionFianza = ({ nombre, reserva, fianza, devuelto, retenido, motivo }) => {
+  const frases = [`Hola, ${nombre || ''}:`, `Ya hemos revisado ${reserva.pieza}. Gracias por cuidarla.`];
+  if (retenido === 0) {
+    frases.push(`Te hemos devuelto la fianza entera, ${eurosReserva(devuelto)}, en la misma tarjeta con la que pagaste.`);
+  } else if (devuelto > 0) {
+    frases.push(
+      `Te hemos devuelto ${eurosReserva(devuelto)} de la fianza en la misma tarjeta con la que pagaste, y nos quedamos con ${eurosReserva(retenido)}.`
+    );
+  } else {
+    frases.push(`Esta vez nos quedamos con la fianza entera (${eurosReserva(retenido)}).`);
+  }
+  if (retenido > 0 && motivo) frases.push(`Motivo: ${motivo}`);
+  return construirCorreoReserva({
+    titulo: retenido === 0 ? 'Fianza devuelta' : 'Tu fianza',
+    asunto: `Fianza de tu alquiler: ${reserva.pieza}`,
+    antes: frases,
+    datos: [
+      ['Reserva', referenciaPedido(reserva.pedidoId)],
+      ['Fianza', eurosReserva(fianza)],
+      ['Devuelto', eurosReserva(devuelto)],
+      ['Retenido', retenido > 0 ? eurosReserva(retenido) : null]
+    ],
+    despues: [
+      ...(devuelto > 0 ? ['Según el banco, puede tardar entre 5 y 10 días hábiles en aparecer en tu cuenta.'] : []),
+      'Si tienes cualquier duda, escríbenos desde la página de contacto o responde a este correo.'
+    ]
+  });
+};
+
+const enviarDevolucionFianza = ({ email, nombre, reserva, fianza, devuelto, retenido, motivo }) =>
+  enviarCorreoCuenta({
+    tipo: 'fianza de reserva',
+    para: email,
+    ...construirDevolucionFianza({ nombre, reserva, fianza, devuelto, retenido, motivo })
+  });
+
 const enviarReembolsoReserva = ({ email, nombre, reserva, reembolso }) =>
   enviarCorreoCuenta({ tipo: 'reembolso de reserva', para: email, ...construirReembolsoReserva({ nombre, reserva, reembolso }) });
 
@@ -991,6 +1030,6 @@ module.exports = {
   enviarConfirmarRegistro, enviarCuentaActivada, enviarConfirmarCambioEmail, enviarAvisoCambioEmail,
   enviarCuentaProtegida, ocultarEmail, enviarConfirmacionReserva, enviarConflictoReserva,
   enviarRecordatorioEntrega, enviarRecordatorioRecogida, enviarAvisoRetraso, enviarCancelacionReserva,
-  enviarReembolsoReserva, enviarEmailRecuperacion
+  enviarReembolsoReserva, enviarDevolucionFianza, enviarEmailRecuperacion
 };
 

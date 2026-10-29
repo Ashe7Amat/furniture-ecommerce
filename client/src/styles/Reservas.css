@@ -852,3 +852,10 @@
     align-items: flex-start;
   }
 }
+
+/* La fianza reembolsable (R-e): una línea más del desglose, y debajo cuándo se devuelve. */
+.reserva-desglose-nota {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--secondary-color);
+}

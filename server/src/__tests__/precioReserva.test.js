@@ -17,9 +17,12 @@ const { sumarDias } = require('../utils/fechasMadrid');
 const HOY = '2026-10-13';
 
 // Reglas de prueba con descuentos y envío de verdad, para que los números signifiquen algo. Las
-// reales (REGLAS_ALQUILER) tienen hoy los porcentajes y el envío a 0, a falta del cliente.
+// reales (REGLAS_ALQUILER) tienen hoy los porcentajes y el envío a 0, a falta del cliente. Sin
+// fianza ni tope de la recogida, que tienen sus propios tests (R-e, 29 oct).
 const reglas = (cambios = {}) => ({
   ...REGLAS_ALQUILER,
+  fianzaPorcentaje: 0,
+  diasMaxHastaRecogida: 400,
   tramosDescuento: [
     { desdeDias: 7, porcentaje: 10 },
     { desdeDias: 30, porcentaje: 25 }
@@ -117,10 +120,87 @@ describe('calcularPrecioReserva — importes', () => {
     assert.equal(presupuesto({ precioDia: '25.50' }).precio_dia_centimos, 2550);
   });
 
-  test('con las reglas reales de hoy no hay descuento ni coste de envío', () => {
+  test('con las reglas reales de hoy no hay descuento ni coste de envío: el total es alquiler + fianza', () => {
     const p = presupuesto({ fechaFin: '2026-11-30', reglas: REGLAS_ALQUILER });
     assert.equal(p.descuento_centimos, 0);
-    assert.equal(p.importe_total_centimos, p.subtotal_alquiler_centimos);
+    assert.equal(
+      p.importe_total_centimos,
+      p.subtotal_alquiler_centimos + p.fianza.importe_centimos
+    );
+  });
+});
+
+describe('calcularPrecioReserva — fianza (R-e, 29 oct)', () => {
+  test('con las reglas reales es el 30 % del alquiler, va en el total y en su propia línea', () => {
+    assert.equal(REGLAS_ALQUILER.fianzaPorcentaje, 30);
+    const p = presupuesto({ reglas: { ...reglas(), fianzaPorcentaje: 30 } });
+    // 3 días × 25 € = 75 €; 30 % = 22,50 €. El envío (45 €) no cuenta para la fianza.
+    assert.deepEqual(p.fianza, { porcentaje: 30, importe_centimos: 2250 });
+    assert.equal(p.importe_total_centimos, 7500 + 4500 + 2250);
+    assert.deepEqual(p.lineas.at(-1), {
+      concepto: 'fianza',
+      importe_centimos: 2250,
+      tipo_iva: null,
+      cuota_iva_centimos: null
+    });
+  });
+
+  test('se calcula sobre el alquiler ya descontado y se redondea al céntimo', () => {
+    // 7 días × 25,33 € = 177,31 €, −10 % = 159,58 €; 30 % = 47,874 → 47,87 €.
+    const p = presupuesto({
+      precioDia: '25.33',
+      fechaFin: '2026-10-27',
+      reglas: { ...reglas(), fianzaPorcentaje: 30 }
+    });
+    assert.equal(p.descuento_centimos, 1773);
+    assert.equal(p.fianza.importe_centimos, Math.round((17731 - 1773) * 0.3));
+  });
+
+  test('con el 0 % no hay fianza: línea a 0 y el total sin ella', () => {
+    const p = presupuesto();
+    assert.deepEqual(p.fianza, { porcentaje: 0, importe_centimos: 0 });
+    assert.equal(p.importe_total_centimos, 7500 + 4500);
+  });
+});
+
+describe('FIANZA_PORCENTAJE', () => {
+  const { leerFianzaPorcentaje } = require('../utils/reglasAlquiler');
+  test('sin la variable, el 30 %; con un entero de 0 a 100, ese', () => {
+    assert.equal(leerFianzaPorcentaje(undefined), 30);
+    assert.equal(leerFianzaPorcentaje(''), 30);
+    assert.equal(leerFianzaPorcentaje('0'), 0);
+    assert.equal(leerFianzaPorcentaje('45'), 45);
+    assert.equal(leerFianzaPorcentaje('100'), 100);
+  });
+  test('una errata no cambia nada: se usa el 30 % y queda en el log', (t) => {
+    const log = t.mock.method(console, 'error', () => {});
+    for (const valor of ['30%', '-5', '101', '12.5', 'treinta']) {
+      assert.equal(leerFianzaPorcentaje(valor), 30, valor);
+    }
+    assert.equal(log.mock.callCount(), 5);
+  });
+});
+
+describe('calcularPrecioReserva — la recogida, como mucho a 165 días de la reserva', () => {
+  const real = (cambios) => presupuesto({ reglas: REGLAS_ALQUILER, ...cambios });
+  test('el día 165 se puede; el 166, no, con la fecha en el mensaje', () => {
+    assert.equal(REGLAS_ALQUILER.diasMaxHastaRecogida, 165);
+    assert.equal(
+      real({ fechaInicio: '2027-03-20', fechaFin: sumarDias(HOY, 165) }).fecha_fin,
+      '2027-03-27'
+    );
+    assert.throws(
+      () => real({ fechaInicio: '2027-03-20', fechaFin: sumarDias(HOY, 166) }),
+      (err) =>
+        err instanceof ErrorValidacion &&
+        err.message === 'Por ahora la recogida tiene que ser, como muy tarde, el 27/03/2027.'
+    );
+  });
+  test('manda aunque la duración y la antelación lo permitieran: 180 días desde pasado mañana no caben', () => {
+    assert.throws(
+      () => real({ fechaInicio: '2026-10-15', fechaFin: sumarDias('2026-10-15', 180) }),
+      /como muy tarde, el 27\/03\/2027/
+    );
   });
 });
 
@@ -189,7 +269,7 @@ describe('calcularPrecioReserva — IVA por concepto (pendiente del asesor)', ()
     }
     assert.deepEqual(
       presupuesto().lineas.map((l) => l.concepto),
-      ['alquiler', 'entrega', 'recogida']
+      ['alquiler', 'entrega', 'recogida', 'fianza']
     );
   });
 
@@ -285,16 +365,26 @@ describe('calcularPrecioReserva — reglas que se rechazan', () => {
 });
 
 describe('limitesDeInicio', () => {
-  test('con las reglas reales: hoy + 2 días y hoy + 6 meses', () => {
+  test('con las reglas reales: hoy + 2 días, y el último inicio lo pone la recogida a 165 días', () => {
+    // hoy + 6 meses (13/04/2027) queda más lejos que la última recogida (hoy + 165) menos 1 día.
     assert.deepEqual(limitesDeInicio('2026-10-13'), {
       primerInicio: '2026-10-15',
-      ultimoInicio: '2027-04-13'
+      ultimoInicio: '2027-03-26',
+      ultimaRecogida: '2027-03-27'
     });
   });
   test('alrededor del cambio de hora de octubre', () => {
     assert.deepEqual(limitesDeInicio('2026-10-24'), {
       primerInicio: '2026-10-26',
-      ultimoInicio: '2027-04-24'
+      ultimoInicio: '2027-04-06',
+      ultimaRecogida: '2027-04-07'
+    });
+  });
+  test('si la antelación es más corta que el tope de la recogida, manda la antelación', () => {
+    assert.deepEqual(limitesDeInicio('2026-10-13', reglas({ antelacionMaxMeses: 2 })), {
+      primerInicio: '2026-10-15',
+      ultimoInicio: '2026-12-13',
+      ultimaRecogida: sumarDias('2026-10-13', 400)
     });
   });
 });

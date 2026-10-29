@@ -311,7 +311,9 @@ describe('validación', () => {
     const [fila] = filas();
     assert.equal(fila.cliente_id, ANA);
     assert.equal(fila.estado, 'pendiente');
-    assert.equal(fila.importe_total, 75);
+    // 75 € de alquiler y 22,50 € de fianza (30 %): los dos los calcula el servidor.
+    assert.equal(fila.importe_total, 97.5);
+    assert.equal(fila.fianza_importe, 22.5);
   });
 });
 
@@ -351,10 +353,13 @@ describe('la reserva provisional y su sesión de pago', () => {
     });
     assert.equal(fila.importe_alquiler, 75);
     assert.equal(fila.importe_envio, 0);
-    assert.equal(fila.importe_total, 75);
+    // La fianza (30 % del alquiler) va en el total y queda pendiente hasta que se pague.
+    assert.equal(fila.importe_total, 97.5);
+    assert.equal(fila.fianza_importe, 22.5);
+    assert.equal(fila.fianza_estado, 'pendiente');
     assert.equal(fila.precio_desglose.dias, 3);
-    assert.equal(fila.precio_desglose.importe_total_centimos, 7500);
-    assert.equal(fila.precio_desglose.version_reglas, 1);
+    assert.equal(fila.precio_desglose.importe_total_centimos, 9750);
+    assert.equal(fila.precio_desglose.version_reglas, 2);
     assert.equal(fila.condiciones.politica_cancelacion, 'manual');
     assert.equal(fila.condiciones.dias_margen, 2);
     assert.equal(fila.historial.length, 1);
@@ -402,6 +407,19 @@ describe('la reserva provisional y su sesión de pago', () => {
             description: `Entrega el ${fi} a las 10:00 y recogida el ${ff} a las 10:30: 4 días × 25,00 €`
           },
           unit_amount: 10000
+        },
+        quantity: 1
+      },
+      {
+        price_data: {
+          currency: 'eur',
+          product_data: {
+            name: 'Fianza reembolsable',
+            description:
+              '30 % del alquiler. Te la devolvemos en esta misma tarjeta después de la recogida, ' +
+              'cuando revisemos la pieza.'
+          },
+          unit_amount: 3000
         },
         quantity: 1
       }
@@ -525,7 +543,9 @@ test('con descuento y entrega de pago: Stripe recibe el alquiler ya descontado y
     [
       ['Alquiler de Silla Thonet', 6750],
       ['Entrega a domicilio', 3000],
-      ['Recogida a domicilio', 3000]
+      ['Recogida a domicilio', 3000],
+      // La fianza, el 30 % del alquiler ya descontado (67,50 €), sin los trayectos.
+      ['Fianza reembolsable', 2025]
     ]
   );
   assert.match(
@@ -535,7 +555,26 @@ test('con descuento y entrega de pago: Stripe recibe el alquiler ya descontado y
   const [fila] = filas();
   assert.equal(fila.importe_alquiler, 67.5);
   assert.equal(fila.importe_envio, 60);
-  assert.equal(fila.importe_total, 127.5);
+  assert.equal(fila.importe_total, 147.75);
+});
+
+test('sin fianza (0 %): no hay línea de fianza y no aplica', async () => {
+  await iniciarPagoDeReserva({
+    stripe,
+    cuenta: { id: ANA, email: 'ana@ejemplo.com' },
+    mueble: { id: SILLA, nombre: 'Silla Thonet', estado: 'disponible', precio_alquiler_dia: 25 },
+    datos: cuerpo(),
+    reglas: { ...REGLAS_ALQUILER, fianzaPorcentaje: 0 }
+  });
+  const lineas = creaciones()[0].arguments[0].line_items;
+  assert.deepEqual(
+    lineas.map((l) => l.price_data.product_data.name),
+    ['Alquiler de Silla Thonet']
+  );
+  const [fila] = filas();
+  assert.equal(fila.fianza_importe, 0);
+  assert.equal(fila.fianza_estado, 'no_aplica');
+  assert.equal(fila.importe_total, 75);
 });
 
 describe('la reserva anterior del mismo cliente (6.3, paso 4)', () => {

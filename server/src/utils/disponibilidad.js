@@ -99,7 +99,7 @@ const calcularDisponibilidad = ({
   // vendida en el panel cuenta como vendida aunque no tenga su fila de venta.
   const vendida = mueble.estado === 'vendido' || ocupadas.some((o) => o.tipo === 'venta');
   const precioCentimos = Math.round(Number(mueble.precio_alquiler_dia) * 100);
-  const { primerInicio, ultimoInicio } = limitesDeInicio(hoy, reglas);
+  const { primerInicio, ultimoInicio, ultimaRecogida } = limitesDeInicio(hoy, reglas);
 
   // Comprable = nada la ocupa de hoy en adelante (la misma definición que usa el pago, 6.7). Una
   // pieza marcada a mano como alquilada (el alquiler sin fechas de antes, H7) tampoco.
@@ -132,6 +132,8 @@ const calcularDisponibilidad = ({
       antelacion_min_dias: reglas.antelacionMinDias,
       antelacion_max_meses: reglas.antelacionMaxMeses,
       dias_margen: reglas.diasMargen,
+      dias_max_hasta_recogida: reglas.diasMaxHastaRecogida,
+      fianza_porcentaje: reglas.fianzaPorcentaje,
       tramos_descuento: reglas.tramosDescuento.map((t) => ({
         desde_dias: t.desdeDias,
         porcentaje: t.porcentaje
@@ -139,6 +141,7 @@ const calcularDisponibilidad = ({
     },
     primer_inicio_posible: primerInicio,
     ultimo_inicio_posible: ultimoInicio,
+    ultima_recogida_posible: ultimaRecogida,
     ocupado: ocupadas
       .filter(({ rango }) => seSolapan(rango, desde, hasta))
       .map(({ tipo, rango }) => ({

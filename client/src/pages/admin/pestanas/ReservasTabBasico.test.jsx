@@ -169,7 +169,7 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
         'res-1',
         expect.objectContaining({
           motivo: 'Cancelada por el administrador',
-          reembolso_importe: 15000
+          reembolso_centimos: 15000
         })
       );
       expect(showToast).toHaveBeenCalledWith('Reserva cancelada y reembolsada', 'success');
@@ -288,7 +288,7 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
         'res-1',
         expect.objectContaining({
           motivo: 'Cancelada por el administrador',
-          reembolso_importe: 5000
+          reembolso_centimos: 5000
         })
       );
     });

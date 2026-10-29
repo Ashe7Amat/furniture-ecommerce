@@ -177,6 +177,73 @@ describe('reembolso hecho', () => {
   });
 });
 
+describe('fianza resuelta', () => {
+  const fianza = (extra) => datos({}, { fianza: 30, ...extra });
+
+  test('entera: lo devuelto y el plazo del banco, sin «Retenido»', async () => {
+    await email.enviarDevolucionFianza(fianza({ devuelto: 30, retenido: 0, motivo: null }));
+    const correo = enviado();
+    comprobarComun(correo);
+    assert.equal(correo.subject, 'Fianza de tu alquiler: Silla <Thonet>');
+    assert.ok(
+      correo.text.includes(
+        'Te hemos devuelto la fianza entera, 30,00 €, en la misma tarjeta con la que pagaste.'
+      )
+    );
+    assert.ok(correo.text.includes('Devuelto: 30,00 €'));
+    assert.ok(!correo.text.includes('Retenido:'));
+    assert.ok(correo.text.includes('entre 5 y 10 días hábiles'));
+  });
+
+  test('en parte: cuánto se devuelve, cuánto se retiene y el motivo escapado', async () => {
+    await email.enviarDevolucionFianza(
+      fianza({ devuelto: 17.5, retenido: 12.5, motivo: 'Arañazo <grande>' })
+    );
+    const { text, html } = enviado();
+    assert.ok(
+      text.includes(
+        'Te hemos devuelto 17,50 € de la fianza en la misma tarjeta con la que pagaste, y nos quedamos con 12,50 €.'
+      )
+    );
+    assert.ok(text.includes('Motivo: Arañazo <grande>'));
+    assert.ok(html.includes('Arañazo &lt;grande&gt;'));
+    assert.ok(text.includes('Retenido: 12,50 €'));
+  });
+
+  test('entera retenida: sin plazo del banco', async () => {
+    await email.enviarDevolucionFianza(fianza({ devuelto: 0, retenido: 30, motivo: 'Pieza rota' }));
+    const { text } = enviado();
+    assert.ok(text.includes('Esta vez nos quedamos con la fianza entera (30,00 €).'));
+    assert.ok(!text.includes('días hábiles'));
+  });
+});
+
+describe('confirmación con fianza', () => {
+  test('la fianza va en su fila y se explica cuándo se devuelve', async () => {
+    await email.enviarConfirmacionReserva(
+      datos({
+        pedidoId: 'a1b2c3d4-0000-4000-8000-000000000000',
+        dias: 3,
+        fianza: 22.5,
+        total: 97.5
+      })
+    );
+    const { text } = enviado();
+    assert.ok(text.includes('Fianza (reembolsable): 22,50 €'));
+    assert.ok(text.includes('Total pagado: 97,50 € (IVA incluido)'));
+    assert.ok(
+      text.includes('La fianza te la devolvemos en la misma tarjeta después de la recogida')
+    );
+  });
+
+  test('sin fianza: ni la fila ni la frase', async () => {
+    await email.enviarConfirmacionReserva(datos({ dias: 3, fianza: 0, total: 75 }));
+    const { text } = enviado();
+    assert.ok(!text.includes('Fianza'));
+    assert.ok(!text.includes('La fianza'));
+  });
+});
+
 describe('fallos', () => {
   test('si Resend falla, no lanza (la acción o la tarea ya está hecha)', async () => {
     enviar.mock.mockImplementation(async () => {
@@ -187,7 +254,8 @@ describe('fallos', () => {
       email.enviarRecordatorioRecogida,
       email.enviarAvisoRetraso,
       email.enviarCancelacionReserva,
-      email.enviarReembolsoReserva
+      email.enviarReembolsoReserva,
+      email.enviarDevolucionFianza
     ]) {
       await assert.doesNotReject(enviarCorreo(datos({}, { reembolso: 10 })));
     }
