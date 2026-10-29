@@ -212,7 +212,7 @@ export default function Home() {
                     ) : (
                         <div className="home-products-grid">
                             {destacados.map(mueble => (
-                                <ProductCard key={mueble.id} mueble={mueble} />
+                                <ProductCard key={mueble.id} mueble={mueble} nivelTitulo="h3" />
                             ))}
                         </div>
                     )}
