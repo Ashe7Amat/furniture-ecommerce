@@ -8,8 +8,13 @@ const iniciarSesion = async (page, usuario) => {
   await cerrarCookies(page);
   await page.getByRole('textbox', { name: 'Email', exact: true }).fill(usuario.email);
   await page.getByPlaceholder('Contraseña', { exact: true }).fill(CONTRASENA);
+  // Al entrar, la portada pide el catálogo. Si el test navega antes de que responda, el navegador corta
+  // la petición y api.js lo apunta en la consola («Failed to fetch»), que los tests vigilan.
+  const catalogoDeLaPortada = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/muebles');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
   await expect(page).toHaveURL('/');
+  await catalogoDeLaPortada;
+  await page.waitForLoadState('networkidle');
 };
 
 test('el administrador entra al panel y recorre todas las pestañas', async ({ page }) => {
@@ -84,7 +89,8 @@ const prepararEditorDeFotos = async (page) => {
 };
 
 const abrirEditorDeLaSilla = async (page) => {
-  await page.goto('/admin');
+  // Tras recargar ya se está en el panel: volver a navegar cortaría las peticiones de la recarga.
+  if (new URL(page.url()).pathname !== '/admin') await page.goto('/admin');
   await page.getByRole('button', { name: 'Gestionar Inventario' }).click();
   await page.locator('.inventory-list-item', { hasText: 'Silla Tolix Verde' }).getByRole('button', { name: 'Editar', exact: true }).click();
   const galeria = page.getByRole('list', { name: 'Fotos del mueble, en orden' });
