@@ -22,7 +22,8 @@ const abrirCesta = async (page, { precio, conSesion }) => {
     { cliente: CLIENTE, linea: LINEA, sesion: conSesion }
   );
   await page.goto('/catalogo');
-  await page.getByRole('button', { name: 'Cesta', exact: true }).click();
+  // Con piezas, el botón de la cabecera se llama "Carrito, N artículo(s)" (desde 3ba92a5, 25 oct); vacío, "Cesta".
+  await page.getByRole('button', { name: /^(Cesta|Carrito, \d+ artículos?)$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Tu cesta' })).toBeVisible();
 };
 

@@ -325,48 +325,6 @@
   gap: 20px;
 }
 
-/* Coupon Section */
-.cart-coupon-section {
-  display: flex;
-  gap: 10px;
-}
-
-.cart-coupon-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--primary-color);
-  border-radius: 4px;
-  font-size: 0.9rem;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.25s ease;
-}
-
-.cart-coupon-input:focus {
-  border-color: var(--accent-color);
-}
-
-.cart-coupon-apply-btn {
-  background: var(--card-bg);
-  border: 1px solid var(--accent-color);
-  color: var(--accent-color);
-  padding: 0 20px;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 500;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.25s ease, color 0.25s ease;
-}
-
-.cart-coupon-apply-btn:hover {
-  background-color: var(--accent-color);
-  color: var(--bg-color);
-}
-
 /* Subtotal Row */
 .cart-subtotal-row {
   display: flex;

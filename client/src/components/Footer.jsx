@@ -10,14 +10,9 @@ const Footer = () => {
   return (
     <footer className="kave-footer">
       <div className="footer-top">
-        <div className="footer-newsletter">
-          <h2>Únete a nuestra newsletter</h2>
-          <p>Y recibe nuestras novedades y tendencias de diseño.</p>
-          <div className="newsletter-form">
-            <input type="email" placeholder="Tu email" />
-            <button>Suscribirme</button>
-          </div>
-
+        {/* Aquí iba un bloque de newsletter sin nada detrás: «Suscribirme» no guardaba el email. Se quitó
+            el 28 oct 2026 (decisión de Ashe); vuelve cuando haya dónde guardar las altas y texto de privacidad. */}
+        <div className="footer-visita">
           {/* DIRECCIÓN FÍSICA */}
           <div className="footer-address">
             <p className="footer-address-label">Visítanos</p>
@@ -63,11 +58,11 @@ const Footer = () => {
         </div>
       </div>
       <div className="footer-bottom">
+        {/* Solo los medios que acepta el pago de verdad (tarjeta, `payment_method_types: ['card']` en el
+            servidor). PayPal y Apple Pay salían aquí sin funcionar; vuelven cuando se activen en Stripe. */}
         <div className="payment-icons">
           <span>Visa</span>
           <span>Mastercard</span>
-          <span>PayPal</span>
-          <span>Apple Pay</span>
         </div>
         <div className="copyright">
           © 2026 Nave 5 Barcelona. Todos los derechos reservados.

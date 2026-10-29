@@ -612,32 +612,18 @@
   padding: 60px 4vw;
   gap: 40px;
 }
-/* H43: los títulos del pie son h2 (antes h3 y h4: saltaban niveles después del h1 de la página). Los
-   margin-top son los que daba el navegador a esos niveles, para que se vea igual. */
-.footer-newsletter h2 {
-  margin-top: 1em;
-  font-family: var(--font-display);
-  font-size: 1.2rem;
-  font-weight: 500;
-  margin-bottom: 10px;
-}
-.footer-newsletter p {
-  color: var(--secondary-color);
-  font-size: 0.9rem;
-  margin-bottom: 20px;
-}
-
-/* Dirección física */
+/* Dirección física. Sin la newsletter de encima (quitada el 28 oct 2026), ya no lleva línea de
+   separación: arranca a la altura de los títulos de las columnas de enlaces. */
 .footer-address {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-color);
+  margin-top: 1.33em;
 }
 .footer-address-label {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  color: var(--accent-color);
+  /* --accent-text, como en H48 y H54: --accent-color sobre el fondo da 2,97:1 (AA pide 4,5). axe lo marcó
+     al quitar la newsletter de encima (28 oct 2026); antes este texto quedaba como "por revisar". */
+  color: var(--accent-text);
   font-weight: 600;
   margin: 0 0 8px 0;
 }
@@ -658,28 +644,6 @@
 }
 .footer-instagram-link:hover {
   color: var(--primary-color);
-}
-.newsletter-form {
-  display: flex;
-  border-bottom: 1px solid var(--primary-color);
-  padding-bottom: 5px;
-}
-.newsletter-form input {
-  border: none;
-  outline: none;
-  background: transparent;
-  color: var(--primary-color);
-  flex: 1;
-  font-size: 0.9rem;
-}
-.newsletter-form button {
-  background: none;
-  border: none;
-  color: var(--primary-color);
-  font-weight: 600;
-  cursor: pointer;
-  text-transform: uppercase;
-  font-size: 0.8rem;
 }
 .footer-links {
   display: flex;

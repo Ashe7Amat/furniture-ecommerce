@@ -255,6 +255,29 @@ describe('ProductDetail', () => {
 
 // CAMBIADO A PROPÓSITO (rediseño premium, 22 oct 2026): sin precios a la vista, el CTA principal es
 // el botón negro "Solicitar información", que abre el modal de contacto con la referencia pre-rellenada.
+describe('ProductDetail — "Cantidad" y "Modalidad" como títulos de grupo (H53)', () => {
+  it('son grupos con nombre, y la modalidad elegida se anuncia como pulsada', async () => {
+    const { user } = await montar();
+
+    expect(screen.getByRole('group', { name: 'Cantidad' })).toBeInTheDocument();
+    const modalidad = screen.getByRole('group', { name: 'Modalidad' });
+    const comprar = within(modalidad).getByRole('button', { name: /Comprar pieza única/ });
+    const alquilar = within(modalidad).getByRole('button', { name: /Alquilar por días/ });
+    expect(comprar).toHaveAttribute('aria-pressed', 'true');
+    expect(alquilar).toHaveAttribute('aria-pressed', 'false');
+
+    await user.click(alquilar);
+    expect(comprar).toHaveAttribute('aria-pressed', 'false');
+    expect(alquilar).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('ya no son <label> sin campo', async () => {
+    await montar();
+    expect(screen.getByText('Cantidad').tagName).not.toBe('LABEL');
+    expect(screen.getByText('Modalidad').tagName).not.toBe('LABEL');
+  });
+});
+
 describe('ProductDetail — sin precios, "Solicitar información" (rediseño premium)', () => {
   const SIN_PRECIOS = { ...MUEBLE, precio_venta: null, precio_alquiler_dia: null };
 

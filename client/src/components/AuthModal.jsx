@@ -1,4 +1,4 @@
-import { useState, useContext, useRef } from 'react';
+import { useState, useContext, useRef, useId } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
 import { loginUser, registerUser } from '../services/api';
@@ -14,6 +14,8 @@ const TEXTO_ENTRAR = 'Entrar y continuar pedido';
 const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCESO, textoEntrar = TEXTO_ENTRAR }) => {
   const { login } = useContext(AuthContext);
   const { showToast } = useContext(ToastContext);
+  // H53: cada etiqueta va unida a su campo. useId, porque el modal puede convivir con otros formularios.
+  const idCampos = useId();
 
   const [isRegister, setIsRegister] = useState(false);
   const [nombre, setNombre] = useState('');
@@ -122,8 +124,9 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
           <form onSubmit={handleSubmit} className="auth-form">
             {isRegister && (
               <div className="auth-input-group">
-                <label>Nombre Completo</label>
-                <input 
+                <label htmlFor={`${idCampos}-nombre`}>Nombre Completo</label>
+                <input
+                  id={`${idCampos}-nombre`}
                   type="text" 
                   placeholder="Ej. Ana Martínez" 
                   value={nombre} 
@@ -134,8 +137,9 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
             )}
 
             <div className="auth-input-group">
-              <label>Correo Electrónico</label>
-              <input 
+              <label htmlFor={`${idCampos}-email`}>Correo Electrónico</label>
+              <input
+                id={`${idCampos}-email`}
                 type="email" 
                 placeholder="tu@correo.com" 
                 value={email} 
@@ -145,9 +149,10 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
             </div>
 
             <div className="auth-input-group">
-              <label>Contraseña</label>
+              <label htmlFor={`${idCampos}-password`}>Contraseña</label>
               <div className="auth-password-wrapper">
-                <input 
+                <input
+                  id={`${idCampos}-password`}
                   type={mostrarPassword ? 'text' : 'password'} 
                   placeholder="••••••••" 
                   value={password} 

@@ -78,11 +78,13 @@ Usa `ORDER BY referencia DESC LIMIT 1` — no reutiliza huecos, no trae todo el 
 - Celda vacía en el inventario cuando no hay referencia: se queda así (con el relleno no habrá ninguna).
 - Buscador del inventario: pasa a "Buscar por nombre o referencia...", con los tests de caracterización
   actualizados ("CAMBIADO A PROPÓSITO").
-- Cambiar el código de una categoría con muebles con referencia: pedirá confirmación (pendiente de hacer).
+- Cambiar el código de una categoría con muebles con referencia: pide confirmación (hecho el 2 oct, `65e1ffe`;
+  este apunte seguía como pendiente hasta la revisión del 28 oct).
 - El freeze de los tests de caracterización del panel se levanta (ver `docs/tarea4-diseno.md`, sección 8).
 
 **Pendiente:**
-- La confirmación al cambiar el código de una categoría.
+- ~~La confirmación al cambiar el código de una categoría.~~ Hecha el 2 oct (`65e1ffe`, `avisoCambioDeCodigo` en
+  `pages/admin/categorias.js`).
 - Comprobación en el navegador con sesión de administrador.
 
 **Nota:** No mergear a `main` sin decidir antes lo de las referencias de los muebles existentes y revisar el
@@ -2671,7 +2673,7 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
 - **Queda:** los enlaces "Mi cuenta" y "Mis pedidos" del pie, sin sesión, van directos a `/login` y no llevan
   la ruta: ver H50.
 
-### H46 · BAJA · CI · PENDIENTE (5 oct 2026) · `actions/checkout@v4` y `actions/setup-node@v4` usan Node 20
+### H46 · BAJA · CI · RESUELTO EN LA RAMA (28 oct 2026) · `actions/checkout@v4` y `actions/setup-node@v4` usan Node 20
 
 - **Qué avisa GitHub** (CI #14, la del merge `035cffa`): esas dos acciones usan Node 20, que está obsoleto
   en los runners.
@@ -2680,6 +2682,13 @@ Lo de la tarea 6 que no se puede hacer solo con CSS (necesita JSX):
   existe y qué cambia.
 - **Cuándo:** no corre prisa. Va en el bloque de actualización de dependencias, junto con H44 (react-router 7)
   y vite/vitest. Es un hallazgo aparte de H44.
+- **Resuelto (28 oct 2026):** `actions/checkout@v5`, `actions/setup-node@v5` y `actions/upload-artifact@v6`
+  (la v5 de esta última sigue en Node 20; la v6 es la primera en Node 24). Se eligió el salto más pequeño que
+  corre en Node 24, no la última (v7). Comprobado en el `action.yml` de cada etiqueta: `runs.using: node24`, y
+  siguen las entradas que usa el CI (`node-version`, `cache`, `cache-dependency-path`; `name`, `path`,
+  `retention-days`). **Sin probar en GitHub:** el CI solo corre en los PR a `main`, así que se verá al llevar
+  la rama a `main`. **En ese merge, comprobar que los tres jobs arrancan en verde con las acciones nuevas**
+  (apunte de Ashe en la revisión del PR #23).
 
 ### H47 · CRÍTICA · ACCESIBILIDAD · RESUELTO (6 oct 2026, `2d39756`) · Mi cuenta: campos sin etiqueta, poco contraste y dos `<main>`
 
@@ -2761,7 +2770,7 @@ falta una sesión.
 
 **Decisión del usuario (5 oct):** H47, H48, H49 y H50 van en la siguiente sesión. *(Hechos el 6 oct.)*
 
-### H53 · BAJA · UX · PENDIENTE (6 oct 2026; axe, 6 oct: sin violaciones) · Etiquetas sin asociar en el acceso, el pago y la ficha
+### H53 · BAJA · UX · RESUELTO EN LA RAMA (28 oct 2026) · Etiquetas sin asociar en el acceso, el pago y la ficha
 
 Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé por el código.
 - `AuthModal.jsx` (3 etiquetas) y `CheckoutModal.jsx` (8, el formulario de compra): cada `<label>` va sin
@@ -2841,6 +2850,15 @@ Encontrado al buscar "otros sitios" para H47. **No comprobado con axe**: lo sé 
 - **Estado (6 oct, cierre):** UX menor, prioridad BAJA. Pendiente: asociar cada `<label>` a su campo (`htmlFor` e
   `id`) en `AuthModal` y `CheckoutModal`, y el título de grupo de "Cantidad" y "Modalidad" en la ficha. No corre
   prisa: hoy los modales no los ve nadie (sin precios publicados no se llega al pago).
+- **Resuelto (28 oct 2026):**
+  - `AuthModal` (3 campos) y `CheckoutModal` (8): cada `<label>` lleva `htmlFor` y su campo el `id`, hecho con
+    `useId` para que no se repita si hay dos formularios a la vez. Pulsar la etiqueta lleva al campo, y el
+    nombre accesible ya no depende del `placeholder`.
+  - `ProductDetail`: "Cantidad" y "Modalidad" pasan de `<label>` a título de un `role="group"` con
+    `aria-labelledby`, y los dos botones de modalidad llevan `aria-pressed` (antes, la elegida solo se veía por
+    la clase `active`).
+  - Tests: los de `CheckoutModal` ya buscan cada campo por su etiqueta (`getByLabelText`), y hay tests nuevos
+    en los tres archivos que fallan con el código de antes.
 
 ### H54 · GRAVE · ACCESIBILIDAD · RESUELTO (6 oct 2026, `30044a0`) · El lema del modal de acceso tiene poco contraste
 
@@ -3132,6 +3150,18 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
 - **Por qué no se vio:** CI solo corre en los PR a `main`, y los cambios de la portada (22-23 oct) llegaron a la
   rama sin PR a `main`.
 - **Qué hacer:** revisarlos antes del próximo PR a `main`, que sí los pasará por CI.
+- **28 oct 2026, con el PR #23:** los 15 de `cesta.spec.js` quedan arreglados (el botón de la cabecera se llama
+  «Carrito, N artículo(s)» desde `3ba92a5`, y el test lo buscaba como «Cesta»). Quedan 3, y **no son por carga
+  de la máquina**: con la rama al día (incluye #21 y #22) fallan también solos y con `--workers=1`:
+  - `admin.spec.js` «modo admin en la ficha»: axe devuelve violaciones en la ficha con la barra de administrador;
+  - `home.spec.js` «la portada carga con sus piezas destacadas»: no encuentra las destacadas;
+  - `imagenes.spec.js` «en el móvil, la tarjeta baja la miniatura»: la foto de la ficha en móvil mide 163 px y el
+    test espera 400 (cambio de la galería ligera en móvil del PR #21).
+  - Además, `admin.spec.js` «H57: arrastrar...» falla a veces en la pasada completa en paralelo y pasa sola.
+  - Antes de traer #21 y #22 (rama sobre `main` en `011ccc9`), los tres primeros pasaban solos y fallaban a veces
+    en la pasada completa: por eso se creyó primero que era carga.
+- **Si se monta CI para esta rama:** correr los E2E con menos paralelismo (`--workers=2`) o en un runner con más
+  memoria, para separar los fallos reales de los de carga.
 
 ### H51 · BAJA · REPOSITORIO · CERRADO SIN CAMBIOS (5 oct 2026) · Finales de línea en las migraciones
 
