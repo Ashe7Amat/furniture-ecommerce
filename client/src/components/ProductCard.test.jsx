@@ -13,13 +13,14 @@ import { PLACEHOLDER_IMG } from '../utils/images';
 const renderProductCard = (
   mueble,
   favContext = { toggleFavorite: vi.fn(), isFavorite: () => false },
-  cartContext = { addToCart: vi.fn() }
+  cartContext = { addToCart: vi.fn() },
+  props = {}
 ) => {
   return render(
     <MemoryRouter>
       <CartContext.Provider value={cartContext}>
         <FavoritesContext.Provider value={favContext}>
-          <ProductCard mueble={mueble} />
+          <ProductCard mueble={mueble} {...props} />
         </FavoritesContext.Provider>
       </CartContext.Provider>
     </MemoryRouter>
@@ -74,6 +75,27 @@ describe('ProductCard', () => {
     await user.click(screen.getByRole('button', { name: /vista rápida/i }));
     const vistaRapida = within(screen.getByRole('dialog'));
     expect(vistaRapida.getByAltText('Butaca')).toHaveAttribute('src', `${foto}-full.webp`);
+  });
+
+  // El srcset repetía la misma foto como 320w, 640w y 960w: el navegador tomaba la miniatura de 400 px por
+  // una de 960 y la daba por más pequeña (163 px en un Pixel 5, e2e/imagenes.spec.js).
+  it('la foto no lleva un srcset que repite la misma URL con otros anchos', () => {
+    renderProductCard({ id: '5', nombre: 'Cómoda', imagenes: ['comoda-full.webp'], estado: 'disponible' });
+
+    const img = screen.getByAltText('Cómoda');
+    expect(img).not.toHaveAttribute('srcset');
+    expect(img).not.toHaveAttribute('sizes');
+  });
+
+  it('el nombre es un h2 (catálogo) y, con nivelTitulo="h3", un h3 (portada, bajo «Piezas destacadas»)', () => {
+    const mueble = { id: '6', nombre: 'Aparador', estado: 'disponible' };
+    const { unmount } = renderProductCard(mueble);
+    expect(screen.getByRole('heading', { level: 2, name: 'Aparador' })).toHaveClass('product-title');
+    unmount();
+
+    renderProductCard(mueble, undefined, undefined, { nivelTitulo: 'h3' });
+    expect(screen.getByRole('heading', { level: 3, name: 'Aparador' })).toHaveClass('product-title');
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
   it('muestra la insignia de "Vendido" y el precio tachado cuando el estado es vendido', () => {

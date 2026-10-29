@@ -225,6 +225,16 @@ describe('Home — textos y piezas destacadas', () => {
     expect(screen.getByText('Solicitar información →')).toBeInTheDocument();
   });
 
+  it('el nombre de cada destacada es un h3, debajo del h2 «Piezas destacadas»', async () => {
+    getMuebles.mockResolvedValue([
+      { id: 1, nombre: 'Aparador nórdico', estado: 'disponible', imagenes: [] }
+    ]);
+    await renderHome();
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Aparador nórdico' })).toHaveClass('product-title');
+    expect(screen.queryByRole('heading', { level: 2, name: 'Aparador nórdico' })).toBeNull();
+  });
+
   it('la sección "Vistos en" no sale mientras no haya producciones', async () => {
     await renderHome();
     expect(screen.queryByText('Nuestras piezas han salido en')).toBeNull();

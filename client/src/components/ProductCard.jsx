@@ -8,7 +8,8 @@ import QuickViewModal from './QuickViewModal';
 import '../styles/ProductCard.css';
 import ReferenciaProducto from './ReferenciaProducto';
 
-const ProductCard = ({ mueble }) => {
+// nivelTitulo: el catálogo pinta las tarjetas bajo su h1 (h2); la portada, bajo «Piezas destacadas» (h3).
+const ProductCard = ({ mueble, nivelTitulo: Titulo = 'h2' }) => {
   const { toggleFavorite, isFavorite } = useContext(FavoritesContext);
   const [isPopping, setIsPopping] = useState(false);
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
@@ -50,8 +51,6 @@ const ProductCard = ({ mueble }) => {
               />
               <img
                 src={imageUrl}
-                srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
                 alt={mueble.nombre || 'Mueble'}
                 className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
                 loading="lazy"
@@ -63,8 +62,6 @@ const ProductCard = ({ mueble }) => {
           ) : (
             <img
               src={imageUrl}
-              srcSet={`${imageUrl} 320w, ${imageUrl} 640w, ${imageUrl} 960w`}
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
               alt={mueble.nombre || 'Mueble'}
               className={`product-image ${esVendido ? 'product-image--sold' : ''}`}
               loading="lazy"
@@ -112,7 +109,7 @@ const ProductCard = ({ mueble }) => {
           )}
         </div>
         <div className="product-info">
-          <h2 className="product-title">{mueble.nombre}</h2>
+          <Titulo className="product-title">{mueble.nombre}</Titulo>
           <ReferenciaProducto referencia={mueble.referencia} className="product-reference" />
           {mueble.descripcion && (
             <p className="product-description">{mueble.descripcion}</p>

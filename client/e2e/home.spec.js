@@ -35,10 +35,15 @@ for (const [nombre, ancho, alto, fotos] of [
 ]) {
   test(`hero en ${nombre}: al cargar solo se pide la primera foto, y la siguiente 3 s después (H49)`, async ({ page }) => {
     await page.setViewportSize({ width: ancho, height: alto });
-    const pedidas = [];
+    // Se cuentan fotos distintas, no peticiones. En la CI (el Chromium 141 de Playwright 1.56), la primera foto sale
+    // pedida dos veces: la precarga de index.html y la <img>. Con la red interceptada (simularApi) Playwright desactiva
+    // la caché, así que puede ser un efecto del propio test; en Chrome 153 sin interceptar se pide una vez (29 oct, H64).
+    // La precarga se queda: sin ella, el LCP en móvil sube 1,2 s. Lo que se comprueba no cambia: al cargar solo se pide
+    // la primera foto, y la segunda, 3 s después.
+    const pedidas = new Set();
     page.on('request', (r) => {
       const { pathname } = new URL(r.url());
-      if (pathname.startsWith('/img/hero')) pedidas.push(pathname.replace('/img/', ''));
+      if (pathname.startsWith('/img/hero')) pedidas.add(pathname.replace('/img/', ''));
     });
     // H59: install() solo pone un reloj falso que sigue corriendo al ritmo real; con los tests en paralelo la carga
     // tardaba más y el carrusel ya había cambiado de foto antes de comprobarlo. pauseAt() lo congela antes de
@@ -57,10 +62,10 @@ for (const [nombre, ancho, alto, fotos] of [
     await cerrarCookies(page);
     await page.waitForLoadState('networkidle');
 
-    await expect.poll(() => pedidas).toEqual([fotos[0]]);
+    await expect.poll(() => [...pedidas]).toEqual([fotos[0]]);
 
     await page.clock.fastForward(3100); // la siguiente se pide a los 3 s de mostrar la actual...
-    await expect.poll(() => pedidas).toEqual(fotos);
+    await expect.poll(() => [...pedidas]).toEqual(fotos);
     await expect(page.locator('.hero-slide-img.is-active')).toHaveAttribute('src', /hero-almacen/); // ...y aún no se ve
     await page.clock.fastForward(2500); // 5,6 s: le toca
     await expect(page.locator('.hero-slide-img.is-active')).toHaveAttribute('src', /hero-aerea/);

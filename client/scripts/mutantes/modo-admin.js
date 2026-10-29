@@ -195,8 +195,8 @@ export const MUTANTES = [
   {
     nombre: 'deja su alto sin la separación',
     archivo: BARRA,
-    buscar: '${barra.current.offsetHeight + 8}px',
-    reemplazo: '${barra.current.offsetHeight}px'
+    buscar: '${nodo.offsetHeight + 8}px',
+    reemplazo: '${nodo.offsetHeight}px'
   },
   {
     nombre: 'al salir de la ficha, el alto se queda',
@@ -207,7 +207,7 @@ export const MUTANTES = [
   {
     nombre: 'no sigue los cambios de alto',
     archivo: BARRA,
-    buscar: '    observador?.observe(barra.current);\n',
+    buscar: '    observador?.observe(nodo);\n',
     reemplazo: ''
   },
   {

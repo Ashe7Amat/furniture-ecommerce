@@ -25,12 +25,15 @@ const BarraAdmin = ({ mueble, onEstadoCambiado }) => {
   // Deja en --alto-barra-admin su alto más 8 px de separación, para que lo que flota abajo a la izquierda
   // (el botón de la música) se suba encima en vez de quedar tapado, como con el aviso de cookies
   // (CookieConsent.jsx).
+  // El nodo se guarda al montar: al desmontar, React pone barra.current a null antes de la limpieza, y el
+  // ResizeObserver aún avisa una vez (la barra sale del DOM y pasa a medir 0).
   useEffect(() => {
     const raiz = document.documentElement.style;
-    const medir = () => raiz.setProperty('--alto-barra-admin', `${barra.current.offsetHeight + 8}px`);
+    const nodo = barra.current;
+    const medir = () => raiz.setProperty('--alto-barra-admin', `${nodo.offsetHeight + 8}px`);
     medir();
     const observador = typeof ResizeObserver === 'function' ? new ResizeObserver(medir) : null;
-    observador?.observe(barra.current);
+    observador?.observe(nodo);
     return () => {
       observador?.disconnect();
       raiz.removeProperty('--alto-barra-admin');
