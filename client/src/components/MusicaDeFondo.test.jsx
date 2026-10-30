@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act, within, cleanup } from '@testing-librar
 import { MemoryRouter, Link, Routes, Route } from 'react-router-dom';
 import MusicaDeFondo from './MusicaDeFondo';
 import { CONSULTA_ESCRITORIO } from '../utils/musica';
+import { BRAND } from '../theme/brand.config';
 
 // Canciones de prueba: las de verdad se comprueban en utils/musica.test.js. Es la misma lista que
 // lee el componente, así que un test puede dejarla con menos canciones (y restaurarla al acabar).
@@ -436,7 +437,7 @@ describe('MusicaDeFondo', () => {
     window.MediaMetadata = function MediaMetadata(datos) { Object.assign(this, datos); };
     try {
       const { container, unmount } = pintar();
-      expect(mediaSession.metadata).toMatchObject({ title: 'Primera', artist: 'Artista Uno', album: 'Nave 5 Barcelona' });
+      expect(mediaSession.metadata).toMatchObject({ title: 'Primera', artist: 'Artista Uno', album: BRAND.nombre });
       await act(async () => { manejadores.nexttrack(); });
       expect(fuente(container)).toBe(canciones[1].url);
       expect(mediaSession.metadata).toMatchObject({ title: 'Segunda', artist: 'Artista Dos' });

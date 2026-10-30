@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { CANCIONES, VOLUMEN, CONSULTA_ESCRITORIO } from '../utils/musica';
 import '../styles/MusicaDeFondo.css';
+import { BRAND } from '../theme/brand.config';
 
 const Icono = ({ children }) => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false">
@@ -139,7 +140,7 @@ const Reproductor = () => {
   useEffect(() => {
     if (!('mediaSession' in navigator) || typeof window.MediaMetadata !== 'function') return undefined;
     const ms = navigator.mediaSession;
-    ms.metadata = new window.MediaMetadata({ title: cancion.titulo, artist: cancion.artista, album: 'Nave 5 Barcelona' });
+    ms.metadata = new window.MediaMetadata({ title: cancion.titulo, artist: cancion.artista, album: BRAND.nombre });
     const acciones = { play: reproducir, pause: pausar, previoustrack: anterior, nexttrack: siguiente };
     const poner = (activas) => Object.keys(acciones).forEach((accion) => {
       try { ms.setActionHandler(accion, activas ? acciones[accion] : null); } catch { /* acción no soportada */ }

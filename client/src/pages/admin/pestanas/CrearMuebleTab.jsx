@@ -5,6 +5,7 @@ import SelectorCategoria from '../SelectorCategoria';
 import { idDeCategoria } from '../categorias';
 import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
+import { BRAND } from '../../../theme/brand.config';
 
 // Pestaña "Añadir Mueble". El formulario (formData, files) vive en el contenedor, así que lo escrito
 // se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14,
@@ -80,7 +81,7 @@ const CrearMuebleTab = ({ categorias, formData, setFormData, files, setFiles, re
             (utils/referencia.js); aquí solo se avisa. No se puede escribir a mano. */}
         <div className="field-group">
           <span className="field-label admin-label">Referencia:</span>
-          <p className="field-ref-auto">Se generará automáticamente (NAV-XXX-000)</p>
+          <p className="field-ref-auto">{`Se generará automáticamente (${BRAND.prefijoSku}-XXX-000)`}</p>
         </div>
         <textarea className="admin-input" name="descripcion" placeholder="Descripción detallada" value={formData.descripcion} onChange={handleInputChange} required />
         <div className="admin-form-row">

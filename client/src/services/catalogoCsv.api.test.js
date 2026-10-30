@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { exportarCatalogoCsv, exportarClientesCsv, importarCatalogoCsv, getMensajes, marcarMensajeLeido } from './api';
 import { setAccessToken, limpiarTokens } from '../utils/authToken';
 import { descargarArchivo } from '../utils/descargarArchivo';
+import { BRAND } from '../theme/brand.config';
 
 const respuestaCsv = ({ ok = true, disposicion = null } = {}) => ({
   ok,
@@ -39,12 +40,12 @@ describe('exportarCatalogoCsv', () => {
   it('usa el nombre que manda el servidor si el navegador lo deja leer', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(respuestaCsv({ disposicion: 'attachment; filename="catalogo-nave5-2026-10-04.csv"' }))
+      vi.fn().mockResolvedValue(respuestaCsv({ disposicion: `attachment; filename="catalogo-${BRAND.idInterno}-2026-10-04.csv"` }))
     );
 
     const resultado = await exportarCatalogoCsv();
 
-    expect(resultado.nombreArchivo).toBe('catalogo-nave5-2026-10-04.csv');
+    expect(resultado.nombreArchivo).toBe(`catalogo-${BRAND.idInterno}-2026-10-04.csv`);
     expect(resultado.blob).toBeInstanceOf(Blob);
   });
 
@@ -55,7 +56,7 @@ describe('exportarCatalogoCsv', () => {
 
     const resultado = await exportarCatalogoCsv();
 
-    expect(resultado.nombreArchivo).toBe('catalogo-nave5-2027-01-01.csv');
+    expect(resultado.nombreArchivo).toBe(`catalogo-${BRAND.idInterno}-2027-01-01.csv`);
   });
 
   it('devuelve null si el servidor responde con error o no hay red', async () => {
@@ -84,12 +85,12 @@ describe('exportarClientesCsv', () => {
   it('usa el nombre que manda el servidor si el navegador lo deja leer', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(respuestaCsv({ disposicion: 'attachment; filename="clientes-nave5-2026-10-07.csv"' }))
+      vi.fn().mockResolvedValue(respuestaCsv({ disposicion: `attachment; filename="clientes-${BRAND.idInterno}-2026-10-07.csv"` }))
     );
 
     const resultado = await exportarClientesCsv();
 
-    expect(resultado.nombreArchivo).toBe('clientes-nave5-2026-10-07.csv');
+    expect(resultado.nombreArchivo).toBe(`clientes-${BRAND.idInterno}-2026-10-07.csv`);
     expect(resultado.blob).toBeInstanceOf(Blob);
   });
 
@@ -100,7 +101,7 @@ describe('exportarClientesCsv', () => {
 
     const resultado = await exportarClientesCsv();
 
-    expect(resultado.nombreArchivo).toBe('clientes-nave5-2027-01-01.csv');
+    expect(resultado.nombreArchivo).toBe(`clientes-${BRAND.idInterno}-2027-01-01.csv`);
   });
 
   it('devuelve null si el servidor responde con error o no hay red', async () => {

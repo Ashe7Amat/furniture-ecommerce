@@ -7,16 +7,20 @@ import ProductCard from '../components/ProductCard';
 import VistosEn from '../components/VistosEn';
 import Seo from '../components/Seo';
 import '../styles/Home.css';
+import { BRAND } from '../theme/brand.config';
 
 // Fotos reales del almacén para el slider del hero (estilo banner rotativo tipo IKEA/Kave Home).
 // H42: cada foto en tres tamaños. El hero ocupa todo el ancho de la pantalla: en el móvil (la foto
 // arriba, en 4:3) va la de 800 px; hasta 1200 px de pantalla, la de 1200; por encima, el original de
 // 1600. hero-showroom es vertical y ya mide 1200 de ancho: no tiene versión de 1200.
+// Texto de la portada: el párrafo del hero y la descripción para buscadores
+const DESCRIPCION_PORTADA = `Un espacio único en el corazón de ${BRAND.contacto.ciudad} donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios.`;
+
 const HERO_SLIDES = [
-    { src: '/img/hero-almacen.webp', movil: '/img/hero-almacen-800.webp', tableta: '/img/hero-almacen-1200.webp', alt: 'Vista general del almacén de Nave 5 Barcelona' },
-    { src: '/img/hero-aerea.webp', movil: '/img/hero-aerea-800.webp', tableta: '/img/hero-aerea-1200.webp', alt: 'Vista aérea del almacén de Nave 5 Barcelona' },
-    { src: '/img/hero-sillones.webp', movil: '/img/hero-sillones-800.webp', tableta: '/img/hero-sillones-1200.webp', alt: 'Butacas de cine rojas de época en el almacén de Nave 5' },
-    { src: '/img/hero-showroom.webp', movil: '/img/hero-showroom-800.webp', alt: 'Rincón de showroom con sofás y decoración en Nave 5' },
+    { src: '/img/hero-almacen.webp', movil: '/img/hero-almacen-800.webp', tableta: '/img/hero-almacen-1200.webp', alt: `Vista general del almacén de ${BRAND.nombre}` },
+    { src: '/img/hero-aerea.webp', movil: '/img/hero-aerea-800.webp', tableta: '/img/hero-aerea-1200.webp', alt: `Vista aérea del almacén de ${BRAND.nombre}` },
+    { src: '/img/hero-sillones.webp', movil: '/img/hero-sillones-800.webp', tableta: '/img/hero-sillones-1200.webp', alt: `Butacas de cine rojas de época en el almacén de ${BRAND.nombreCorto}` },
+    { src: '/img/hero-showroom.webp', movil: '/img/hero-showroom-800.webp', alt: `Rincón de showroom con sofás y decoración en ${BRAND.nombreCorto}` },
 ];
 // El mismo corte que el CSS del hero (Home.css): por debajo de 768 px, foto arriba y texto debajo.
 const HERO_MEDIA_MOVIL = '(max-width: 767.98px)';
@@ -99,28 +103,28 @@ export default function Home() {
         // FurnitureStore es el tipo de LocalBusiness para una tienda de muebles. Sin teléfono ni horario:
         // los de brand.config.js son de ejemplo, y Google los enseñaría como reales.
         '@type': 'FurnitureStore',
-        '@id': 'https://www.nave5barcelona.com/#localbusiness',
-        'name': 'Nave 5 Barcelona',
-        'image': 'https://www.nave5barcelona.com/og-image.png',
-        'url': 'https://www.nave5barcelona.com',
-        'email': 'hola@nave5barcelona.com',
+        '@id': `${BRAND.web}/#localbusiness`,
+        'name': BRAND.nombre,
+        'image': `${BRAND.web}/og-image.png`,
+        'url': BRAND.web,
+        'email': BRAND.contacto.email,
         'address': {
             '@type': 'PostalAddress',
-            'streetAddress': 'Carrer del Plom, 32-34, interior',
-            'addressLocality': 'Barcelona',
-            'postalCode': '08038',
-            'addressCountry': 'ES'
+            'streetAddress': BRAND.contacto.direccion,
+            'addressLocality': BRAND.contacto.ciudad,
+            'postalCode': BRAND.contacto.codigoPostal,
+            'addressCountry': BRAND.contacto.pais
         },
         'sameAs': [
-            'https://www.instagram.com/nave5bcn'
+            BRAND.redes.instagram
         ]
     };
 
     return (
         <>
             <Seo
-                title="Nave 5 Barcelona · Muebles vintage y alquiler"
-                description="Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios."
+                title={`${BRAND.nombre} · Muebles vintage y alquiler`}
+                description={DESCRIPCION_PORTADA}
                 url="/"
                 canonical="/"
                 jsonLd={jsonLdLocalBusiness}
@@ -129,10 +133,10 @@ export default function Home() {
                 ni a su relleno lateral. En móvil, foto arriba y texto debajo sobre fondo oscuro. */}
             <section className="home-hero">
                 <div className="hero-content">
-                    <span className="hero-subtitle">Almacén de ideas</span>
-                    <h1 className="hero-title">Nave 5{' '}<span className="hero-title-ciudad">Barcelona</span></h1>
+                    <span className="hero-subtitle">{BRAND.eslogan}</span>
+                    <h1 className="hero-title">{BRAND.nombreCorto}{' '}<span className="hero-title-ciudad">{BRAND.contacto.ciudad}</span></h1>
                     <p className="hero-description">
-                        Un espacio único en el corazón de Barcelona donde el diseño, la restauración y la creatividad se encuentran. Piezas con historia, cuidadas al detalle para dar vida a tus espacios.
+                        {DESCRIPCION_PORTADA}
                     </p>
                     {/* Los dos caminos de Nave 5: piezas para casa y piezas para producciones. */}
                     <div className="hero-acciones">
@@ -228,19 +232,19 @@ export default function Home() {
                             src={fotosGaleria[0]}
                             srcSet={srcSetGaleria(fotosGaleria[0])}
                             sizes={sizesGaleria}
-                            alt="Espacio decorativo en Nave 5 Barcelona"
+                            alt={`Espacio decorativo en ${BRAND.nombre}`}
                             className="gallery-img"
                             loading="lazy"
                             decoding="async"
                         />
                         <div className="gallery-text-block">
-                            <p>Espacios que inspiran. Comparte tu rincón con el hashtag #Nave5Barcelona.</p>
+                            <p>{`Espacios que inspiran. Comparte tu rincón con el hashtag ${BRAND.hashtag}.`}</p>
                         </div>
                         <img
                             src={fotosGaleria[1]}
                             srcSet={srcSetGaleria(fotosGaleria[1])}
                             sizes={sizesGaleria}
-                            alt="Detalle de muebles restaurados en Nave 5 Barcelona"
+                            alt={`Detalle de muebles restaurados en ${BRAND.nombre}`}
                             className="gallery-img"
                             loading="lazy"
                             decoding="async"
@@ -250,7 +254,7 @@ export default function Home() {
                                 src={fotosGaleria[2]}
                                 srcSet={srcSetGaleria(fotosGaleria[2])}
                                 sizes={sizesGaleria}
-                                alt="Ambiente singular en Nave 5 Barcelona"
+                                alt={`Ambiente singular en ${BRAND.nombre}`}
                                 className="gallery-img"
                                 loading="lazy"
                                 decoding="async"

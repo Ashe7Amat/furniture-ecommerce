@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import qrcode from 'qrcode-generator';
 import { renderAdmin, irAPestana, CATEGORIAS } from '../adminTestUtils';
 import { WEB_PUBLICA, urlFicha, enHojas, trazadoQr, ETIQUETAS_POR_HOJA } from './etiquetas';
+import { BRAND } from '../../theme/brand.config';
 
 vi.mock('../../services/api');
 
@@ -50,9 +51,9 @@ afterEach(() => {
 
 describe('Etiquetas — ayudantes', () => {
   it('urlFicha: la ficha pública de la web, con el id', () => {
-    expect(WEB_PUBLICA).toBe('https://www.nave5barcelona.com');
-    expect(urlFicha(SILLA)).toBe('https://www.nave5barcelona.com/mueble/3f2a9c1e-7b41-4d2a-9e0f-1a2b3c4d5e6f');
-    expect(urlFicha({ id: 'a b/c' })).toBe('https://www.nave5barcelona.com/mueble/a%20b%2Fc');
+    expect(WEB_PUBLICA).toBe(BRAND.web);
+    expect(urlFicha(SILLA)).toBe(`${BRAND.web}/mueble/3f2a9c1e-7b41-4d2a-9e0f-1a2b3c4d5e6f`);
+    expect(urlFicha({ id: 'a b/c' })).toBe(`${BRAND.web}/mueble/a%20b%2Fc`);
   });
 
   it('enHojas: de 6 en 6, la última con las que sobren', () => {
@@ -102,7 +103,7 @@ describe('Etiquetas — una pieza', () => {
     expect(etiquetas()).toHaveLength(1);
     const etiqueta = within(etiquetas()[0]);
     expect(etiquetas()[0]).toHaveAccessibleName('Etiqueta de Silla Thonet');
-    expect(etiqueta.getByText('NAVE 5 BARCELONA')).toHaveClass('etiqueta-marca');
+    expect(etiqueta.getByText(BRAND.nombre.toUpperCase())).toHaveClass('etiqueta-marca');
     expect(etiqueta.getByText('NAV-SIL-001')).toHaveClass('etiqueta-ref');
     expect(etiqueta.getByText('Silla Thonet')).toHaveClass('etiqueta-nombre');
   });
@@ -113,7 +114,7 @@ describe('Etiquetas — una pieza', () => {
     await pedirEtiqueta(user, 'Silla Thonet');
 
     const qr = within(etiquetas()[0]).getByRole('img', { name: 'Código QR de la ficha de Silla Thonet' });
-    expect(qr).toHaveAttribute('data-qr', 'https://www.nave5barcelona.com/mueble/3f2a9c1e-7b41-4d2a-9e0f-1a2b3c4d5e6f');
+    expect(qr).toHaveAttribute('data-qr', `${BRAND.web}/mueble/3f2a9c1e-7b41-4d2a-9e0f-1a2b3c4d5e6f`);
     expect(qr).toHaveAttribute('width', '100');
     expect(qr).toHaveAttribute('height', '100');
     // Lo que se pinta es el QR de esa URL, con 4 módulos de margen blanco alrededor.
@@ -181,7 +182,7 @@ describe('Etiquetas — en lote', () => {
       'Etiqueta de Lámpara de pie',
       'Etiqueta de Baúl sin referencia'
     ]);
-    expect(within(etiquetas()[1]).getByRole('img')).toHaveAttribute('data-qr', 'https://www.nave5barcelona.com/mueble/m3');
+    expect(within(etiquetas()[1]).getByRole('img')).toHaveAttribute('data-qr', `${BRAND.web}/mueble/m3`);
     expect(screen.getAllByRole('region', { name: /^Hoja / })).toHaveLength(1);
   });
 

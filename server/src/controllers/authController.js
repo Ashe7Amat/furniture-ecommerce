@@ -1,5 +1,6 @@
 // server/src/controllers/authController.js
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -753,10 +754,7 @@ const solicitarRecuperacion = async (req, res) => {
       return res.status(200).json({ success: true, message: MENSAJE_FORGOT_GENERICO });
     }
 
-    const urlBase = (process.env.CLIENT_URL || 'https://www.nave5barcelona.com').replace(
-      /\/+$/,
-      ''
-    );
+    const urlBase = (process.env.CLIENT_URL || BRAND.web).replace(/\/+$/, '');
     const enlace = `${urlBase}/reset-password?token=${token}`;
 
     await enviarTodos([() => correos.enviarEmailRecuperacion(cliente.email, enlace)]);

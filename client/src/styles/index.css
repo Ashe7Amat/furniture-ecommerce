@@ -1,89 +1,13 @@
+/* Las variables del tema (colores, fuentes, radios...) se cargan aquí una sola vez para toda la web.
+   Las demás hojas no importan tokens.css: si lo hicieran, al cargar su trozo pisarían un tema
+   importado encima (ver theme/theme-cliente-demo.css). */
 @import '../theme/tokens.css';
-
-:root {
-  /* ─── PALETA VERANO CÁLIDO ─── */
-  --bg-color:        #F5F2EC;  /* Arena/avena — fondo de lienzo */
-  --primary-color:   #3E322A;  /* Espresso oscuro — texto principal */
-  --secondary-color: #6E5D51;  /* Marrón grisáceo — texto secundario (oscurecido para contraste AA) */
-  --accent-color:    #B38A70;  /* Terracota/arcilla — botones, íconos */
-  --accent-hover:    #9D735A;  /* Terracota oscuro — hover de botones */
-  /* Terracota para TEXTO (o fondo de un botón con texto): #B38A70 sobre la arena da 2,76:1 y el AA
-     pide 4,5. Este da 4,67:1 (auditoría de accesibilidad, 5 oct 2026). En oscuro, el acento ya pasa. */
-  --accent-text:     #7E5A42;
-  --card-bg:         #FCFAF8;  /* Blanco roto — fondo de tarjetas */
-  --surface-alt:     #EDE8E0;  /* Relleno de imágenes/placeholders */
-  --border-color:    #E2DCD0;  /* Divisores y bordes orgánicos */
-  --text-color:      #3E322A;  /* = primary-color, para compatibilidad */
-
-  --success-color:   #4D6E4A;  /* Ajustado para contraste AA: 4,86:1 sobre --success-bg */
-  --success-bg:      #E7EEE1;
-  --danger-color:    #9C4A31;  /* Antes #A85338: sobre --danger-bg daba 4,32:1 (AA pide 4,5); ahora 4,98 */
-  --danger-bg:       #F5E5DD;
-  --warning-color:   #7A591E;  /* Ajustado para contraste AA: 5,27:1 sobre --warning-bg */
-  --warning-bg:      #F2E8D2;
-  /* Etiqueta de almacén con la referencia (kraft): 8,6:1 de contraste */
-  --etiqueta-bg:     #E3CFB3;
-  --etiqueta-text:   #3E322A;
-
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-display: 'Fraunces', ui-serif, 'Iowan Old Style', 'Palatino Linotype', serif;
-  /* Referencias de producto (NAV-SIL-001) y códigos de categoría: todas las letras del mismo ancho */
-  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
-
-  color-scheme: light;
-}
-
-/* ─── MODO OSCURO: sigue al sistema salvo que el usuario elija explícitamente ─── */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg-color:        #221B16;
-    --primary-color:   #F1EAE0;
-    --secondary-color: #C7B8AA;
-    --accent-color:    #DDAE81;
-    --accent-hover:    #EFCBA0;
-    --accent-text:     #DDAE81;
-    --card-bg:         #2A211A;
-    --surface-alt:     #362A21;
-    --border-color:    #42352B;
-    --text-color:      #F1EAE0;
-    --success-color:   #93B48E;
-    --success-bg:      #2B3527;
-    --danger-color:    #DE8467;
-    --danger-bg:       #3A2620;
-    --warning-color:   #D9B36C;
-    --warning-bg:      #3A311F;
-    --etiqueta-bg:     #5A4634;
-    --etiqueta-text:   #F1EAE0;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg-color:        #221B16;
-  --primary-color:   #F1EAE0;
-  --secondary-color: #C7B8AA;
-  --accent-color:    #DDAE81;
-  --accent-hover:    #EFCBA0;
-  --accent-text:     #DDAE81;
-  --card-bg:         #2A211A;
-  --surface-alt:     #362A21;
-  --border-color:    #42352B;
-  --text-color:      #F1EAE0;
-  --success-color:   #93B48E;
-  --success-bg:      #2B3527;
-  --danger-color:    #DE8467;
-  --danger-bg:       #3A2620;
-  --warning-color:   #D9B36C;
-  --warning-bg:      #3A311F;
-  --etiqueta-bg:     #5A4634;
-  --etiqueta-text:   #F1EAE0;
-  color-scheme: dark;
-}
 
 body {
   margin: 0;
   font-family: var(--font-body);
-  background-color: var(--bg-color);
-  color: var(--text-color);
+  background-color: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
   transition: background-color .3s ease, color .3s ease;
 }
@@ -113,14 +37,14 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-color);
+  background: var(--color-bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--secondary-color);
+  background: var(--color-secondary);
 }
 
 /* Se ve una fracción de segundo mientras se descarga una página con lazy-loading
@@ -140,8 +64,8 @@ body {
 .page-loader-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(0, 0, 0, 0.08);
-  border-top-color: var(--primary-color, #1a1a1a);
+  border: 3px solid rgba(var(--color-black-rgb), 0.08);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: pageLoaderSpin 0.8s linear infinite;
 }
@@ -159,7 +83,7 @@ body {
   font-size: 0.72rem;
   font-weight: 400; /* no hereda la negrita del nombre (p. ej. en la lista del catálogo) */
   letter-spacing: 0.04em;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   line-height: 1.3;
 }
 
@@ -175,37 +99,29 @@ body {
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.06em;
-  background: var(--etiqueta-bg);
-  color: var(--etiqueta-text);
+  background: var(--color-etiqueta-bg);
+  color: var(--color-etiqueta-text);
   clip-path: polygon(8px 0, 100% 0, 100% 100%, 8px 100%, 0 50%);
-  -webkit-mask: radial-gradient(circle 2.5px at 9px 50%, transparent 98%, #000 100%);
-  mask: radial-gradient(circle 2.5px at 9px 50%, transparent 98%, #000 100%);
+  -webkit-mask: radial-gradient(circle 2.5px at 9px 50%, transparent 98%, var(--color-black) 100%);
+  mask: radial-gradient(circle 2.5px at 9px 50%, transparent 98%, var(--color-black) 100%);
 }
 
 /* ─── Microinteracciones (tarea 6, bloque A) ───────────────────────────────────────────────────────
    Solo para la tienda: el panel (.admin-layout) se queda como está. Con "reducir movimiento" en el
    sistema, la regla de arriba (prefers-reduced-motion) deja todas estas transiciones en nada. */
 
-/* Radios de esquina comunes, para lo nuevo y lo que se vaya tocando (la tienda usa esquinas casi
-   rectas a propósito: tarjetas y botones de 2-4 px). */
-:root {
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-pill: 999px;
-}
-
 /* Foco visible al moverse con el teclado (no al hacer clic): un anillo del color de acento. Los
    campos de texto se quedan fuera: en ellos :focus-visible salta también al pulsarlos con el ratón,
    y ya marcan su foco con el borde (el buscador de la cabecera salía con una caja encima). */
 :where(a, button, select, summary, [tabindex], input[type='checkbox'], input[type='radio']):focus-visible:not(.admin-layout *) {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
 }
 
 /* La tarjeta de producto, con el teclado, se eleva igual que con el ratón. */
 .product-card:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 16px 32px rgba(var(--color-black-rgb), 0.08);
   outline-offset: 4px;
 }
 
@@ -225,11 +141,11 @@ body {
 }
 .product-card.skeleton-card .animate-pulse {
   animation: brillo-esqueleto 1.4s ease-in-out infinite;
-  background-color: var(--surface-alt);
+  background-color: var(--color-surface-alt);
   background-image: linear-gradient(
     100deg,
     transparent 30%,
-    color-mix(in srgb, var(--card-bg) 70%, transparent) 50%,
+    color-mix(in srgb, var(--color-surface) 70%, transparent) 50%,
     transparent 70%
   );
   background-size: 200% 100%;
@@ -238,7 +154,7 @@ body {
 
 /* Accesibilidad: foco visible con outline claro en todos los elementos interactivos con teclado */
 :focus-visible {
-  outline: 2px solid var(--accent-text, #8A644C);
+  outline: 2px solid var(--color-accent-text);
   outline-offset: 2px;
 }
 
@@ -259,9 +175,9 @@ textarea:focus:not(:focus-visible) {
   top: -60px;
   z-index: 3000;
   padding: 10px 16px;
-  border-radius: 4px;
-  background: var(--primary-color);
-  color: var(--bg-color);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-bg);
   text-decoration: none;
   font-size: 0.9rem;
   font-weight: 500;

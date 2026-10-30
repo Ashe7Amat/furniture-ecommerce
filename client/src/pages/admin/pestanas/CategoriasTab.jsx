@@ -5,6 +5,7 @@ import Icon from '../Icon';
 import { generales, especificasDe, normalizarCodigo, errorDeCodigo } from '../categorias';
 import useEstadoEnvio from '../hooks/useEstadoEnvio';
 import { prepararFotos, textoOptimizando, textoDemasiadoPeso } from '../../../utils/imagen';
+import { BRAND } from '../../../theme/brand.config';
 
 // Pestaña "Gestionar Categorías". El formulario de alta vive en el contenedor, así que lo escrito
 // se conserva al cambiar de pestaña (H13). El estado del envío es solo de este formulario (H14): el
@@ -111,7 +112,7 @@ const CategoriasTab = ({
               onChange={(e) => setNuevaCatCodigo(normalizarCodigo(e.target.value))}
               aria-describedby="nueva-cat-codigo-nota"
             />
-            <small id="nueva-cat-codigo-nota" className="field-hint">Forma las referencias de sus muebles (NAV-SOF-001). Sin código, no llevan referencia.</small>
+            <small id="nueva-cat-codigo-nota" className="field-hint">{`Forma las referencias de sus muebles (${BRAND.prefijoSku}-SOF-001). Sin código, no llevan referencia.`}</small>
           </div>
           <div className="field-group">
             <label htmlFor="nueva-cat-padre" className="field-label admin-label">Categoría general (opcional):</label>

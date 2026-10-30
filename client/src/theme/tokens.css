@@ -1,11 +1,15 @@
-/* ─── DESIGN TOKENS (Nave 5 / Theme Base) ───
-   Valores canónicos de color, tipografía, espaciado, radios y sombras.
-   Mantiene alias hacia los nombres de variable clásicos (--primary-color, --accent-color, etc.)
-   para asegurar retrocompatibilidad total sin romper componentes existentes.
+/* ─── DESIGN TOKENS (tema base) ───
+   La única fuente de los valores de color, tipografía, espaciado, radios y sombras de la web.
+   Ninguna hoja de client/src lleva colores escritos a mano (lo comprueba tokens.test.js): todas
+   usan estas variables, muchas con los alias clásicos (--primary-color, --card-bg...), que apuntan aquí.
+
+   Para otro cliente: cambia los valores de "Paleta de la marca" (y sus dos bloques de modo
+   oscuro, abajo) y las fuentes, o importa un tema encima (ver theme-cliente-demo.css), o genera
+   este archivo con `npm run init:client` (scripts/init-client.js, en la raíz del repo).
 */
 
 :root {
-  /* ─── COLORES: PALETA VERANO CÁLIDO ─── */
+  /* ─── PALETA DE LA MARCA (cambia con el modo oscuro, abajo) ─── */
   --color-bg:            #F5F2EC;  /* Arena/avena — fondo de lienzo */
   --color-primary:       #3E322A;  /* Espresso oscuro — texto y elementos principales */
   --color-secondary:     #6E5D51;  /* Marrón grisáceo — texto secundario (contraste AA) */
@@ -13,7 +17,9 @@
   --color-text-muted:    #6E5D51;  /* Texto atenuado */
   --color-accent:        #B38A70;  /* Terracota/arcilla — botones, acentos, íconos */
   --color-accent-hover:  #9D735A;  /* Terracota oscuro — hover */
-  --color-accent-text:   #7E5A42;  /* Terracota para texto con contraste AA (4,67:1) */
+  /* Terracota para TEXTO (o fondo de un botón con texto): #B38A70 sobre la arena da 2,76:1 y el AA
+     pide 4,5. Este da 4,67:1 (auditoría de accesibilidad, 5 oct 2026). En oscuro, el acento ya pasa. */
+  --color-accent-text:   #7E5A42;
   --color-surface:       #FCFAF8;  /* Blanco roto — fondo de tarjetas */
   --color-surface-alt:   #EDE8E0;  /* Superficie alternativa / rellenos */
   --color-border:        #E2DCD0;  /* Divisores y bordes */
@@ -29,6 +35,95 @@
   /* Etiqueta kraft de almacén */
   --color-etiqueta-bg:   #E3CFB3;
   --color-etiqueta-text: #3E322A;
+
+  /* ─── COLORES FIJOS (iguales en claro y en oscuro) ─── */
+  --color-white:         #fff;
+  --color-black:         #000;
+  --color-black-rgb:     0, 0, 0;                  /* sombras y velos: rgba(var(--color-black-rgb), 0.08) */
+  --color-overlay:       rgba(20, 15, 10, 0.5);    /* fondo de las ventanas del panel */
+  --color-overlay-warm:  rgba(34, 27, 22, 0.55);   /* fondo de las ventanas de reservas del panel */
+  --color-overlay-dark:  rgba(18, 18, 18, 0.75);   /* insignia sobre una foto (gestor de portada) */
+  --color-focus-glow:    rgba(184, 154, 110, 0.2); /* halo del buscador de destacadas */
+
+  /* Botón oscuro de la ficha (comprar, solicitar, reservar) y bandas sobre la foto */
+  --color-cta:           #1A1510;
+  --color-cta-hover:     #2E251E;
+  --color-cta-rgb:       26, 21, 16;
+  --color-on-dark:       #F7F4EE;                  /* texto claro sobre el botón oscuro y las bandas */
+  --color-banner-sold:   rgba(184, 50, 50, 0.85);
+  --color-banner-rented: rgba(194, 120, 24, 0.85);
+  --color-white-rgb:     255, 255, 255;            /* bordes y puntos sobre fotos: rgba(var(--color-white-rgb), 0.2) */
+
+  /* Tonos de la marca en rgb, para halos y bordes con transparencia. Son los del modo claro y no
+     cambian en oscuro: rgba(var(--color-accent-rgb), 0.35) */
+  --color-primary-rgb:       62, 50, 42;           /* el de --color-primary (velo de la vista rápida) */
+  --color-accent-rgb:        179, 138, 112;        /* el de --color-accent (borde de la tarjeta, halo del filtro) */
+  --color-accent-text-rgb:   126, 90, 66;          /* el de --color-accent-text (halo de los campos del panel) */
+  --color-focus-contact-rgb: 184, 115, 51;         /* halo de los campos de la ventana de contacto */
+  --color-focus-booking-rgb: 184, 134, 11;         /* halo de los desplegables de la reserva */
+
+  /* Portada: el hero sobre la foto */
+  --color-hero-bg:       #221B16;                  /* se ve mientras carga la foto */
+  --color-hero-light:    #F5F2EC;                  /* subtítulo, botón lleno y borde del de solo borde */
+  --color-hero-ink:      #1a1a1a;                  /* texto del botón lleno */
+
+  /* Botón de favoritos sobre la foto de la tarjeta */
+  --color-photo-btn-rgb: 30, 24, 20;
+
+  /* Ventana de contacto */
+  --color-overlay-contact:   rgba(20, 16, 13, 0.75);
+  --color-cta-hover-contact: #2D241D;              /* hover de "Enviar" (el de la ficha es --color-cta-hover) */
+  --color-success-check:     #2b8a3e;              /* icono de mensaje enviado */
+  --color-success-check-rgb: 43, 138, 62;
+
+  /* Barra del administrador sobre la web pública */
+  --color-admin-bar-bg:   rgba(24, 19, 15, 0.9);
+  --color-admin-bar-text: #F5EFE8;
+
+  /* Panel (AdminUI.css): insignias de estado y fondo de las ventanas */
+  --color-state-success-rgb: 46, 125, 50;
+  --color-state-warning-rgb: 230, 81, 0;
+  --color-state-danger-rgb:  198, 40, 40;
+  --color-overlay-slate:     rgba(15, 23, 42, 0.55);
+
+  /* Insignias del panel: historial de actividad y estados de las reservas */
+  --color-badge-green-bg:      #dcfce7;
+  --color-badge-green:         #15803d;
+  --color-badge-green-rgb:     34, 197, 94;
+  --color-badge-blue-bg:       #dbeafe;
+  --color-badge-blue:          #1d4ed8;
+  --color-badge-blue-strong:   #1E40AF;
+  --color-badge-blue-border:   #BFDBFE;
+  --color-badge-red-bg:        #fee2e2;
+  --color-badge-red:           #b91c1c;
+  --color-badge-red-rgb:       239, 68, 68;
+  --color-badge-purple-bg:     #f3e8ff;
+  --color-badge-purple:        #7e22ce;
+  --color-badge-amber-bg:      #fef3c7;
+  --color-badge-amber:         #b45309;
+  --color-badge-amber-strong:  #92400E;
+  --color-badge-amber-border:  #FCD34D;
+  --color-badge-sky-bg:        #e0f2fe;
+  --color-badge-sky:           #0369a1;
+  --color-badge-emerald-bg:    #D1FAE5;
+  --color-badge-emerald:       #065F46;
+  --color-badge-emerald-border: #A7F3D0;
+
+  /* Grises neutros: hojas impresas (albarán y etiquetas) y fondos de fotos del panel */
+  --color-gray-50:       #fafafa;
+  --color-gray-100:      #f0f0f0;
+  --color-gray-150:      #e5e5e5;
+  --color-gray-200:      #ddd;
+  --color-gray-210:      #dcdcdc;
+  --color-gray-300:      #ccc;
+  --color-gray-400:      #9a9a9a;
+  --color-gray-500:      #666;
+  --color-gray-550:      #555;
+  --color-gray-600:      #444;
+  --color-gray-700:      #333;
+  --color-gray-800:      #222;
+  --color-gray-900:      #111;
+  --color-print-desk:    #d9d6d1;                  /* mesa detrás de las hojas en la vista previa de impresión */
 
   /* ─── ALIAS RETROCOMPATIBLES (No modificar; preserva código existente) ─── */
   --bg-color:            var(--color-bg);
@@ -53,7 +148,10 @@
   /* ─── TIPOGRAFÍA ─── */
   --font-body:    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-display: 'Fraunces', ui-serif, 'Iowan Old Style', 'Palatino Linotype', serif;
+  /* Referencias de producto (NAV-SIL-001) y códigos de categoría: todas las letras del mismo ancho */
   --font-mono:    ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-mono-system: monospace;                   /* referencia en la lista de reservas del panel */
+  --font-mono-print:  monospace, monospace;        /* referencias del albarán impreso */
 
   /* ─── ESPACIADO ─── */
   --space-xs:  4px;
@@ -67,6 +165,7 @@
   --radius-sm:   4px;
   --radius-md:   8px;
   --radius-lg:   12px;
+  --radius-pill: 999px;
   --radius-full: 9999px;
 
   /* ─── SOMBRAS Y ELEVACIÓN ─── */

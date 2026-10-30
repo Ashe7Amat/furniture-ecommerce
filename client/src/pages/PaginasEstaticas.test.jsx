@@ -9,6 +9,7 @@ import Legal from './Legal';
 import PrivacyPolicy from './PrivacyPolicy';
 import Terms from './Terms';
 import CheckoutCancelado from './CheckoutCancelado';
+import { BRAND } from '../theme/brand.config';
 
 const montar = (Pagina) =>
   render(
@@ -19,7 +20,7 @@ const montar = (Pagina) =>
 
 describe('páginas informativas', () => {
   it.each([
-    ['Sobre nosotros', About, 'Nave 5 Barcelona'],
+    ['Sobre nosotros', About, BRAND.nombre],
     ['Sostenibilidad', Sustainability, 'Sostenibilidad y Restauración'],
     ['Aviso legal', Legal, 'Aviso Legal'],
     ['Privacidad', PrivacyPolicy, 'Política de Privacidad'],

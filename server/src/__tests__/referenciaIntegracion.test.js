@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -51,7 +53,7 @@ describe('crear muebles (A7)', () => {
   test('el primero de una categoría con código se lleva NAV-COD-001', async () => {
     const res = await crearMueble('Silla Tolix', 'Sillas y asientos');
     assert.equal(res.status, 201);
-    assert.equal(res.body.data[0].referencia, 'NAV-SIL-001');
+    assert.equal(res.body.data[0].referencia, `${P}-SIL-001`);
   });
 
   test('dos seguidos en la misma categoría: 001 y 002; en otra categoría se cuenta aparte', async () => {
@@ -59,17 +61,17 @@ describe('crear muebles (A7)', () => {
     await crearMueble('Silla Thonet', 'Sillas y asientos');
     await crearMueble('Mesa de roble', 'Mesas y mobiliario');
 
-    assert.equal(referenciaDe('Silla Tolix'), 'NAV-SIL-001');
-    assert.equal(referenciaDe('Silla Thonet'), 'NAV-SIL-002');
-    assert.equal(referenciaDe('Mesa de roble'), 'NAV-MES-001');
+    assert.equal(referenciaDe('Silla Tolix'), `${P}-SIL-001`);
+    assert.equal(referenciaDe('Silla Thonet'), `${P}-SIL-002`);
+    assert.equal(referenciaDe('Mesa de roble'), `${P}-MES-001`);
   });
 
   test('una referencia mandada en la petición se ignora: la pone siempre el servidor', async () => {
     const res = await crearMueble('Silla Tolix', 'Sillas y asientos', {
-      referencia: 'NAV-XXX-999'
+      referencia: `${P}-XXX-999`
     });
     assert.equal(res.status, 201);
-    assert.equal(referenciaDe('Silla Tolix'), 'NAV-SIL-001');
+    assert.equal(referenciaDe('Silla Tolix'), `${P}-SIL-001`);
   });
 
   test('en una categoría sin código, el mueble se crea sin referencia', async () => {
@@ -85,7 +87,7 @@ describe('crear muebles (A7)', () => {
     await crearMueble('Taburete bajo', 'Taburetes');
 
     assert.equal(referenciaDe('Taburete alto'), null);
-    assert.equal(referenciaDe('Taburete bajo'), 'NAV-TAB-001');
+    assert.equal(referenciaDe('Taburete bajo'), `${P}-TAB-001`);
   });
 
   test('cambiar el código de una categoría no toca las referencias ya dadas', async () => {
@@ -93,8 +95,8 @@ describe('crear muebles (A7)', () => {
     await conAdmin(request(app).put('/api/categorias/20')).field('codigo', 'ASI');
     await crearMueble('Silla Thonet', 'Sillas y asientos');
 
-    assert.equal(referenciaDe('Silla Tolix'), 'NAV-SIL-001');
-    assert.equal(referenciaDe('Silla Thonet'), 'NAV-ASI-001');
+    assert.equal(referenciaDe('Silla Tolix'), `${P}-SIL-001`);
+    assert.equal(referenciaDe('Silla Thonet'), `${P}-ASI-001`);
   });
 });
 
@@ -108,7 +110,7 @@ describe('editar muebles (A7)', () => {
       .field('categoria_id', '21');
     assert.equal(res.status, 200);
     assert.equal(fake.tablas.muebles[0].categoria_id, 21);
-    assert.equal(fake.tablas.muebles[0].referencia, 'NAV-SIL-001');
+    assert.equal(fake.tablas.muebles[0].referencia, `${P}-SIL-001`);
   });
 
   test('una referencia mandada al editar se ignora: no es editable', async () => {
@@ -117,10 +119,10 @@ describe('editar muebles (A7)', () => {
 
     const res = await conAdmin(request(app).put(`/api/muebles/${id}`))
       .field('nombre', 'Silla Tolix negra')
-      .field('referencia', 'NAV-SIL-999');
+      .field('referencia', `${P}-SIL-999`);
     assert.equal(res.status, 200);
     assert.equal(fake.tablas.muebles[0].nombre, 'Silla Tolix negra');
-    assert.equal(fake.tablas.muebles[0].referencia, 'NAV-SIL-001');
+    assert.equal(fake.tablas.muebles[0].referencia, `${P}-SIL-001`);
   });
 });
 
@@ -137,7 +139,7 @@ describe('leer las referencias (A7)', () => {
     for (const res of [publico, panel]) {
       assert.equal(res.status, 200);
       const porNombre = Object.fromEntries(res.body.map((m) => [m.nombre, m.referencia]));
-      assert.deepEqual(porNombre, { 'Silla Tolix': 'NAV-SIL-001', 'Taburete alto': null });
+      assert.deepEqual(porNombre, { 'Silla Tolix': `${P}-SIL-001`, 'Taburete alto': null });
     }
   });
 
@@ -145,6 +147,6 @@ describe('leer las referencias (A7)', () => {
     const id = fake.tablas.muebles.find((m) => m.nombre === 'Silla Tolix').id;
     const res = await request(app).get(`/api/muebles/${id}`);
     assert.equal(res.status, 200);
-    assert.equal(res.body.referencia, 'NAV-SIL-001');
+    assert.equal(res.body.referencia, `${P}-SIL-001`);
   });
 });

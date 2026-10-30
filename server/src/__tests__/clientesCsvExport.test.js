@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -88,7 +89,7 @@ describe('GET /api/admin/clientes/export', () => {
     assert.equal(res.headers['content-type'], 'text/csv; charset=utf-8');
     assert.match(
       res.headers['content-disposition'],
-      /^attachment; filename="clientes-nave5-\d{4}-\d{2}-\d{2}\.csv"$/
+      new RegExp(`^attachment; filename="clientes-${BRAND.idInterno}-\\d{4}-\\d{2}-\\d{2}\\.csv"$`)
     );
     assert.equal(res.headers['cache-control'], 'private, no-store');
   });

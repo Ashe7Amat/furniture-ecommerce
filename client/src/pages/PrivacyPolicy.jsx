@@ -1,4 +1,5 @@
 import InfoPageLayout from '../components/InfoPageLayout';
+import { BRAND } from '../theme/brand.config';
 
 const PrivacyPolicy = () => {
   return (
@@ -6,7 +7,7 @@ const PrivacyPolicy = () => {
       <div>
         <h2 className="info-subhead-divided">1. Responsable del tratamiento</h2>
         <p>
-          El responsable del tratamiento de tus datos personales es <strong>Nave 5 Barcelona S.L.</strong> (NIF B-00000000), con domicilio en Carrer del Plom, 32-34, interior, 08038 Barcelona. Puedes contactarnos en <strong>hola@nave5barcelona.com</strong> para cualquier consulta sobre esta política.
+          El responsable del tratamiento de tus datos personales es <strong>{BRAND.contacto.razonSocial}</strong>{` (NIF ${BRAND.contacto.cif}), con domicilio en ${BRAND.contacto.direccion}, ${BRAND.contacto.codigoPostal} ${BRAND.contacto.ciudad}. Puedes contactarnos en `}<strong>{BRAND.contacto.email}</strong> para cualquier consulta sobre esta política.
         </p>
       </div>
 
@@ -15,7 +16,7 @@ const PrivacyPolicy = () => {
         <ul>
           <li><strong>Datos de cuenta:</strong> nombre, correo electrónico y contraseña (almacenada siempre cifrada, nunca en texto plano).</li>
           <li><strong>Datos de pedido:</strong> dirección de entrega, teléfono de contacto y notas que nos indiques al comprar o alquilar una pieza.</li>
-          <li><strong>Datos de pago:</strong> gestionados directamente por Stripe, nuestra pasarela de pago. Nave 5 Barcelona no ve ni almacena en ningún momento el número completo de tu tarjeta.</li>
+          <li><strong>Datos de pago:</strong>{` gestionados directamente por Stripe, nuestra pasarela de pago. ${BRAND.nombre} no ve ni almacena en ningún momento el número completo de tu tarjeta.`}</li>
           <li><strong>Datos de navegación:</strong> si aceptas las cookies de analítica, información agregada y anónima sobre cómo usas el sitio (páginas visitadas, dispositivo, procedencia).</li>
         </ul>
       </div>
@@ -59,7 +60,7 @@ const PrivacyPolicy = () => {
       <div>
         <h2 className="info-subhead-divided">7. Tus derechos</h2>
         <p>
-          Tienes derecho a acceder, rectificar, limitar y solicitar la supresión de tus datos personales, así como a la portabilidad y a oponerte a su tratamiento, enviando un correo a <strong>hola@nave5barcelona.com</strong>. También puedes reclamar ante la Agencia Española de Protección de Datos (AEPD) si consideras que no hemos atendido correctamente tu solicitud.
+          Tienes derecho a acceder, rectificar, limitar y solicitar la supresión de tus datos personales, así como a la portabilidad y a oponerte a su tratamiento, enviando un correo a <strong>{BRAND.contacto.email}</strong>. También puedes reclamar ante la Agencia Española de Protección de Datos (AEPD) si consideras que no hemos atendido correctamente tu solicitud.
         </p>
       </div>
 

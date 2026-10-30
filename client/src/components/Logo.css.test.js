@@ -8,8 +8,8 @@ import { readFileSync } from 'node:fs';
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
 
 describe('Logo — proporción en la hoja de estilos', () => {
-  it('el aspect-ratio de .logo-svg es el del viewBox de Logo.jsx', () => {
-    const [, ancho, alto] = leer('./Logo.jsx').match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+  it('el aspect-ratio de .logo-svg es el del viewBox de theme/LogoDibujo.jsx', () => {
+    const [, ancho, alto] = leer('../theme/LogoDibujo.jsx').match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
     const [, a, b] = leer('../styles/HeaderFooter.css').match(/\.logo-svg\s*\{[^}]*aspect-ratio:\s*([\d.]+)\s*\/\s*([\d.]+)/);
     expect(Number(a) / Number(b)).toBeCloseTo(Number(ancho) / Number(alto), 3);
   });

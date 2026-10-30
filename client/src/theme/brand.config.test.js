@@ -5,18 +5,35 @@ import { BRAND, brand } from './brand.config';
 
 describe('brand.config.js', () => {
   it('exporta el objeto BRAND con las propiedades requeridas', () => {
-    expect(BRAND.nombre).toBe('Nave 5 Barcelona');
-    expect(BRAND.prefijoSku).toBe('NAV');
+    expect(BRAND.nombre).toMatch(/\S/);
+    expect(BRAND.prefijoSku).toMatch(/^[A-Z]{2,5}$/);
     expect(BRAND.moneda).toBe('EUR');
     expect(BRAND.locale).toBe('es-ES');
     expect(BRAND.modulos).toEqual({ ecommerce: true, bookings: true });
     expect(BRAND.contacto.email).toContain('@');
-    expect(BRAND.contacto.telefono).toBeTruthy();
+    expect(typeof BRAND.contacto.telefono).toBe('string'); // puede ir vacío: la web no lo enseña
+  });
+
+  it('expone los atajos de la guía del starter, que leen los campos canónicos', () => {
+    expect(BRAND.prefijoSKU).toBe(BRAND.prefijoSku);
+    expect(BRAND.emailContacto).toBe(BRAND.contacto.email);
+    expect(BRAND.telefono).toBe(BRAND.contacto.telefono);
+    expect(BRAND.direccion).toBe(BRAND.contacto.direccion);
+    expect(BRAND.redesSociales).toBe(BRAND.redes);
+    expect(brand.prefijoSKU).toBe(BRAND.prefijoSku);
+    expect(brand.get('emailContacto')).toBe(BRAND.contacto.email);
+  });
+
+  // Solo en Nave 5: con otra marca (npm run init:client) los datos son otros a propósito.
+  it.runIf(BRAND.idInterno === 'nave5')('Nave 5 conserva su nombre, su prefijo y su correo', () => {
+    expect(BRAND.nombre).toBe('Nave 5 Barcelona');
+    expect(BRAND.prefijoSku).toBe('NAV');
+    expect(BRAND.contacto.email).toBe('hola@nave5barcelona.com');
   });
 
   it('brand.get resuelve rutas anidadas y proporciona valor por defecto', () => {
-    expect(brand.get('prefijoSku')).toBe('NAV');
-    expect(brand.get('contacto.email')).toBe('hola@nave5barcelona.com');
+    expect(brand.get('prefijoSku')).toBe(BRAND.prefijoSku);
+    expect(brand.get('contacto.email')).toBe(BRAND.contacto.email);
     expect(brand.get('modulos.bookings')).toBe(true);
     expect(brand.get('inexistente', 'defecto')).toBe('defecto');
     expect(brand.get()).toEqual(BRAND);

@@ -20,7 +20,7 @@
   display: none;
   font-size: 1.5rem;
 }
-/* El logotipo es un SVG (components/Logo.jsx) en el color del texto: ya no usa Fraunces. */
+/* El logotipo (components/Logo.jsx) va en el color del texto: el dibujo de la marca o su nombre en texto. */
 .logo {
   display: inline-flex;
   align-items: center;
@@ -32,11 +32,37 @@
   display: block;
   height: 30px;
   width: auto;
-  aspect-ratio: 496.3 / 178.9; /* el del viewBox */
+  aspect-ratio: 496.3 / 178.9; /* el del viewBox de theme/LogoDibujo.jsx */
 }
 @media (max-width: 480px) {
   .logo-svg {
     height: 24px;
+  }
+}
+/* Logo en texto (marca sin dibujo propio): el nombre corto con la fuente de títulos, del alto del dibujo.
+   Un nombre largo no empuja los iconos fuera de la pantalla en el móvil: se acorta con puntos suspensivos. */
+.logo-svg.logo-texto {
+  height: auto;
+  aspect-ratio: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.header-left:has(.logo-texto),
+.logo:has(.logo-texto) {
+  min-width: 0;
+}
+@media (max-width: 480px) {
+  .logo-svg.logo-texto {
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
   }
 }
 
@@ -160,7 +186,7 @@
   background: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 2px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 15px rgba(var(--color-black-rgb), 0.08);
   min-width: 160px;
   display: flex;
   flex-direction: column;
@@ -222,7 +248,7 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(var(--color-black-rgb), 0.25);
   z-index: -1;
 }
 .search-panel {
@@ -232,7 +258,7 @@
      cerrado, daba scroll horizontal a toda la página (medido en 375, 414, 768 y 1280 px). */
   box-sizing: border-box;
   padding: 20px 4vw 40px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(var(--color-black-rgb), 0.08);
   border-bottom: 1px solid var(--border-color);
   /* Slide from top */
   opacity: 0;
@@ -417,7 +443,7 @@
 .search-live-item:hover {
   background-color: var(--surface-alt);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(var(--color-black-rgb), 0.06);
 }
 .search-live-img {
   width: 54px;
@@ -470,7 +496,7 @@
   position: absolute;
   width: 100%;
   height: 100%;
-  background: rgba(0,0,0,0.5);
+  background: rgba(var(--color-black-rgb), 0.5);
   z-index: -1;
   /* Fade in/out independently */
   opacity: 0;
@@ -496,7 +522,7 @@
   /* Premium slide transition */
   transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1),
               opacity 0.45s cubic-bezier(0.25, 1, 0.5, 1);
-  box-shadow: 10px 0 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 10px 0 40px rgba(var(--color-black-rgb), 0.08);
 }
 .primary-panel {
   transform: translateX(-100%);

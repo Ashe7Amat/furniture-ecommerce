@@ -9,6 +9,7 @@ import {
   cancelarReservaAdmin,
   bloquearFechasAdmin
 } from '../../../services/api';
+import { BRAND } from '../../../theme/brand.config';
 
 vi.mock('../../../services/api', () => ({
   getReservasAdmin: vi.fn(),
@@ -89,7 +90,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
       renderConToast(<ReservasTab />);
 
       expect(await screen.findByRole('heading', { level: 2, name: 'Gestión de Reservas' })).toBeInTheDocument();
-      expect(screen.getByText('Nave 5 Barcelona · Operaciones')).toBeInTheDocument();
+      expect(screen.getByText(`${BRAND.nombre} · Operaciones`)).toBeInTheDocument();
 
       // Las 3 tarjetas de KPIs
       expect(screen.getByRole('region', { name: 'Hoy en el almacén' })).toBeInTheDocument();

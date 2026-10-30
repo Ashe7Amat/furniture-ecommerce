@@ -1,179 +1,62 @@
-# Referencia de Variables de Entorno (ENV_VARS.md)
+# Variables de entorno (ENV_VARS.md)
 
-Catálogo completo y unificado de todas las variables de entorno necesarias para ejecutar la plataforma en local, staging y producción.
+Todas las variables que lee el código, sacadas de `process.env` (API) e `import.meta.env` (web) el 30 oct
+2026. Las plantillas son `server/.env.example` y `client/.env.example`. El detalle de cada una (historia,
+por qué existe, qué pasa si falta) está en [env-vars.md](env-vars.md).
 
----
+Lo que es de la **marca** (nombre, web, dirección, colores, logo de los correos) no va en variables: está en
+`client/src/theme/brand.config.js` y `server/src/config/brand.config.js` (ver [NUEVO_CLIENTE.md](NUEVO_CLIENTE.md)).
+Las variables son para secretos y para lo que cambia según el entorno.
 
-## Tabla de Contenidos (TOC)
+Columna **¿Obligatoria?**: *Sí* = sin ella la API no arranca o la función principal falla; *Prod* = hace
+falta en producción, en local se puede dejar vacía; *No* = opcional.
 
-1. [Reglas Generales de Seguridad y Manejo](#1-reglas-generales-de-seguridad-y-manejo)
-2. [Variables del Frontend (`client/`)](#2-variables-del-frontend-client)
-3. [Variables del Backend (`server/`)](#3-variables-del-backend-server)
-   - [3.1 Infraestructura Básica y Red](#31-infraestructura-básica-y-red)
-   - [3.2 Base de Datos (Supabase)](#32-base-de-datos-supabase)
-   - [3.3 Criptografía y Sesiones (JWT / HMAC)](#33-criptografía-y-sesiones-jwt--hmac)
-   - [3.4 Pasarela de Pagos (Stripe)](#34-pasarela-de-pagos-stripe)
-   - [3.5 Envío de Correos (Resend)](#35-envío-de-correos-resend)
-   - [3.6 Módulo de Reservas y Alquiler](#36-módulo-de-reservas-y-alquiler)
-   - [3.7 Autenticación con Terceros (Google OAuth)](#37-autenticación-con-terceros-google-oauth)
-4. [Plantillas Copy-Paste Rápidas](#4-plantillas-copy-paste-rápidas)
-   - [4.1 Plantilla Desarrollo Local (`.env`)](#41-plantilla-desarrollo-local-env)
-   - [4.2 Plantilla Producción (Vercel Settings)](#42-plantilla-producción-vercel-settings)
+## API (`server/`, proyecto de Vercel de la API)
 
----
+| Variable | ¿Obligatoria? | Para qué sirve | Ejemplo |
+|---|---|---|---|
+| `SUPABASE_URL` | Sí | URL del proyecto de Supabase | `https://abcd1234.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sí | Clave con la que la API lee y escribe (se salta RLS). Nunca en la web | `eyJhbGciOi...` |
+| `SUPABASE_ANON_KEY` | No | Solo la usa `src/seed.js` (datos de ejemplo en local) | `eyJhbGciOi...` |
+| `JWT_SECRET` | Sí | Firma los access tokens (1 hora) | 64 caracteres aleatorios (`npm run secrets:generate`) |
+| `REFRESH_TOKEN_HASH_SECRET` | Sí | HMAC de los refresh tokens guardados (7 días, con rotación) | otro valor aleatorio |
+| `EMAIL_TOKEN_HASH_SECRET` | Sí | HMAC de los enlaces de verificación de email y de cambio de contraseña | otro valor aleatorio |
+| `JWT_SECRET_PREVIOUS` | No | El `JWT_SECRET` anterior durante un cambio de secreto: los tokens firmados con él siguen valiendo | el valor viejo |
+| `REFRESH_TOKEN_HASH_SECRET_PREVIOUS` | No | Lo mismo para `REFRESH_TOKEN_HASH_SECRET` | el valor viejo |
+| `EMAIL_TOKEN_HASH_SECRET_PREVIOUS` | No | Lo mismo para `EMAIL_TOKEN_HASH_SECRET` | el valor viejo |
+| `JWT_SECRET_FALLBACK`, `REFRESH_TOKEN_HASH_FALLBACK`, `EMAIL_TOKEN_HASH_FALLBACK` | No | Nombres antiguos de las tres de arriba; se leen si las `*_PREVIOUS` no están | — |
+| `CLIENT_URL` | Sí | Origen de la web: CORS, vuelta de Stripe y enlaces de los correos | `https://www.tu-dominio.com` |
+| `ALLOWED_ORIGINS` | No | Más orígenes exactos para CORS, separados por comas (p. ej. una preview de Vercel) | `https://tienda-git-rama.vercel.app` |
+| `STRIPE_SECRET_KEY` | Prod | Crear sesiones de pago y reembolsos | `sk_test_...` / `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Prod | Comprobar la firma del webhook `/api/stripe/webhook` (sin ella responde 503) | `whsec_...` |
+| `RESEND_API_KEY` | Prod | Enviar correos. Sin ella no se envía nada y solo queda una línea en el log | `re_...` |
+| `RESEND_FROM` | Prod | Remitente. Por defecto, el de `brand.config.js` (`onboarding@resend.dev`, solo para pruebas) | `Tu Marca <hola@tu-dominio.com>` |
+| `ADMIN_EMAIL` | Prod | Recibe los avisos de ventas y reservas. Por defecto, el de `brand.config.js` | `avisos@tu-dominio.com` |
+| `CONTACT_EMAILS` | No | Quién recibe el formulario de contacto, separados por comas. Si falta, `ADMIN_EMAIL` | `hola@tu-dominio.com,tienda@tu-dominio.com` |
+| `EMAIL_DEBUG_DATOS` | No | `true` escribe en el log el contenido de los correos simulados (nunca con `NODE_ENV=production`) | `true` |
+| `GOOGLE_CLIENT_ID` | No | Inicio de sesión con Google (el mismo que `VITE_GOOGLE_CLIENT_ID`) | `1234-abc.apps.googleusercontent.com` |
+| `MOSTRAR_PRECIOS` | No | `true` enseña los precios y deja comprar. Apagada (Nave 5 hoy), solo se pregunta por las piezas | `false` |
+| `RESERVAS_ACTIVAS` | No | `true` enciende las reservas por fechas (endpoints, cron, correos). Va con `VITE_RESERVAS_ACTIVAS` | `false` |
+| `FIANZA_PORCENTAJE` | No | Fianza de los alquileres en % del alquiler, entero de 0 a 100. Si falta o no es válido, 30 | `30` |
+| `CRON_SECRET` | Con reservas | Vercel la manda al cron diario `/api/cron/reservas`; sin ella el cron responde 503 | valor aleatorio |
+| `PORT` | No | Puerto en local (`npm run dev`) | `5000` |
+| `NODE_ENV` | La pone la plataforma | `production` en Vercel | — |
+| `VERCEL` | La pone la plataforma | Vercel la pone a `1`: la API se fía de la IP que da su proxy (límites de peticiones por IP) | — |
 
-## 1. Reglas Generales de Seguridad y Manejo
+## Web (`client/`, proyecto de Vercel de la web)
 
-- **Archivos `.env` en Git**: NUNCA confirmes archivos `.env` o `.env.local` con valores reales en el control de versiones. El `.gitignore` los excluye por defecto.
-- **Diferencia entre Frontend y Backend**:
-  - Las variables en `client/` empiezan por `VITE_` y son **públicas**: se incrustan en el bundle JavaScript del navegador en tiempo de compilación. **NUNCA** pongas claves privadas (como `STRIPE_SECRET_KEY` o `SUPABASE_SERVICE_ROLE_KEY`) con prefijo `VITE_`.
-  - Las variables en `server/` son privadas y solo son accesibles por el proceso Node.js en el servidor.
-- **Rotación Cero Downtime**: Las variables de secretos soportan claves gemelas con sufijo `_PREVIOUS` para rotar sin cerrar la sesión a los usuarios activos.
+Son de compilación: Vite las mete en el JavaScript al hacer `npm run build`, así que todo lo que se pone aquí
+es público, y tras cambiarlas hay que volver a desplegar.
 
----
+| Variable | ¿Obligatoria? | Para qué sirve | Ejemplo |
+|---|---|---|---|
+| `VITE_API_URL` | Sí | Dirección de la API, con `/api` al final | `https://api.tu-dominio.com/api` |
+| `VITE_GOOGLE_CLIENT_ID` | No | Botón de Google en el acceso. Sin ella no sale | `1234-abc.apps.googleusercontent.com` |
+| `VITE_GA_MEASUREMENT_ID` | No | Google Analytics 4, solo si el visitante acepta las cookies de medición | `G-XXXXXXXXXX` |
+| `VITE_RESERVAS_ACTIVAS` | No | `true` enseña el calendario de reserva en las fichas y "Mis reservas" | `false` |
+| `VITE_WEBP_OPTIMIZADAS` | No | `true` sirve las fotos de las piezas como WebP en varios tamaños (tras `npm run images:optimize` en `server/`) | `false` |
 
-## 2. Variables del Frontend (`client/`)
+## Para encender las reservas
 
-Todas las variables del cliente se configuran en `client/.env` (o en las variables de entorno de Vercel para el proyecto del frontend).
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `VITE_API_URL` | URL base absoluta de la API REST del backend | `http://localhost:5000/api` (dev) <br> `https://api.tutienda.com/api` (prod) | **SÍ** | dev, test, prod | **No** | Debe incluir el sufijo `/api`. Sin barra final. |
-| `VITE_GOOGLE_CLIENT_ID` | Client ID público de Google OAuth para el botón "Continuar con Google" | `123456789-abc.apps.googleusercontent.com` | No (opcional) | dev, test, prod | **No** | Debe coincidir con `GOOGLE_CLIENT_ID` en el servidor. Si se deja en blanco, el botón se oculta o deshabilita. |
-| `VITE_GA_MEASUREMENT_ID` | ID de medición de Google Analytics 4 | `G-XXXXXXXXXX` | No (opcional) | prod | **No** | Solo se activa si el usuario acepta las cookies de analítica en el banner de consentimiento. |
-| `VITE_RESERVAS_ACTIVAS` | Feature flag para habilitar el módulo de alquiler/reservas por calendario en UI | `true` o `false` | No (default: false) | dev, test, prod | **No** | Variable de compilación. Debe coordinarse con `RESERVAS_ACTIVAS` del servidor. |
-
----
-
-## 3. Variables del Backend (`server/`)
-
-### 3.1 Infraestructura Básica y Red
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `PORT` | Puerto TCP en el que escucha el servidor Express local | `5000` | No (default: 5000) | dev, test | **No** | En Vercel Serverless este valor lo gestiona la plataforma automáticamente. |
-| `NODE_ENV` | Entorno de ejecución de Node.js | `development` o `production` | **SÍ** en prod | dev, test, prod | **No** | En producción activa optimizaciones, cookies estrictas y oculta stack traces. |
-| `CLIENT_URL` | URL pública del frontend. Se usa para redirecciones de Stripe y enlaces de email | `http://localhost:5173` (dev) <br> `https://tutienda.com` (prod) | **SÍ** | dev, test, prod | **No** | Vital para CORS y generación de enlaces de verificación de cuenta. |
-| `CORS_ORIGENES_ADICIONALES` | Orígenes adicionales autorizados para CORS, separados por comas | `https://preview-1.tutienda.com,https://staging.tutienda.com` | No | test, prod | **No** | Útil para despliegues de preview en ramas de Vercel. Debe ser origen exacto con protocolo. |
-
-### 3.2 Base de Datos (Supabase)
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `SUPABASE_URL` | URL de la API REST del proyecto Supabase | `https://xyzproject.supabase.co` | **SÍ** | dev, test, prod | **No** | Sin ella el servidor no arranca (falla rápido). |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave secreta con privilegios elevados (`service_role`) para Postgres | `eyJhbGciOi...` | **SÍ** | dev, test, prod | 🔒 **SÍ** | **NUNCA exponer en cliente**. El servidor la usa para saltarse RLS en operaciones de gestión interna. |
-| `SUPABASE_ANON_KEY` | Clave pública (`anon`) de Supabase | `eyJhbGciOi...` | No (solo seed) | dev | No | Solo requerida si ejecutas scripts de seed locales. |
-
-### 3.3 Criptografía y Sesiones (JWT / HMAC)
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `JWT_SECRET` | Secreto criptográfico de alta entropía para firmar tokens JWT de sesión | `48+ bytes hexadecimal` | **SÍ** | dev, test, prod | 🔒 **SÍ** | Generar con `npm run secrets:generate`. |
-| `JWT_SECRET_PREVIOUS` | Clave JWT anterior durante periodos de rotación | `48+ bytes hexadecimal` | No | prod | 🔒 **SÍ** | Permite verificar tokens emitidos antes de rotar sin invalidar sesiones. |
-| `REFRESH_TOKEN_HASH_SECRET` | Secreto para derivar HMAC-SHA256 de refresh tokens almacenados en DB | `32+ bytes hexadecimal` | **SÍ** | dev, test, prod | 🔒 **SÍ** | Impide que una lectura indebida de la DB comprometa las sesiones activas. |
-| `REFRESH_TOKEN_HASH_SECRET_PREVIOUS` | Secreto anterior de refresh token durante rotación | `32+ bytes hexadecimal` | No | prod | 🔒 **SÍ** | Permite rotación de refresh tokens con periodo de gracia de 24h. |
-| `EMAIL_TOKEN_HASH_SECRET` | Secreto para derivar HMAC-SHA256 de tokens de confirmación de email y reset de password | `32+ bytes hexadecimal` | **SÍ** | dev, test, prod | 🔒 **SÍ** | Sin él `/api/auth/verificar-email` responde 503. |
-| `EMAIL_TOKEN_HASH_SECRET_PREVIOUS` | Secreto anterior de email token durante rotación | `32+ bytes hexadecimal` | No | prod | 🔒 **SÍ** | Acepta enlaces enviados justo antes de la rotación. |
-
-### 3.4 Pasarela de Pagos (Stripe)
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `STRIPE_SECRET_KEY` | Clave secreta de Stripe API | `sk_test_...` (dev) <br> `sk_live_...` (prod) | **SÍ** | dev, test, prod | 🔒 **SÍ** | Utiliza siempre claves de test en desarrollo y live en producción. |
-| `STRIPE_WEBHOOK_SECRET` | Secreto de firma del webhook de Stripe | `whsec_...` | **SÍ** | dev, test, prod | 🔒 **SÍ** | Valida que las notificaciones de pago provienen legítimamente de Stripe. |
-
-### 3.5 Envío de Correos (Resend)
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `RESEND_API_KEY` | Clave de API de Resend para email transaccional | `re_...` | **SÍ** en prod | dev, test, prod | 🔒 **SÍ** | Si se deja vacía en local, entra en modo simulación (log sin enviar). |
-| `RESEND_FROM` | Cabecera From del correo con nombre y dirección verificada | `Nave 5 <hola@nave5barcelona.com>` | **SÍ** | dev, test, prod | **No** | En desarrollo sin dominio verificado usar: `onboarding@resend.dev`. |
-| `ADMIN_EMAIL` | Dirección de correo del administrador donde llegan las alertas de venta | `admin@nave5barcelona.com` | **SÍ** | dev, test, prod | **No** | Recibe resúmenes de pedidos y alertas de stock. |
-| `CONTACT_EMAILS` | Lista de destinatarios para mensajes del formulario de contacto | `ventas@nave5.com,taller@nave5.com` | No | dev, test, prod | **No** | Si se omite, los mensajes van a `ADMIN_EMAIL`. |
-| `EMAIL_DEBUG_DATOS` | Escribe el contenido de correos en logs de depuración local | `true` o vacía | No | dev | **No** | **NUNCA activar en producción** para cumplir RGPD. |
-
-### 3.6 Módulo de Reservas y Alquiler
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `RESERVAS_ACTIVAS` | Habilita endpoints de reservas y disponibilidad de alquiler | `true` o `false` | No (default: false) | dev, test, prod | **No** | Requiere haber ejecutado las migraciones de reservas (`r1`, `r2`). |
-| `CRON_SECRET` | Secreto de la tarea diaria de reservas (`GET /api/cron/reservas`, Vercel Cron). Vercel lo manda solo en la cabecera `Authorization: Bearer ...` | Cadena larga aleatoria (`openssl rand -hex 32`) | Solo con `RESERVAS_ACTIVAS=true` | prod | 🔒 **SÍ** | Sin ella la tarea responde 503 y no hace nada. Con `RESERVAS_ACTIVAS` apagado, 404. |
-| `FIANZA_PORCENTAJE` | Fianza de las reservas, en % del importe del alquiler (sin trayectos). Se cobra en el mismo pago y se devuelve desde el panel tras la recogida | Entero de 0 a 100 (`0` = sin fianza) | No (default: 30) | prod | **No** | Un valor que no sea un entero de 0 a 100 se ignora (se usa el 30 % y queda en el log). Cambiarla solo afecta a las reservas nuevas. |
-| `RESERVAS_WEBHOOK_SECRET` | Secreto opcional para webhooks dedicados del flujo de alquiler | `whsec_...` | No | prod | 🔒 **SÍ** | Usado si se segregan endpoints de reservas respecto a ventas estándar. |
-
-### 3.7 Autenticación con Terceros (Google OAuth)
-
-| Variable | Descripción | Ejemplo | Obligatoria | Entornos | Secret? | Notas |
-|---|---|---|---|---|---|---|
-| `GOOGLE_CLIENT_ID` | Client ID de Google para validar tokens OAuth en backend | `123456789-xyz.apps.googleusercontent.com` | No | dev, test, prod | **No** | Verifica el token de Google enviado por el cliente en `/api/auth/google`. |
-
----
-
-## 4. Plantillas Copy-Paste Rápidas
-
-### 4.1 Plantilla Desarrollo Local (`.env`)
-
-Guarda este contenido en `server/.env`:
-```env
-PORT=5000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
-
-# Supabase
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key-secreta
-
-# Cripto (generadas con `npm run secrets:generate`)
-JWT_SECRET=f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8
-REFRESH_TOKEN_HASH_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-EMAIL_TOKEN_HASH_SECRET=fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
-
-# Stripe (Test)
-STRIPE_SECRET_KEY=sk_test_tuClaveTest
-STRIPE_WEBHOOK_SECRET=whsec_tuWebhookSecretTest
-
-# Resend
-RESEND_API_KEY=
-RESEND_FROM=Nave 5 Barcelona <onboarding@resend.dev>
-ADMIN_EMAIL=admin@localhost.local
-
-# Features
-RESERVAS_ACTIVAS=true
-```
-
-Y en `client/.env`:
-```env
-VITE_API_URL=http://localhost:5000/api
-VITE_GOOGLE_CLIENT_ID=
-VITE_GA_MEASUREMENT_ID=
-VITE_RESERVAS_ACTIVAS=true
-```
-
-### 4.2 Plantilla Producción (Vercel Settings)
-
-Valores a introducir en **Vercel > Settings > Environment Variables** (Entorno: Production):
-
-#### Proyecto Backend (`server`):
-```text
-NODE_ENV=production
-CLIENT_URL=https://tutienda.com
-SUPABASE_URL=https://xxxxxxxxxxxxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJh... (service_role secreta)
-JWT_SECRET=xxxx... (64 hex)
-REFRESH_TOKEN_HASH_SECRET=xxxx... (64 hex)
-EMAIL_TOKEN_HASH_SECRET=xxxx... (64 hex)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-RESEND_API_KEY=re_...
-RESEND_FROM=Tu Marca <hola@tutienda.com>
-ADMIN_EMAIL=admin@tutienda.com
-RESERVAS_ACTIVAS=true
-```
-
-#### Proyecto Frontend (`client`):
-```text
-VITE_API_URL=https://api.tutienda.com/api
-VITE_RESERVAS_ACTIVAS=true
-VITE_GOOGLE_CLIENT_ID=xxxxxxxxxxxx.apps.googleusercontent.com
-VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-```
+Las dos a la vez, en sus proyectos: `RESERVAS_ACTIVAS=true` (API) y `VITE_RESERVAS_ACTIVAS=true` (web),
+más `CRON_SECRET` en la API y el evento `checkout.session.expired` en el webhook de Stripe.

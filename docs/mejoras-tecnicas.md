@@ -3239,6 +3239,14 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   - se hará cuando alguien tenga la conexión delante.
 - **No van a `server/migrations/`:** no tienen versión en `schema_migrations`, y meterlas llenaría el historial
   de archivos que no se pueden comprobar. El esquema base vive en Supabase.
+- **Actualización (30 oct, starter kit, rama `feat/starter-kit`):** para montar la base de datos de un cliente
+  nuevo hay ahora `server/migrations/00_esquema_base.sql`. No es una migración de Nave 5 (no se ejecuta en su
+  base) y no cambia la decisión de arriba. Contrastado el 30 oct, en solo lectura y con el OK escrito del
+  usuario, con la base de datos real: las cuatro tablas base van ya con sus tipos reales (`varchar(100)`,
+  `varchar(255)`, `text`, el enum `metodo_entrega_type`, `serial`...), sus nulos y sus valores por defecto, y
+  coinciden las 228 piezas del esquema salvo 11 nombres de restricción de `reservas` acabados en «1».
+  Salió también que las copias de las migraciones del 21-22 oct no coinciden con `schema_migrations`
+  (`server/migrations/README.md`, "Lo que no está aquí").
 
 ## Decisiones de diseño a recordar
 

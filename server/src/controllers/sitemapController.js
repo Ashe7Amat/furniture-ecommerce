@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 
 // Sitemap de la web pública (GET /sitemap.xml; la web lo sirve en su dominio con un rewrite en
 // client/vercel.json). Las páginas fijas, una página por categoría con piezas y una por ficha,
@@ -7,7 +8,7 @@ const supabase = require('../data/supabase');
 // SEO del catálogo (28 oct 2026): la versión anterior pedía `updated_at`, que `muebles` no tiene;
 // la consulta fallaba en silencio y el sitemap salía sin ninguna ficha. Además sacaba todas las
 // categorías de la tabla, también las que no tienen piezas.
-const WEB_PUBLICA = 'https://www.nave5barcelona.com';
+const WEB_PUBLICA = BRAND.web;
 
 const PAGINAS_FIJAS = [
   { ruta: '/', prioridad: '1.0' },

@@ -5,6 +5,7 @@ import { loginUser, registerUser } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
 import { EyeIcon, EyeOffIcon } from './EyeIcons';
 import '../styles/AuthModal.css';
+import { BRAND } from '../theme/brand.config';
 
 // `descripcion` y `textoEntrar` son los textos del acceso, para quien no viene de la cesta (la reserva por
 // fechas): sin ellos, los de siempre.
@@ -110,8 +111,8 @@ const AuthModal = ({ isOpen, onClose, onSuccess, descripcion = DESCRIPCION_ACCES
         
         <div className="auth-content">
           <div className="auth-logo-brand">
-            <h2>Nave 5 Barcelona</h2>
-            <p className="auth-tagline">Almacén de ideas</p>
+            <h2>{BRAND.nombre}</h2>
+            <p className="auth-tagline">{BRAND.eslogan}</p>
           </div>
 
           <h3 id="auth-titulo">{isRegister ? 'Crear Cuenta' : 'Iniciar Sesión'}</h3>

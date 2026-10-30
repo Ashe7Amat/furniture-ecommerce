@@ -41,7 +41,9 @@ describe('colores de texto y de foco con contraste suficiente (H47, H48, H54, H5
   });
 
   it('--accent-text se define en claro y en oscuro', () => {
-    const css = leer('../styles/index.css');
-    expect(css.match(/--accent-text:\s*#[0-9A-Fa-f]{6}/g)).toHaveLength(3); // :root, oscuro por sistema y oscuro manual
+    // Desde el starter kit la paleta vive en theme/tokens.css: --accent-text es un alias de --color-accent-text.
+    const css = leer('../theme/tokens.css');
+    expect(css.match(/--color-accent-text:\s*#[0-9A-Fa-f]{6}/g)).toHaveLength(3); // :root, oscuro por sistema y oscuro manual
+    expect(css).toMatch(/--accent-text:\s*var\(--color-accent-text\);/);
   });
 });

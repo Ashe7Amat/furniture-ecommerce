@@ -7,6 +7,8 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -87,32 +89,32 @@ describe('calcularSiguienteReferencia', () => {
 
   test('sin ninguna referencia del código, empieza en 001', async () => {
     conMuebles([]);
-    assert.equal(await calcularSiguienteReferencia('SIL'), 'NAV-SIL-001');
+    assert.equal(await calcularSiguienteReferencia('SIL'), `${P}-SIL-001`);
   });
 
   test('suma uno a la última (001 -> 002)', async () => {
-    conMuebles(conReferencias('NAV-SIL-001'));
-    assert.equal(await calcularSiguienteReferencia('SIL'), 'NAV-SIL-002');
+    conMuebles(conReferencias(`${P}-SIL-001`));
+    assert.equal(await calcularSiguienteReferencia('SIL'), `${P}-SIL-002`);
   });
 
   test('no reutiliza huecos: con 001 y 003, la siguiente es 004', async () => {
-    conMuebles(conReferencias('NAV-SIL-003', 'NAV-SIL-001'));
-    assert.equal(await calcularSiguienteReferencia('SIL'), 'NAV-SIL-004');
+    conMuebles(conReferencias(`${P}-SIL-003`, `${P}-SIL-001`));
+    assert.equal(await calcularSiguienteReferencia('SIL'), `${P}-SIL-004`);
   });
 
   test('pasa de 099 a 100 (el orden de texto coincide con el numérico)', async () => {
-    conMuebles(conReferencias('NAV-SIL-099', 'NAV-SIL-010', 'NAV-SIL-098'));
-    assert.equal(await calcularSiguienteReferencia('SIL'), 'NAV-SIL-100');
+    conMuebles(conReferencias(`${P}-SIL-099`, `${P}-SIL-010`, `${P}-SIL-098`));
+    assert.equal(await calcularSiguienteReferencia('SIL'), `${P}-SIL-100`);
   });
 
   test('solo cuenta las referencias de su código, y no se lía con las piezas sin referencia', async () => {
     conMuebles([
-      ...conReferencias('NAV-MES-042', 'NAV-SIL-002'),
+      ...conReferencias(`${P}-MES-042`, `${P}-SIL-002`),
       { id: 'sin-ref', nombre: 'Pieza antigua', referencia: null }
     ]);
-    assert.equal(await calcularSiguienteReferencia('SIL'), 'NAV-SIL-003');
-    assert.equal(await calcularSiguienteReferencia('MES'), 'NAV-MES-043');
-    assert.equal(await calcularSiguienteReferencia('PIE'), 'NAV-PIE-001');
+    assert.equal(await calcularSiguienteReferencia('SIL'), `${P}-SIL-003`);
+    assert.equal(await calcularSiguienteReferencia('MES'), `${P}-MES-043`);
+    assert.equal(await calcularSiguienteReferencia('PIE'), `${P}-PIE-001`);
   });
 
   test('si falla la base de datos, lanza el error con su mensaje', async () => {
@@ -127,10 +129,10 @@ describe('calcularSiguienteReferencia', () => {
 
 describe('generarReferencia', () => {
   test('combina el código de la categoría con el siguiente número', async () => {
-    fake = crearFakeSupabase({ categorias: CATEGORIAS, muebles: conReferencias('NAV-MES-007') });
+    fake = crearFakeSupabase({ categorias: CATEGORIAS, muebles: conReferencias(`${P}-MES-007`) });
     mock.method(supabase, 'from', fake.from);
-    assert.equal(await generarReferencia(21), 'NAV-MES-008');
-    assert.equal(await generarReferencia(20), 'NAV-SIL-001');
+    assert.equal(await generarReferencia(21), `${P}-MES-008`);
+    assert.equal(await generarReferencia(20), `${P}-SIL-001`);
   });
 
   test('si la categoría no tiene código, deja pasar el error SIN_CODIGO', async () => {
@@ -177,11 +179,11 @@ describe('POST /api/muebles — referencia automática', () => {
   });
 
   test('con una categoría con código, guarda la siguiente referencia', async () => {
-    preparar(conReferencias('NAV-SIL-001'));
+    preparar(conReferencias(`${P}-SIL-001`));
     const res = await crear(20);
     assert.equal(res.status, 201);
     assert.equal(insertados().length, 1);
-    assert.equal(insertados()[0].fila.referencia, 'NAV-SIL-002');
+    assert.equal(insertados()[0].fila.referencia, `${P}-SIL-002`);
   });
 
   test('con una categoría sin código, crea el mueble sin referencia', async () => {
@@ -199,15 +201,15 @@ describe('POST /api/muebles — referencia automática', () => {
   });
 
   test('si otro administrador se queda el mismo número (23505 en la referencia), recalcula y lo vuelve a intentar', async () => {
-    preparar(conReferencias('NAV-SIL-001'));
+    preparar(conReferencias(`${P}-SIL-001`));
     // Mientras este calculaba NAV-SIL-002, el otro la ha guardado.
     const intentos = fallarInserts(1, COLISION_REFERENCIA, () =>
-      fake.tablas.muebles.push({ id: 'del-otro', nombre: 'Otra silla', referencia: 'NAV-SIL-002' })
+      fake.tablas.muebles.push({ id: 'del-otro', nombre: 'Otra silla', referencia: `${P}-SIL-002` })
     );
     const res = await crear(20);
     assert.equal(res.status, 201);
     assert.equal(intentos.total, 2);
-    assert.equal(insertados()[0].fila.referencia, 'NAV-SIL-003');
+    assert.equal(insertados()[0].fila.referencia, `${P}-SIL-003`);
   });
 
   test('con la colisión repetida, se rinde tras MAX_REINTENTOS intentos', async () => {

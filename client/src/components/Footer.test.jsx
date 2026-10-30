@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import Footer from './Footer';
 import ProtectedRoute from './ProtectedRoute';
 import { AuthContext } from '../context/AuthContext';
+import { BRAND } from '../theme/brand.config';
 
 const pintar = (user = null) =>
   render(
@@ -40,13 +41,13 @@ describe('Footer', () => {
     pintar();
     expect(screen.queryByRole('button', { name: 'Suscribirme' })).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Tu email')).not.toBeInTheDocument();
-    expect(screen.getByText(/Carrer del Plom, 32-34/)).toBeInTheDocument();
+    expect(screen.getByText(BRAND.contacto.direccion, { exact: false })).toBeInTheDocument();
   });
 
   it('Instagram se abre en otra pestaña, sin darle acceso a esta (noopener)', () => {
     pintar();
-    const instagram = enlace('Instagram @nave5bcn');
-    expect(instagram).toHaveAttribute('href', 'https://www.instagram.com/nave5bcn');
+    const instagram = enlace(`Instagram @${BRAND.redes.instagramUsuario}`);
+    expect(instagram).toHaveAttribute('href', BRAND.redes.instagram);
     expect(instagram).toHaveAttribute('target', '_blank');
     expect(instagram).toHaveAttribute('rel', 'noopener noreferrer');
   });

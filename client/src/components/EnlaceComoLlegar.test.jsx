@@ -6,6 +6,7 @@ import Footer from './Footer';
 import Contact from '../pages/Contact';
 import { AuthContext } from '../context/AuthContext';
 import { URL_COMO_LLEGAR } from '../utils/direccion';
+import { BRAND } from '../theme/brand.config';
 
 const comoLlegar = () => screen.getByRole('link', { name: /Cómo llegar/ });
 
@@ -13,7 +14,11 @@ describe('EnlaceComoLlegar', () => {
   it('abre la dirección de la nave en Google Maps, en otra pestaña y sin acceso a esta', () => {
     render(<EnlaceComoLlegar />);
     const enlace = comoLlegar();
-    expect(enlace).toHaveAttribute('href', 'https://www.google.com/maps/search/?api=1&query=Carrer%20del%20Plom%2C%2032-34%2C%2008038%20Barcelona');
+    const { calle, codigoPostal, ciudad } = BRAND.contacto;
+    expect(enlace).toHaveAttribute(
+      'href',
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${calle}, ${codigoPostal} ${ciudad}`)}`
+    );
     expect(enlace).toHaveAttribute('target', '_blank');
     expect(enlace).toHaveAttribute('rel', 'noopener noreferrer');
     expect(enlace).toHaveAccessibleName(/se abre en otra pestaña/);

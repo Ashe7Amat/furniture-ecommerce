@@ -15,6 +15,7 @@ import ReferenciaProducto from '../components/ReferenciaProducto';
 import ModalContacto from '../components/ModalContacto';
 import { reservasActivas, sumarDias, fechaSinDia } from '../utils/reservas';
 import { extraerMedidas } from '../utils/medidas';
+import { BRAND } from '../theme/brand.config';
 
 // Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
 // descargan si el interruptor está encendido y la pieza se puede alquilar.
@@ -540,7 +541,7 @@ const ProductDetail = () => {
                 </svg>
               </div>
               <div className="pd-trust-content">
-                <strong className="pd-trust-title">Envío desde Barcelona</strong>
+                <strong className="pd-trust-title">{`Envío desde ${BRAND.contacto.ciudad}`}</strong>
                 <span className="pd-trust-desc">Transporte especializado</span>
               </div>
             </div>

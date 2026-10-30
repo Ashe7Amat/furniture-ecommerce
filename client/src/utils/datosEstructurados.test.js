@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { productoJsonLd, migasJsonLd, urlDeFicha } from './datosEstructurados';
+import { BRAND } from '../theme/brand.config';
 
 const MUEBLE = {
   id: 'm1',
@@ -18,7 +19,7 @@ describe('productoJsonLd', () => {
     expect(productoJsonLd(MUEBLE)).toEqual({
       '@type': 'Product',
       name: 'Banco de trabajo de madera y mármol',
-      url: 'https://www.nave5barcelona.com/mueble/m1',
+      url: `${BRAND.web}/mueble/m1`,
       itemCondition: 'https://schema.org/UsedCondition',
       description: 'Banco de trabajo restaurado.',
       image: MUEBLE.imagenes,
@@ -43,12 +44,12 @@ describe('productoJsonLd', () => {
   ])('con precio de venta publicado y estado %s, oferta en euros con %s', (estado, disponibilidad) => {
     expect(productoJsonLd({ ...MUEBLE, precio_venta: 950, estado }).offers).toEqual({
       '@type': 'Offer',
-      url: 'https://www.nave5barcelona.com/mueble/m1',
+      url: `${BRAND.web}/mueble/m1`,
       price: '950.00',
       priceCurrency: 'EUR',
       availability: disponibilidad,
       itemCondition: 'https://schema.org/UsedCondition',
-      seller: { '@type': 'Organization', name: 'Nave 5 Barcelona' },
+      seller: { '@type': 'Organization', name: BRAND.nombre },
     });
   });
 
@@ -60,19 +61,19 @@ describe('productoJsonLd', () => {
 describe('migasJsonLd', () => {
   it('Inicio, Catálogo, la categoría y la pieza, en orden', () => {
     expect(migasJsonLd(MUEBLE).itemListElement).toEqual([
-      { '@type': 'ListItem', position: 1, name: 'Inicio', item: 'https://www.nave5barcelona.com/' },
-      { '@type': 'ListItem', position: 2, name: 'Catálogo', item: 'https://www.nave5barcelona.com/catalogo' },
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: `${BRAND.web}/` },
+      { '@type': 'ListItem', position: 2, name: 'Catálogo', item: `${BRAND.web}/catalogo` },
       {
         '@type': 'ListItem',
         position: 3,
         name: 'Mesas y mobiliario',
-        item: 'https://www.nave5barcelona.com/catalogo?categoria=Mesas%20y%20mobiliario',
+        item: `${BRAND.web}/catalogo?categoria=Mesas%20y%20mobiliario`,
       },
       {
         '@type': 'ListItem',
         position: 4,
         name: 'Banco de trabajo de madera y mármol',
-        item: 'https://www.nave5barcelona.com/mueble/m1',
+        item: `${BRAND.web}/mueble/m1`,
       },
     ]);
   });
@@ -88,6 +89,6 @@ describe('migasJsonLd', () => {
 
 describe('urlDeFicha', () => {
   it('codifica el id', () => {
-    expect(urlDeFicha('a b')).toBe('https://www.nave5barcelona.com/mueble/a%20b');
+    expect(urlDeFicha('a b')).toBe(`${BRAND.web}/mueble/a%20b`);
   });
 });

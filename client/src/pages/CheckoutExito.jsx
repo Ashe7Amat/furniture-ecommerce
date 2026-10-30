@@ -5,6 +5,7 @@ import { CartContext } from '../context/CartContext';
 import { reservasActivas } from '../utils/reservas';
 import '../styles/CheckoutResultado.css';
 import { useDocumentMeta } from '../utils/useDocumentMeta';
+import { BRAND } from '../theme/brand.config';
 
 // Vuelta del pago de una reserva por fechas (docs/reservas-diseno.md, 6.4): confirmar-sesion responde
 // con `tipo: 'reserva'` y el estado en que ha quedado. El texto de cada caso lo da el servidor; estos
@@ -92,7 +93,7 @@ const CheckoutExito = () => {
             <div className="success-icon">✓</div>
             <h1>¡Pedido confirmado con éxito!</h1>
             <p className="success-msg">
-              Hemos registrado tu compra en Nave 5 Barcelona y actualizado el catálogo.
+              {`Hemos registrado tu compra en ${BRAND.nombre} y actualizado el catálogo.`}
               En breve recibirás la confirmación por correo.
             </p>
             <Link to="/catalogo" className="checkout-btn-solid">Volver a la tienda</Link>

@@ -1,8 +1,9 @@
+import { BRAND } from '../theme/brand.config';
 // Datos estructurados (schema.org en JSON-LD) para que Google entienda qué es cada página: la
 // ficha de una pieza como un Product, con sus migas de pan. ProductDetail los junta en un @graph y
 // se los pasa a useDocumentMeta (jsonLd), que los pone con JavaScript (H34: no hay render en el
 // servidor); Google los lee al renderizar la página.
-export const WEB_PUBLICA = 'https://www.nave5barcelona.com';
+export const WEB_PUBLICA = BRAND.web;
 
 export const urlDeFicha = (id) => `${WEB_PUBLICA}/mueble/${encodeURIComponent(id)}`;
 export const urlDeCategoria = (categoria) =>
@@ -25,7 +26,7 @@ const ofertaDe = (mueble, url) => {
     priceCurrency: 'EUR',
     availability: disponibilidad,
     itemCondition: 'https://schema.org/UsedCondition',
-    seller: { '@type': 'Organization', name: 'Nave 5 Barcelona' },
+    seller: { '@type': 'Organization', name: BRAND.nombre },
   };
 };
 

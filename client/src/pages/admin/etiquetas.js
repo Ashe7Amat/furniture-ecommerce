@@ -1,4 +1,5 @@
 import qrcode from 'qrcode-generator';
+import { BRAND } from '../../theme/brand.config';
 
 // Etiquetas con QR para las piezas del inventario (21 oct 2026). El QR se genera en el navegador con
 // qrcode-generator (sin dependencias, unos 5 KB comprimido) y se pinta como SVG, que se imprime nítido
@@ -6,7 +7,7 @@ import qrcode from 'qrcode-generator';
 
 // La web pública. Es la de sitemap.xml y robots.txt: el QR tiene que llevar a la ficha aunque la
 // etiqueta se imprima desde una preview o desde local.
-export const WEB_PUBLICA = 'https://www.nave5barcelona.com';
+export const WEB_PUBLICA = BRAND.web;
 
 export const urlFicha = (mueble) => `${WEB_PUBLICA}/mueble/${encodeURIComponent(mueble.id)}`;
 

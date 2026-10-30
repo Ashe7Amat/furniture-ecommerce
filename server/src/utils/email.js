@@ -24,11 +24,12 @@
 //   sea posible y cambia RESEND_FROM en Vercel -- el código no necesita tocarse.
 
 const { Resend } = require('resend');
+const { BRAND } = require('../config/brand.config');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const REMITENTE = process.env.RESEND_FROM || 'Nave 5 Barcelona <onboarding@resend.dev>';
-const EMAIL_ADMIN = process.env.ADMIN_EMAIL || 'amatashenafi7@gmail.com';
+const REMITENTE = process.env.RESEND_FROM || BRAND.email.remitentePorDefecto;
+const EMAIL_ADMIN = process.env.ADMIN_EMAIL || BRAND.email.avisosPorDefecto;
 
 // Modo simulación (sin RESEND_API_KEY): el correo no se envía y solo queda una línea en el log, sin
 // su contenido (H27). Antes se escribían el pedido entero, el email y el nombre de las cuentas
@@ -57,32 +58,49 @@ const escaparHtml = (texto) => String(texto ?? '')
 // Ancho máximo de 600 px, centrado, sobre fondo blanco. Colores de la web (client/src/styles/
 // index.css): #221B16 (fondo oscuro, el del hero), #F5F2EC (blanco roto), #6E5D51 (texto
 // secundario) y #E2DCD0 (bordes). La única imagen es el logo de la cabecera.
-const WEB_PUBLICA = 'https://nave5barcelona.com';
-const COLOR_OSCURO = '#221B16';
-const COLOR_CLARO = '#F5F2EC';
-const COLOR_SECUNDARIO = '#6E5D51';
-const COLOR_BORDE = '#E2DCD0';
+// Nombre, web, logo y colores salen de la marca (src/config/brand.config.js).
+const MARCA = BRAND.nombre;
+const NOMBRE_LOGO = BRAND.nombreLogo;
+const ESLOGAN = BRAND.eslogan;
+const WEB_PUBLICA = `https://${BRAND.dominio}`;
+const {
+  oscuro: COLOR_OSCURO,
+  claro: COLOR_CLARO,
+  secundario: COLOR_SECUNDARIO,
+  borde: COLOR_BORDE,
+  texto: COLOR_TEXTO,
+  textoSuave: COLOR_TEXTO_SUAVE,
+  acento: COLOR_ACENTO,
+  superficie: COLOR_SUPERFICIE,
+  blanco: COLOR_BLANCO
+} = BRAND.email.colores;
 const FUENTE = 'Arial, Helvetica, sans-serif';
 
-// El logo de la cabecera: el de la web (client/src/components/Logo.jsx) en PNG, fondo transparente y
+// El logo de la cabecera: el de la web (client/src/theme/LogoDibujo.jsx) en PNG, fondo transparente y
 // en blanco roto, en el almacenamiento público de Supabase (bucket imagenes, carpeta marca/). Lo
 // generó y subió server/scripts/logo-email.js: 240 px de ancho, y 480 px para pantallas de alta
 // densidad (srcset, que solo usan algunos clientes; los demás pintan el de 240 a 120 px).
-// Si el cliente de correo bloquea las imágenes, sale el alt "NAVE 5" con el estilo de la celda.
-const LOGO_EMAIL = 'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5.png';
-const LOGO_EMAIL_2X = 'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5@2x.png';
+// Si el cliente de correo bloquea las imágenes, sale el alt (nombreLogo) con el estilo de la celda.
+// Una marca recién creada con init:client aún no tiene logo: la cabecera lleva el nombre en texto.
+const LOGO_EMAIL = BRAND.email.logo;
+const LOGO_EMAIL_2X = BRAND.email.logo2x;
+const logoCabecera = () => {
+  if (!LOGO_EMAIL) return escaparHtml(NOMBRE_LOGO);
+  const srcset = LOGO_EMAIL_2X ? ` srcset="${LOGO_EMAIL_2X} 2x"` : '';
+  return `<img src="${LOGO_EMAIL}"${srcset} alt="${escaparHtml(NOMBRE_LOGO)}" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;">`;
+};
 
 const cabeceraEmail = () => `
           <tr>
             <td style="background-color: ${COLOR_OSCURO}; padding: 32px 40px; font-family: ${FUENTE}; font-size: 26px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: ${COLOR_CLARO};">
-              <img src="${LOGO_EMAIL}" srcset="${LOGO_EMAIL_2X} 2x" alt="NAVE 5" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;">
+              ${logoCabecera()}
             </td>
           </tr>`;
 
 const pieEmail = () => `
           <tr>
             <td style="padding: 24px 40px 32px 40px; border-top: 1px solid ${COLOR_BORDE}; font-family: ${FUENTE}; font-size: 12px; line-height: 18px; color: ${COLOR_SECUNDARIO};">
-              Nave 5 Barcelona · <a href="${WEB_PUBLICA}" style="color: ${COLOR_SECUNDARIO}; text-decoration: underline;">nave5barcelona.com</a>
+              ${MARCA} · <a href="${WEB_PUBLICA}" style="color: ${COLOR_SECUNDARIO}; text-decoration: underline;">${BRAND.dominio}</a>
             </td>
           </tr>`;
 
@@ -106,11 +124,11 @@ const maquetarEmail = ({ titulo, cuerpo }) => `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${titulo}</title>
   </head>
-  <body style="margin: 0; padding: 0; background-color: #FFFFFF;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFFFF;">
+  <body style="margin: 0; padding: 0; background-color: ${COLOR_BLANCO};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: ${COLOR_BLANCO};">
       <tr>
         <td align="center" style="padding: 24px 12px;">
-          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background-color: #FFFFFF; border: 1px solid ${COLOR_BORDE};">${cabeceraEmail()}
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background-color: ${COLOR_BLANCO}; border: 1px solid ${COLOR_BORDE};">${cabeceraEmail()}
           <tr>
             <td style="padding: 36px 40px 32px 40px; font-family: ${FUENTE}; font-size: 15px; line-height: 23px; color: ${COLOR_OSCURO};">
               <h1 style="margin: 0 0 20px 0; font-family: ${FUENTE}; font-size: 22px; line-height: 28px; font-weight: bold; color: ${COLOR_OSCURO};">${titulo}</h1>${cuerpo}
@@ -161,24 +179,24 @@ const construirHtmlVenta = (pedido) => {
 
   const filasProductos = items.map(item => `
     <tr>
-      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #3E322A;">
+      <td style="padding: 8px 0; border-bottom: 1px solid ${COLOR_BORDE}; color: ${COLOR_TEXTO};">
         ${escaparHtml(item.nombre)}${item.modalidad === 'alquiler' ? ' (alquiler / día)' : ''}
       </td>
-      <td style="padding: 8px 0; border-bottom: 1px solid #E2DCD0; color: #857468; text-align: right;">
+      <td style="padding: 8px 0; border-bottom: 1px solid ${COLOR_BORDE}; color: ${COLOR_TEXTO_SUAVE}; text-align: right;">
         ${item.cantidad || 1} x ${Number(item.precio).toFixed(2)} €
       </td>
     </tr>
   `).join('');
 
   return `
-    <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
-      <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
-        Nueva venta en Nave 5 Barcelona
+    <div style="font-family: Helvetica, Arial, sans-serif; color: ${COLOR_TEXTO}; max-width: 600px; margin: 0 auto; padding: 24px; background-color: ${COLOR_CLARO}; border-radius: 8px;">
+      <h2 style="color: ${COLOR_TEXTO}; border-bottom: 2px solid ${COLOR_BORDE}; padding-bottom: 12px; margin-top: 0;">
+        Nueva venta en ${MARCA}
       </h2>
 
-      <p style="color: #857468;">Se ha completado una transacción con éxito. Aquí tienes los detalles:</p>
+      <p style="color: ${COLOR_TEXTO_SUAVE};">Se ha completado una transacción con éxito. Aquí tienes los detalles:</p>
 
-      <h3 style="color: #857468; margin-bottom: 6px;">Cliente</h3>
+      <h3 style="color: ${COLOR_TEXTO_SUAVE}; margin-bottom: 6px;">Cliente</h3>
       <p style="margin: 4px 0;"><strong>Nombre:</strong> ${escaparHtml(clienteInfo.nombre) || 'No provisto'}</p>
       <p style="margin: 4px 0;"><strong>Email:</strong> ${escaparHtml(clienteInfo.email) || 'No provisto'}</p>
       <p style="margin: 4px 0;"><strong>Teléfono:</strong> ${escaparHtml(clienteInfo.telefono) || 'No provisto'}</p>
@@ -186,17 +204,17 @@ const construirHtmlVenta = (pedido) => {
       <p style="margin: 4px 0;"><strong>Notas:</strong> ${escaparHtml(clienteInfo.notas) || 'Ninguna'}</p>
       <p style="margin: 4px 0;"><strong>Método de pago:</strong> ${escaparHtml(clienteInfo.metodoPago) || 'Tarjeta (Stripe)'}</p>
 
-      <h3 style="color: #857468; margin-top: 24px; margin-bottom: 6px;">Productos</h3>
+      <h3 style="color: ${COLOR_TEXTO_SUAVE}; margin-top: 24px; margin-bottom: 6px;">Productos</h3>
       <table style="width: 100%; border-collapse: collapse;">
         ${filasProductos}
       </table>
 
-      <div style="margin-top: 24px; padding: 14px 16px; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 4px; text-align: right;">
+      <div style="margin-top: 24px; padding: 14px 16px; background-color: ${COLOR_SUPERFICIE}; border: 1px solid ${COLOR_BORDE}; border-radius: 4px; text-align: right;">
         <strong style="font-size: 1.1rem;">Total: ${Number(total).toFixed(2)} €</strong>
       </div>
 
-      <p style="font-size: 0.85rem; color: #857468; margin-top: 32px; border-top: 1px solid #E2DCD0; padding-top: 10px; text-align: center;">
-        ${fechaFormateada} · Nave 5 Barcelona · Almacén de ideas
+      <p style="font-size: 0.85rem; color: ${COLOR_TEXTO_SUAVE}; margin-top: 32px; border-top: 1px solid ${COLOR_BORDE}; padding-top: 10px; text-align: center;">
+        ${fechaFormateada} · ${MARCA} · ${ESLOGAN}
       </p>
     </div>
   `;
@@ -224,7 +242,7 @@ const enviarNotificacionVenta = async (pedido) => {
     const { data, error } = await resend.emails.send({
       from: REMITENTE,
       to: EMAIL_ADMIN,
-      subject: `Nueva venta en Nave 5 Barcelona - ${Number(total).toFixed(2)} €`,
+      subject: `Nueva venta en ${MARCA} - ${Number(total).toFixed(2)} €`,
       html: construirHtmlVenta({ ...pedido, total }),
     });
 
@@ -270,7 +288,7 @@ const construirHtmlConfirmacionCliente = (pedido) => {
   const cuerpo = `
               <p style="margin: 0 0 8px 0;">¡Gracias por tu compra, ${escaparHtml(clienteInfo.nombre)}!</p>
               <p style="margin: 0 0 24px 0; color: ${COLOR_SECUNDARIO};">
-                Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.
+                Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en ${MARCA}.
               </p>
 ${bloqueDatos(`${referencia ? filaDato('Pedido', `<strong>${referencia}</strong>`) : ''}${filaDato('Fecha', escaparHtml(fechaFormateada))}`)}
               <h2 style="margin: 28px 0 4px 0; font-family: ${FUENTE}; font-size: 13px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; color: ${COLOR_SECUNDARIO};">Piezas</h2>
@@ -300,12 +318,12 @@ const construirTextoConfirmacionCliente = (pedido) => {
   const { id, items = [], clienteInfo = {}, total = 0, urlMisPedidos = null } = pedido;
   const referencia = referenciaPedido(id);
   const lineas = [
-    'NAVE 5',
+    NOMBRE_LOGO,
     '',
     'Tu pedido está confirmado',
     '',
     `¡Gracias por tu compra, ${clienteInfo.nombre || ''}!`,
-    'Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en Nave 5 Barcelona.',
+    `Hemos recibido tu pago correctamente. Aquí tienes el resumen de tu pedido en ${MARCA}.`,
     ''
   ];
   if (referencia) lineas.push(`Pedido: ${referencia}`, '');
@@ -321,7 +339,7 @@ const construirTextoConfirmacionCliente = (pedido) => {
     'Prepararemos tu pedido y nos pondremos en contacto contigo al teléfono o email indicados en cuanto esté listo para el envío. Si tienes cualquier duda, simplemente responde a este correo.'
   );
   if (urlMisPedidos) lineas.push('', `Ver mi pedido: ${urlMisPedidos}`);
-  lineas.push('', `Nave 5 Barcelona · ${WEB_PUBLICA}`);
+  lineas.push('', `${MARCA} · ${WEB_PUBLICA}`);
   return lineas.join('\n');
 };
 
@@ -364,7 +382,7 @@ const enviarConfirmacionCliente = async (pedido) => {
     const { data, error } = await resend.emails.send({
       from: REMITENTE,
       to: destinatario,
-      subject: 'Hemos recibido tu pedido - Nave 5 Barcelona',
+      subject: `Hemos recibido tu pedido - ${MARCA}`,
       html: construirHtmlConfirmacionCliente(datos),
       text: construirTextoConfirmacionCliente(datos),
     });
@@ -382,32 +400,32 @@ const enviarConfirmacionCliente = async (pedido) => {
 
 // Construye el HTML del correo de bienvenida para una cuenta nueva.
 const construirHtmlBienvenida = (nombreCliente) => `
-  <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; background-color: #FCFAF8; border: 1px solid #E2DCD0; border-radius: 6px; overflow: hidden;">
-    <div style="background-color: #3E322A; padding: 40px 30px; text-align: center;">
-      <h1 style="color: #FCFAF8; font-size: 1.5rem; font-weight: 300; text-transform: uppercase; letter-spacing: 3px; margin: 0 0 10px 0;">Nave 5 Barcelona</h1>
-      <p style="color: #B38A70; font-size: 0.85rem; margin: 0; letter-spacing: 1px; font-style: italic;">Almacén de ideas</p>
+  <div style="font-family: Helvetica, Arial, sans-serif; color: ${COLOR_TEXTO}; max-width: 600px; margin: 0 auto; background-color: ${COLOR_SUPERFICIE}; border: 1px solid ${COLOR_BORDE}; border-radius: 6px; overflow: hidden;">
+    <div style="background-color: ${COLOR_TEXTO}; padding: 40px 30px; text-align: center;">
+      <h1 style="color: ${COLOR_SUPERFICIE}; font-size: 1.5rem; font-weight: 300; text-transform: uppercase; letter-spacing: 3px; margin: 0 0 10px 0;">${MARCA}</h1>
+      <p style="color: ${COLOR_ACENTO}; font-size: 0.85rem; margin: 0; letter-spacing: 1px; font-style: italic;">${ESLOGAN}</p>
     </div>
     <div style="padding: 40px 30px; line-height: 1.6;">
-      <h2 style="font-size: 1.25rem; font-weight: 400; margin-top: 0; color: #3E322A;">¡Hola, ${escaparHtml(nombreCliente)}!</h2>
-      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
-        Te damos la bienvenida más cálida a <strong>Nave 5 Barcelona</strong>. Nos hace inmensamente felices que te unas a nuestra pequeña gran comunidad dedicada a la recuperación y restauración artesanal de piezas singulares.
+      <h2 style="font-size: 1.25rem; font-weight: 400; margin-top: 0; color: ${COLOR_TEXTO};">¡Hola, ${escaparHtml(nombreCliente)}!</h2>
+      <p style="font-size: 0.95rem; color: ${COLOR_TEXTO_SUAVE}; margin-bottom: 20px;">
+        Te damos la bienvenida más cálida a <strong>${MARCA}</strong>. Nos hace inmensamente felices que te unas a nuestra pequeña gran comunidad dedicada a la recuperación y restauración artesanal de piezas singulares.
       </p>
-      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
+      <p style="font-size: 0.95rem; color: ${COLOR_TEXTO_SUAVE}; margin-bottom: 20px;">
         Creemos en un diseño sincero y sostenible, en piezas con alma y carácter que añaden calidez y una historia que contar a los hogares contemporáneos.
       </p>
-      <div style="background-color: #F5F2EC; border-left: 3px solid #B38A70; padding: 20px; margin: 30px 0; border-radius: 4px;">
-        <p style="margin: 0; font-style: italic; color: #3E322A; font-size: 0.92rem;">"La imperfección del paso del tiempo restaurada con respeto y pasión."</p>
+      <div style="background-color: ${COLOR_CLARO}; border-left: 3px solid ${COLOR_ACENTO}; padding: 20px; margin: 30px 0; border-radius: 4px;">
+        <p style="margin: 0; font-style: italic; color: ${COLOR_TEXTO}; font-size: 0.92rem;">"La imperfección del paso del tiempo restaurada con respeto y pasión."</p>
       </div>
-      <p style="font-size: 0.95rem; color: #857468; margin-bottom: 20px;">
+      <p style="font-size: 0.95rem; color: ${COLOR_TEXTO_SUAVE}; margin-bottom: 20px;">
         A partir de ahora tienes acceso a tu panel de compras, puedes guardar tus piezas favoritas y disfrutar de un proceso de compra fluido y seguro.
       </p>
       <div style="text-align: center; margin: 35px 0 15px 0;">
-        <a href="https://nave5barcelona.com" style="background-color: #B38A70; color: #FCFAF8; text-decoration: none; padding: 14px 28px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; border-radius: 4px; display: inline-block;">Visitar Colección</a>
+        <a href="${WEB_PUBLICA}" style="background-color: ${COLOR_ACENTO}; color: ${COLOR_SUPERFICIE}; text-decoration: none; padding: 14px 28px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 500; border-radius: 4px; display: inline-block;">Visitar Colección</a>
       </div>
     </div>
-    <div style="background-color: #F5F2EC; border-top: 1px solid #E2DCD0; padding: 30px; text-align: center; font-size: 0.8rem; color: #857468;">
-      <p style="margin: 4px 0;"><strong>Nave 5 Barcelona | Almacén de ideas</strong></p>
-      <p style="margin: 4px 0;">Carrer del Plom, 32-34, interior, 08038 Barcelona</p>
+    <div style="background-color: ${COLOR_CLARO}; border-top: 1px solid ${COLOR_BORDE}; padding: 30px; text-align: center; font-size: 0.8rem; color: ${COLOR_TEXTO_SUAVE};">
+      <p style="margin: 4px 0;"><strong>${MARCA} | ${ESLOGAN}</strong></p>
+      <p style="margin: 4px 0;">${BRAND.contacto.direccion}, ${BRAND.contacto.codigoPostal} ${BRAND.contacto.ciudad}</p>
       <p style="margin: 4px 0;">Sostenibilidad • Artesanía • Diseño Slow</p>
     </div>
   </div>
@@ -430,7 +448,7 @@ const enviarEmailBienvenida = async (emailDestinatario, nombreCliente) => {
     const { data, error } = await resend.emails.send({
       from: REMITENTE,
       to: emailDestinatario,
-      subject: '¡Te damos la bienvenida a Nave 5 Barcelona! 🤎',
+      subject: `¡Te damos la bienvenida a ${MARCA}! 🤎`,
       html: construirHtmlBienvenida(nombreCliente),
     });
 
@@ -491,13 +509,13 @@ const enviarCorreoCuenta = async ({ tipo, para, asunto, html, texto }) => {
 };
 
 const textoPlano = (titulo, lineas) =>
-  ['NAVE 5', '', titulo, '', ...lineas, '', `Nave 5 Barcelona · ${WEB_PUBLICA}`].join('\n');
+  [NOMBRE_LOGO, '', titulo, '', ...lineas, '', `${MARCA} · ${WEB_PUBLICA}`].join('\n');
 
 // 1. Confirmar el email (al registrarse). Sustituye al de bienvenida, para no mandar dos.
 const construirConfirmarRegistro = ({ nombre, url }) => {
   const titulo = 'Confirma tu email';
   const cuerpo = `${parrafo(`¡Hola, ${escaparHtml(nombre)}!`)}${parrafo(
-    'Gracias por unirte a Nave 5 Barcelona. Para activar tu cuenta, confirma que este email es tuyo:'
+    `Gracias por unirte a ${MARCA}. Para activar tu cuenta, confirma que este email es tuyo:`
   )}${botonEmail({
     href: escaparHtml(url),
     texto: 'Confirmar mi email',
@@ -507,11 +525,11 @@ const construirConfirmarRegistro = ({ nombre, url }) => {
     { secundario: true }
   )}`;
   return {
-    asunto: 'Confirma tu email y bienvenido a Nave 5 Barcelona',
+    asunto: `Confirma tu email y bienvenido a ${MARCA}`,
     html: maquetarEmail({ titulo, cuerpo }),
     texto: textoPlano(titulo, [
       `¡Hola, ${nombre || ''}!`,
-      'Gracias por unirte a Nave 5 Barcelona. Para activar tu cuenta, confirma que este email es tuyo:',
+      `Gracias por unirte a ${MARCA}. Para activar tu cuenta, confirma que este email es tuyo:`,
       '',
       `Confirmar mi email: ${url}`,
       '',
@@ -527,14 +545,14 @@ const enviarConfirmarRegistro = ({ email, nombre, url }) =>
 // 2. Cuenta activada (después de confirmar): el de bienvenida de siempre, con la última frase
 // cambiada.
 const construirCuentaActivada = ({ nombre }) => ({
-  asunto: 'Tu cuenta de Nave 5 Barcelona ya está activa 🤎',
+  asunto: `Tu cuenta de ${MARCA} ya está activa 🤎`,
   html: construirHtmlBienvenida(nombre).replace(
     'A partir de ahora tienes acceso a tu panel de compras, puedes guardar tus piezas favoritas y disfrutar de un proceso de compra fluido y seguro.',
     'Ya puedes ver tu historial de compras en Mi cuenta, guardar tus piezas favoritas y comprar en un momento.'
   ),
   texto: textoPlano('Tu cuenta ya está activa', [
     `¡Hola, ${nombre || ''}!`,
-    'Te damos la bienvenida más cálida a Nave 5 Barcelona.',
+    `Te damos la bienvenida más cálida a ${MARCA}.`,
     'Ya puedes ver tu historial de compras en Mi cuenta, guardar tus piezas favoritas y comprar en un momento.'
   ])
 });
@@ -546,7 +564,7 @@ const enviarCuentaActivada = ({ email, nombre }) =>
 const construirConfirmarCambio = ({ nombre, url }) => {
   const titulo = 'Confirma tu nuevo email';
   const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${parrafo(
-    'Has pedido usar este email en tu cuenta de Nave 5 Barcelona. Para terminar el cambio, confírmalo:'
+    `Has pedido usar este email en tu cuenta de ${MARCA}. Para terminar el cambio, confírmalo:`
   )}${botonEmail({
     href: escaparHtml(url),
     texto: 'Confirmar el nuevo email',
@@ -556,11 +574,11 @@ const construirConfirmarCambio = ({ nombre, url }) => {
     { secundario: true }
   )}`;
   return {
-    asunto: 'Confirma tu nuevo email en Nave 5 Barcelona',
+    asunto: `Confirma tu nuevo email en ${MARCA}`,
     html: maquetarEmail({ titulo, cuerpo }),
     texto: textoPlano(titulo, [
       `Hola, ${nombre || ''}:`,
-      'Has pedido usar este email en tu cuenta de Nave 5 Barcelona. Para terminar el cambio, confírmalo:',
+      `Has pedido usar este email en tu cuenta de ${MARCA}. Para terminar el cambio, confírmalo:`,
       '',
       `Confirmar el nuevo email: ${url}`,
       '',
@@ -577,7 +595,7 @@ const construirAvisoCambio = ({ nombre, emailNuevo }) => {
   const titulo = 'Se ha pedido cambiar el email de tu cuenta';
   const oculto = ocultarEmail(emailNuevo);
   const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${parrafo(
-    `Se ha pedido cambiar el email de tu cuenta de Nave 5 Barcelona por <strong>${escaparHtml(oculto)}</strong>.`
+    `Se ha pedido cambiar el email de tu cuenta de ${MARCA} por <strong>${escaparHtml(oculto)}</strong>.`
   )}${parrafo(
     'Si has sido tú, no hace falta hacer nada. Si no, entra en tu cuenta y cambia la contraseña: el cambio no se aplicará hasta que se confirme desde el email nuevo.',
     { secundario: true }
@@ -587,7 +605,7 @@ const construirAvisoCambio = ({ nombre, emailNuevo }) => {
     html: maquetarEmail({ titulo, cuerpo }),
     texto: textoPlano(titulo, [
       `Hola, ${nombre || ''}:`,
-      `Se ha pedido cambiar el email de tu cuenta de Nave 5 Barcelona por ${oculto}.`,
+      `Se ha pedido cambiar el email de tu cuenta de ${MARCA} por ${oculto}.`,
       'Si has sido tú, no hace falta hacer nada. Si no, entra en tu cuenta y cambia la contraseña: el cambio no se aplicará hasta que se confirme desde el email nuevo.'
     ])
   };
@@ -605,7 +623,7 @@ const construirCuentaProtegida = ({ nombre }) => {
   ];
   const cuerpo = `${parrafo(`Hola, ${escaparHtml(nombre)}:`)}${frases.map((f) => parrafo(f)).join('')}`;
   return {
-    asunto: 'Hemos protegido tu cuenta de Nave 5 Barcelona',
+    asunto: `Hemos protegido tu cuenta de ${MARCA}`,
     html: maquetarEmail({ titulo, cuerpo }),
     texto: textoPlano(titulo, [`Hola, ${nombre || ''}:`, ...frases])
   };
@@ -627,7 +645,7 @@ const destinatariosContacto = () => {
 
 // Correo del formulario de contacto para el equipo: datos del remitente, el mensaje y un botón
 // para responderle. El email del remitente también va en replyTo, así que "Responder" funciona igual.
-const ASUNTO_RESPUESTA_CONTACTO = 'Re: tu mensaje a Nave 5 Barcelona';
+const ASUNTO_RESPUESTA_CONTACTO = `Re: tu mensaje a ${MARCA}`;
 
 const construirHtmlContacto = ({ nombre, email, mensaje }) => {
   const mailto = escaparHtml(enlaceMailto(email, ASUNTO_RESPUESTA_CONTACTO));
@@ -644,7 +662,7 @@ ${bloqueDatos(`${filaDato('Nombre', escaparHtml(nombre))}${filaDato('Email', `<a
 };
 
 const construirTextoContacto = ({ nombre, email, mensaje }) => [
-  'NAVE 5',
+  NOMBRE_LOGO,
   '',
   'Nuevo mensaje desde el formulario de contacto',
   '',
@@ -656,7 +674,7 @@ const construirTextoContacto = ({ nombre, email, mensaje }) => [
   '',
   `Responder al cliente: ${enlaceMailto(email, ASUNTO_RESPUESTA_CONTACTO)}`,
   '',
-  `Nave 5 Barcelona · ${WEB_PUBLICA}`
+  `${MARCA} · ${WEB_PUBLICA}`
 ].join('\n');
 
 // Envía a destinatariosContacto() el mensaje escrito en el formulario de "Contacto". A
@@ -950,15 +968,15 @@ const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
       to: EMAIL_ADMIN,
       subject: `[Aviso] ${asunto}`,
       html: `
-        <div style="font-family: Helvetica, Arial, sans-serif; color: #3E322A; max-width: 600px; margin: 0 auto; padding: 24px; background-color: #F5F2EC; border-radius: 8px;">
-          <h2 style="color: #3E322A; border-bottom: 2px solid #E2DCD0; padding-bottom: 12px; margin-top: 0;">
+        <div style="font-family: Helvetica, Arial, sans-serif; color: ${COLOR_TEXTO}; max-width: 600px; margin: 0 auto; padding: 24px; background-color: ${COLOR_CLARO}; border-radius: 8px;">
+          <h2 style="color: ${COLOR_TEXTO}; border-bottom: 2px solid ${COLOR_BORDE}; padding-bottom: 12px; margin-top: 0;">
             ${escaparHtml(asunto)}
           </h2>
           <ul style="padding-left: 20px; line-height: 1.5;">
             ${detalles.map(detalle => `<li style="margin: 6px 0;">${escaparHtml(detalle)}</li>`).join('')}
           </ul>
-          <p style="font-size: 0.85rem; color: #857468; margin-top: 24px; border-top: 1px solid #E2DCD0; padding-top: 10px;">
-            Aviso automático de Nave 5 Barcelona.
+          <p style="font-size: 0.85rem; color: ${COLOR_TEXTO_SUAVE}; margin-top: 24px; border-top: 1px solid ${COLOR_BORDE}; padding-top: 10px;">
+            Aviso automático de ${MARCA}.
           </p>
         </div>
       `,
@@ -979,7 +997,7 @@ const enviarAlertaAdmin = async ({ asunto, detalles = [] }) => {
 const construirEmailRecuperacion = ({ url }) => {
   const titulo = 'Recuperar contraseña';
   const cuerpo = `${parrafo(
-    'Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Nave 5 Barcelona.'
+    `Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en ${MARCA}.`
   )}${parrafo(
     'Si has sido tú, haz clic en el siguiente botón para elegir una nueva contraseña:'
   )}${botonEmail({
@@ -994,10 +1012,10 @@ const construirEmailRecuperacion = ({ url }) => {
     { secundario: true }
   )}`;
   return {
-    asunto: 'Recuperar contraseña - Nave 5 Barcelona',
+    asunto: `Recuperar contraseña - ${MARCA}`,
     html: maquetarEmail({ titulo, cuerpo }),
     texto: textoPlano(titulo, [
-      'Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en Nave 5 Barcelona.',
+      `Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en ${MARCA}.`,
       'Si has sido tú, usa el siguiente enlace para elegir una nueva contraseña:',
       '',
       `Restablecer contraseña: ${url}`,
