@@ -4,10 +4,6 @@ Checklist para montar otra tienda a partir de este repositorio. Los pasos de inf
 explicados en [DEPLOY.md](DEPLOY.md) y las variables en [ENV_VARS.md](ENV_VARS.md); aquí va el orden y
 lo que hay que cambiar de la marca.
 
-> **Antes de empezar:** el esquema base de la base de datos (`muebles`, `categorias`, `clientes`,
-> `pedidos`) todavía no está en el repositorio (ver [DEPLOY.md, 1.2](DEPLOY.md#12-esquema)). Hasta que
-> se exporte, el paso 4 no se puede hacer en un proyecto de Supabase vacío.
-
 ## Los 30 minutos
 
 | Minuto | Paso |
@@ -87,8 +83,10 @@ Cuidado con dos campos:
 
 ### 4. Supabase
 
-Proyecto nuevo, esquema base, migraciones de `server/migrations/` en orden, bucket público `imagenes` y
-primer administrador: [DEPLOY.md, sección 1](DEPLOY.md#1-supabase).
+Proyecto nuevo y, en su *SQL Editor*, `server/migrations/00_esquema_base.sql` entero: crea las tablas, las
+políticas y el bucket público `imagenes`. Las migraciones de `server/migrations/` con versión
+`20261022190000` o anterior ya van dentro: no se ejecutan. Después, el primer administrador:
+[DEPLOY.md, sección 1](DEPLOY.md#1-supabase).
 
 ### 5. Secretos, Stripe y Resend
 

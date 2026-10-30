@@ -118,11 +118,29 @@ Las dos listas tienen que ser iguales. Así estaban el 19 oct 2026:
 | 20261014110001 | `create_reservas` | `d0b3d4e75c808c54f4c6f2f170cfec72` | con `\r\n` (recuperada) |
 | 20261019233700 | `reemplazar_borrador_reservas_por_r2` | `cec5d329ed7802b5900d5effa3c382af` | tal cual |
 
+## `00_esquema_base.sql`: la base de datos de un cliente nuevo (starter kit, 30 oct 2026)
+
+No es una migración: no tiene versión ni está en `schema_migrations`, y por eso no sigue la convención de
+nombre y la comprobación de MD5 de arriba no lo mira. Es el esquema entero que usa la API en un solo archivo,
+para montar la base de datos de otro cliente en un proyecto de Supabase vacío (`docs/NUEVO_CLIENTE.md`).
+
+- **En Nave 5 no se ejecuta nunca:** su base de datos ya tiene todo esto.
+- **En un proyecto nuevo:** se ejecuta este archivo y **no** las migraciones con versión `20261022190000` o
+  anterior, que ya van dentro. Las que lleguen después, sí, en orden.
+- **De dónde sale:** `categorias`, `muebles`, `clientes` y `pedidos` (las que no tienen `CREATE TABLE`, abajo)
+  están deducidas del código de la API, de los tests y de lo que dan por existente las migraciones. Lo demás es
+  copia de las migraciones de esta carpeta, ya juntadas. Se comprobó en un PostgreSQL 16 local que da el mismo
+  esquema que la base deducida más las 32 migraciones en orden, y que pasa `docs/reservas-sql/r2_pruebas.sql`.
+- **Lo que deja fuera** (historia de Nave 5): `reservas_borrador`, la copia `respaldo_agrupacion_muebles_20261002`,
+  los arreglos de datos y la extensión `http`. Los detalles, en la cabecera del archivo.
+- **Si cambia el esquema:** una migración nueva para Nave 5 y el mismo cambio en este archivo, para que los
+  clientes nuevos nazcan igual. Conviene contrastar las cuatro tablas deducidas con un volcado real
+  (`supabase db dump --schema-only`, solo lectura) cuando se pueda.
+
 ## Lo que no está aquí
 
-- **El `CREATE TABLE` de `muebles`, `categorias`, `clientes` y `pedidos`.** No hay ninguna migración que las
-  cree: ya existían antes de la primera (3 sep). No consta cómo se crearon. Con lo que hay aquí no se puede
-  rehacer la base de datos desde cero. **Decisión (5 oct 2026, H52):** no se añaden aquí. No tienen versión
-  en `schema_migrations`, así que serían archivos sin nada contra lo que comprobarlos. El esquema base vive en
-  Supabase.
+- **El `CREATE TABLE` original de `muebles`, `categorias`, `clientes` y `pedidos`.** No hay ninguna migración
+  que las cree: ya existían antes de la primera (3 sep). No consta cómo se crearon. **Decisión (5 oct 2026,
+  H52):** no se añaden como migraciones. No tienen versión en `schema_migrations`, así que serían archivos sin
+  nada contra lo que comprobarlos. Para un cliente nuevo están, deducidas, en `00_esquema_base.sql` (arriba).
 - **Lo ejecutado desde el SQL Editor**, como el último paso de la agrupación de fichas (ver arriba).

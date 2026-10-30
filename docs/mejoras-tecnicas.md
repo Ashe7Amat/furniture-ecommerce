@@ -3239,6 +3239,11 @@ Tres revisores independientes coincidieron en todo; no se ha tocado ninguna fich
   - se hará cuando alguien tenga la conexión delante.
 - **No van a `server/migrations/`:** no tienen versión en `schema_migrations`, y meterlas llenaría el historial
   de archivos que no se pueden comprobar. El esquema base vive en Supabase.
+- **Actualización (30 oct, starter kit, rama `feat/starter-kit`):** para montar la base de datos de un cliente
+  nuevo hay ahora `server/migrations/00_esquema_base.sql`, con las cuatro tablas deducidas del código y el resto
+  del esquema juntado de las migraciones. No es una migración de Nave 5 (no se ejecuta en su base) y no cambia
+  la decisión de arriba. Comprobado en un PostgreSQL 16 local, no contra el volcado real: eso sigue pendiente
+  para cuando haya conexión de solo lectura.
 
 ## Decisiones de diseño a recordar
 

@@ -32,31 +32,30 @@ Cada `push` a la rama de producción de Vercel (en Nave 5, `main`) despliega los
    (`SUPABASE_SERVICE_ROLE_KEY`). La `service_role` se salta RLS: solo va en la API, nunca en la web.
 
 ### 1.2 Esquema
-> **Hueco conocido.** El repositorio no tiene el `CREATE TABLE` de las cuatro tablas base (`muebles`,
-> `categorias`, `clientes` y `pedidos`): existían antes de la primera migración (3 sep 2026) y se crearon
-> a mano (ver `server/migrations/README.md`, "Lo que no está aquí"). Hasta que se exporte ese esquema, una
-> base de datos nueva no se puede montar solo con el repositorio.
->
-> Cómo cerrarlo, una sola vez y en solo lectura sobre Nave 5: `supabase db dump --schema-only` (o
-> `pg_dump --schema-only`) del proyecto actual, guardado como `server/migrations/00000000000000_esquema_base.sql`.
+En el *SQL Editor* del proyecto nuevo (o con `psql` y la cadena de conexión), pega y ejecuta
+**`server/migrations/00_esquema_base.sql`** entero. Crea las 11 tablas que usa la API (`categorias`,
+`muebles`, `clientes`, `pedidos`, `reservas`, `audit_log`, `refresh_tokens`, `verificaciones_email`,
+`password_resets`, `mensajes_contacto` y `ajustes_home`), sus índices, disparadores y políticas RLS, y el
+bucket `imagenes`. Va en una transacción: si algo falla, no queda nada a medias.
 
-Con el esquema base aplicado, el resto son las migraciones de `server/migrations/`, **en orden de
-nombre** y solo los `.sql` que no acaban en `.down.sql` (las `.down.sql` son la marcha atrás de cada una).
-Algunas son datos de Nave 5 y en un proyecto nuevo no hacen nada o sobran:
+- **No ejecutes después** las migraciones de `server/migrations/` con versión `20261022190000` o anterior:
+  ya van dentro de ese archivo. Las que lleguen después (versión posterior), sí, en orden de nombre y solo
+  los `.sql` que no acaban en `.down.sql`.
+- **No lleva datos de Nave 5:** ni la categoría «Espejos», ni el borrador de reservas, ni los arreglos de
+  datos. Las categorías del cliente se crean desde el panel.
+- `categorias`, `muebles`, `clientes` y `pedidos` no tenían `CREATE TABLE` en el repositorio: en ese archivo
+  están deducidas del código y comprobadas en un PostgreSQL local (detalles en su cabecera y en
+  `server/migrations/README.md`).
+- **En Nave 5 no se ejecuta:** su base de datos ya lo tiene todo.
 
-- `*_backfill_*`, `*_respaldo_agrupacion_muebles`, `*_agrupar_fichas_juntar_fotos`: arreglos de datos
-  de Nave 5. En una base vacía no tocan nada, pero tampoco hacen falta.
-- `*_add_categoria_espejos`: crea la categoría «Espejos». Bórrala después si el cliente no la quiere.
-- `20261014110000_enable_btree_gist` y `20261014110001_create_reservas`: el borrador de reservas, que
-  `20261019233700_reemplazar_borrador_reservas_por_r2` sustituye. Hay que aplicarlas igual, en orden.
-
-En Nave 5 se aplican con la herramienta `apply_migration` del MCP de Supabase, nunca desde el SQL Editor
-(lo que se ejecuta ahí no queda registrado en `supabase_migrations.schema_migrations`). En un proyecto
-nuevo cualquiera de las dos vale, pero conviene la misma regla para que el repositorio refleje la base.
+Las migraciones nuevas, en Nave 5, se aplican con la herramienta `apply_migration` del MCP de Supabase,
+nunca desde el SQL Editor (lo que se ejecuta ahí no queda registrado en
+`supabase_migrations.schema_migrations`). En un proyecto nuevo cualquiera de las dos vale, pero conviene la
+misma regla para que el repositorio refleje la base.
 
 ### 1.3 Fotos
-1. *Storage > New bucket*: nombre **`imagenes`**, público. Es el que usa la API
-   (`server/src/utils/upload.js`).
+1. El bucket **`imagenes`**, público, lo crea `00_esquema_base.sql`. Compruébalo en *Storage* (si no
+   está, *New bucket* con ese nombre y público). Es el que usa la API (`server/src/utils/upload.js`).
 2. Ahí van las fotos que se suben desde el panel (piezas y portada) y el logo de los correos (carpeta
    `marca/`).
 
