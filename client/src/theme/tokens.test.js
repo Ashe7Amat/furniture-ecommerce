@@ -3,6 +3,7 @@
 // refactorizadas no llevan colores ni fuentes sueltos, para que cambiar de marca sea cambiar variables.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { BRAND } from './brand.config';
 
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
 const sinComentarios = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -57,7 +58,8 @@ describe('tokens.css', () => {
     }
   });
 
-  it('la paleta de Nave 5 conserva sus valores exactos', () => {
+  // Solo en Nave 5: con otra marca (npm run init:client) la paleta es otra a propósito.
+  it.runIf(BRAND.idInterno === 'nave5')('la paleta de Nave 5 conserva sus valores exactos', () => {
     const base = variables(bloque(':root {'));
     expect(base['--color-bg']).toBe('#F5F2EC');
     expect(base['--color-primary']).toBe('#3E322A');

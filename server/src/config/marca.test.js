@@ -23,23 +23,32 @@ const codigo = archivos(SRC).filter(
 const sinComentarios = (texto) =>
   texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
+// Un patrón por dato de la marca. Los datos vacíos o por rellenar (PENDIENTE, como los deja
+// scripts/init-client.js) no se buscan: no son de nadie.
+const literal = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const patron = (valor, formar = literal, flags = '') =>
+  !valor || valor.includes('PENDIENTE') ? null : new RegExp(formar(valor), flags);
 const PROHIBIDOS = [
-  ['el nombre', /Nave\s*5/i],
-  ['el dominio', new RegExp(BRAND.dominio.replace('.', '\\.'))],
-  ['la calle', new RegExp(BRAND.contacto.direccion.split(',')[0])],
-  ['el prefijo de las referencias', new RegExp(`['"\`]${BRAND.prefijoSku}['"\`-]`)],
-  ['los colores de los correos', new RegExp(Object.values(BRAND.email.colores).join('|'), 'i')],
-  ['el correo de avisos por defecto', new RegExp(BRAND.email.avisosPorDefecto.replace('.', '\\.'))]
-];
+  ['el nombre', patron(BRAND.nombre, (v) => literal(v).replace(/\s+/g, '\\s*'), 'i')],
+  ['el nombre del logo', patron(BRAND.nombreLogo, (v) => `['"\`>]${literal(v)}['"\`<]`)],
+  ['el dominio', patron(BRAND.dominio)],
+  ['la calle', patron(BRAND.contacto.direccion.split(',')[0])],
+  ['el prefijo de las referencias', patron(BRAND.prefijoSku, (v) => `['"\`]${literal(v)}['"\`-]`)],
+  [
+    'los colores de los correos',
+    patron(Object.values(BRAND.email.colores).join('|'), (v) => v, 'i')
+  ],
+  ['el correo de avisos por defecto', patron(BRAND.email.avisosPorDefecto)]
+].filter(([, regla]) => regla);
 
 test('recorre el código de src/', () => {
   assert.ok(codigo.length > 50);
 });
 
-for (const [que, patron] of PROHIBIDOS) {
+for (const [que, regla] of PROHIBIDOS) {
   test(`ningún archivo de src/ escribe a mano ${que}`, () => {
     const culpables = codigo
-      .filter((ruta) => patron.test(sinComentarios(fs.readFileSync(ruta, 'utf8'))))
+      .filter((ruta) => regla.test(sinComentarios(fs.readFileSync(ruta, 'utf8'))))
       .map((ruta) => path.relative(SRC, ruta));
     assert.deepEqual(culpables, []);
   });

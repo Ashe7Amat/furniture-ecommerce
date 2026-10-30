@@ -1,0 +1,12 @@
+{
+  "name": "vintage-starter",
+  "private": true,
+  "description": "Raíz del repositorio: solo los comandos del starter kit. La web está en client/ y la API en server/, cada una con su package.json.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "init:client": "node scripts/init-client.js",
+    "test": "node --test scripts/*.test.js"
+  }
+}

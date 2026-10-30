@@ -30,7 +30,30 @@ cd client && npm ci && cd ../server && npm ci && cd ..
 
 ### 2. Marca
 
-Dos archivos con los mismos datos, porque la web y la API se despliegan por separado:
+**Con el script** (recomendado), desde la raíz del repositorio:
+
+```bash
+npm run init:client
+```
+
+Pregunta el nombre, el nombre corto, el prefijo de las referencias, el correo, el color primario y,
+opcionalmente, el eslogan, el color de acento, la ciudad y la web. Con eso reescribe las dos
+`brand.config.js` y `tokens.css` (paleta clara y oscura derivada de los dos colores, con el texto
+secundario y el de acento a 4,5:1 de contraste como mínimo). Solo cambia valores: comentarios y campos
+que no pregunta se quedan. Lo que no sabe (calle, código postal, razón social, NIF, Instagram, logo de los
+correos) lo deja como `PENDIENTE`, para que no quede ningún dato de la tienda anterior: búscalo con
+`git grep PENDIENTE -- client/src/theme server/src/config` y complétalo. Sin preguntas, para automatizarlo:
+
+```bash
+node scripts/init-client.js --nombre="Studio Vintage Madrid" --nombreCorto="Studio Vintage" \
+  --prefijo=SVM --email=hola@studiovintage.es --primario=#1E3A5F --acento=#C9A227 \
+  --eslogan="Diseño con historia" --ciudad=Madrid --web=https://www.studiovintage.es --si
+```
+
+Capturas de esa tienda de ejemplo, generada así sobre una copia del repositorio, en
+`/mnt/project-files/starter-kit/` del proyecto (30 oct 2026).
+
+**A mano**: dos archivos con los mismos datos, porque la web y la API se despliegan por separado:
 
 - **`client/src/theme/brand.config.js`**: nombre (`nombre`, `nombreCorto`), `eslogan`, `tipoNegocio`,
   `hashtag`, `descripcion`, `prefijoSku`, `idInterno`, `contacto` (correo, calle, dirección, ciudad,
@@ -100,10 +123,16 @@ cd ../server && npm run lint && npm test
 | Producciones en las que han salido las piezas | `client/src/utils/producciones.js` |
 | Dominios de la API y de Supabase | `client/vercel.json` y el `preconnect` de `client/index.html` |
 | Reglas del alquiler (horarios, días mínimos, portes) | `server/src/utils/reglasAlquiler.js` |
+| Colores sueltos en las demás hojas de estilo (110, sobre todo `Home.css`, `ProductCard.css`, `AdminUI.css` y `ModalContacto.css`: por ejemplo, el botón claro del hero) | `client/src/styles/`. Solo `index.css`, `Admin.css`, `AdminReservas.css` y `ProductDetail.css` usan ya solo tokens |
+| Color del icono de "sin imagen" y de la barra del navegador | `client/public/img/sin-imagen.svg`, `<meta name="theme-color">` de `client/index.html` y `client/public/manifest.json` |
 
 ## Los tests de ejemplo
 
-Muchos tests comprueban textos de Nave 5 tal cual («Nave 5 Barcelona», `NAV-SIL-001`, la dirección...).
-Con otra marca esos tests fallan aunque la web funcione bien: hay que actualizar sus textos esperados. Los
-de `client/src/theme/` y `server/src/config/` sí se adaptan solos a la marca, y vigilan que nadie vuelva a
-escribir el nombre o la web a mano en el código.
+Muchos tests comprueban textos de Nave 5 tal cual («Nave 5 Barcelona», `NAV-SIL-001`, la web, los
+correos...). Con la tienda de ejemplo de arriba, lint y build salen limpios, pero fallan **66 tests de la
+web** (en 23 archivos: datos estructurados, metas, cookies, cabecera, pie, etiquetas QR, mensajes del
+panel...) y **46 de la API** (en 14 archivos: correos, sitemap, CSV, referencias). La web funciona: lo que cambia es el
+texto esperado. Para un cliente nuevo hay que actualizar esos textos (ninguno es de los `Admin.*.test.jsx`
+congelados). Los tests del starter (`client/src/theme/`, `server/src/config/`, `scripts/`) sí se adaptan a
+la marca, salvo los dos de `brand.config.test.js` que comprueban los datos de Nave 5, y vigilan que nadie
+vuelva a escribir el nombre o la web a mano en el código.

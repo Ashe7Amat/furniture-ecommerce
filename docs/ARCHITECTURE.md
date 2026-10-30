@@ -36,6 +36,8 @@ Otras carpetas:
 - `client/e2e/`: tests de Playwright con la API simulada (`apiSimulada.js`).
 - `server/migrations/`: copia de cada migración aplicada, con su `.down.sql` (ver su `README.md`).
 - `server/scripts/`: herramientas de línea de comandos (secretos, logo de los correos, fotos WebP, miniaturas).
+- `scripts/init-client.js` (raíz): genera la marca y la paleta de un cliente nuevo (`npm run init:client`,
+  tests con `npm test` en la raíz).
 - `docs/`: diseños, auditorías y el registro de hallazgos (`mejoras-tecnicas.md`).
 
 ## 3. Tema y marca

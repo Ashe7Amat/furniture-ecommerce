@@ -187,8 +187,11 @@ sí mismo (son dos sistemas independientes), pero si CI falla en `main`, algo se
 ## Más documentación
 
 - **[docs/env-vars.md](docs/env-vars.md)** -- detalle completo de cada variable de entorno.
-- **[docs/architecture.md](docs/architecture.md)** -- diagrama de la arquitectura, flujo de compra
-  y flujo de autenticación.
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** -- núcleo, módulos y tema; flujo de compra, de
+  reservas y de autenticación.
+- **Starter kit (otra marca con este repositorio):** [docs/NUEVO_CLIENTE.md](docs/NUEVO_CLIENTE.md)
+  (checklist de 30 minutos y `npm run init:client`), [docs/DEPLOY.md](docs/DEPLOY.md) y
+  [docs/ENV_VARS.md](docs/ENV_VARS.md).
 - **[docs/tarea3-diseno.md](docs/tarea3-diseno.md)** -- diseño de las migraciones de BD y del JWT
   con refresh y rotación (tarea 3).
 - **[docs/verificacion-3b.md](docs/verificacion-3b.md)** -- guía para poner el secreto

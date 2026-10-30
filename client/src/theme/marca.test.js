@@ -19,34 +19,40 @@ const codigo = archivos(SRC).filter((ruta) =>
 // Quita los comentarios: /* ... */, {/* ... */} y // hasta el final de la línea (sin tocar "https://").
 const sinComentarios = (texto) => texto.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 
+// Un patrón por dato de la marca. Los datos vacíos o por rellenar (PENDIENTE, como los deja
+// scripts/init-client.js) no se buscan: no son de nadie.
+const literal = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const patron = (valor, formar = literal, flags = '') =>
+  !valor || valor.includes('PENDIENTE') ? null : new RegExp(formar(valor), flags);
 const PROHIBIDOS = [
-  ['el nombre', new RegExp(BRAND.nombreCorto.replace(/\s+/g, '\\s*'), 'i')],
-  ['la ciudad', new RegExp(BRAND.contacto.ciudad, 'i')],
-  ['la calle', new RegExp(BRAND.contacto.calle.split(',')[0])],
-  ['el código postal', new RegExp(`\\b${BRAND.contacto.codigoPostal}\\b`)],
-  ['el dominio', new RegExp(BRAND.dominio.replace('.', '\\.'))],
-  ['el usuario de Instagram', new RegExp(BRAND.redes.instagramUsuario)],
-  ['el identificador interno', new RegExp(`['"\`]${BRAND.idInterno}`)],
-  ['el prefijo de las referencias', new RegExp(`\\b${BRAND.prefijoSku}-`)],
+  ['el nombre', patron(BRAND.nombreCorto, (v) => `\\b${literal(v).replace(/\s+/g, '\\s*')}\\b`, 'i')],
+  // La ciudad como palabra, sin contar la zona horaria (Europe/Madrid es de las fechas, no de la marca)
+  ['la ciudad', patron(BRAND.contacto.ciudad, (v) => `(?<!Europe/)\\b${literal(v)}\\b`)],
+  ['la calle', patron(BRAND.contacto.calle.split(',')[0])],
+  ['el código postal', patron(BRAND.contacto.codigoPostal, (v) => `\\b${literal(v)}\\b`)],
+  ['el dominio', patron(BRAND.dominio)],
+  ['el usuario de Instagram', patron(BRAND.redes.instagramUsuario)],
+  ['el identificador interno', patron(BRAND.idInterno, (v) => `['"\`]${literal(v)}`)],
+  ['el prefijo de las referencias', patron(BRAND.prefijoSku, (v) => `\\b${literal(v)}-`)],
   // Con mayúscula: el eslogan como rótulo. En minúscula es prosa de Sobre nosotros («un almacén de ideas»).
-  ['el eslogan', new RegExp(BRAND.eslogan)],
-];
+  ['el eslogan', patron(BRAND.eslogan)],
+].filter(([, regla]) => regla);
 
 describe('la marca solo vive en brand.config.js', () => {
   it('recorre el código de src/', () => {
     expect(codigo.length).toBeGreaterThan(100);
   });
 
-  it.each(PROHIBIDOS)('ningún archivo de src/ escribe a mano %s', (_, patron) => {
+  it.each(PROHIBIDOS)('ningún archivo de src/ escribe a mano %s', (_, regla) => {
     const culpables = codigo
-      .filter((ruta) => patron.test(sinComentarios(readFileSync(ruta, 'utf8'))))
+      .filter((ruta) => regla.test(sinComentarios(readFileSync(ruta, 'utf8'))))
       .map((ruta) => relative(SRC, ruta));
     expect(culpables).toEqual([]);
   });
 
   it('index.html solo lleva marcadores %BRAND_...%, que rellena vite.config.js', () => {
     const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
-    expect(html).not.toMatch(new RegExp(BRAND.nombreCorto, 'i'));
+    expect(html).not.toMatch(new RegExp(literal(BRAND.nombreCorto), 'i'));
     expect(html).not.toContain(BRAND.dominio);
     const marcadores = new Set(html.match(/%BRAND_[A-Z_]+%/g));
     expect([...marcadores].sort()).toEqual(['%BRAND_DESCRIPCION%', '%BRAND_NOMBRE%', '%BRAND_WEB%']);
