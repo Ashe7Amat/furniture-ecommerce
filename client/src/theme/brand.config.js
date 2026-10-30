@@ -40,7 +40,15 @@ export const BRAND = {
   modulos: {
     ecommerce: true,
     bookings: true
-  }
+  },
+
+  // Atajos con los nombres de la guía del starter (docs/NUEVO_CLIENTE.md). Leen los campos de
+  // arriba, así que cada dato se escribe una sola vez.
+  get prefijoSKU() { return this.prefijoSku; },
+  get emailContacto() { return this.contacto.email; },
+  get telefono() { return this.contacto.telefono; },
+  get direccion() { return this.contacto.direccion; },
+  get redesSociales() { return this.redes; }
 };
 
 /**

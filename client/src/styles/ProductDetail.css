@@ -1,5 +1,3 @@
-@import '../theme/tokens.css';
-
 /* ==========================================================================
    ProductDetail — Rediseño Interior Premium (Nave 5 Barcelona)
    ========================================================================== */
@@ -8,7 +6,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 4vw 80px;
-  background-color: var(--bg-color);
+  background-color: var(--color-bg);
   box-sizing: border-box;
 }
 
@@ -19,7 +17,7 @@
 .pd-back-link {
   background: none;
   border: none;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   font-size: 0.85rem;
   font-family: inherit;
   cursor: pointer;
@@ -33,7 +31,7 @@
 }
 
 .pd-back-link:hover {
-  color: var(--primary-color);
+  color: var(--color-primary);
   transform: translateX(-2px);
 }
 
@@ -64,12 +62,12 @@
   width: 100%;
   max-height: 65vh;
   aspect-ratio: 1 / 1;
-  background-color: var(--surface-alt);
+  background-color: var(--color-surface-alt);
   overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
   position: relative;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 30px rgba(var(--color-black-rgb), 0.04);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -115,7 +113,7 @@
   width: 100%;
   padding: 16px 0;
   text-align: center;
-  color: #F7F4EE;
+  color: var(--color-on-dark);
   text-transform: uppercase;
   font-weight: 600;
   font-size: 0.85rem;
@@ -126,11 +124,11 @@
 }
 
 .pd-status-banner.sold {
-  background: rgba(184, 50, 50, 0.85);
+  background: var(--color-banner-sold);
 }
 
 .pd-status-banner.rented {
-  background: rgba(194, 120, 24, 0.85);
+  background: var(--color-banner-rented);
 }
 
 .pd-thumbnails {
@@ -139,7 +137,7 @@
   overflow-x: auto;
   padding: 4px 2px 8px 2px;
   scrollbar-width: thin;
-  scrollbar-color: var(--border-color) transparent;
+  scrollbar-color: var(--color-border) transparent;
   scroll-behavior: smooth;
 }
 
@@ -148,12 +146,12 @@
 }
 
 .pd-thumbnails::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--color-border);
   border-radius: 10px;
 }
 
 .pd-thumbnail-btn {
-  background: var(--surface-alt);
+  background: var(--color-surface-alt);
   border: 2px solid transparent;
   padding: 0;
   cursor: pointer;
@@ -162,24 +160,24 @@
   flex-shrink: 0;
   opacity: 0.75;
   transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(var(--color-black-rgb), 0.04);
   position: relative;
 }
 
 .pd-thumbnail-btn:hover {
   opacity: 1;
-  border-color: var(--accent-color);
+  border-color: var(--color-accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 10px rgba(var(--color-black-rgb), 0.1);
 }
 
 .pd-thumbnail-btn.active {
   opacity: 1;
-  border-color: var(--primary-color);
+  border-color: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 14px rgba(var(--color-black-rgb), 0.15);
 }
 
 .pd-thumbnail-img {
@@ -213,22 +211,22 @@
 }
 
 .pd-breadcrumb-link {
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .pd-breadcrumb-link:hover {
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-breadcrumb-sep {
-  color: var(--border-color);
+  color: var(--color-border);
   opacity: 0.7;
 }
 
 .pd-breadcrumb-current {
-  color: var(--primary-color);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -245,7 +243,7 @@
   font-family: var(--font-display);
   font-size: 2.6rem;
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--color-primary);
   margin: 0;
   line-height: 1.1;
   letter-spacing: -0.015em;
@@ -259,8 +257,8 @@
 }
 
 .pd-fav-btn {
-  background: var(--surface-alt);
-  border: 1px solid var(--border-color);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   width: 44px;
   height: 44px;
@@ -269,33 +267,33 @@
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  color: var(--primary-color);
+  color: var(--color-primary);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 6px rgba(var(--color-black-rgb), 0.04);
 }
 
 .pd-fav-btn:hover {
   transform: scale(1.08);
-  border-color: var(--accent-color);
-  color: var(--accent-color);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .pd-ref {
   margin: 0 0 16px 0;
   font-size: 0.82rem;
   font-family: var(--font-mono);
-  color: var(--secondary-color);
+  color: var(--color-secondary);
 }
 
 .pd-ref.ref-producto--etiqueta {
-  color: var(--etiqueta-text);
+  color: var(--color-etiqueta-text);
 }
 
 .pd-price {
   font-family: var(--font-display);
   font-size: 1.8rem;
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--color-primary);
   margin: 0 0 24px 0;
   font-variant-numeric: tabular-nums;
 }
@@ -314,7 +312,7 @@
   font-size: 1.02rem;
   font-weight: 600;
   letter-spacing: 0.5px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -328,35 +326,35 @@
 .pd-cta-solicitar,
 .pd-cta-comprar,
 .reserva-cta {
-  background-color: #1A1510;
-  color: #F7F4EE;
-  box-shadow: 0 4px 16px rgba(26, 21, 16, 0.18);
+  background-color: var(--color-cta);
+  color: var(--color-on-dark);
+  box-shadow: 0 4px 16px rgba(var(--color-cta-rgb), 0.18);
 }
 
 .pd-cta-solicitar:hover:not(:disabled),
 .pd-cta-comprar:hover:not(:disabled),
 .reserva-cta:hover:not(:disabled) {
-  background-color: #2E251E;
+  background-color: var(--color-cta-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(26, 21, 16, 0.25);
+  box-shadow: 0 8px 24px rgba(var(--color-cta-rgb), 0.25);
 }
 
 .pd-cta-secondary {
   background: transparent;
-  color: var(--primary-color);
-  border: 1px solid var(--border-color);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
 }
 
 .pd-cta-secondary:hover {
-  background: var(--surface-alt);
-  border-color: var(--accent-color);
+  background: var(--color-surface-alt);
+  border-color: var(--color-accent);
 }
 
 .pd-cta-sold,
 .pd-cta-rented,
 .pd-cta-btn:disabled {
-  background-color: var(--surface-alt);
-  color: var(--secondary-color);
+  background-color: var(--color-surface-alt);
+  color: var(--color-secondary);
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
@@ -368,7 +366,7 @@
   display: block;
   font-size: 0.82rem;
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--color-primary);
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -377,7 +375,7 @@
 .pd-quantity-selector {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--border-color);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   height: 44px;
 }
@@ -389,12 +387,12 @@
   height: 100%;
   font-size: 1.2rem;
   cursor: pointer;
-  color: var(--primary-color);
+  color: var(--color-primary);
   transition: background 0.2s;
 }
 
 .pd-qty-btn:disabled {
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -403,7 +401,7 @@
   width: 40px;
   text-align: center;
   font-size: 0.95rem;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-options-grid {
@@ -417,8 +415,8 @@
   flex-direction: column;
   align-items: flex-start;
   padding: 14px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg, var(--surface-alt));
+  border: 1px solid var(--color-border);
+  background: var(--color-surface, var(--color-surface-alt));
   cursor: pointer;
   border-radius: 6px;
   transition: all 0.2s ease;
@@ -426,21 +424,21 @@
 }
 
 .pd-option-btn.active {
-  border-color: var(--primary-color);
-  background-color: var(--surface-alt);
-  box-shadow: inset 0 0 0 1px var(--primary-color);
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-alt);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
 .pd-opt-title {
   font-weight: 500;
   font-size: 0.9rem;
   margin-bottom: 4px;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-opt-price {
   font-size: 0.82rem;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -451,8 +449,8 @@
   gap: 14px;
   margin: 12px 0 28px 0;
   padding: 18px 16px;
-  background-color: var(--surface-alt);
-  border: 1px solid var(--border-color);
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
 }
 
@@ -470,7 +468,7 @@
 }
 
 .pd-trust-icon {
-  color: var(--accent-color);
+  color: var(--color-accent);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -486,12 +484,12 @@
 .pd-trust-title {
   font-size: 0.84rem;
   font-weight: 600;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-trust-desc {
   font-size: 0.72rem;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   line-height: 1.3;
 }
 
@@ -499,18 +497,18 @@
 .pd-description {
   font-size: 1.02rem;
   line-height: 1.75;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   margin-bottom: 32px;
 }
 
 /* Detalles Técnicos y Acordeón */
 .pd-accordion-container {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--color-border);
   margin-bottom: 30px;
 }
 
 .pd-accordion-item {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .pd-accordion-header {
@@ -524,26 +522,26 @@
   font-size: 0.98rem;
   font-family: inherit;
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--color-primary);
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .pd-accordion-header:hover {
-  color: var(--accent-text);
+  color: var(--color-accent-text);
 }
 
 .pd-accordion-icon {
   font-size: 1.4rem;
   font-weight: 300;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
 }
 
 .pd-accordion-content {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.35s ease, padding 0.3s ease;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   font-size: 0.95rem;
   line-height: 1.6;
 }
@@ -558,9 +556,9 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px 14px;
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   margin-bottom: 14px;
 }
 
@@ -573,11 +571,11 @@
 
 .pd-tech-label {
   font-weight: 500;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-tech-val {
-  color: var(--secondary-color);
+  color: var(--color-secondary);
   text-align: right;
 }
 
@@ -588,9 +586,9 @@
   left: 0;
   right: 0;
   z-index: 850;
-  background-color: var(--surface-alt);
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  background-color: var(--color-surface-alt);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -8px 24px rgba(var(--color-black-rgb), 0.08);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   animation: pdSlideUpSticky 0.25s cubic-bezier(0.16, 1, 0.3, 1);
@@ -630,8 +628,8 @@
   border-radius: 6px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg);
 }
 
 .pd-sticky-text {
@@ -643,7 +641,7 @@
 .pd-sticky-nombre {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--primary-color);
+  color: var(--color-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -652,7 +650,7 @@
 .pd-sticky-ref {
   font-size: 0.76rem;
   font-family: var(--font-mono);
-  color: var(--secondary-color);
+  color: var(--color-secondary);
 }
 
 .pd-sticky-actions {
@@ -671,19 +669,19 @@
 }
 
 .pd-sticky-btn-primary {
-  background-color: #1A1510;
-  color: #F7F4EE;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background-color: var(--color-cta);
+  color: var(--color-on-dark);
+  box-shadow: 0 2px 8px rgba(var(--color-black-rgb), 0.15);
 }
 
 .pd-sticky-btn-primary:hover {
-  background-color: #2E251E;
+  background-color: var(--color-cta-hover);
   transform: translateY(-1px);
 }
 
 .pd-sticky-btn:disabled {
-  background-color: var(--border-color);
-  color: var(--secondary-color);
+  background-color: var(--color-border);
+  color: var(--color-secondary);
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -714,8 +712,8 @@
 }
 
 .pd-skeleton .pd-skeleton-line {
-  background: var(--surface-alt);
-  border-radius: 4px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-sm);
   animation: pdPulse 1.5s ease-in-out infinite;
 }
 
@@ -740,8 +738,8 @@
 .pd-skeleton .pd-skeleton-block {
   width: 100%;
   height: 180px;
-  background: var(--surface-alt);
-  border-radius: 8px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
   animation: pdPulse 1.5s ease-in-out infinite;
 }
 
@@ -751,8 +749,8 @@
 }
 
 .pd-loader {
-  border: 2px solid var(--surface-alt);
-  border-top: 2px solid var(--accent-color);
+  border: 2px solid var(--color-surface-alt);
+  border-top: 2px solid var(--color-accent);
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -767,14 +765,14 @@
 .pd-error-container {
   text-align: center;
   padding: 100px 20px;
-  color: var(--primary-color);
+  color: var(--color-primary);
 }
 
 .pd-btn-back {
   margin-top: 20px;
   padding: 10px 22px;
-  background: var(--primary-color);
-  color: var(--bg-color);
+  background: var(--color-primary);
+  color: var(--color-bg);
   border: none;
   cursor: pointer;
   border-radius: 6px;
@@ -784,24 +782,24 @@
 }
 
 .pd-btn-back:hover {
-  background: var(--accent-hover);
+  background: var(--color-accent-hover);
 }
 
 .pd-cesta-llena {
   margin: 10px 0 0;
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
 }
 
 .pd-aviso-reservas {
   margin: 12px 0 0;
   font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--secondary-color);
+  color: var(--color-secondary);
 }
 
 .pd-aviso-reservas a {
-  color: var(--accent-text);
+  color: var(--color-accent-text);
   font-weight: 600;
 }

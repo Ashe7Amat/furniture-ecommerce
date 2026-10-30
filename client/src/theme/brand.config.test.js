@@ -14,6 +14,16 @@ describe('brand.config.js', () => {
     expect(BRAND.contacto.telefono).toBeTruthy();
   });
 
+  it('expone los atajos de la guía del starter, que leen los campos canónicos', () => {
+    expect(BRAND.prefijoSKU).toBe(BRAND.prefijoSku);
+    expect(BRAND.emailContacto).toBe('hola@nave5barcelona.com');
+    expect(BRAND.telefono).toBe(BRAND.contacto.telefono);
+    expect(BRAND.direccion).toBe(BRAND.contacto.direccion);
+    expect(BRAND.redesSociales).toBe(BRAND.redes);
+    expect(brand.prefijoSKU).toBe('NAV');
+    expect(brand.get('emailContacto')).toBe('hola@nave5barcelona.com');
+  });
+
   it('brand.get resuelve rutas anidadas y proporciona valor por defecto', () => {
     expect(brand.get('prefijoSku')).toBe('NAV');
     expect(brand.get('contacto.email')).toBe('hola@nave5barcelona.com');
