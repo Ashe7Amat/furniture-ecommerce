@@ -42,9 +42,8 @@ export const BRAND = {
     pais: 'ES',
     horario: 'Mo-Fr 10:00-19:00',
     razonSocial: 'Nave 5 Barcelona S.L.',
-    // PROVISIONAL: NIF de ejemplo. Es el único sitio donde está: Aviso legal, Privacidad y el albarán lo
-    // leen de aquí. Para poner el real, cambia solo el texto entre comillas (docs/NUEVO_CLIENTE.md).
-    cif: 'B-00000000'
+    // NIF de la empresa. Es el único sitio donde está: Aviso legal, Privacidad y el albarán lo leen de aquí.
+    cif: 'B63881080'
   },
 
   // Presencia online
