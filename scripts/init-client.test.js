@@ -160,7 +160,14 @@ test('genera las dos marcas y la paleta sin dejar datos de la tienda anterior', 
 
 test('por consola: con --si escribe en --dir y no toca nada sin --si si no hay terminal', () => {
   const dir = copiaDelRepo();
-  const antes = fs.readFileSync(path.join(dir, ARCHIVOS.tokens), 'utf8');
+  // Un fondo que no da ninguna paleta: así la prueba vale también si el repo ya tiene esta marca (por
+  // ejemplo, tras ejecutar init:client con los datos de la guía).
+  const tokens = path.join(dir, ARCHIVOS.tokens);
+  fs.writeFileSync(
+    tokens,
+    fs.readFileSync(tokens, 'utf8').replace(/--color-bg:\s*[^;]+;/, '--color-bg: #000001;')
+  );
+  const antes = fs.readFileSync(tokens, 'utf8');
   const argumentos = Object.entries(CLIENTE).map(([clave, valor]) => `--${clave}=${valor}`);
   assert.throws(() =>
     execFileSync(

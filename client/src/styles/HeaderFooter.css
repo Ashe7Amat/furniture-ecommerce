@@ -39,21 +39,30 @@
     height: 24px;
   }
 }
-/* Logo en texto (marca sin dibujo propio): el nombre corto con la fuente de títulos, del alto del dibujo. */
+/* Logo en texto (marca sin dibujo propio): el nombre corto con la fuente de títulos, del alto del dibujo.
+   Un nombre largo no empuja los iconos fuera de la pantalla en el móvil: se acorta con puntos suspensivos. */
 .logo-svg.logo-texto {
   height: auto;
   aspect-ratio: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-display);
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  line-height: 1;
+  line-height: 1.2;
   text-transform: uppercase;
   white-space: nowrap;
 }
+.header-left:has(.logo-texto),
+.logo:has(.logo-texto) {
+  min-width: 0;
+}
 @media (max-width: 480px) {
   .logo-svg.logo-texto {
-    font-size: 1.3rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.03em;
   }
 }
 

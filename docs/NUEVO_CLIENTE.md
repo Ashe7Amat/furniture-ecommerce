@@ -68,7 +68,8 @@ Capturas de esa tienda de ejemplo, generada así sobre una copia del repositorio
 **El logotipo de la cabecera** lo elige el campo `logo` de `client/src/theme/brand.config.js`:
 
 - `'texto'` (lo que deja `init:client`): el nombre corto (`nombreCorto`) en mayúsculas, con la fuente de
-  títulos y el color de la marca. No hay que tocar nada más.
+  títulos y el color de la marca. No hay que tocar nada más. En el móvil caben unos 8 caracteres: un nombre
+  corto más largo se acorta con puntos suspensivos («STUDIO ...»), así que conviene que sea breve.
 - `'dibujo'`: el SVG de `client/src/theme/LogoDibujo.jsx`. Ahí está el de Nave 5. Si el cliente tiene un
   logo dibujado, pon su SVG en ese archivo (rellenos con `currentColor`), ajusta el `aspect-ratio` de
   `.logo-svg` en `client/src/styles/HeaderFooter.css` a su `viewBox` (lo comprueba `Logo.css.test.js`) y
