@@ -131,8 +131,8 @@ cd ../server && npm run lint && npm test
 Muchos tests comprueban textos de Nave 5 tal cual («Nave 5 Barcelona», `NAV-SIL-001`, la web, los
 correos...). Con la tienda de ejemplo de arriba, lint y build salen limpios, pero fallan **66 tests de la
 web** (en 23 archivos: datos estructurados, metas, cookies, cabecera, pie, etiquetas QR, mensajes del
-panel...) y **46 de la API** (en 14 archivos: correos, sitemap, CSV, referencias). La web funciona: lo que cambia es el
+panel...) y **45 de la API** (en 13 archivos: correos, sitemap, CSV, referencias). La web funciona: lo que cambia es el
 texto esperado. Para un cliente nuevo hay que actualizar esos textos (ninguno es de los `Admin.*.test.jsx`
 congelados). Los tests del starter (`client/src/theme/`, `server/src/config/`, `scripts/`) sí se adaptan a
-la marca, salvo los dos de `brand.config.test.js` que comprueban los datos de Nave 5, y vigilan que nadie
+la marca, salvo dos de `client/src/theme/brand.config.test.js` que comprueban los datos de Nave 5, y vigilan que nadie
 vuelva a escribir el nombre o la web a mano en el código.

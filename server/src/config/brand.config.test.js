@@ -3,7 +3,8 @@ const assert = require('node:assert/strict');
 const { BRAND } = require('./brand.config');
 
 test('la marca del servidor tiene los datos que usan los correos, el sitemap y las referencias', () => {
-  assert.equal(BRAND.nombre, 'Nave 5 Barcelona');
+  assert.ok(BRAND.nombre.length > 1);
+  assert.ok(BRAND.nombreLogo.length > 0);
   assert.match(BRAND.prefijoSku, /^[A-Z]{2,5}$/);
   assert.match(BRAND.web, /^https:\/\/[^/]+$/);
   assert.ok(BRAND.web.endsWith(BRAND.dominio));
