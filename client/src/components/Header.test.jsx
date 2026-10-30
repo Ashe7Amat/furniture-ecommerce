@@ -8,6 +8,7 @@ import { ToastContext } from '../context/ToastContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { CartContext } from '../context/CartContext';
 import { getCategorias, getMuebles } from '../services/api';
+import { BRAND } from '../theme/brand.config';
 
 // getCategorias/getMuebles llaman a fetch contra la API real -- se mockean siempre, igual
 // que Stripe/Resend/Supabase en el servidor.
@@ -64,18 +65,21 @@ beforeEach(() => {
   getMuebles.mockResolvedValue([]);
 });
 
+// La clave del tema elegido en localStorage (nave5Theme en Nave 5)
+const CLAVE_TEMA = `${BRAND.idInterno}Theme`;
+
 describe('Header — logotipo', () => {
   it('el logo es el SVG de "NAVE 5" (sin "Barcelona" en texto) y lleva al inicio', async () => {
     await renderHeader({ ruta: '/catalogo' });
     // Uno en la cabecera y otro en el menú lateral, los dos con el mismo nombre accesible.
-    const logos = screen.getAllByRole('link', { name: 'Nave 5, ir al inicio' });
+    const logos = screen.getAllByRole('link', { name: `${BRAND.nombreCorto}, ir al inicio` });
     expect(logos).toHaveLength(2);
     for (const logo of logos) {
       expect(logo).toHaveAttribute('href', '/');
       expect(logo.querySelector('svg.logo-svg')).toHaveAttribute('aria-hidden', 'true');
       expect(logo.textContent).toBe('');
     }
-    expect(screen.queryByText('Nave 5 Barcelona')).not.toBeInTheDocument();
+    expect(screen.queryByText(BRAND.nombre)).not.toBeInTheDocument();
   });
 });
 
@@ -164,7 +168,7 @@ describe('Header — tema claro/oscuro', () => {
   });
 
   it('con "dark" guardado en localStorage, arranca en modo oscuro', async () => {
-    localStorage.setItem('nave5Theme', 'dark');
+    localStorage.setItem(CLAVE_TEMA, 'dark');
     await renderHeader();
     expect(screen.getByRole('button', { name: 'Cambiar a modo claro' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -176,7 +180,7 @@ describe('Header — tema claro/oscuro', () => {
     await user.click(screen.getByRole('button', { name: 'Cambiar a modo oscuro' }));
 
     expect(screen.getByRole('button', { name: 'Cambiar a modo claro' })).toHaveAttribute('aria-pressed', 'true');
-    expect(localStorage.getItem('nave5Theme')).toBe('dark');
+    expect(localStorage.getItem(CLAVE_TEMA)).toBe('dark');
   });
 });
 

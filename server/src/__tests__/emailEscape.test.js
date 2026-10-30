@@ -13,14 +13,15 @@ process.env.RESEND_FROM = 'Nave 5 Test <avisos@example.com>';
 
 const { Resend } = require('resend');
 const email = require('../utils/email');
+const { BRAND } = require('../config/brand.config');
 
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 const PAYLOAD_XSS = '<script>alert(1)</script> & "Cía" <img src=x onerror=alert(2)>';
 
 // El logo de la cabecera (contacto y confirmación al cliente) es la única <img> legítima: se quita
-// antes de buscar etiquetas coladas.
-const LOGO_CABECERA =
-  /<img src="https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/imagenes\/marca\/logo-nave5\.png"[^>]*>/;
+// antes de buscar etiquetas coladas. Una marca sin logo todavía (init:client) no lleva ninguna.
+const literal = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const LOGO_CABECERA = new RegExp(`<img src="${literal(BRAND.email.logo)}"[^>]*>`);
 
 const sinEtiquetasPeligrosas = (html) => {
   const sinLogo = html.replace(LOGO_CABECERA, '');

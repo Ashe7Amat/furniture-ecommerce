@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useDocumentMeta } from './useDocumentMeta';
+import { BRAND } from '../theme/brand.config';
 
-const DEFAULT_TITLE = 'Nave 5 Barcelona | Almacén de ideas';
+const DEFAULT_TITLE = `${BRAND.nombre} | ${BRAND.eslogan}`;
 
 const contenidoDe = (selector) => document.querySelector(selector)?.getAttribute('content');
 
@@ -21,7 +22,7 @@ describe('useDocumentMeta', () => {
 
   it('con título, lo combina con el nombre de la marca', () => {
     renderHook(() => useDocumentMeta({ title: 'Catálogo' }));
-    expect(document.title).toBe('Catálogo | Nave 5 Barcelona');
+    expect(document.title).toBe(`Catálogo | ${BRAND.nombre}`);
   });
 
   it('pone la descripción y las etiquetas Open Graph/Twitter a partir de la misma descripción', () => {
@@ -29,7 +30,7 @@ describe('useDocumentMeta', () => {
     expect(contenidoDe('meta[name="description"]')).toBe('Una silla muy especial');
     expect(contenidoDe('meta[property="og:description"]')).toBe('Una silla muy especial');
     expect(contenidoDe('meta[name="twitter:description"]')).toBe('Una silla muy especial');
-    expect(contenidoDe('meta[property="og:title"]')).toBe('Silla X | Nave 5 Barcelona');
+    expect(contenidoDe('meta[property="og:title"]')).toBe(`Silla X | ${BRAND.nombre}`);
   });
 
   it('sin imagen, usa la imagen por defecto del sitio', () => {
@@ -66,7 +67,7 @@ describe('useDocumentMeta', () => {
 
   it('al desmontar, restaura el título y la descripción por defecto', () => {
     const { unmount } = renderHook(() => useDocumentMeta({ title: 'Página temporal' }));
-    expect(document.title).toBe('Página temporal | Nave 5 Barcelona');
+    expect(document.title).toBe(`Página temporal | ${BRAND.nombre}`);
 
     unmount();
 
@@ -87,9 +88,9 @@ describe('useDocumentMeta', () => {
     const { rerender } = renderHook((props) => useDocumentMeta(props), {
       initialProps: { title: 'Página A' }
     });
-    expect(document.title).toBe('Página A | Nave 5 Barcelona');
+    expect(document.title).toBe(`Página A | ${BRAND.nombre}`);
 
     rerender({ title: 'Página B' });
-    expect(document.title).toBe('Página B | Nave 5 Barcelona');
+    expect(document.title).toBe(`Página B | ${BRAND.nombre}`);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import Seo from './Seo';
+import { BRAND } from '../theme/brand.config';
 
 describe('Componente Seo', () => {
   beforeEach(() => {
@@ -38,7 +39,7 @@ describe('Componente Seo', () => {
     );
     const linkCanonical = document.querySelector('link[rel="canonical"]');
     expect(linkCanonical).not.toBeNull();
-    expect(linkCanonical.getAttribute('href')).toBe('https://www.nave5barcelona.com/admin');
+    expect(linkCanonical.getAttribute('href')).toBe(`${BRAND.web}/admin`);
 
     const metaRobots = document.querySelector('meta[name="robots"]');
     expect(metaRobots).not.toBeNull();

@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AlbaranPedido from './AlbaranPedido';
 import { PLACEHOLDER_IMG } from '../../utils/images';
+import { BRAND } from '../../theme/brand.config';
 
 const PEDIDO_EJEMPLO = {
   id: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
@@ -42,12 +43,12 @@ afterEach(() => {
 });
 
 describe('AlbaranPedido — test unitario', () => {
-  it('renderiza la cabecera corporativa de Nave 5 Barcelona con dirección y NIF', () => {
+  it('renderiza la cabecera corporativa de la tienda con dirección y NIF', () => {
     render(<AlbaranPedido pedido={PEDIDO_EJEMPLO} />);
 
-    expect(screen.getByText('NAVE 5 BARCELONA')).toBeInTheDocument();
-    expect(screen.getByText('Carrer del Plom, 32-34, Barcelona')).toBeInTheDocument();
-    expect(screen.getByText('NIF: B-00000000')).toBeInTheDocument();
+    expect(screen.getByText(BRAND.nombre.toUpperCase())).toBeInTheDocument();
+    expect(screen.getByText(`${BRAND.contacto.calle}, ${BRAND.contacto.ciudad}`)).toBeInTheDocument();
+    expect(screen.getByText(`NIF: ${BRAND.contacto.cif}`)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'ALBARÁN DE PEDIDO' })).toBeInTheDocument();
     expect(screen.getByText('Ref. A1B2C3D4')).toBeInTheDocument();
   });

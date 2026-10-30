@@ -9,6 +9,7 @@ process.env.RESEND_FROM = 'Nave 5 Test <avisos@example.com>';
 
 const { Resend } = require('resend');
 const email = require('../utils/email');
+const { BRAND } = require('../config/brand.config');
 
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 const URL_ENLACE = 'https://tienda.example.com/verificar-email?token=abc&x=1';
@@ -39,7 +40,7 @@ describe('1. confirmar el email (registro)', () => {
     const { to, from, subject, html, text } = enviado();
     assert.equal(to, 'ana@example.com');
     assert.equal(from, 'Nave 5 Test <avisos@example.com>');
-    assert.equal(subject, 'Confirma tu email y bienvenido a Nave 5 Barcelona');
+    assert.equal(subject, `Confirma tu email y bienvenido a ${BRAND.nombre}`);
     assert.ok(html.includes('href="https://tienda.example.com/verificar-email?token=abc&amp;x=1"'));
     assert.match(html, /Confirmar mi email/);
     assert.match(html, /caduca en 24 horas/);
@@ -62,7 +63,7 @@ describe('2. cuenta activada', () => {
 
     const { to, subject, html, text } = enviado();
     assert.equal(to, 'ana@example.com');
-    assert.equal(subject, 'Tu cuenta de Nave 5 Barcelona ya está activa 🤎');
+    assert.equal(subject, `Tu cuenta de ${BRAND.nombre} ya está activa 🤎`);
     assert.match(html, /Ya puedes ver tu historial de compras en Mi cuenta/);
     assert.ok(!html.includes('A partir de ahora tienes acceso'), 'la frase de antes no sale');
     assert.match(text, /Ya puedes ver tu historial de compras/);
@@ -79,7 +80,7 @@ describe('3. confirmar el email nuevo', () => {
 
     const { to, subject, html, text } = enviado();
     assert.equal(to, 'ana.nueva@example.com');
-    assert.equal(subject, 'Confirma tu nuevo email en Nave 5 Barcelona');
+    assert.equal(subject, `Confirma tu nuevo email en ${BRAND.nombre}`);
     assert.match(html, /Confirmar el nuevo email/);
     assert.match(html, /sigue usando el email anterior/);
     assert.match(text, /Confirmar el nuevo email: https:/);
@@ -117,7 +118,7 @@ describe('5. cuenta protegida', () => {
 
     const { to, subject, html, text } = enviado();
     assert.equal(to, 'ana@example.com');
-    assert.equal(subject, 'Hemos protegido tu cuenta de Nave 5 Barcelona');
+    assert.equal(subject, `Hemos protegido tu cuenta de ${BRAND.nombre}`);
     assert.match(html, /hemos anulado esa contraseña y cerrado las demás sesiones/);
     assert.match(text, /A partir de ahora, entra con Google/);
     // No hay forma de pedir una contraseña nueva: el correo no lo promete, ni en texto ni en HTML.

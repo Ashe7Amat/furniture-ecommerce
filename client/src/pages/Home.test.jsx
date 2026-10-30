@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Home from './Home';
 import { getMuebles, getCategorias, getAjustesHome } from '../services/api';
+import { BRAND } from '../theme/brand.config';
 
 vi.mock('../services/api', () => ({
   getMuebles: vi.fn(),
@@ -31,11 +32,11 @@ beforeEach(() => {
 });
 
 describe('Home — hero', () => {
-  it('el título es "Nave 5" con "Barcelona" en su propia línea, y sigue leyéndose entero', async () => {
+  it('el título es el nombre corto con la ciudad en su propia línea, y sigue leyéndose entero', async () => {
     await renderHome();
-    const titulo = screen.getByRole('heading', { level: 1, name: 'Nave 5 Barcelona' });
-    expect(titulo.querySelector('.hero-title-ciudad')).toHaveTextContent('Barcelona');
-    expect(screen.getByText('Almacén de ideas')).toBeInTheDocument();
+    const titulo = screen.getByRole('heading', { level: 1, name: `${BRAND.nombreCorto} ${BRAND.contacto.ciudad}` });
+    expect(titulo.querySelector('.hero-title-ciudad')).toHaveTextContent(BRAND.contacto.ciudad);
+    expect(screen.getByText(BRAND.eslogan)).toBeInTheDocument();
     // CAMBIADO A PROPÓSITO (12 oct 2026): el único botón "Descubrir" pasa a ser dos, catálogo y alquiler.
     expect(screen.getByRole('link', { name: 'Ver catálogo' })).toHaveAttribute('href', '/catalogo');
   });
@@ -271,7 +272,7 @@ describe('Home — carrusel hero estático con 4 fotos de siempre', () => {
     await renderHome();
     const sources = document.querySelectorAll('.hero-image-box picture source');
     expect(sources.length).toBeGreaterThan(0);
-    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', 'Vista general del almacén de Nave 5 Barcelona');
+    expect(document.querySelector('.hero-slide-img')).toHaveAttribute('alt', `Vista general del almacén de ${BRAND.nombre}`);
   });
 });
 

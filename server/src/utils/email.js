@@ -80,14 +80,20 @@ const FUENTE = 'Arial, Helvetica, sans-serif';
 // en blanco roto, en el almacenamiento público de Supabase (bucket imagenes, carpeta marca/). Lo
 // generó y subió server/scripts/logo-email.js: 240 px de ancho, y 480 px para pantallas de alta
 // densidad (srcset, que solo usan algunos clientes; los demás pintan el de 240 a 120 px).
-// Si el cliente de correo bloquea las imágenes, sale el alt "NAVE 5" con el estilo de la celda.
+// Si el cliente de correo bloquea las imágenes, sale el alt (nombreLogo) con el estilo de la celda.
+// Una marca recién creada con init:client aún no tiene logo: la cabecera lleva el nombre en texto.
 const LOGO_EMAIL = BRAND.email.logo;
 const LOGO_EMAIL_2X = BRAND.email.logo2x;
+const logoCabecera = () => {
+  if (!LOGO_EMAIL) return escaparHtml(NOMBRE_LOGO);
+  const srcset = LOGO_EMAIL_2X ? ` srcset="${LOGO_EMAIL_2X} 2x"` : '';
+  return `<img src="${LOGO_EMAIL}"${srcset} alt="${escaparHtml(NOMBRE_LOGO)}" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;">`;
+};
 
 const cabeceraEmail = () => `
           <tr>
             <td style="background-color: ${COLOR_OSCURO}; padding: 32px 40px; font-family: ${FUENTE}; font-size: 26px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: ${COLOR_CLARO};">
-              <img src="${LOGO_EMAIL}" srcset="${LOGO_EMAIL_2X} 2x" alt="${NOMBRE_LOGO}" width="120" style="display:block;border:0;outline:none;height:auto;max-width:120px;">
+              ${logoCabecera()}
             </td>
           </tr>`;
 

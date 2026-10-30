@@ -10,6 +10,7 @@ process.env.RESEND_FROM = 'Nave 5 Test <avisos@example.com>';
 
 const { Resend } = require('resend');
 const email = require('../utils/email');
+const { BRAND } = require('../config/brand.config');
 
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 
@@ -54,7 +55,7 @@ const comprobarComun = ({ to, from, html, text }) => {
   assert.ok(html.includes('Silla &lt;Thonet&gt;'), 'la pieza va escapada');
   assert.ok(!html.includes('<Thonet>'));
   assert.ok(html.includes('#A1B2C3D4'), 'la referencia de la reserva');
-  assert.ok(text.startsWith('NAVE 5'));
+  assert.ok(text.startsWith(BRAND.nombreLogo));
   assert.ok(text.includes('Silla <Thonet>'));
   assert.ok(text.includes('Reserva: #A1B2C3D4'));
 };

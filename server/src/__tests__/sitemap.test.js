@@ -4,13 +4,14 @@ const { test, describe, beforeEach, afterEach, mock } = require('node:test');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
 
 const supabase = require('../data/supabase');
 const app = require('../index');
 const { crearFakeSupabase } = require('./helpers/fakeSupabase');
 const { generarSitemap } = require('../controllers/sitemapController');
 
-const WEB = 'https://www.nave5barcelona.com';
+const WEB = BRAND.web;
 const urls = (xml) => [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
 
 afterEach(() => mock.restoreAll());

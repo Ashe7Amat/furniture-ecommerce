@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BRAND } from '../theme/brand.config';
 
 // analytics.js lee VITE_GA_MEASUREMENT_ID al cargarse: cada test pone la variable que quiere y
 // carga el módulo de nuevo.
@@ -7,7 +8,7 @@ const cargar = async (idDeMedicion) => {
   vi.resetModules();
   return import('./analytics');
 };
-const CLAVE = 'nave5-cookie-consent';
+const CLAVE = `${BRAND.idInterno}-cookie-consent`;
 const scriptsDeGoogle = () => document.head.querySelectorAll('script[src^="https://www.googletagmanager.com/"]');
 
 beforeEach(() => {

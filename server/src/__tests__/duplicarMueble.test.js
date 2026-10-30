@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -45,8 +47,8 @@ const pieza = (id, referencia, extra = {}) => ({
 });
 
 const MUEBLES = () => [
-  pieza('s1', 'NAV-SIL-001'),
-  pieza('s2', 'NAV-SIL-002', {
+  pieza('s1', `${P}-SIL-001`),
+  pieza('s2', `${P}-SIL-002`, {
     nombre: 'Silla Thonet',
     descripcion: 'Madera curvada, restaurada.',
     precio_venta: 1250,
@@ -54,9 +56,9 @@ const MUEBLES = () => [
     estado: 'vendido',
     disponible: false
   }),
-  pieza('s7', 'NAV-SIL-007'),
-  pieza('m1', 'NAV-MES-001', { categoria: 'Mesas y mobiliario', categoria_id: 21 }),
-  pieza('m4', 'NAV-MES-004', { categoria: 'Mesas y mobiliario', categoria_id: 21 })
+  pieza('s7', `${P}-SIL-007`),
+  pieza('m1', `${P}-MES-001`, { categoria: 'Mesas y mobiliario', categoria_id: 21 }),
+  pieza('m4', `${P}-MES-004`, { categoria: 'Mesas y mobiliario', categoria_id: 21 })
 ];
 
 let fake;
@@ -79,7 +81,7 @@ describe('duplicar una pieza', () => {
     assert.equal(res.status, 201);
     assert.equal(res.body.success, true);
     assert.equal(res.body.data.length, 1);
-    assert.equal(res.body.data[0].referencia, 'NAV-SIL-008');
+    assert.equal(res.body.data[0].referencia, `${P}-SIL-008`);
     assert.equal(fake.tablas.muebles.length, 6);
     assert.equal(copias().length, 1);
   });
@@ -119,8 +121,8 @@ describe('duplicar una pieza', () => {
     const mesa = await duplicar('m1');
     const otra = await duplicar('m1');
 
-    assert.equal(mesa.body.data[0].referencia, 'NAV-MES-005');
-    assert.equal(otra.body.data[0].referencia, 'NAV-MES-006');
+    assert.equal(mesa.body.data[0].referencia, `${P}-MES-005`);
+    assert.equal(otra.body.data[0].referencia, `${P}-MES-006`);
     assert.equal(otra.body.data[0].nombre, 'Pieza m1 (Copia)');
   });
 
@@ -133,7 +135,7 @@ describe('duplicar una pieza', () => {
 
     assert.equal(res.status, 201);
     assert.equal(res.body.data[0].categoria_id, 21);
-    assert.equal(res.body.data[0].referencia, 'NAV-MES-005');
+    assert.equal(res.body.data[0].referencia, `${P}-MES-005`);
   });
 
   test('en una categoría sin código, la copia sale sin referencia', async () => {

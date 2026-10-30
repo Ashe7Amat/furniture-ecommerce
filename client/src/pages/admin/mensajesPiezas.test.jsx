@@ -8,6 +8,10 @@ import userEvent from '@testing-library/user-event';
 import { getMensajes, crearEnCalendarioAdmin } from '../../services/api';
 import { renderAdmin, irAPestana, CATEGORIAS } from '../adminTestUtils';
 import { referenciasEn, piezasDelMensaje, textoEstado } from './mensajes';
+import { BRAND } from '../../theme/brand.config';
+
+// Las referencias de ejemplo llevan el prefijo de la marca (NAV en Nave 5)
+const P = BRAND.prefijoSku;
 
 vi.mock('../../services/api');
 
@@ -17,7 +21,7 @@ const SILLA = {
   categoria: 'Sillas',
   estado: 'disponible',
   imagenes: ['https://img.test/silla-1.jpg', 'https://img.test/silla-2.jpg'],
-  referencia: 'NAV-SIL-001',
+  referencia: `${P}-SIL-001`,
   descripcion: 'Madera curvada.'
 };
 const APARADOR = {
@@ -26,12 +30,12 @@ const APARADOR = {
   categoria: 'Mesas',
   estado: 'vendido',
   imagenes: [],
-  referencia: 'NAV-MES-004',
+  referencia: `${P}-MES-004`,
   descripcion: 'Roble macizo.'
 };
-const LAMPARA = { id: 'm3', nombre: 'Lámpara de pie', estado: 'alquilado', imagenes: [], referencia: 'NAV-ILU-002' };
+const LAMPARA = { id: 'm3', nombre: 'Lámpara de pie', estado: 'alquilado', imagenes: [], referencia: `${P}-ILU-002` };
 // Una pieza antigua sin estado: cuenta como disponible, como en el inventario.
-const BAUL = { id: 'm4', nombre: 'Baúl de viaje', imagenes: [], referencia: 'NAV-DEC-007' };
+const BAUL = { id: 'm4', nombre: 'Baúl de viaje', imagenes: [], referencia: `${P}-DEC-007` };
 const MUEBLES = [SILLA, APARADOR, LAMPARA, BAUL];
 
 const mensaje = (id, texto, extra = {}) => ({
@@ -43,10 +47,10 @@ const mensaje = (id, texto, extra = {}) => ({
   created_at: '2026-10-20T09:00:00Z',
   ...extra
 });
-const UNA = mensaje('c1', 'Hola, me interesa la pieza "Silla Thonet" (ref. NAV-SIL-001). ¿Me podéis dar más información?');
-const DOS = mensaje('c2', 'Queremos la NAV-SIL-001 y también la NAV-MES-004 para un rodaje. Otra vez: NAV-SIL-001.');
+const UNA = mensaje('c1', `Hola, me interesa la pieza "Silla Thonet" (ref. ${P}-SIL-001). ¿Me podéis dar más información?`);
+const DOS = mensaje('c2', `Queremos la ${P}-SIL-001 y también la ${P}-MES-004 para un rodaje. Otra vez: ${P}-SIL-001.`);
 const NINGUNA = mensaje('c3', 'Hola, ¿abrís los sábados?');
-const INEXISTENTE = mensaje('c4', 'Me interesa la pieza (ref. NAV-SIL-999).');
+const INEXISTENTE = mensaje('c4', `Me interesa la pieza (ref. ${P}-SIL-999).`);
 
 const abrirMensaje = async (m, muebles = MUEBLES) => {
   const user = userEvent.setup();
@@ -68,17 +72,17 @@ afterEach(() => {
 
 describe('Mensajes con piezas — ayudantes', () => {
   it('referenciasEn: las referencias del texto, sin repetir y en orden', () => {
-    expect(referenciasEn(DOS.mensaje)).toEqual(['NAV-SIL-001', 'NAV-MES-004']);
+    expect(referenciasEn(DOS.mensaje)).toEqual([`${P}-SIL-001`, `${P}-MES-004`]);
     expect(referenciasEn('sin nada')).toEqual([]);
     expect(referenciasEn(null)).toEqual([]);
     // Solo el formato de la web: tres letras mayúsculas y tres cifras.
-    expect(referenciasEn('nav-sil-001 NAV-SI-001 NAV-SIL-01 NAV-SIL-0012')).toEqual(['NAV-SIL-001']);
+    expect(referenciasEn(`${P.toLowerCase()}-sil-001 ${P}-SI-001 ${P}-SIL-01 ${P}-SIL-0012`)).toEqual([`${P}-SIL-001`]);
   });
 
   it('piezasDelMensaje: cada referencia con su pieza, o null si no está en el inventario', () => {
-    expect(piezasDelMensaje(INEXISTENTE, MUEBLES)).toEqual({ porReferencia: [{ referencia: 'NAV-SIL-999', mueble: null }], porNombre: [] });
+    expect(piezasDelMensaje(INEXISTENTE, MUEBLES)).toEqual({ porReferencia: [{ referencia: `${P}-SIL-999`, mueble: null }], porNombre: [] });
     // El mensaje nombra la Silla Thonet por su referencia y por su nombre: sale una vez, por referencia.
-    expect(piezasDelMensaje(UNA, MUEBLES)).toEqual({ porReferencia: [{ referencia: 'NAV-SIL-001', mueble: SILLA }], porNombre: [] });
+    expect(piezasDelMensaje(UNA, MUEBLES)).toEqual({ porReferencia: [{ referencia: `${P}-SIL-001`, mueble: SILLA }], porNombre: [] });
   });
 
   it('textoEstado: los tres estados, y sin estado cuenta como disponible', () => {
@@ -98,7 +102,7 @@ describe('Mensajes con piezas — tarjetas', () => {
     expect(tarjetas()).toHaveLength(1);
     const tarjeta = within(tarjetas()[0]);
     expect(tarjeta.getByText('Silla Thonet')).toBeInTheDocument();
-    expect(tarjeta.getByText('NAV-SIL-001')).toBeInTheDocument();
+    expect(tarjeta.getByText(`${P}-SIL-001`)).toBeInTheDocument();
     const estado = tarjeta.getByText('Disponible');
     expect(estado).toHaveClass('status-pill', 'disponible');
     // La primera foto, en miniatura.
@@ -122,13 +126,13 @@ describe('Mensajes con piezas — tarjetas', () => {
   });
 
   it('una pieza alquilada lleva su insignia', async () => {
-    await abrirMensaje(mensaje('c5', 'Sobre la NAV-ILU-002'));
+    await abrirMensaje(mensaje('c5', `Sobre la ${P}-ILU-002`));
 
     expect(within(tarjetas()[0]).getByText('Alquilado')).toHaveClass('status-pill', 'alquilado');
   });
 
   it('una pieza sin estado sale como disponible', async () => {
-    await abrirMensaje(mensaje('c6', 'Sobre la NAV-DEC-007'));
+    await abrirMensaje(mensaje('c6', `Sobre la ${P}-DEC-007`));
 
     expect(within(tarjetas()[0]).getByText('Disponible')).toHaveClass('status-pill', 'disponible');
   });
@@ -146,7 +150,7 @@ describe('Mensajes con piezas — tarjetas', () => {
     await abrirMensaje(INEXISTENTE);
 
     expect(tarjetas()).toHaveLength(1);
-    expect(tarjetas()[0]).toHaveTextContent('Pieza no encontrada (NAV-SIL-999)');
+    expect(tarjetas()[0]).toHaveTextContent(`Pieza no encontrada (${P}-SIL-999)`);
     expect(within(tarjetas()[0]).queryByRole('button')).not.toBeInTheDocument();
   });
 });
@@ -159,7 +163,7 @@ describe('Mensajes con piezas — botones', () => {
 
     const editor = within(screen.getByRole('heading', { level: 3, name: 'Editar Producto' }).closest('.admin-modal-content'));
     expect(editor.getByDisplayValue('Aparador de roble')).toBeInTheDocument();
-    expect(editor.getByDisplayValue('NAV-MES-004')).toBeInTheDocument();
+    expect(editor.getByDisplayValue(`${P}-MES-004`)).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /^Mensaje de/ })).not.toBeInTheDocument();
   });
 

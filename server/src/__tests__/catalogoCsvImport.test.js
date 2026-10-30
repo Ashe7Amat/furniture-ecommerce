@@ -6,6 +6,8 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -33,7 +35,7 @@ const CATEGORIAS = [
   { id: 20, nombre: 'Sillas y asientos', codigo: 'SIL', categoria_padre_id: 17 },
   { id: 21, nombre: 'Mesas y mobiliario', codigo: 'MES', categoria_padre_id: 17 }
 ];
-const EXISTENTE = { id: 'm0', nombre: 'Silla vieja', referencia: 'NAV-SIL-004', categoria_id: 20 };
+const EXISTENTE = { id: 'm0', nombre: 'Silla vieja', referencia: `${P}-SIL-004`, categoria_id: 20 };
 
 const CABECERA = 'nombre;categoria;descripcion;precio_venta;precio_alquiler_dia;estado;imagenes';
 const TRES_VALIDAS = [
@@ -154,9 +156,9 @@ describe('previsualizar (modo preview)', () => {
 
   test('una fila con referencia se rechaza: sería un duplicado de una pieza ya dada de alta', async () => {
     const res = await importar(
-      ['referencia;nombre;categoria', 'NAV-SIL-004;Silla vieja;Sillas y asientos'].join('\n')
+      ['referencia;nombre;categoria', `${P}-SIL-004;Silla vieja;Sillas y asientos`].join('\n')
     );
-    assert.match(res.body.errores[0].motivo, /Ya tiene referencia \(NAV-SIL-004\)/);
+    assert.match(res.body.errores[0].motivo, new RegExp(`Ya tiene referencia \\(${P}-SIL-004\\)`));
   });
 
   test('las columnas del CSV exportado se aceptan sin leerlas, y las desconocidas se avisan', async () => {
@@ -255,9 +257,9 @@ describe('aplicar (modo apply)', () => {
     assert.deepEqual(
       res.body.piezas.map((p) => [p.linea, p.referencia]),
       [
-        [2, 'NAV-SIL-005'],
-        [3, 'NAV-SIL-006'],
-        [4, 'NAV-MES-001']
+        [2, `${P}-SIL-005`],
+        [3, `${P}-SIL-006`],
+        [4, `${P}-MES-001`]
       ]
     );
     const [tolix, , mesa] = altas().map((a) => a.fila);

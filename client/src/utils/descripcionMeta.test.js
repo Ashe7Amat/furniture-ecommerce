@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { descripcionParaMeta, MAX_DESCRIPCION_META, MIN_DESCRIPCION_SOLA } from './descripcionMeta';
+import { BRAND } from '../theme/brand.config';
 
 describe('descripcionParaMeta', () => {
   const DE_80 =
@@ -18,11 +19,11 @@ describe('descripcionParaMeta', () => {
 
   it('una descripción corta va con el nombre delante y la tienda detrás', () => {
     expect(descripcionParaMeta({ nombre: 'Colgante', descripcion: 'Colgante en forma de cruz' })).toBe(
-      'Colgante. Colgante en forma de cruz. Pieza única en Nave 5 Barcelona.'
+      `Colgante. Colgante en forma de cruz. Pieza única en ${BRAND.nombre}.`
     );
     expect(
       descripcionParaMeta({ nombre: 'Radio antigua (1954)', descripcion: 'Radio de 1954. Funciona.' })
-    ).toBe('Radio antigua (1954). Radio de 1954. Funciona. Pieza única en Nave 5 Barcelona.');
+    ).toBe(`Radio antigua (1954). Radio de 1954. Funciona. Pieza única en ${BRAND.nombre}.`);
   });
 
   it('una descripción corta sin nombre va sola', () => {
@@ -31,7 +32,7 @@ describe('descripcionParaMeta', () => {
 
   it('una descripción sin letras (como «.») cuenta como vacía', () => {
     expect(descripcionParaMeta({ nombre: 'Mesa', descripcion: '.' })).toBe(
-      'Mesa — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.'
+      `Mesa — pieza única en ${BRAND.nombre}, ${BRAND.tipoNegocio} en ${BRAND.contacto.ciudad}.`
     );
   });
 
@@ -60,14 +61,14 @@ describe('descripcionParaMeta', () => {
 
   it('sin descripción (o solo espacios), una frase con el nombre de la pieza', () => {
     const esperado =
-      'Mesa de roble — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.';
+      `Mesa de roble — pieza única en ${BRAND.nombre}, ${BRAND.tipoNegocio} en ${BRAND.contacto.ciudad}.`;
     expect(descripcionParaMeta({ nombre: 'Mesa de roble', descripcion: null })).toBe(esperado);
     expect(descripcionParaMeta({ nombre: 'Mesa de roble', descripcion: '   ' })).toBe(esperado);
     expect(descripcionParaMeta({ nombre: 'Mesa de roble' })).toBe(esperado);
   });
 
   it('sin descripción ni nombre, la frase sin nombre', () => {
-    const esperado = 'Pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.';
+    const esperado = `Pieza única en ${BRAND.nombre}, ${BRAND.tipoNegocio} en ${BRAND.contacto.ciudad}.`;
     expect(descripcionParaMeta({})).toBe(esperado);
     expect(descripcionParaMeta()).toBe(esperado);
   });

@@ -26,7 +26,7 @@ export const ContenidoAlbaran = ({ pedido = {}, muebles = [] }) => {
         <div className="albaran-empresa">
           <p className="albaran-empresa-nombre">{BRAND.nombre.toUpperCase()}</p>
           <p className="albaran-empresa-datos">{`${BRAND.contacto.calle}, ${BRAND.contacto.ciudad}`}</p>
-          <p className="albaran-empresa-datos">NIF: B-00000000</p>
+          <p className="albaran-empresa-datos">{`NIF: ${BRAND.contacto.cif}`}</p>
         </div>
         <div className="albaran-tipo-doc">
           <h2 className="albaran-titulo">ALBARÁN DE PEDIDO</h2>

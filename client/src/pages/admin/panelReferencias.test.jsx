@@ -5,6 +5,7 @@ import { screen, within, act, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { createMueble, updateMueble, createCategoria, updateCategoria } from '../../services/api';
 import { renderAdmin, irAPestana, CATEGORIAS } from '../adminTestUtils';
+import { BRAND } from '../../theme/brand.config';
 
 vi.mock('../../services/api');
 
@@ -99,7 +100,7 @@ describe('Añadir mueble — referencia', () => {
     await renderAdmin({ categorias: CON_CODIGOS });
     await irAPestana(user, 'Añadir Mueble');
 
-    expect(screen.getByText('Se generará automáticamente (NAV-XXX-000)')).toBeInTheDocument();
+    expect(screen.getByText(`Se generará automáticamente (${BRAND.prefijoSku}-XXX-000)`)).toBeInTheDocument();
     expect(document.querySelector('[name="referencia"]')).toBeNull();
 
     await user.type(screen.getByPlaceholderText('Nombre del mueble'), 'Silla nueva');

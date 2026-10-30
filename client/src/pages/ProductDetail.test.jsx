@@ -16,6 +16,7 @@ import { act, waitFor } from '@testing-library/react';
 import { getDisponibilidad, getPresupuestoReserva, crearSesionPagoReserva } from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { ToastContext } from '../context/ToastContext';
+import { BRAND } from '../theme/brand.config';
 
 vi.mock('../services/api');
 
@@ -357,10 +358,10 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
   it('al abrir una ficha: título con el nombre, su descripción y su primera foto', async () => {
     await montar();
 
-    expect(document.title).toBe('Aparador de roble | Nave 5 Barcelona');
-    expect(meta('meta[name="description"]')).toBe('Aparador de roble. Restaurado en el taller. Pieza única en Nave 5 Barcelona.');
-    expect(meta('meta[property="og:description"]')).toBe('Aparador de roble. Restaurado en el taller. Pieza única en Nave 5 Barcelona.');
-    expect(meta('meta[property="og:title"]')).toBe('Aparador de roble | Nave 5 Barcelona');
+    expect(document.title).toBe(`Aparador de roble | ${BRAND.nombre}`);
+    expect(meta('meta[name="description"]')).toBe(`Aparador de roble. Restaurado en el taller. Pieza única en ${BRAND.nombre}.`);
+    expect(meta('meta[property="og:description"]')).toBe(`Aparador de roble. Restaurado en el taller. Pieza única en ${BRAND.nombre}.`);
+    expect(meta('meta[property="og:title"]')).toBe(`Aparador de roble | ${BRAND.nombre}`);
     expect(meta('meta[property="og:image"]')).toBe('https://img.test/1.jpg');
     expect(meta('meta[name="twitter:image"]')).toBe('https://img.test/1.jpg');
   });
@@ -396,17 +397,17 @@ describe('ProductDetail — título, descripción y og:image de la ficha', () =>
     await user.click(screen.getByRole('link', { name: 'Ir a la otra pieza' }));
     await screen.findByRole('heading', { level: 1, name: OTRA.nombre });
 
-    expect(document.title).toBe('Lámpara de latón | Nave 5 Barcelona');
+    expect(document.title).toBe(`Lámpara de latón | ${BRAND.nombre}`);
     expect(meta('meta[name="description"]')).toBe(
-      'Lámpara de latón — pieza única en Nave 5 Barcelona, almacén de muebles y atrezo vintage en Barcelona.'
+      `Lámpara de latón — pieza única en ${BRAND.nombre}, ${BRAND.tipoNegocio} en ${BRAND.contacto.ciudad}.`
     );
     expect(meta('meta[property="og:image"]')).toBe('https://img.test/lampara-1.jpg');
 
     await user.click(screen.getByRole('link', { name: 'Ir a la portada' }));
     expect(await screen.findByText('Portada')).toBeInTheDocument();
-    expect(document.title).toBe('Nave 5 Barcelona | Almacén de ideas');
+    expect(document.title).toBe(`${BRAND.nombre} | ${BRAND.eslogan}`);
     expect(meta('meta[property="og:image"]')).toBe('/og-image.png');
-    expect(meta('meta[name="description"]')).toMatch(/^Almacén de ideas en el corazón de Barcelona/);
+    expect(meta('meta[name="description"]')).toBe(BRAND.descripcion);
   });
 });
 
@@ -780,12 +781,12 @@ describe('ProductDetail — Rediseño Interior Premium (Fase 2)', () => {
     );
   });
 
-  it('muestra los tres sellos de confianza de Nave 5', async () => {
+  it('muestra los tres sellos de confianza de la tienda', async () => {
     await montar();
 
     expect(screen.getByText('Pieza Única')).toBeInTheDocument();
     expect(screen.getByText('Restaurado a mano')).toBeInTheDocument();
-    expect(screen.getByText('Envío desde Barcelona')).toBeInTheDocument();
+    expect(screen.getByText(`Envío desde ${BRAND.contacto.ciudad}`)).toBeInTheDocument();
   });
 
   it('muestra detalles técnicos en el acordeón incluyendo medidas extraídas', async () => {
@@ -847,7 +848,7 @@ describe('ProductDetail, SEO: datos estructurados y canonical', () => {
       '@type': 'Product',
       name: 'Aparador de roble',
       sku: 'NAV-MES-004',
-      url: `https://www.nave5barcelona.com/mueble/${MUEBLE.id}`,
+      url: `${BRAND.web}/mueble/${MUEBLE.id}`,
     });
     expect(jsonLd('migas').itemListElement.map((m) => m.name)).toEqual([
       'Inicio',
@@ -857,7 +858,7 @@ describe('ProductDetail, SEO: datos estructurados y canonical', () => {
     ]);
     expect(document.head.querySelector('link[rel="canonical"]')).toHaveAttribute(
       'href',
-      `https://www.nave5barcelona.com/mueble/${MUEBLE.id}`
+      `${BRAND.web}/mueble/${MUEBLE.id}`
     );
   });
 

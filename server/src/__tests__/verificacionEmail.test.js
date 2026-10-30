@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { OAuth2Client } = require('google-auth-library');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
 
 process.env.JWT_SECRET = 'secreto-jwt-de-prueba-para-este-archivo';
 process.env.GOOGLE_CLIENT_ID = 'cliente-google-de-prueba';
@@ -140,7 +141,7 @@ describe('registro', () => {
       await registrar();
       assert.match(
         espias.registro.mock.calls[0].arguments[0].url,
-        /^https:\/\/nave5barcelona\.com\/verificar-email\?token=/
+        new RegExp(`^https://${BRAND.dominio.replace(/\./g, '\\.')}/verificar-email\\?token=`)
       );
     } finally {
       process.env.CLIENT_URL = antes;

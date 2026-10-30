@@ -10,6 +10,8 @@ process.env.RESEND_FROM = 'Nave 5 Test <avisos@example.com>';
 
 const { Resend } = require('resend');
 const email = require('../utils/email');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 
@@ -22,7 +24,7 @@ beforeEach(() => {
   }));
   mock.method(console, 'log', () => {});
   mock.method(console, 'error', () => {});
-  process.env.CLIENT_URL = 'https://www.nave5barcelona.com/';
+  process.env.CLIENT_URL = `${BRAND.web}/`;
 });
 afterEach(() => {
   mock.restoreAll();
@@ -32,11 +34,13 @@ afterEach(() => {
 
 const enviado = () => enviar.mock.calls[0].arguments[0];
 
-// El logo de la cabecera, tal como se subió a Supabase Storage (server/scripts/logo-email.js).
-const LOGO =
-  'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5.png';
-const LOGO_2X =
-  'https://gdrmpxcpucmaxvtpljge.supabase.co/storage/v1/object/public/imagenes/marca/logo-nave5@2x.png';
+// El logo de la cabecera, tal como se subió a Supabase Storage (server/scripts/logo-email.js), y
+// los colores y la web de la marca (src/config/brand.config.js).
+const { logo: LOGO, logo2x: LOGO_2X } = BRAND.email;
+const { oscuro, claro } = BRAND.email.colores;
+const literal = (texto) => texto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const WEB = BRAND.web;
+const DOMINIO = literal(BRAND.dominio);
 
 // Comprobaciones de compatibilidad con clientes de correo, comunes a las dos plantillas.
 const comprobarMaqueta = (html) => {
@@ -44,24 +48,33 @@ const comprobarMaqueta = (html) => {
   assert.doesNotMatch(html, /<div/i, 'maqueta de tablas, sin divs');
   assert.doesNotMatch(html, /display:\s*(flex|grid)/i);
   assert.match(html, /max-width: 600px/);
-  // La única imagen es el logo de la cabecera, con "NAVE 5" de texto alternativo por si el
-  // cliente de correo bloquea las imágenes.
+  // La única imagen es el logo de la cabecera, con el nombre de la marca (nombreLogo) de texto
+  // alternativo por si el cliente de correo bloquea las imágenes.
   const imagenes = html.match(/<img\b[^>]*>/gi) || [];
-  assert.equal(imagenes.length, 1, 'una sola imagen: el logo');
-  const [logo] = imagenes;
-  assert.match(logo, / alt="NAVE 5"/);
-  assert.ok(logo.includes(`src="${LOGO}"`), 'el PNG de 240 px');
-  assert.ok(logo.includes(`srcset="${LOGO_2X} 2x"`), 'y el de 480 px para alta densidad');
-  assert.match(logo, / width="120"/);
-  assert.match(logo, /style="display:block;border:0;outline:none;height:auto;max-width:120px;"/);
+  const celda = new RegExp(`<td style="background-color: ${oscuro};[^"]*color: ${claro};">\\s*`);
+  if (LOGO) {
+    assert.equal(imagenes.length, 1, 'una sola imagen: el logo');
+    const [logo] = imagenes;
+    assert.ok(logo.includes(` alt="${BRAND.nombreLogo}"`));
+    assert.ok(logo.includes(`src="${LOGO}"`), 'el PNG de 240 px');
+    if (LOGO_2X) {
+      assert.ok(logo.includes(`srcset="${LOGO_2X} 2x"`), 'y el de 480 px para alta densidad');
+    }
+    assert.match(logo, / width="120"/);
+    assert.match(logo, /style="display:block;border:0;outline:none;height:auto;max-width:120px;"/);
+    assert.match(
+      html,
+      new RegExp(`${celda.source}<img\\b`),
+      'en la celda oscura de la cabecera, que da estilo al texto alternativo'
+    );
+  } else {
+    // Marca sin logo todavía (init:client): el nombre en texto, con el estilo de la celda.
+    assert.equal(imagenes.length, 0, 'sin logo, ninguna imagen');
+    assert.match(html, new RegExp(`${celda.source}${literal(BRAND.nombreLogo)}\\s*</td>`));
+  }
   assert.match(
     html,
-    /<td style="background-color: #221B16;[^"]*color: #F5F2EC;">\s*<img\b/,
-    'en la celda oscura de la cabecera, que da estilo al texto alternativo'
-  );
-  assert.match(
-    html,
-    /href="https:\/\/nave5barcelona\.com"[^>]*>nave5barcelona\.com<\/a>/,
+    new RegExp(`href="https://${DOMINIO}"[^>]*>${DOMINIO}</a>`),
     'pie con enlace a la web'
   );
 };
@@ -106,7 +119,7 @@ describe('enviarMensajeContacto — plantilla', () => {
     assert.match(text, /Email: lucia\+web@correo\.test/);
     assert.match(text, /¿Sigue disponible\nla mesa\?/);
     assert.match(text, /Responder al cliente: mailto:lucia%2Bweb@correo\.test/);
-    assert.match(text, /nave5barcelona\.com/);
+    assert.match(text, new RegExp(DOMINIO));
   });
 
   test('lo que escribe el visitante se escapa, también dentro del mailto', async () => {
@@ -135,7 +148,7 @@ describe('enviarConfirmacionCliente — plantilla', () => {
         modalidad: 'compra',
         cantidad: 1,
         precio: 120,
-        referencia: 'NAV-SIL-001'
+        referencia: `${P}-SIL-001`
       },
       { nombre: 'Butaca de cine', modalidad: 'alquiler', cantidad: 1, precio: 40, referencia: null }
     ],
@@ -155,7 +168,7 @@ describe('enviarConfirmacionCliente — plantilla', () => {
     assert.match(html, /¡Gracias por tu compra, Ana!/);
     assert.match(html, /#A1B2C3D4/, 'la misma referencia corta que en "Mis pedidos"');
     assert.match(html, /Silla Tolix/);
-    assert.match(html, /Ref\. NAV-SIL-001/);
+    assert.match(html, new RegExp(`Ref\\. ${P}-SIL-001`));
     assert.match(html, /Butaca de cine \(alquiler \/ día\)/);
     assert.match(html, /160\.00 €/);
     assert.match(html, /Calle Falsa 123/);
@@ -167,13 +180,13 @@ describe('enviarConfirmacionCliente — plantilla', () => {
 
     assert.match(
       html,
-      /<a href="https:\/\/www\.nave5barcelona\.com\/cuenta\?tab=pedidos"[^>]*>Ver mi pedido<\/a>/
+      new RegExp(`<a href="${literal(WEB)}/cuenta\\?tab=pedidos"[^>]*>Ver mi pedido</a>`)
     );
     assert.match(
       html,
-      /Si el botón no funciona, entra en https:\/\/www\.nave5barcelona\.com\/cuenta\?tab=pedidos/
+      new RegExp(`Si el botón no funciona, entra en ${literal(WEB)}/cuenta\\?tab=pedidos`)
     );
-    assert.match(text, /Ver mi pedido: https:\/\/www\.nave5barcelona\.com\/cuenta\?tab=pedidos/);
+    assert.match(text, new RegExp(`Ver mi pedido: ${literal(WEB)}/cuenta\\?tab=pedidos`));
   });
 
   test('sin cuenta (compra como invitado), no hay botón: "Mis pedidos" pide iniciar sesión', async () => {
@@ -215,7 +228,7 @@ describe('enviarConfirmacionCliente — plantilla', () => {
 
     assert.match(text, /Tu pedido está confirmado/);
     assert.match(text, /Pedido: #A1B2C3D4/);
-    assert.match(text, /- Silla Tolix \[Ref\. NAV-SIL-001\]: 1 x 120\.00 €/);
+    assert.match(text, new RegExp(`- Silla Tolix \\[Ref\\. ${P}-SIL-001\\]: 1 x 120\\.00 €`));
     assert.match(text, /- Butaca de cine \(alquiler \/ día\): 1 x 40\.00 €/);
     assert.match(text, /Total: 160\.00 €/);
     assert.match(text, /Envío a: Calle Falsa 123/);
@@ -224,10 +237,7 @@ describe('enviarConfirmacionCliente — plantilla', () => {
 
 describe('correo de recuperación de contraseña', () => {
   test('construye y envía el correo con enlace, maqueta común y versión texto', async () => {
-    await email.enviarEmailRecuperacion(
-      'ana@example.com',
-      'https://www.nave5barcelona.com/reset-password?token=tok-123'
-    );
+    await email.enviarEmailRecuperacion('ana@example.com', `${WEB}/reset-password?token=tok-123`);
     const { to, subject, html, text } = enviado();
 
     assert.equal(to, 'ana@example.com');
@@ -241,7 +251,7 @@ describe('correo de recuperación de contraseña', () => {
   test('acepta también formato de objeto { email, url }', async () => {
     await email.enviarEmailRecuperacion({
       email: 'ana@example.com',
-      url: 'https://www.nave5barcelona.com/reset-password?token=tok-obj'
+      url: `${WEB}/reset-password?token=tok-obj`
     });
     const { to, html } = enviado();
 
