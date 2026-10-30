@@ -43,8 +43,8 @@ bucket `imagenes`. Va en una transacción: si algo falla, no queda nada a medias
   los `.sql` que no acaban en `.down.sql`.
 - **No lleva datos de Nave 5:** ni la categoría «Espejos», ni el borrador de reservas, ni los arreglos de
   datos. Las categorías del cliente se crean desde el panel.
-- `categorias`, `muebles`, `clientes` y `pedidos` no tenían `CREATE TABLE` en el repositorio: en ese archivo
-  están deducidas del código y comprobadas en un PostgreSQL local (detalles en su cabecera y en
+- Es el esquema de Nave 5, contrastado con su base de datos (30 oct 2026, solo lectura): mismos tipos,
+  valores por defecto, restricciones, índices y políticas (detalles en su cabecera y en
   `server/migrations/README.md`).
 - **En Nave 5 no se ejecuta:** su base de datos ya lo tiene todo.
 
