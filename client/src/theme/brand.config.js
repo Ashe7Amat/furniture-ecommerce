@@ -32,6 +32,7 @@ export const BRAND = {
   // Datos de contacto y fiscales
   contacto: {
     email: 'hola@nave5barcelona.com',
+    // PROVISIONAL: teléfono de ejemplo. Hoy no se enseña en ninguna página; cuando haya uno real, va aquí.
     telefono: '+34 930 00 00 00',
     // calle: sin el «interior», para Google Maps y el albarán; direccion: la completa, para el pie y Contacto
     calle: 'Carrer del Plom, 32-34',
@@ -41,6 +42,8 @@ export const BRAND = {
     pais: 'ES',
     horario: 'Mo-Fr 10:00-19:00',
     razonSocial: 'Nave 5 Barcelona S.L.',
+    // PROVISIONAL: NIF de ejemplo. Es el único sitio donde está: Aviso legal, Privacidad y el albarán lo
+    // leen de aquí. Para poner el real, cambia solo el texto entre comillas (docs/NUEVO_CLIENTE.md).
     cif: 'B-00000000'
   },
 

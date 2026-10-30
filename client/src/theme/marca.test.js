@@ -35,6 +35,7 @@ const PROHIBIDOS = [
   ['el identificador interno', patron(BRAND.idInterno, (v) => `['"\`]${literal(v)}`)],
   ['el prefijo de las referencias', patron(BRAND.prefijoSku, (v) => `\\b${literal(v)}-`)],
   ['el NIF', patron(BRAND.contacto.cif)],
+  ['el teléfono', patron(BRAND.contacto.telefono)],
   // Con mayúscula: el eslogan como rótulo. En minúscula es prosa de Sobre nosotros («un almacén de ideas»).
   ['el eslogan', patron(BRAND.eslogan)],
 ].filter(([, regla]) => regla);

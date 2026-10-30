@@ -9,6 +9,22 @@ lo que hay que cambiar de la marca.
 > dominios de la API y de Supabase siguen siendo los de Nave 5 hasta que los reemplaces a mano: ver
 > [Archivos que se cambian a mano](#archivos-que-se-cambian-a-mano-clientpublic-y-clientverceljson).
 
+## Nave 5: los dos únicos datos provisionales que quedan
+
+En la marca de Nave 5 solo quedan dos datos de ejemplo. Los dos están en un único archivo,
+**`client/src/theme/brand.config.js`**, dentro de `contacto`, con un comentario `PROVISIONAL` encima:
+
+| Dato | Campo | Valor de ejemplo | Dónde sale |
+|---|---|---|---|
+| **NIF** | `contacto.cif` (línea 47) | `'B-00000000'` | Aviso legal, Política de privacidad y el albarán del panel |
+| **Teléfono** | `contacto.telefono` (línea 36) | `'+34 930 00 00 00'` | En ninguna página todavía |
+
+Para poner el NIF real: cambia solo el texto entre comillas (`cif: 'B-12345678'`), sin tocar nada más, y
+guarda. Las tres páginas lo leen de ahí. La API no lo usa: `server/src/config/brand.config.js` no lleva NIF
+ni teléfono. Después, `npm test` en `client/` (el test `marca.test.js` comprueba que el NIF y el teléfono no
+están escritos en ningún otro archivo) y el despliegue de siempre. Si con el NIF cambia también la razón
+social, es el campo de justo encima, `contacto.razonSocial`.
+
 ## Los 30 minutos
 
 | Minuto | Paso |

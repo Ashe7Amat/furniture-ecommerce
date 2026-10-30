@@ -4,9 +4,32 @@ Dos sesiones autónomas el 30 oct 2026, las dos en la rama `feat/starter-kit` (c
 `feature/mejoras-tecnicas` en `89520bd`). No se ha tocado `main` ni `feature/mejoras-tecnicas`, no hay merge
 ni PR, y no se ha conectado con Vercel, Supabase ni Stripe: todo es código local.
 
-- **Sesión 2 (07:03-08:30 UTC):** cerrar los cuatro hallazgos de la primera. Es la sección siguiente.
+- **Sesión 3 (08:09 UTC):** contrastar el esquema SQL con la base de datos real (solo lectura), preparar el
+  NIF real e integrar la rama en `feature/mejoras-tecnicas`. Es la sección siguiente.
+- **Sesión 2 (07:03-08:30 UTC):** cerrar los cuatro hallazgos de la primera.
 - **Sesión 1 (00:20-01:40 UTC):** theme system, desacoplar la marca, guías y `init:client`. Más abajo,
   tal como se entregó, con el estado nuevo de cada hallazgo.
+
+## Sesión 3: esquema contrastado, NIF listo e integración
+
+- **`00_esquema_base.sql` contrastado con Nave 5** (`858e1f8`), en solo lectura y con tu OK escrito:
+  `information_schema` y `pg_catalog` del proyecto de Supabase. Lo deducido del código fallaba en varias
+  columnas y ya va como en Nave 5: `categorias.id` es `serial` y `nombre` `varchar(100)`; en `muebles`,
+  `nombre` y `categoria` son `text NOT NULL` y `estado` `varchar(20)`; en `clientes`, `email varchar(255)`,
+  `nombre varchar(100)`, `rol varchar(20)` y `password` admite NULL; `pedidos.metodo_entrega` es el enum
+  `metodo_entrega_type` (`domicilio`, `recogida`) y `total` es NOT NULL; `password_resets` tiene `created_at`;
+  y en Nave 5 no hay `CHECK` en `muebles.estado` ni en `pedidos.estado` (los valida la API). Resultado: las
+  228 piezas del esquema coinciden, salvo 11 nombres de restricción de `reservas` que allí acaban en «1».
+- **De paso salieron dos cosas de Nave 5** (no se ha cambiado nada en la base de datos):
+  1. Las copias en el repo de las cuatro migraciones del 21-22 oct no coinciden con `schema_migrations`
+     (`password_resets` se registró con otra versión y otro contenido). Anotado en `server/migrations/README.md`.
+  2. En Storage hay dos políticas que dejan **subir archivos al bucket `imagenes` con la clave `anon`**
+     («Permitir subidas publicas» y otra de JPG en la carpeta `public`), y un bucket `muebles-fotos` que no
+     usa nada. La API sube con `service_role`, así que esas políticas sobran. Quitarlas es un cambio en
+     producción: necesita tu OK escrito. No se copian en `00_esquema_base.sql`.
+- **NIF real:** `client/src/theme/brand.config.js`, campo `contacto.cif` (línea 47). Es el único sitio donde
+  está; el teléfono de ejemplo, en `contacto.telefono` (línea 36). Los dos llevan un comentario
+  `PROVISIONAL`, `marca.test.js` vigila que no se escriban en otro archivo, y `docs/NUEVO_CLIENTE.md` lo explica.
 
 ## Sesión 2: hallazgos cerrados
 
@@ -14,7 +37,7 @@ ni PR, y no se ha conectado con Vercel, Supabase ni Stripe: todo es código loca
 |---|---|---|
 | 3. Quedaban 110 colores sueltos en 18 hojas | ✅ **Cerrado.** Ninguna hoja ni componente lleva colores a mano: todo sale de `tokens.css` | `87df1c6` |
 | 2. 111 tests (66 web, 45 API) esperaban textos de Nave 5 | ✅ **Cerrado.** Leen el valor esperado de `brand.config.js`. Con la marca de ejemplo de `init:client` pasan todos | `3651492` |
-| 1. No había esquema base de la base de datos | ✅ **Cerrado, deducido del código.** `server/migrations/00_esquema_base.sql` | `ee7e251` |
+| 1. No había esquema base de la base de datos | ✅ **Cerrado.** `server/migrations/00_esquema_base.sql`, contrastado con la base real en la sesión 3 | `ee7e251`, `858e1f8` |
 | 4. Logo y archivos fuera de la marca | ✅ **Cerrado.** El logo lo elige la marca; guía clara de `client/public/` y `client/vercel.json` | `beb3686`, `5d281fc` |
 
 ### Tarea 1: el 100 % de los colores sale de `tokens.css`
@@ -112,7 +135,7 @@ Los 23 correos, idénticos byte a byte.
 
 ### Lo que queda (sesión 2)
 
-1. **`00_esquema_base.sql` está deducido, no volcado.** Comprobado contra las migraciones, no contra la base
+1. ✅ *Hecho en la sesión 3 (`858e1f8`).* **`00_esquema_base.sql` está deducido, no volcado.** Comprobado contra las migraciones, no contra la base
    real. Los tipos exactos de las cuatro tablas base (`varchar` o `text`, `numeric(10,2)`), sus valores por
    defecto y sus `UNIQUE`/`CHECK` conviene contrastarlos con `supabase db dump --schema-only` o una consulta
    de solo lectura a `information_schema`. Esta sesión no lo hizo (sin conexión a Supabase); se puede hacer
@@ -120,7 +143,7 @@ Los 23 correos, idénticos byte a byte.
 2. **Lo que sigue a mano para cada cliente:** `client/public/`, `client/vercel.json`, el `preconnect` de
    `index.html`, los textos legales y de Sobre nosotros, y el logo de los correos (sin él, va el nombre en
    texto). Todo en `docs/NUEVO_CLIENTE.md`.
-3. **Datos de ejemplo de Nave 5:** el teléfono `+34 930 00 00 00` y el NIF `B-00000000` siguen en
+3. ✅ *Preparado en la sesión 3: un solo campo cada uno, documentado.* **Datos de ejemplo de Nave 5:** el teléfono `+34 930 00 00 00` y el NIF `B-00000000` siguen en
    `brand.config.js` (el NIF real sale ya en un solo sitio).
 
 ### ¿Listo para clonar y montar otro cliente?
