@@ -1,10 +1,11 @@
 import InfoPageLayout from '../components/InfoPageLayout';
+import { BRAND } from '../theme/brand.config';
 
 const Sustainability = () => {
   return (
     <InfoPageLayout eyebrow="Compromiso" title="Sostenibilidad y Restauración" tagline="Diseño con impacto positivo">
       <p>
-        Creemos firmemente que el mueble más sostenible del planeta es aquel que <strong>ya existe</strong>. En una era dominada por la producción en masa acelerada y el consumo de usar y tirar (fast-furniture), en <strong>Nave 5 Barcelona</strong> apostamos por una alternativa consciente y de impacto positivo a través de la economía circular y la restauración consciente.
+        Creemos firmemente que el mueble más sostenible del planeta es aquel que <strong>ya existe</strong>. En una era dominada por la producción en masa acelerada y el consumo de usar y tirar (fast-furniture), en <strong>{BRAND.nombre}</strong> apostamos por una alternativa consciente y de impacto positivo a través de la economía circular y la restauración consciente.
       </p>
       <p>
         La fabricación masiva de mobiliario moderno genera una alta huella de carbono, impulsando la deforestación de bosques sensibles y el uso intensivo de colas plásticas y aglomerados que no se pueden reciclar. Nuestro enfoque es diametralmente opuesto: buscamos, recuperamos y restauramos piezas que ya han superado la prueba del tiempo. Al hacerlo, evitamos la demanda de nuevos recursos naturales y rescatamos la energía, el agua y la madera ya invertidas en su día.
@@ -32,7 +33,7 @@ const Sustainability = () => {
       </ul>
 
       <p>
-        Consumir diseño sostenible en Nave 5 Barcelona es una declaración de intenciones. Significa valorar el oficio del artesano, preferir la autenticidad frente a la uniformidad y entender que el confort en el hogar puede y debe convivir en perfecta armonía con el cuidado de nuestro planeta.
+        {`Consumir diseño sostenible en ${BRAND.nombre} es una declaración de intenciones. Significa valorar el oficio del artesano, preferir la autenticidad frente a la uniformidad y entender que el confort en el hogar puede y debe convivir en perfecta armonía con el cuidado de nuestro planeta.`}
       </p>
     </InfoPageLayout>
   );

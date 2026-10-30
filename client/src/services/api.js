@@ -7,6 +7,7 @@ import {
   avisarCierreDeSesion
 } from '../utils/authToken';
 import { peticion, comoContratoA } from './peticion';
+import { BRAND } from '../theme/brand.config';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
@@ -236,7 +237,7 @@ const pedirCsvDelPanel = async (ruta, prefijo) => {
 // El catálogo entero en CSV (GET /api/admin/muebles/export). { blob, nombreArchivo }, o null si falla.
 export const exportarCatalogoCsv = async () => {
   try {
-    return await pedirCsvDelPanel('/admin/muebles/export', 'catalogo-nave5');
+    return await pedirCsvDelPanel('/admin/muebles/export', `catalogo-${BRAND.idInterno}`);
   } catch (error) {
     console.error('Error en exportarCatalogoCsv:', error);
     return null;
@@ -247,7 +248,7 @@ export const exportarCatalogoCsv = async () => {
 // de alta. { blob, nombreArchivo }, o null si falla.
 export const exportarClientesCsv = async () => {
   try {
-    return await pedirCsvDelPanel('/admin/clientes/export', 'clientes-nave5');
+    return await pedirCsvDelPanel('/admin/clientes/export', `clientes-${BRAND.idInterno}`);
   } catch (error) {
     console.error('Error en exportarClientesCsv:', error);
     return null;

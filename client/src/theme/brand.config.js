@@ -7,10 +7,18 @@ export const BRAND = {
   nombre: 'Nave 5 Barcelona',
   nombreCorto: 'Nave 5',
   eslogan: 'Almacén de ideas',
+  // Qué es el negocio, en minúscula: se usa en frases como «piezas restauradas en <nombre>, <tipoNegocio>»
+  tipoNegocio: 'almacén de muebles y atrezo vintage',
+  hashtag: '#Nave5Barcelona',
   descripcion: 'Almacén de ideas en el corazón de Barcelona: muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios.',
   
   // Catálogo y referencias
   prefijoSku: 'NAV',
+
+  // Identificador técnico corto: claves del navegador (tema elegido, consentimiento de cookies) y
+  // nombre de los CSV del panel. En una tienda en marcha no se cambia: se perderían las preferencias
+  // guardadas de los visitantes.
+  idInterno: 'nave5',
   
   // Localización e internacionalización
   moneda: 'EUR',
@@ -21,6 +29,8 @@ export const BRAND = {
   contacto: {
     email: 'hola@nave5barcelona.com',
     telefono: '+34 930 00 00 00',
+    // calle: sin el «interior», para Google Maps y el albarán; direccion: la completa, para el pie y Contacto
+    calle: 'Carrer del Plom, 32-34',
     direccion: 'Carrer del Plom, 32-34, interior',
     ciudad: 'Barcelona',
     codigoPostal: '08038',
@@ -32,8 +42,10 @@ export const BRAND = {
 
   // Presencia online
   web: 'https://www.nave5barcelona.com',
+  dominio: 'nave5barcelona.com',
   redes: {
-    instagram: 'https://www.instagram.com/nave5bcn'
+    instagram: 'https://www.instagram.com/nave5bcn',
+    instagramUsuario: 'nave5bcn'
   },
 
   // Módulos funcionales activos

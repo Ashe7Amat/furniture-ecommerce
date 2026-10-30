@@ -4,6 +4,7 @@ import InfoPageLayout from '../components/InfoPageLayout';
 import EnlaceComoLlegar from '../components/EnlaceComoLlegar';
 import { enviarContacto } from '../services/api';
 import { mensajeSobrePieza } from '../utils/preguntarPorPieza';
+import { BRAND } from '../theme/brand.config';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -56,8 +57,8 @@ const Contact = () => {
           <div className="contact-detail-block">
             <h2>El Almacén</h2>
             <p>
-              Carrer del Plom, 32-34, interior<br />
-              08038 Barcelona
+              {BRAND.contacto.direccion}<br />
+              {`${BRAND.contacto.codigoPostal} ${BRAND.contacto.ciudad}`}
             </p>
             <p className="contact-detail-note">*Acceso por el callejón interior privado.</p>
             <EnlaceComoLlegar className="contact-como-llegar" />
@@ -73,8 +74,8 @@ const Contact = () => {
 
           <div className="contact-detail-block">
             <h2>Correo Electrónico</h2>
-            <a href="mailto:hola@nave5barcelona.com" className="contact-email-link">
-              hola@nave5barcelona.com
+            <a href={`mailto:${BRAND.contacto.email}`} className="contact-email-link">
+              {BRAND.contacto.email}
             </a>
           </div>
         </div>

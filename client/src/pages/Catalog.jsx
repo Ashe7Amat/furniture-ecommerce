@@ -12,6 +12,7 @@ import { FavoritesContext } from '../context/FavoritesContext';
 import { tienePrecio } from '../utils/format';
 import { compararPorReferencia, SENTIDO_ASC, SENTIDO_DESC } from '../utils/ordenarPorReferencia';
 import '../styles/Catalog.css';
+import { BRAND } from '../theme/brand.config';
 
 // Array estable para cuando el contexto de favoritos aún no está listo: un `[]` literal
 // dentro del componente sería una referencia nueva en cada render, lo que haría que el
@@ -171,19 +172,19 @@ export default function Catalog() {
         '@type': 'ListItem',
         'position': 1,
         'name': 'Inicio',
-        'item': 'https://www.nave5barcelona.com/'
+        'item': `${BRAND.web}/`
       },
       {
         '@type': 'ListItem',
         'position': 2,
         'name': 'Catálogo',
-        'item': 'https://www.nave5barcelona.com/catalogo'
+        'item': `${BRAND.web}/catalogo`
       },
       ...(categoriaUrl ? [{
         '@type': 'ListItem',
         'position': 3,
         'name': categoriaUrl,
-        'item': `https://www.nave5barcelona.com/catalogo?categoria=${encodeURIComponent(categoriaUrl)}`
+        'item': `${BRAND.web}/catalogo?categoria=${encodeURIComponent(categoriaUrl)}`
       }] : [])
     ]
   };
@@ -194,8 +195,8 @@ export default function Catalog() {
         title={tituloPagina}
         description={
           categoriaUrl && !showFavorites
-            ? `${categoriaUrl}: piezas únicas restauradas a mano en Nave 5 Barcelona, almacén de muebles y atrezo vintage.`
-            : 'Descubre nuestra colección de muebles y piezas únicas restauradas a mano en Nave 5 Barcelona.'
+            ? `${categoriaUrl}: piezas únicas restauradas a mano en ${BRAND.nombre}, ${BRAND.tipoNegocio}.`
+            : `Descubre nuestra colección de muebles y piezas únicas restauradas a mano en ${BRAND.nombre}.`
         }
         url={categoriaUrl ? `/catalogo?categoria=${encodeURIComponent(categoriaUrl)}` : '/catalogo'}
         // Cada categoría es su propia página (antes todas decían ser /catalogo). El orden (?orden=)

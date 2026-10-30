@@ -21,6 +21,7 @@ import {
   eurosDeCentimos
 } from '../../../utils/reservas';
 import '../../../styles/AdminReservas.css';
+import { BRAND } from '../../../theme/brand.config';
 
 const ETIQUETAS_ESTADO = {
   confirmada: 'Confirmada',
@@ -654,7 +655,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       {/* CABECERA EDITORIAL */}
       <div className="admin-view-head n5-reservas-header">
         <div>
-          <span className="n5-eyebrow">Nave 5 Barcelona · Operaciones</span>
+          <span className="n5-eyebrow">{`${BRAND.nombre} · Operaciones`}</span>
           <h2 className="n5-title">Gestión de Reservas</h2>
           <p className="n5-subtitle">
             {reservas.length} {reservas.length === 1 ? 'reserva registrada' : 'reservas registradas'}

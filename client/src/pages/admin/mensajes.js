@@ -1,3 +1,4 @@
+import { BRAND } from '../../theme/brand.config';
 // Ayudantes de la pestaña "Mensajes" (pestanas/MensajesTab.jsx).
 
 // Corta un texto largo para la tabla (y junta sus espacios y saltos de línea); el texto entero sale
@@ -14,7 +15,7 @@ export const fechaMensaje = (iso) =>
 // Las referencias de pieza (NAV-SIL-001) que trae un mensaje, sin repetir y en el orden en que salen.
 // El botón «Preguntar por esta pieza» de la web las escribe así: «(ref. NAV-SIL-001)». La tabla
 // mensajes_contacto no tiene asunto, así que solo se mira el texto del mensaje.
-const REFERENCIA = /NAV-[A-Z]{3}-\d{3}/g;
+const REFERENCIA = new RegExp(`${BRAND.prefijoSku}-[A-Z]{3}-\\d{3}`, 'g');
 
 export const referenciasEn = (texto) => [...new Set(String(texto).match(REFERENCIA) ?? [])];
 

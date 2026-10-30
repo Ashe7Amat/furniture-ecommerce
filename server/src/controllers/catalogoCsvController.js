@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 const { construirCsv, parsearCsv } = require('../utils/csv');
 const { insertarMuebleConReferencia } = require('../utils/altaMueble');
 const { ESTADOS_MUEBLE } = require('../schemas/muebles');
@@ -45,7 +46,10 @@ const exportarCatalogoCsv = async (req, res) => {
     }));
 
     res.set('Content-Type', 'text/csv; charset=utf-8');
-    res.set('Content-Disposition', `attachment; filename="catalogo-nave5-${fechaDeHoy()}.csv"`);
+    res.set(
+      'Content-Disposition',
+      `attachment; filename="catalogo-${BRAND.idInterno}-${fechaDeHoy()}.csv"`
+    );
     res.set('Cache-Control', 'private, no-store');
     res.status(200).send(construirCsv(COLUMNAS_EXPORTACION, filas));
   } catch (error) {

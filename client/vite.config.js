@@ -2,9 +2,30 @@
 import { defineConfig } from 'vite'
 import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { BRAND } from './src/theme/brand.config.js'
+
+// index.html lleva marcadores %BRAND_...% en vez del nombre y la web de la marca: se rellenan aquí con
+// src/theme/brand.config.js, en `vite` y en `vite build`. Un marcador sin valor rompe el build, para
+// que no llegue nunca a la web un título con "%BRAND_NOMBRE%".
+const MARCADORES_MARCA = {
+  BRAND_NOMBRE: BRAND.nombre,
+  BRAND_DESCRIPCION: BRAND.descripcion,
+  BRAND_WEB: BRAND.web,
+}
+const marcaEnIndexHtml = () => ({
+  name: 'marca-en-index-html',
+  transformIndexHtml: {
+    order: 'pre',
+    handler: (html) =>
+      html.replace(/%(BRAND_[A-Z_]+)%/g, (marcador, nombre) => {
+        if (!(nombre in MARCADORES_MARCA)) throw new Error(`index.html: marcador sin valor ${marcador}`)
+        return MARCADORES_MARCA[nombre]
+      }),
+  },
+})
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), marcaEnIndexHtml()],
   test: {
     environment: 'jsdom',
     globals: true,

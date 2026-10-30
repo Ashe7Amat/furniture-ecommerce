@@ -1,5 +1,6 @@
+import { BRAND } from '../theme/brand.config';
 const MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID;
-const STORAGE_KEY = 'nave5-cookie-consent';
+const STORAGE_KEY = `${BRAND.idInterno}-cookie-consent`;
 
 export const getStoredConsent = () => {
   try {
