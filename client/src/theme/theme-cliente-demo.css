@@ -1,25 +1,39 @@
 /* ─── TEMA CLIENTE DEMO: AZUL MARINO + DORADO ───
-   Ejemplo documentado de personalización visual para un nuevo cliente.
-   Para activar este tema, sustituye o importa este archivo después de tokens.css.
+   Prueba de concepto de otra marca: redefine las variables de la paleta de tokens.css y nada más.
+   Ninguna hoja de estilos de la web cambia; las que no usan --color-* directamente usan los alias
+   clásicos (--primary-color, --card-bg...), que apuntan a estas.
+
+   CÓMO ACTIVARLO
+   1. En client/src/main.jsx, importa este archivo justo DESPUÉS de index.css:
+        import './styles/index.css'
+        import './theme/theme-cliente-demo.css'
+      Al ir detrás, sus variables pisan las de tokens.css (mismo selector, gana el último).
+   2. (Opcional) Para las fuentes de la demo, cambia en client/index.html el enlace de Google Fonts
+      por uno con Cinzel y Plus Jakarta Sans. Sin él, se ven las de respaldo (Fraunces, Inter).
+   3. npm run dev y mira la portada en claro y en oscuro (el botón de tema de la cabecera).
+
+   El modo oscuro sigue funcionando igual que en el tema base: según el sistema, salvo que el
+   visitante elija uno con el botón (atributo data-theme="light" | "dark" en <html>).
+   Para un cliente de verdad, en vez de importar este archivo puedes generar tokens.css con
+   `npm run init:client` (ver docs/NUEVO_CLIENTE.md).
 */
 
-:root[data-theme="cliente-demo"],
-.theme-cliente-demo {
-  /* Lienzo y superficies: Azul marino suave / Porcelana */
-  --color-bg:            #F4F6F9;  /* Blanco hielo / porcelana fría */
-  --color-primary:       #0F1E36;  /* Azul marino profundo (espresso del cliente) */
+:root {
+  /* Lienzo y superficies: porcelana fría */
+  --color-bg:            #F4F6F9;
+  --color-primary:       #0F1E36;  /* Azul marino profundo */
   --color-secondary:     #4A5A73;  /* Gris pizarra azulado */
-  --color-text:          #0F1E36;  /* Texto principal */
-  --color-text-muted:    #4A5A73;  /* Texto atenuado */
-  
-  /* Acentos y marca: Dorado noble / Latón cepillado */
+  --color-text:          #0F1E36;
+  --color-text-muted:    #4A5A73;
+
+  /* Acentos de marca: dorado */
   --color-accent:        #C5A059;  /* Oro satinado */
-  --color-accent-hover:  #A9853F;  /* Oro envejecido hover */
-  --color-accent-text:   #8C6B28;  /* Dorado oscuro con contraste AA sobre claro */
-  
-  --color-surface:       #FFFFFF;  /* Blanco puro tarjetas */
-  --color-surface-alt:   #E8ECF2;  /* Azul hielo claro */
-  --color-border:        #D3DBE6;  /* Borde frío */
+  --color-accent-hover:  #A9853F;  /* Oro envejecido */
+  --color-accent-text:   #8C6B28;  /* Dorado oscuro, contraste AA sobre el fondo claro */
+
+  --color-surface:       #FFFFFF;
+  --color-surface-alt:   #E8ECF2;
+  --color-border:        #D3DBE6;
 
   /* Estados */
   --color-success:       #2A6F55;
@@ -29,33 +43,62 @@
   --color-warning:       #8A6518;
   --color-warning-bg:    #FAF0DA;
 
-  /* Etiqueta / SKU */
+  /* Etiqueta con la referencia */
   --color-etiqueta-bg:   #DDE5F0;
   --color-etiqueta-text: #0F1E36;
 
-  /* Tipografía boutique: Serif editorial + sans moderna */
+  /* Botón oscuro de la ficha */
+  --color-cta:           #0F1E36;
+  --color-cta-hover:     #1A2B4A;
+  --color-cta-rgb:       15, 30, 54;
+
+  /* Tipografía: serif editorial + sans moderna */
   --font-display: 'Cinzel', 'Fraunces', serif;
   --font-body:    'Plus Jakarta Sans', 'Inter', sans-serif;
-  --font-mono:    ui-monospace, 'JetBrains Mono', monospace;
 }
 
-/* Modo oscuro demo */
-:root[data-theme="cliente-demo"][data-mode="dark"],
-.theme-cliente-demo.dark {
-  --color-bg:            #0A111F;  /* Azul noche abisal */
-  --color-primary:       #EBF1FA;  /* Blanco hielo */
-  --color-secondary:     #9AB0CF;  /* Azul bruma */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg:            #0A111F;  /* Azul noche */
+    --color-primary:       #EBF1FA;
+    --color-secondary:     #9AB0CF;
+    --color-text:          #EBF1FA;
+    --color-text-muted:    #9AB0CF;
+    --color-accent:        #E2C285;  /* Oro cálido luminoso */
+    --color-accent-hover:  #F0D7A7;
+    --color-accent-text:   #E2C285;
+    --color-surface:       #131F36;
+    --color-surface-alt:   #1A2B4A;
+    --color-border:        #243B63;
+    --color-success:       #7FC4A5;
+    --color-success-bg:    #16302A;
+    --color-danger:        #E58C8C;
+    --color-danger-bg:     #3A1E22;
+    --color-warning:       #E2C285;
+    --color-warning-bg:    #33291A;
+    --color-etiqueta-bg:   #1E3354;
+    --color-etiqueta-text: #EBF1FA;
+  }
+}
+
+:root[data-theme="dark"] {
+  --color-bg:            #0A111F;
+  --color-primary:       #EBF1FA;
+  --color-secondary:     #9AB0CF;
   --color-text:          #EBF1FA;
   --color-text-muted:    #9AB0CF;
-  
-  --color-accent:        #E2C285;  /* Oro cálido luminoso */
+  --color-accent:        #E2C285;
   --color-accent-hover:  #F0D7A7;
   --color-accent-text:   #E2C285;
-
-  --color-surface:       #131F36;  /* Azul marino de elevación */
+  --color-surface:       #131F36;
   --color-surface-alt:   #1A2B4A;
   --color-border:        #243B63;
-
+  --color-success:       #7FC4A5;
+  --color-success-bg:    #16302A;
+  --color-danger:        #E58C8C;
+  --color-danger-bg:     #3A1E22;
+  --color-warning:       #E2C285;
+  --color-warning-bg:    #33291A;
   --color-etiqueta-bg:   #1E3354;
   --color-etiqueta-text: #EBF1FA;
 }

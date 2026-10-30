@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 require('./helpers/testEnv');
+const { BRAND } = require('../config/brand.config');
+const P = BRAND.prefijoSku;
 
 process.env.JWT_SECRET = 'secreto-de-prueba-para-este-archivo';
 
@@ -29,7 +31,7 @@ const CABECERA =
 const MUEBLES = [
   {
     id: 'm1',
-    referencia: 'NAV-SIL-001',
+    referencia: `${P}-SIL-001`,
     nombre: 'Silla Tolix',
     categoria: 'Sillas y asientos',
     categoria_id: 20,
@@ -165,7 +167,7 @@ describe('GET /api/admin/muebles/export', () => {
     assert.equal(res.headers['content-type'], 'text/csv; charset=utf-8');
     assert.match(
       res.headers['content-disposition'],
-      /^attachment; filename="catalogo-nave5-\d{4}-\d{2}-\d{2}\.csv"$/
+      new RegExp(`^attachment; filename="catalogo-${BRAND.idInterno}-\\d{4}-\\d{2}-\\d{2}\\.csv"$`)
     );
     assert.equal(res.headers['cache-control'], 'private, no-store');
   });
@@ -183,7 +185,7 @@ describe('GET /api/admin/muebles/export', () => {
     const silla = porColumna(filas.find((f) => f[0] === 'm1'));
     assert.deepEqual(silla, {
       id: 'm1',
-      referencia: 'NAV-SIL-001',
+      referencia: `${P}-SIL-001`,
       nombre: 'Silla Tolix',
       categoria: 'Sillas y asientos',
       categoria_id: '20',

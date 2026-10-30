@@ -4,8 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import CookieConsent from './CookieConsent';
 import * as analytics from '../utils/analytics';
+import { BRAND } from '../theme/brand.config';
 
-const STORAGE_KEY = 'nave5-cookie-consent';
+const STORAGE_KEY = `${BRAND.idInterno}-cookie-consent`;
 
 const renderConsent = () => render(
   <MemoryRouter>

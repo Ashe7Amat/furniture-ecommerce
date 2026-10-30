@@ -10,6 +10,11 @@ import { PLACEHOLDER_IMG } from '../utils/images';
 import { conOrdenDeLaUrl } from '../utils/ordenEnUrl';
 import Logo from './Logo';
 import '../styles/HeaderFooter.css';
+import { BRAND } from '../theme/brand.config';
+
+// Clave del tema claro/oscuro elegido con el botón. Sale de BRAND.idInterno: cambiarlo en una web en
+// marcha haría perder la elección guardada de cada visitante.
+const CLAVE_TEMA = `${BRAND.idInterno}Theme`;
 
 const getSystemPrefersDark = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -35,7 +40,7 @@ const Header = () => {
 
   // Tema (claro/oscuro)
   const [isDarkTheme, setIsDarkTheme] = useState(() => {
-    const saved = localStorage.getItem('nave5Theme');
+    const saved = localStorage.getItem(CLAVE_TEMA);
     if (saved === 'dark' || saved === 'light') return saved === 'dark';
     return getSystemPrefersDark();
   });
@@ -49,7 +54,7 @@ const Header = () => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const saved = localStorage.getItem('nave5Theme');
+    const saved = localStorage.getItem(CLAVE_TEMA);
     if (saved === 'dark' || saved === 'light') {
       document.documentElement.setAttribute('data-theme', saved);
     }
@@ -59,7 +64,7 @@ const Header = () => {
     const next = isDarkTheme ? 'light' : 'dark';
     setIsDarkTheme(!isDarkTheme);
     document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('nave5Theme', next);
+    localStorage.setItem(CLAVE_TEMA, next);
   };
 
   useEffect(() => {
@@ -157,7 +162,7 @@ const Header = () => {
       <header className="kave-header">
         <div className="header-left">
           <button className="hamburger-btn icon-btn" onClick={() => setIsMenuOpen(true)} aria-label="Abrir el menú" aria-expanded={isMenuOpen}>☰</button>
-          <Link to="/" className="logo" aria-label="Nave 5, ir al inicio"><Logo className="logo-svg" /></Link>
+          <Link to="/" className="logo" aria-label={`${BRAND.nombreCorto}, ir al inicio`}><Logo className="logo-svg" /></Link>
         </div>
         
         <div className="header-center" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
@@ -352,7 +357,7 @@ const Header = () => {
         {/* Primera capa (Main Menu) */}
         <div className={`mega-menu-panel primary-panel${isMenuOpen ? ' open' : ''}${isProductsMenuOpen ? ' shifted' : ''}`}>
           <div className="mega-menu-header">
-            <Link to="/" className="logo" aria-label="Nave 5, ir al inicio" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}><Logo className="logo-svg" /></Link>
+            <Link to="/" className="logo" aria-label={`${BRAND.nombreCorto}, ir al inicio`} onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }}><Logo className="logo-svg" /></Link>
             <button className="mega-menu-close" onClick={() => { setIsMenuOpen(false); setIsProductsMenuOpen(false); }} aria-label="Cerrar el menú">✕</button>
           </div>
           <ul className="mega-menu-list">

@@ -11,6 +11,7 @@ process.env.RESEND_FROM = 'Nave 5 Test <avisos@example.com>';
 
 const { Resend } = require('resend');
 const email = require('../utils/email');
+const { BRAND } = require('../config/brand.config');
 
 const clasePeticiones = Object.getPrototypeOf(new Resend('re_clave_de_prueba').emails);
 
@@ -44,7 +45,7 @@ describe('enviarNotificacionVenta', () => {
     });
     assert.equal(
       enviar.mock.calls[0].arguments[0].subject,
-      'Nueva venta en Nave 5 Barcelona - 49.90 €'
+      `Nueva venta en ${BRAND.nombre} - 49.90 €`
     );
   });
 
@@ -59,7 +60,7 @@ describe('enviarNotificacionVenta', () => {
     // 2*30 + 1*40 = 100
     assert.equal(
       enviar.mock.calls[0].arguments[0].subject,
-      'Nueva venta en Nave 5 Barcelona - 100.00 €'
+      `Nueva venta en ${BRAND.nombre} - 100.00 €`
     );
   });
 
@@ -103,7 +104,7 @@ describe('enviarConfirmacionCliente', () => {
     });
     assert.equal(
       enviar.mock.calls[0].arguments[0].subject,
-      'Hemos recibido tu pedido - Nave 5 Barcelona'
+      `Hemos recibido tu pedido - ${BRAND.nombre}`
     );
   });
 

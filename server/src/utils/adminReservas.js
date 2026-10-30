@@ -13,6 +13,7 @@
 // hicieron fuera del panel y «Dar por reembolsado».
 const supabase = require('../data/supabase');
 const stripeUtil = require('./stripe');
+const email = require('./email');
 const { ErrorValidacion, ErrorConflicto, ErrorNoEncontrado } = require('./errores');
 const { ESTADOS_QUE_OCUPAN, ocupaElCalendario } = require('./disponibilidad');
 const { REGLAS_ALQUILER } = require('./reglasAlquiler');
@@ -40,7 +41,7 @@ const COLUMNAS_PANEL =
   'fin_ocupacion, dias_margen, expira_en, modo_entrega, modo_devolucion, direccion_entrega, ' +
   'datos_contacto, conflicto_en, importe_total, stripe_session_id, stripe_payment_intent_id, ' +
   'reembolso_solicitado_en, reembolso_importe, stripe_refund_id, motivo, motivo_cancelacion, ' +
-  'entregada_en, devuelta_en, created_at';
+  'entregada_en, devuelta_en, created_at, fianza_importe, fianza_estado, fianza_stripe_ref';
 const COLUMNAS_LISTA = `id, mueble_id, ${COLUMNAS_PANEL}, historial`;
 
 // "Todas": las 200 más recientes. El resto de vistas son listas de trabajo, cortas por naturaleza.
@@ -63,6 +64,16 @@ const ESTADOS_SIN_EFECTO = ['failed', 'canceled'];
 const cuentaComoHecho = (refund) => !ESTADOS_SIN_EFECTO.includes(refund.status);
 // La línea del historial de «Dar por reembolsado» (8.6, 19 oct): cierra el "a medias" sin el id.
 const TIPO_DADO_POR_HECHO = 'reembolso_dado_por_hecho';
+
+// La devolución de la fianza (R-e, paso 18; 6.6, opción A): un reembolso parcial del mismo pago, con
+// su marca en la metadata y su clave de idempotencia, como el de una cancelación (8.6).
+const TIPO_DEVOLUCION_FIANZA = 'devolucion_fianza';
+const claveDeFianza = (id) => `reserva_${id}_${TIPO_DEVOLUCION_FIANZA}`;
+// La línea del historial que reclama la resolución (fianza_estado = 'en_resolucion') y guarda lo que
+// decidió el administrador, para que «Devolver fianza» la termine igual si se quedó a medias.
+const TIPO_FIANZA_RECLAMADA = 'fianza_en_resolucion';
+const TIPO_FIANZA_RESUELTA = 'fianza_resuelta';
+const FIANZA_POR_RESOLVER = ['garantizada', 'en_resolucion'];
 // Cada vez que Stripe rechaza crear el reembolso (sin que quede un reembolso fallido que contar): con la
 // misma clave de idempotencia devolvería el mismo error durante 24 horas, así que el siguiente intento
 // cuenta estos para usar otra.
@@ -88,6 +99,12 @@ const MENSAJE_REEMBOLSO_SIN_GUARDAR =
   'El reembolso ya está hecho en Stripe, pero no se ha podido guardar. Pulsa «Reintentar ' +
   'reembolso» para guardarlo; no lo repitas desde el Dashboard.';
 const MENSAJE_SIN_REEMBOLSO_A_MEDIAS = 'Esta reserva no tiene ningún reembolso a medias.';
+const MENSAJE_FIANZA_A_MEDIAS =
+  'La devolución de la fianza no se ha podido hacer en Stripe. Vuelve a pulsar «Devolver fianza»: ' +
+  'comprueba primero si ya se hizo y no la repite.';
+const MENSAJE_FIANZA_RECHAZADA =
+  'Stripe no ha aceptado la devolución de la fianza. Revisa el pago en el Dashboard de Stripe antes ' +
+  'de volver a intentarlo.';
 const MENSAJE_ACCION_NO_EXISTE = 'Esa acción no existe.';
 // Un 23P01 cuya causa ya no está cuando se busca (se canceló o se movió entre medias).
 const MENSAJE_CHOQUE_DESAPARECIDO =
@@ -128,9 +145,18 @@ const estaRetrasada = (fila, hoy) =>
 const cancelacionSolicitada = (fila) =>
   (fila.historial || []).some((linea) => linea.tipo === 'cancelacion_solicitada');
 
-// La etiqueta legible de cada combinación y las acciones que tienen sentido en ella (8.7). La fianza
-// (fianza_estado) no cuenta todavía: llega con R-e. Las acciones que se ofrecen aquí son las únicas
-// que el servidor acepta (comprobarAccion), así la lista y las acciones nunca se contradicen.
+// Una devuelta, según su fianza (R-e). Sin fianza (no_aplica o null, las de antes), solo "Devuelta".
+const ETIQUETA_FIANZA = {
+  garantizada: 'Devuelta · fianza por resolver',
+  en_resolucion: 'Devuelta · fianza a medias',
+  liberada: 'Devuelta · fianza devuelta',
+  cobrada_parcial: 'Devuelta · fianza devuelta en parte',
+  cobrada: 'Devuelta · fianza retenida'
+};
+
+// La etiqueta legible de cada combinación y las acciones que tienen sentido en ella (8.7). Las
+// acciones que se ofrecen aquí son las únicas que el servidor acepta (comprobarAccion), así la lista
+// y las acciones nunca se contradicen.
 const situacion = (fila, { hoy, ahora }) => {
   // Pagada sin poder confirmarse (6.4): el reembolso se hace desde el Dashboard de Stripe, como dice
   // el email de aviso al administrador. Un conflicto_en puesto de más (antes del 19 oct, un webhook
@@ -154,7 +180,10 @@ const situacion = (fila, { hoy, ahora }) => {
         acciones: ['recoger', 'ampliar']
       };
     case 'alquiler:devuelta':
-      return { etiqueta: 'Devuelta', acciones: [] };
+      return {
+        etiqueta: ETIQUETA_FIANZA[fila.fianza_estado] ?? 'Devuelta',
+        acciones: FIANZA_POR_RESOLVER.includes(fila.fianza_estado) ? ['devolver-fianza'] : []
+      };
     case 'alquiler:cancelada':
       return reembolsoAMedias(fila)
         ? {
@@ -174,6 +203,16 @@ const situacion = (fila, { hoy, ahora }) => {
       // Combinaciones que las CHECK de R2 no permiten.
       return { etiqueta: fila.estado, acciones: [] };
   }
+};
+
+// Lo que se decidió de la fianza (la última línea que la reclamó): cuánto se retiene y por qué.
+const lineaDeFianza = (fila) =>
+  (fila.historial || []).findLast((linea) => linea.tipo === TIPO_FIANZA_RECLAMADA) ?? null;
+const resolucionDeFianza = (fila) => {
+  const linea = lineaDeFianza(fila);
+  return linea
+    ? { retenido: euros(linea.retener_centimos), motivo_retencion: linea.motivo_retencion ?? null }
+    : { retenido: null, motivo_retencion: null };
 };
 
 // Una reserva tal como la recibe el panel. `pieza` es { id, nombre, referencia }, o undefined si ya
@@ -224,6 +263,14 @@ const presentar = (fila, pieza, contexto) => {
         }
       : null,
     reembolso_a_medias: reembolsoAMedias(fila),
+    fianza:
+      fila.fianza_importe == null
+        ? null
+        : {
+            importe: Number(fila.fianza_importe),
+            estado: fila.fianza_estado ?? null,
+            ...resolucionDeFianza(fila)
+          },
     motivo: fila.motivo ?? null,
     motivo_cancelacion: fila.motivo_cancelacion ?? null,
     entregada_en: fila.entregada_en ?? null,
@@ -671,6 +718,43 @@ const moverPieza = async (muebleId, nuevo, desde = null) => {
   }
 };
 
+// ─── Correos al cliente (R-e, paso 20) ──────────────────────────────────────────────────────────
+
+// Lo que necesitan los correos de una reserva (el formato de la confirmación, utils/email.js).
+const datosDelCorreo = (fila, pieza) => ({
+  email: fila.datos_contacto?.email,
+  nombre: fila.datos_contacto?.nombre,
+  reserva: {
+    pedidoId: fila.pedido_id,
+    pieza: pieza || 'tu pieza',
+    fechaInicio: fila.fecha_inicio,
+    horaEntrega: horaCorta(fila.hora_entrega),
+    fechaFin: fila.fecha_fin,
+    horaRecogida: horaCorta(fila.hora_recogida),
+    modoEntrega: fila.modo_entrega,
+    modoRecogida: fila.modo_devolucion,
+    direccion: fila.direccion_entrega
+  }
+});
+
+// La cancelación y el reembolso de un alquiler se cuentan al cliente, si dejó email. No a los de un
+// contrato antiguo (origen 'legacy'), que el administrador lleva a mano, ni a bloqueos ni ventas. Un
+// fallo aquí no rompe la acción, que ya está hecha (como los demás correos, solo queda en el log).
+const avisarAlCliente = async (fila, enviar, extra = {}) => {
+  if (fila?.tipo !== 'alquiler' || fila.origen === 'legacy' || !fila.datos_contacto?.email) return;
+  try {
+    const piezas = await leerPiezas([fila.mueble_id]);
+    await enviar({ ...datosDelCorreo(fila, piezas.get(fila.mueble_id)?.nombre), ...extra });
+  } catch (error) {
+    console.error(`No se pudo avisar al cliente de la reserva ${fila.id}:`, error.message || error);
+  }
+};
+
+const avisarDelReembolso = (fila) =>
+  avisarAlCliente(fila, email.enviarReembolsoReserva, {
+    reembolso: Number(fila.reembolso_importe)
+  });
+
 // ─── Acciones sobre una reserva (8.3) ────────────────────────────────────────────────────────────
 
 const NO_SE_PUEDE = {
@@ -680,7 +764,8 @@ const NO_SE_PUEDE = {
   cancelar: 'Solo se puede cancelar un alquiler confirmado (antes de entregarlo) o una venta.',
   'reintentar-reembolso': MENSAJE_SIN_REEMBOLSO_A_MEDIAS,
   'dar-por-reembolsado': MENSAJE_SIN_REEMBOLSO_A_MEDIAS,
-  'levantar-bloqueo': 'Solo se puede levantar un bloqueo activo.'
+  'levantar-bloqueo': 'Solo se puede levantar un bloqueo activo.',
+  'devolver-fianza': 'Solo se puede resolver la fianza de un alquiler recogido, una vez.'
 };
 // Las acciones de una reserva ya cancelada: las del reembolso a medias.
 const ACCIONES_DE_REEMBOLSO = ['reintentar-reembolso', 'dar-por-reembolsado'];
@@ -1203,15 +1288,30 @@ const cancelar = async (id, { motivo, reembolso_centimos: reembolso }, ahora) =>
     }
   });
   if (reserva.tipo === 'venta') await moverPieza(reserva.mueble_id, 'disponible', 'vendido');
+  await avisarAlCliente(reserva, email.enviarCancelacionReserva, {
+    reembolso: reembolso > 0 ? euros(reembolso) : 0
+  });
   if (!reembolsoAMedias(reserva)) return { reserva };
-  return reembolsar(reserva, { buscarAntes: false, ahora, siFalla: MENSAJE_REEMBOLSO_A_MEDIAS });
+  const resultado = await reembolsar(reserva, {
+    buscarAntes: false,
+    ahora,
+    siFalla: MENSAJE_REEMBOLSO_A_MEDIAS
+  });
+  if (resultado.reserva?.stripe_refund_id) await avisarDelReembolso(resultado.reserva);
+  return resultado;
 };
 
 // «Reintentar reembolso» (8.6, capa 3): solo para las que se quedaron a medias.
 const reintentarReembolso = async (id, _datos, ahora) => {
   const fila = await leerReserva(id);
   comprobarAccion(fila, 'reintentar-reembolso', contextoDe(ahora));
-  return reembolsar(fila, { buscarAntes: true, ahora, siFalla: MENSAJE_REINTENTO_FALLIDO });
+  const resultado = await reembolsar(fila, {
+    buscarAntes: true,
+    ahora,
+    siFalla: MENSAJE_REINTENTO_FALLIDO
+  });
+  if (resultado.reserva?.stripe_refund_id) await avisarDelReembolso(resultado.reserva);
+  return resultado;
 };
 
 // Lo que Stripe dice haber devuelto de este pago desde que se pidió el reembolso, en céntimos (cuenta lo
@@ -1277,7 +1377,172 @@ const darPorReembolsado = async (id, { aunque_no_conste: aunqueNoConste = false 
       };
     }
   });
+  // Solo si Stripe confirma lo devuelto: el correo dice «en la misma tarjeta», y con
+  // `aunque_no_conste` se devolvió por otro medio (una transferencia), que el administrador cuenta él.
+  if (!aunqueNoConste) await avisarDelReembolso(reserva);
   return { reserva };
+};
+
+// «Devolver fianza» (R-e, paso 18): tras la recogida, se devuelve la fianza entera o se retiene una
+// parte con su motivo (daños, retraso...), con un reembolso parcial del pago de la reserva. El dinero
+// se mueve en las tres capas del 8.6, como el reembolso de una cancelación:
+//   1. Un UPDATE guardado reclama la resolución (fianza_estado = 'en_resolucion') y guarda en el
+//      historial lo decidido; dos clics a la vez no hacen dos devoluciones.
+//   2. El reembolso en Stripe, con la clave de idempotencia fija y la marca en la metadata.
+//   3. Otro UPDATE guardado deja el estado final y el id del reembolso (fianza_stripe_ref).
+// Si Stripe falla, queda 'en_resolucion' (a medias, 502) y la misma acción la termina: busca antes en
+// Stripe la devolución de esta fianza y, si no está, la crea con lo que se decidió la primera vez (lo
+// que se mande al reintentar no cuenta). Retener toda la fianza no mueve dinero.
+const devolverFianza = async (id, datos, ahora) => {
+  const contexto = contextoDe(ahora);
+  let fila = await leerReserva(id);
+  comprobarAccion(fila, 'devolver-fianza', contexto);
+  const fianza = centimosDe(fila.fianza_importe);
+  const aMedias = fila.fianza_estado === 'en_resolucion';
+
+  if (!aMedias) {
+    const retener = datos.retener_centimos ?? 0;
+    if (retener > fianza) {
+      throw new ErrorValidacion(
+        `No se puede retener más que la fianza (${eurosLegibles(fianza)}).`
+      );
+    }
+    const motivo = retener > 0 ? datos.motivo_retencion : null;
+    ({ reserva: fila } = await actualizarReserva(id, {
+      columnas: COLUMNAS_PANEL,
+      ahora,
+      decidir: (actual) => {
+        comprobarAccion(actual, 'devolver-fianza', contexto);
+        if (actual.fianza_estado !== 'garantizada') {
+          throw new ErrorConflicto('La fianza de esta reserva ya se está resolviendo.');
+        }
+        return {
+          cambios: { fianza_estado: 'en_resolucion' },
+          entrada: {
+            tipo: TIPO_FIANZA_RECLAMADA,
+            detalle:
+              retener > 0
+                ? `Fianza: se devuelven ${eurosLegibles(fianza - retener)} y se retienen ` +
+                  `${eurosLegibles(retener)}. Motivo: ${motivo}.`
+                : `Fianza: se devuelve entera (${eurosLegibles(fianza)}).`,
+            por: 'admin',
+            retener_centimos: retener,
+            motivo_retencion: motivo
+          }
+        };
+      }
+    }));
+  }
+
+  const decision = lineaDeFianza(fila);
+  const retener = decision?.retener_centimos ?? 0;
+  const devolver = fianza - retener;
+  let refundId = null;
+  if (devolver > 0) {
+    try {
+      refundId = await reembolsarFianza(fila, devolver, { buscarAntes: aMedias });
+    } catch (error) {
+      const rechazado = error instanceof ReembolsoRechazado;
+      console.error(
+        `[ALERTA] Reserva ${fila.id} con la devolución de la fianza a medias:`,
+        error.message || error
+      );
+      return {
+        reserva: fila,
+        avisoReembolso: rechazado ? MENSAJE_FIANZA_RECHAZADA : MENSAJE_FIANZA_A_MEDIAS
+      };
+    }
+  }
+
+  const final = retener === 0 ? 'liberada' : devolver === 0 ? 'cobrada' : 'cobrada_parcial';
+  let reserva;
+  try {
+    ({ reserva } = await actualizarReserva(id, {
+      columnas: COLUMNAS_PANEL,
+      ahora,
+      decidir: (actual) => {
+        if (actual.fianza_estado !== 'en_resolucion') throw new FianzaYaResuelta(actual);
+        return {
+          cambios: { fianza_estado: final, ...(refundId && { fianza_stripe_ref: refundId }) },
+          entrada: {
+            tipo: TIPO_FIANZA_RESUELTA,
+            detalle:
+              devolver > 0
+                ? `Fianza devuelta en Stripe: ${eurosLegibles(devolver)} (${refundId}).`
+                : `Fianza retenida entera (${eurosLegibles(retener)}).`,
+            por: 'admin'
+          }
+        };
+      }
+    }));
+  } catch (error) {
+    if (error instanceof FianzaYaResuelta) return { reserva: error.fila };
+    console.error(
+      `[ALERTA] Fianza de la reserva ${fila.id} devuelta en Stripe (${refundId}) y sin guardar:`,
+      error.message || error
+    );
+    return { reserva: fila, avisoReembolso: MENSAJE_FIANZA_A_MEDIAS };
+  }
+
+  await avisarAlCliente(reserva, email.enviarDevolucionFianza, {
+    fianza: euros(fianza),
+    devuelto: euros(devolver),
+    retenido: euros(retener),
+    motivo: decision?.motivo_retencion ?? null
+  });
+  return {
+    reserva,
+    fianza: {
+      devuelto: euros(devolver),
+      retenido: euros(retener),
+      motivo: decision?.motivo_retencion ?? null
+    }
+  };
+};
+
+class FianzaYaResuelta extends Error {
+  constructor(fila) {
+    super('La fianza ya está resuelta.');
+    this.fila = fila;
+  }
+}
+
+// El reembolso de la fianza en Stripe; devuelve su id. Al reintentar (`buscarAntes`), primero busca
+// el que tenga la marca de esta fianza y no haya fallado; los fallidos no cuentan, y el siguiente va
+// con otra clave (con la misma, Stripe devolvería el fallido).
+const reembolsarFianza = async (fila, centimos, { buscarAntes }) => {
+  const stripe = stripeUtil.getStripe();
+  if (!stripe) throw new Error('Stripe no está configurado (falta STRIPE_SECRET_KEY).');
+  let intento = 1;
+  if (buscarAntes) {
+    const { data } = await stripe.refunds.list({
+      payment_intent: fila.stripe_payment_intent_id,
+      limit: 100
+    });
+    const deEsta = data.filter(
+      (r) => r.metadata?.reserva_id === fila.id && r.metadata?.tipo === TIPO_DEVOLUCION_FIANZA
+    );
+    const hecho = deEsta.find(cuentaComoHecho);
+    if (hecho) return hecho.id;
+    intento = deEsta.length + 1;
+  }
+  const clave = claveDeFianza(fila.id);
+  let refund;
+  try {
+    refund = await stripe.refunds.create(
+      {
+        payment_intent: fila.stripe_payment_intent_id,
+        amount: centimos,
+        metadata: { reserva_id: fila.id, tipo: TIPO_DEVOLUCION_FIANZA }
+      },
+      { idempotencyKey: intento === 1 ? clave : `${clave}_${intento}` }
+    );
+  } catch (error) {
+    if (error?.type === 'StripeInvalidRequestError') throw new ReembolsoRechazado(null, error);
+    throw error;
+  }
+  if (!cuentaComoHecho(refund)) throw new ReembolsoRechazado(refund);
+  return refund.id;
 };
 
 const levantarBloqueo = async (id, _datos, ahora) => {
@@ -1304,7 +1569,8 @@ const ACCIONES = new Map([
   ['cancelar', cancelar],
   ['reintentar-reembolso', reintentarReembolso],
   ['dar-por-reembolsado', darPorReembolsado],
-  ['levantar-bloqueo', levantarBloqueo]
+  ['levantar-bloqueo', levantarBloqueo],
+  ['devolver-fianza', devolverFianza]
 ]);
 
 // POST /api/admin/reservas/:id/:accion, con el cuerpo ya validado (schemas/adminReservas.js).
@@ -1489,6 +1755,9 @@ module.exports = {
   MENSAJE_CHOQUE_DESAPARECIDO,
   LINEA_DADO_POR_HECHO,
   claveDeReembolso,
+  claveDeFianza,
+  MENSAJE_FIANZA_A_MEDIAS,
+  MENSAJE_FIANZA_RECHAZADA,
   situacion,
   presentar,
   presentarFilas,
@@ -1501,5 +1770,8 @@ module.exports = {
   crearAlquiler,
   crearVenta,
   moverPieza,
-  leerReserva
+  leerReserva,
+  buscarChoques,
+  describirReserva,
+  datosDelCorreo
 };

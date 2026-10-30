@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PedidosTab from './PedidosTab';
 import { ToastContext } from '../../../context/ToastContext';
+import { BRAND } from '../../../theme/brand.config';
 
 vi.mock('../../../services/api');
 
@@ -118,7 +119,7 @@ describe('PedidosTab — botón Imprimir albarán y VistaImpresion', () => {
     expect(within(dialogo).getByText('Elena Morales')).toBeInTheDocument();
     expect(within(dialogo).getByText('Sillón Lounge Cuero')).toBeInTheDocument();
     expect(within(dialogo).getByText('NAV-SIL-088')).toBeInTheDocument();
-    expect(within(dialogo).getByText('NAVE 5 BARCELONA')).toBeInTheDocument();
+    expect(within(dialogo).getByText(BRAND.nombre.toUpperCase())).toBeInTheDocument();
     expect(
       within(dialogo).getByText('Firma de conformidad en la Entrega (Recibido en buen estado)')
     ).toBeInTheDocument();

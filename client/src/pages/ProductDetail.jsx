@@ -15,6 +15,7 @@ import ReferenciaProducto from '../components/ReferenciaProducto';
 import ModalContacto from '../components/ModalContacto';
 import { reservasActivas, sumarDias, fechaSinDia } from '../utils/reservas';
 import { extraerMedidas } from '../utils/medidas';
+import { BRAND } from '../theme/brand.config';
 
 // Reservas por fechas (docs/reservas-diseno.md, 6.2): el calendario y el paso de confirmación solo se
 // descargan si el interruptor está encendido y la pieza se puede alquilar.
@@ -540,7 +541,7 @@ const ProductDetail = () => {
                 </svg>
               </div>
               <div className="pd-trust-content">
-                <strong className="pd-trust-title">Envío desde Barcelona</strong>
+                <strong className="pd-trust-title">{`Envío desde ${BRAND.contacto.ciudad}`}</strong>
                 <span className="pd-trust-desc">Transporte especializado</span>
               </div>
             </div>
@@ -576,18 +577,9 @@ const ProductDetail = () => {
                     <span className="pd-tech-label">Medidas:</span>
                     <span className="pd-tech-val">{medidasExtraidas}</span>
                   </div>
-                  <div className="pd-tech-row">
-                    <span className="pd-tech-label">Material / Estado:</span>
-                    <span className="pd-tech-val">Madera noble restaurada · Excelente conservación</span>
-                  </div>
-                  <div className="pd-tech-row">
-                    <span className="pd-tech-label">Año / Época:</span>
-                    <span className="pd-tech-val">Mediados del siglo XX (c. 1960) · Pieza original única</span>
-                  </div>
                 </div>
-                <p className="pd-tech-p">
-                  Esta pieza ha sido cuidadosamente restaurada en nuestro taller. Conserva su carácter original pero con acabados renovados para garantizar su durabilidad y adaptabilidad a espacios modernos.
-                </p>
+                {/* Sin material, época ni estado fijos: eran iguales para todas las piezas y no eran
+                    ciertos para la mayoría. Lo que se sepa de cada pieza va en su descripción. */}
               </div>
             </div>
             

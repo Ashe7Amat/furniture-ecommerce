@@ -9,6 +9,7 @@ import {
   cancelarReservaAdmin,
   bloquearFechasAdmin
 } from '../../../services/api';
+import { BRAND } from '../../../theme/brand.config';
 
 vi.mock('../../../services/api', () => ({
   getReservasAdmin: vi.fn(),
@@ -89,7 +90,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
       renderConToast(<ReservasTab />);
 
       expect(await screen.findByRole('heading', { level: 2, name: 'Gestión de Reservas' })).toBeInTheDocument();
-      expect(screen.getByText('Nave 5 Barcelona · Operaciones')).toBeInTheDocument();
+      expect(screen.getByText(`${BRAND.nombre} · Operaciones`)).toBeInTheDocument();
 
       // Las 3 tarjetas de KPIs
       expect(screen.getByRole('region', { name: 'Hoy en el almacén' })).toBeInTheDocument();
@@ -332,7 +333,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
           'res-1',
           expect.objectContaining({
             motivo: 'Cancelada por el administrador',
-            reembolso_importe: 15000 // 150€ -> 15000 céntimos
+            reembolso_centimos: 15000 // 150€ -> 15000 céntimos
           })
         );
       });
@@ -364,7 +365,7 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
         expect(cancelarReservaAdmin).toHaveBeenCalledWith(
           'res-1',
           expect.objectContaining({
-            reembolso_importe: 200 // 2€ -> 200 céntimos
+            reembolso_centimos: 200 // 2€ -> 200 céntimos
           })
         );
       });

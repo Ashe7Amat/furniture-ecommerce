@@ -5,6 +5,7 @@ import { AuthContext } from '../context/AuthContext';
 import { crearSesionPago } from '../services/api';
 import useDialogoModal from '../utils/useDialogoModal';
 import '../styles/CheckoutModal.css';
+import { BRAND } from '../theme/brand.config';
 
 const CheckoutModal = ({ isOpen, onClose }) => {
   // H53: cada etiqueta va unida a su campo. useId, porque el modal puede convivir con otros formularios.
@@ -290,7 +291,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 <input
                   id={`${idCampos}-ciudad`}
                   type="text"
-                  placeholder="Ej. Barcelona"
+                  placeholder={`Ej. ${BRAND.contacto.ciudad}`}
                   maxLength="80"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
@@ -316,7 +317,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
                 <input
                   id={`${idCampos}-provincia`}
                   type="text"
-                  placeholder="Ej. Barcelona"
+                  placeholder={`Ej. ${BRAND.contacto.ciudad}`}
                   maxLength="60"
                   value={provincia}
                   onChange={(e) => setProvincia(e.target.value)}
@@ -361,7 +362,7 @@ const CheckoutModal = ({ isOpen, onClose }) => {
               {activeTab === 'card' && (
                 <div className="tab-content card-tab">
                   <p className="card-tab-note">
-                    Al continuar te llevamos a la página de pago segura de Stripe, donde introduces los datos de tu tarjeta. Nave 5 Barcelona nunca ve ni guarda tu número de tarjeta.
+                    {`Al continuar te llevamos a la página de pago segura de Stripe, donde introduces los datos de tu tarjeta. ${BRAND.nombre} nunca ve ni guarda tu número de tarjeta.`}
                   </p>
 
                   {payError && <p className="payment-error-box">{payError}</p>}

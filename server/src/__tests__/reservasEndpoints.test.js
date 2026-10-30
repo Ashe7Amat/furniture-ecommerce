@@ -181,10 +181,12 @@ describe('GET /api/muebles/:id/presupuesto', () => {
     assert.equal(res.headers['cache-control'], 'no-store');
     assert.equal(res.body.mueble_id, 'm1');
     assert.equal(res.body.dias, 3);
-    assert.equal(res.body.importe_total_centimos, 7500);
+    // 75 € de alquiler más la fianza del 30 % (22,50 €), que va en el total y en su línea.
+    assert.equal(res.body.importe_total_centimos, 9750);
+    assert.deepEqual(res.body.fianza, { porcentaje: 30, importe_centimos: 2250 });
     assert.deepEqual(
       res.body.lineas.map((l) => l.concepto),
-      ['alquiler', 'entrega', 'recogida']
+      ['alquiler', 'entrega', 'recogida', 'fianza']
     );
   });
 

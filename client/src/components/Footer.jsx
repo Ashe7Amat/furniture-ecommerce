@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import EnlaceComoLlegar from './EnlaceComoLlegar';
 import '../styles/HeaderFooter.css';
+import { BRAND } from '../theme/brand.config';
 
 const Footer = () => {
   const { user } = useContext(AuthContext);
@@ -17,8 +18,8 @@ const Footer = () => {
           <div className="footer-address">
             <p className="footer-address-label">Visítanos</p>
             <address className="footer-address-text">
-              Carrer del Plom, 32-34, interior<br />
-              08038 Barcelona
+              {BRAND.contacto.direccion}<br />
+              {`${BRAND.contacto.codigoPostal} ${BRAND.contacto.ciudad}`}
             </address>
             <EnlaceComoLlegar className="footer-como-llegar" />
           </div>
@@ -37,12 +38,12 @@ const Footer = () => {
             <h2>Contacto</h2>
             <Link to="/contacto">Contacto</Link>
             <a
-              href="https://www.instagram.com/nave5bcn"
+              href={BRAND.redes.instagram}
               target="_blank"
               rel="noopener noreferrer"
               className="footer-instagram-link"
             >
-              Instagram @nave5bcn
+              {`Instagram @${BRAND.redes.instagramUsuario}`}
             </a>
           </div>
           <div className="footer-column">
@@ -65,7 +66,7 @@ const Footer = () => {
           <span>Mastercard</span>
         </div>
         <div className="copyright">
-          © 2026 Nave 5 Barcelona. Todos los derechos reservados.
+          {`© 2026 ${BRAND.nombre}. Todos los derechos reservados.`}
         </div>
       </div>
     </footer>

@@ -1,41 +1,45 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { render } from '@testing-library/react';
 import Logo from './Logo';
+import { BRAND } from '../theme/brand.config';
 
-// El logo es un SVG decorativo (el nombre accesible lo pone el enlace del Header: "Nave 5, ir al
-// inicio"). Se comprueba la forma del dibujo que importa para que se vea bien: viewBox ajustado,
-// solo rellenos y la A sin el hueco de abajo como subcamino aparte (dejaba una línea bajo la A).
-const pintar = () => render(<Logo className="logo-svg" />).container.querySelector('svg');
+// El logotipo de la cabecera lo elige la marca (BRAND.logo): el dibujo de theme/LogoDibujo.jsx o el
+// nombre corto en texto. Se prueban los dos cambiando el campo, y se deja como estaba.
+const logoDeLaMarca = BRAND.logo;
+afterEach(() => {
+  BRAND.logo = logoDeLaMarca;
+});
+
+const pintar = () => render(<Logo className="logo-svg" />).container.firstChild;
 
 describe('Logo', () => {
-  it('se pinta como SVG decorativo, con la clase recibida y el color del texto', () => {
-    const svg = pintar();
-    expect(svg).toBeInTheDocument();
-    expect(svg).toHaveClass('logo-svg');
-    expect(svg).toHaveAttribute('aria-hidden', 'true');
-    expect(svg).toHaveAttribute('focusable', 'false');
-    expect(svg).toHaveAttribute('fill', 'currentColor');
-    expect(svg.textContent).toBe('');
+  it("con logo 'dibujo' pinta el SVG de la marca, decorativo y en el color del texto", () => {
+    BRAND.logo = 'dibujo';
+    const logo = pintar();
+    expect(logo.tagName.toLowerCase()).toBe('svg');
+    expect(logo).toHaveClass('logo-svg');
+    expect(logo).toHaveAttribute('aria-hidden', 'true');
+    expect(logo).toHaveAttribute('fill', 'currentColor');
+    expect(logo.textContent).toBe('');
   });
 
-  it('el viewBox está ajustado al dibujo: empieza en 0 0', () => {
-    const [x, y] = pintar().getAttribute('viewBox').split(' ').map(Number);
-    expect([x, y]).toEqual([0, 0]);
+  it("con logo 'texto' pinta el nombre corto de brand.config.js, decorativo", () => {
+    BRAND.logo = 'texto';
+    const logo = pintar();
+    expect(logo.tagName.toLowerCase()).toBe('span');
+    expect(logo).toHaveClass('logo-svg', 'logo-texto');
+    expect(logo).toHaveAttribute('aria-hidden', 'true');
+    expect(logo.textContent).toBe(BRAND.nombreCorto);
+    expect(logo.querySelector('svg')).toBeNull();
   });
 
-  it('una forma rellena por cada letra y el 5, sin trazos con grosor', () => {
-    const svg = pintar();
-    const formas = svg.querySelectorAll('path');
-    expect(formas).toHaveLength(5);
-    for (const forma of formas) {
-      expect(forma).not.toHaveAttribute('stroke');
-      expect(forma).not.toHaveAttribute('fill', 'none');
-    }
+  it('sin clase, el logo en texto lleva solo la suya', () => {
+    BRAND.logo = 'texto';
+    const { container } = render(<Logo />);
+    expect(container.firstChild.className).toBe('logo-texto');
   });
 
-  it('la A tiene solo dos subcaminos: el contorno (con el hueco de abajo incluido) y el ojo', () => {
-    const a = pintar().querySelectorAll('path')[1];
-    expect(a).toHaveAttribute('fill-rule', 'evenodd');
-    expect(a.getAttribute('d').match(/M/g)).toHaveLength(2);
+  it('la marca dice qué logo usa', () => {
+    expect(['dibujo', 'texto']).toContain(logoDeLaMarca);
   });
 });

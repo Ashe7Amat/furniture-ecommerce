@@ -1,5 +1,6 @@
 import VistaImpresion from './VistaImpresion';
 import { PLACEHOLDER_IMG, miniatura } from '../../utils/images';
+import { BRAND } from '../../theme/brand.config';
 
 const formatearFecha = (fechaStr) => {
   if (!fechaStr) return '—';
@@ -23,9 +24,9 @@ export const ContenidoAlbaran = ({ pedido = {}, muebles = [] }) => {
     <article className="hoja-a4 hoja-albaran" aria-label={`Albarán de pedido ${refCorta}`}>
       <header className="albaran-cabecera">
         <div className="albaran-empresa">
-          <p className="albaran-empresa-nombre">NAVE 5 BARCELONA</p>
-          <p className="albaran-empresa-datos">Carrer del Plom, 32-34, Barcelona</p>
-          <p className="albaran-empresa-datos">NIF: B-00000000</p>
+          <p className="albaran-empresa-nombre">{BRAND.nombre.toUpperCase()}</p>
+          <p className="albaran-empresa-datos">{`${BRAND.contacto.calle}, ${BRAND.contacto.ciudad}`}</p>
+          <p className="albaran-empresa-datos">{`NIF: ${BRAND.contacto.cif}`}</p>
         </div>
         <div className="albaran-tipo-doc">
           <h2 className="albaran-titulo">ALBARÁN DE PEDIDO</h2>

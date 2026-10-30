@@ -200,7 +200,31 @@ describe('motivoNoElegible', () => {
       antelacion: 'fuera',
       lejos: 'fuera',
       duracion_min: 'fuera',
-      duracion_max: 'fuera'
+      duracion_max: 'fuera',
+      recogida_tope: 'fuera'
+    });
+  });
+
+  test('una recogida más allá de la última posible (el tope de la fianza) es recogida_tope', () => {
+    const disp = { ...DISP, ultima_recogida_posible: '2026-11-20' };
+    expect(motivoNoElegible({ inicio: '2026-11-15', fin: null }, '2026-11-21', disp)).toBe('recogida_tope');
+    expect(motivoNoElegible({ inicio: '2026-11-15', fin: null }, '2026-11-20', disp)).toBe(null);
+  });
+});
+
+describe('la última recogida posible (R-e: la fianza se devuelve antes de 180 días)', () => {
+  const disp = { ...DISP, ultima_recogida_posible: '2026-11-20' };
+  test('no se puede recoger después, aunque la duración lo permita', () => {
+    expect(esFinPosible('2026-11-15', '2026-11-20', disp)).toBe(true);
+    expect(esFinPosible('2026-11-15', '2026-11-21', disp)).toBe(false);
+  });
+  test('sin el dato (una API anterior), no limita', () => {
+    expect(esFinPosible('2026-11-15', '2026-11-21', DISP)).toBe(true);
+  });
+  test('los meses visibles acaban en el de la última recogida', () => {
+    expect(mesesVisibles({ ...DISP, ultima_recogida_posible: '2026-12-15' })).toEqual({
+      primero: '2026-11',
+      ultimo: '2026-12'
     });
   });
 });

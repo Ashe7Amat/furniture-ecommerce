@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 const { construirCsv } = require('../utils/csv');
 const { fechaDeHoy } = require('./catalogoCsvController');
 
@@ -18,7 +19,10 @@ const exportarClientesCsv = async (req, res) => {
     if (error) throw error;
 
     res.set('Content-Type', 'text/csv; charset=utf-8');
-    res.set('Content-Disposition', `attachment; filename="clientes-nave5-${fechaDeHoy()}.csv"`);
+    res.set(
+      'Content-Disposition',
+      `attachment; filename="clientes-${BRAND.idInterno}-${fechaDeHoy()}.csv"`
+    );
     // Datos personales (emails): que no se guarden en ninguna caché.
     res.set('Cache-Control', 'private, no-store');
     res.status(200).send(construirCsv(COLUMNAS_CLIENTES, data || []));

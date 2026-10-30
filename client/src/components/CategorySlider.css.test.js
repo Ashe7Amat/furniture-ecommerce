@@ -10,7 +10,7 @@ const leer = (archivo) => readFileSync(new URL(`../styles/${archivo}`, import.me
 describe('CategorySlider — foco visible con el teclado (H41)', () => {
   it('los botones de la tienda llevan el anillo de foco común de index.css', () => {
     expect(leer('index.css')).toMatch(
-      /:where\(a, button,[^)]*\):focus-visible[^{]*\{\s*outline: 2px solid var\(--accent-color\)/
+      /:where\(a, button,[^)]*\):focus-visible[^{]*\{\s*outline: 2px solid var\(--color-accent\)/
     );
   });
 

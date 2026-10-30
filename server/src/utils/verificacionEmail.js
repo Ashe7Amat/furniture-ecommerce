@@ -13,6 +13,7 @@
 //   el último de cada motivo.
 const crypto = require('crypto');
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 const { escaparIlike } = require('./ilike');
 
 const DURACION_MS = 24 * 60 * 60 * 1000;
@@ -130,7 +131,7 @@ const asociarPedidosDeInvitado = async (clienteId, email) => {
 // URL del enlace del correo: una página del cliente que hace el POST al pulsar un botón. Si fuera un
 // GET directo a la API, los filtros de correo que abren los enlaces para analizarlos gastarían el
 // token antes que la persona (parte 6, punto 9). Sin CLIENT_URL válida, la web pública.
-const WEB_PUBLICA = 'https://nave5barcelona.com';
+const WEB_PUBLICA = `https://${BRAND.dominio}`;
 const urlVerificacion = (token) => {
   const urlWeb = (process.env.CLIENT_URL || '').replace(/\/+$/, '');
   const base = /^https?:\/\//.test(urlWeb) ? urlWeb : WEB_PUBLICA;

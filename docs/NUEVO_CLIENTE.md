@@ -1,227 +1,194 @@
-# Guía de Onboarding: Nuevo Cliente en 30 Minutos (NUEVO_CLIENTE.md)
+# Nuevo cliente en 30 minutos (NUEVO_CLIENTE.md)
 
-Este documento es una guía paso a paso y checklist operativo para clonar o utilizar este repositorio como plantilla starter para un nuevo cliente o marca comercial en aproximadamente 30 minutos.
+Checklist para montar otra tienda a partir de este repositorio. Los pasos de infraestructura están
+explicados en [DEPLOY.md](DEPLOY.md) y las variables en [ENV_VARS.md](ENV_VARS.md); aquí va el orden y
+lo que hay que cambiar de la marca.
 
----
+> **Importante:** `npm run init:client` cambia la marca en el código, pero **no toca `client/public/` ni
+> `client/vercel.json`**. El favicon, la imagen para redes, el manifiesto, el `robots.txt`, las fotos y los
+> dominios de la API y de Supabase siguen siendo los de Nave 5 hasta que los reemplaces a mano: ver
+> [Archivos que se cambian a mano](#archivos-que-se-cambian-a-mano-clientpublic-y-clientverceljson).
 
-## Tabla de Contenidos (TOC)
+## Nave 5: el NIF y el único dato provisional que queda
 
-1. [Visión General del Proceso (Timeline de 30 Minutos)](#1-visión-general-del-proceso-timeline-de-30-minutos)
-2. [Fase 1: Clonar y Personalizar la Marca (Minutos 0-8)](#2-fase-1-clonar-y-personalizar-la-marca-minutos-0-8)
-   - [2.1 Clonar el Repositorio](#21-clonar-el-repositorio)
-   - [2.2 Editar `brand.config.js`](#22-editar-brandconfigjs)
-   - [2.3 Aplicar o Crear la Paleta del Cliente (`tokens.css`)](#23-aplicar-o-crear-la-paleta-del-cliente-tokenscss)
-3. [Fase 2: Infraestructura y Base de Datos (Minutos 8-16)](#3-fase-2-infraestructura-y-base-de-datos-minutos-8-16)
-   - [3.1 Proyecto en Supabase](#31-proyecto-en-supabase)
-   - [3.2 Correr Migraciones](#32-correr-migraciones)
-   - [3.3 Crear Bucket de Almacenamiento](#33-crear-bucket-de-almacenamiento)
-4. [Fase 3: Pasarelas, Correos y Criptografía (Minutos 16-22)](#4-fase-3-pasarelas-correos-y-criptografía-minutos-16-22)
-   - [4.1 Generar Secretos Criptográficos](#41-generar-secretos-criptográficos)
-   - [4.2 Configurar Stripe](#42-configurar-stripe)
-   - [4.3 Configurar Resend](#43-configurar-resend)
-5. [Fase 4: Despliegue en Vercel (Minutos 22-26)](#5-fase-4-despliegue-en-vercel-minutos-22-26)
-   - [5.1 Despliegue Backend](#51-despliegue-backend)
-   - [5.2 Despliegue Frontend](#52-despliegue-frontend)
-   - [5.3 Asignación de Dominio](#53-asignación-de-dominio)
-6. [Fase 5: Verificación y Pruebas de Humo (Minutos 26-30)](#6-fase-5-verificación-y-pruebas-de-humo-minutos-26-30)
-7. [Checklist Final de Lanzamiento](#7-checklist-final-de-lanzamiento)
+El NIF real (B63881080, puesto el 30 de octubre de 2026) y el teléfono, que sigue siendo de ejemplo, están en un
+único archivo, **`client/src/theme/brand.config.js`**, dentro de `contacto`. El teléfono lleva un comentario
+`PROVISIONAL` encima:
 
----
+| Dato | Campo | Valor | Dónde sale |
+|---|---|---|---|
+| **NIF** | `contacto.cif` (línea 46) | `'B63881080'` (real) | Aviso legal, Política de privacidad y el albarán del panel |
+| **Teléfono** | `contacto.telefono` (línea 36) | `'+34 930 00 00 00'` (de ejemplo) | En ninguna página todavía |
 
-## 1. Visión General del Proceso (Timeline de 30 Minutos)
+Para cambiar el NIF: cambia solo el texto entre comillas (`cif: 'B-12345678'`), sin tocar nada más, y
+guarda. Las tres páginas lo leen de ahí. La API no lo usa: `server/src/config/brand.config.js` no lleva NIF
+ni teléfono. Después, `npm test` en `client/` (el test `marca.test.js` comprueba que el NIF y el teléfono no
+están escritos en ningún otro archivo) y el despliegue de siempre. Si con el NIF cambia también la razón
+social, es el campo de justo encima, `contacto.razonSocial`.
 
-```
-[00:00 - 08:00]  Clonación + brand.config.js + Colores Theme
-[08:00 - 16:00]  Supabase (Proyecto + Migraciones + Bucket)
-[16:00 - 22:00]  npm run secrets:generate + Stripe + Resend
-[22:00 - 26:00]  Vercel Deploy (Client & Server) + Dominios DNS
-[26:00 - 30:00]  Smoke Tests (/health, Catálogo, Admin, Checkout)
-```
+## Los 30 minutos
 
----
+| Minuto | Paso |
+|---|---|
+| 0-3 | 1. Clonar e instalar |
+| 3-10 | 2. Marca: `brand.config.js` (web y API) |
+| 10-14 | 3. Colores y fuentes: `tokens.css` |
+| 14-20 | 4. Supabase: proyecto, esquema, bucket |
+| 20-24 | 5. Secretos, Stripe y Resend |
+| 24-28 | 6. Vercel: API y web |
+| 28-30 | 7. Comprobar |
 
-## 2. Fase 1: Clonar y Personalizar la Marca (Minutos 0-8)
+### 1. Clonar e instalar
 
-### 2.1 Clonar el Repositorio
 ```bash
-git clone https://github.com/tu-organizacion/catalogo-muebles.git cliente-nueva-marca
-cd cliente-nueva-marca
-git checkout -b main
+git clone https://github.com/<organizacion>/<repo>.git tienda-cliente
+cd tienda-cliente
+cd client && npm ci && cd ../server && npm ci && cd ..
 ```
 
-Instala las dependencias en ambos entornos:
+### 2. Marca
+
+**Con el script** (recomendado), desde la raíz del repositorio:
+
 ```bash
-cd server && npm install
-cd ../client && npm install
-cd ..
+npm run init:client
 ```
 
-### 2.2 Editar `brand.config.js`
-Abre [client/src/theme/brand.config.js](file:///c:/Users/amata/Desktop/catalogo-muebles/client/src/theme/brand.config.js) y adapta los datos del nuevo cliente:
+Pregunta el nombre, el nombre corto, el prefijo de las referencias, el correo, el color primario y,
+opcionalmente, el eslogan, el color de acento, la ciudad y la web. Con eso reescribe las dos
+`brand.config.js` y `tokens.css` (paleta clara y oscura derivada de los dos colores, con el texto
+secundario y el de acento a 4,5:1 de contraste como mínimo). Solo cambia valores: comentarios y campos
+que no pregunta se quedan. Lo que no sabe (calle, código postal, razón social, NIF, Instagram, logo de los
+correos) lo deja como `PENDIENTE`, para que no quede ningún dato de la tienda anterior: búscalo con
+`git grep PENDIENTE -- client/src/theme server/src/config` y complétalo. Sin preguntas, para automatizarlo:
 
-```javascript
-export const BRAND = {
-  nombre: 'Studio Vintage Madrid',
-  nombreCorto: 'Studio Vintage',
-  descripcion: 'Mobiliario mid-century, antigüedades y diseño escandinavo en Madrid.',
-  prefijoSku: 'SVM', // Prefijo usado en referencias automáticas de piezas (ej. SVM-001)
-  moneda: 'EUR',
-  locale: 'es-ES',
-  contacto: {
-    email: 'contacto@studiovintagemadrid.com',
-    telefono: '+34 912 345 678',
-    direccion: 'Calle Hermosilla 42, 28001 Madrid',
-    horario: 'Lunes a Viernes de 10:30 a 19:30'
-  },
-  redes: {
-    instagram: 'https://instagram.com/studiovintagemadrid',
-    facebook: '',
-    pinterest: ''
-  },
-  modulos: {
-    ecommerce: true, // Tienda online con carrito y checkout Stripe
-    bookings: true   // Sistema de alquiler por días con calendario y fianza
-  }
-};
-```
-
-### 2.3 Aplicar o Crear la Paleta del Cliente (`tokens.css`)
-En [client/src/theme/tokens.css](file:///c:/Users/amata/Desktop/catalogo-muebles/client/src/theme/tokens.css), ajusta los valores de marca en `:root`.
-
-Puedes tomar como inspiración la plantilla de demostración [client/src/theme/theme-cliente-demo.css](file:///c:/Users/amata/Desktop/catalogo-muebles/client/src/theme/theme-cliente-demo.css) (azul marino y dorado) o personalizar:
-
-```css
-:root {
-  /* Paleta del Nuevo Cliente */
-  --color-primary: #1E293B;      /* Azul pizarra elegante */
-  --color-accent: #D97706;       /* Ámbar cálido / Oro viejo */
-  --color-accent-hover: #B45309;
-  --color-surface: #FFFFFF;
-  --color-surface-alt: #F8FAFC;
-  --color-border: #E2E8F0;
-  --color-text: #0F172A;
-  --color-text-muted: #64748B;
-  
-  /* Tipografía */
-  --font-display: 'Fraunces', serif;
-  --font-body: 'Inter', sans-serif;
-}
-```
-
----
-
-## 3. Fase 2: Infraestructura y Base de Datos (Minutos 8-16)
-
-### 3.1 Proyecto en Supabase
-1. Entra en [Supabase](https://supabase.com/dashboard) y crea un proyecto (ej. `studio-vintage-prod`).
-2. Anota la **Project URL** y la **service_role key** (desde Settings > API).
-
-### 3.2 Correr Migraciones
-Abre la consola de Supabase (SQL Editor) o conecta mediante Supabase CLI:
 ```bash
-cd server
-supabase link --project-ref tu-project-ref
-supabase db push
+node scripts/init-client.js --nombre="Studio Vintage Madrid" --nombreCorto="Studio Vintage" \
+  --prefijo=SVM --email=hola@studiovintage.es --primario=#1E3A5F --acento=#C9A227 \
+  --eslogan="Diseño con historia" --ciudad=Madrid --web=https://www.studiovintage.es --si
 ```
-*(O ejecuta secuencialmente los scripts de `server/migrations/` en el SQL Editor).*
 
-### 3.3 Crear Bucket de Almacenamiento
-1. En Supabase > **Storage**, pulsa **New Bucket**.
-2. Nombre: `muebles`.
-3. Activa la casilla **Public bucket** (para lectura pública de fotos mediante CDN).
-4. Guarda los cambios.
+Capturas de esa tienda de ejemplo, generada así sobre una copia del repositorio, en
+`/mnt/project-files/starter-kit/` del proyecto (30 oct 2026).
 
----
+**A mano**: dos archivos con los mismos datos, porque la web y la API se despliegan por separado:
 
-## 4. Fase 3: Pasarelas, Correos y Criptografía (Minutos 16-22)
+- **`client/src/theme/brand.config.js`**: nombre (`nombre`, `nombreCorto`), `eslogan`, `tipoNegocio`,
+  `hashtag`, `descripcion`, `logo`, `prefijoSku`, `idInterno`, `contacto` (correo, calle, dirección, ciudad,
+  código postal, razón social, NIF...), `web`, `dominio` y `redes`. Los textos de la web, el `<title>` y
+  las metas de `index.html` (marcadores `%BRAND_...%`), los datos estructurados de Google, el albarán y
+  las etiquetas del panel salen de aquí.
+- **`server/src/config/brand.config.js`**: `nombre`, `nombreLogo`, `eslogan`, `prefijoSku`, `idInterno`,
+  `web`, `dominio`, `contacto`, y en `email` el remitente y el destinatario de avisos por defecto, el
+  logo y los colores de los correos.
 
-### 4.1 Generar Secretos Criptográficos
-En la carpeta `server/`:
+**El logotipo de la cabecera** lo elige el campo `logo` de `client/src/theme/brand.config.js`:
+
+- `'texto'` (lo que deja `init:client`): el nombre corto (`nombreCorto`) en mayúsculas, con la fuente de
+  títulos y el color de la marca. No hay que tocar nada más. En el móvil caben unos 8 caracteres: un nombre
+  corto más largo se acorta con puntos suspensivos («STUDIO ...»), así que conviene que sea breve.
+- `'dibujo'`: el SVG de `client/src/theme/LogoDibujo.jsx`. Ahí está el de Nave 5. Si el cliente tiene un
+  logo dibujado, pon su SVG en ese archivo (rellenos con `currentColor`), ajusta el `aspect-ratio` de
+  `.logo-svg` en `client/src/styles/HeaderFooter.css` a su `viewBox` (lo comprueba `Logo.css.test.js`) y
+  cambia `client/src/theme/LogoDibujo.test.jsx`, que comprueba las formas del dibujo de Nave 5.
+
+Cuidado con dos campos:
+
+- `prefijoSku` forma las referencias de las piezas nuevas (`NAV-SIL-001`). Elígelo antes de dar de alta
+  la primera pieza: cambiarlo después deja las viejas con el prefijo anterior.
+- `idInterno` da nombre a las claves que se guardan en el navegador (tema elegido, consentimiento de
+  cookies) y a los CSV del panel. En una tienda nueva, pon el que quieras; en una que ya funciona, no lo
+  cambies.
+
+### 3. Colores y fuentes
+
+- **`client/src/theme/tokens.css`**: cambia el bloque "Paleta de la marca" y sus dos bloques de modo
+  oscuro (el del sistema y el del botón; tienen que llevar los mismos valores, lo comprueba
+  `tokens.test.js`). Las fuentes son `--font-display` y `--font-body`.
+- Si cambias de fuentes, cambia también el enlace de Google Fonts (y los dos `preload` de fuentes) en
+  `client/index.html`.
+- Alternativa sin tocar `tokens.css`: un archivo de tema importado después de `index.css` en
+  `client/src/main.jsx`. Hay uno de ejemplo, azul marino y dorado, en
+  `client/src/theme/theme-cliente-demo.css`, con las instrucciones dentro.
+- Los colores de los correos están en `server/src/config/brand.config.js` (`email.colores`), en hex: los
+  clientes de correo no entienden variables CSS.
+
+### 4. Supabase
+
+Proyecto nuevo y, en su *SQL Editor*, `server/migrations/00_esquema_base.sql` entero: crea las tablas, las
+políticas y el bucket público `imagenes`. Las migraciones de `server/migrations/` con versión
+`20261022190000` o anterior ya van dentro: no se ejecutan. Después, el primer administrador:
+[DEPLOY.md, sección 1](DEPLOY.md#1-supabase).
+
+### 5. Secretos, Stripe y Resend
+
+`npm run secrets:generate` en `server/`, webhook de Stripe con `checkout.session.completed` y
+`checkout.session.expired`, dominio verificado en Resend: [DEPLOY.md, secciones 2 a 4](DEPLOY.md#2-secretos-de-la-api).
+
+### 6. Vercel
+
+Dos proyectos del mismo repositorio (*Root Directory* `server` y `client`) con sus variables, y
+**`client/vercel.json` cambiado** a los dominios del cliente (API y Supabase): [DEPLOY.md, sección 5](DEPLOY.md#5-vercel).
+
+### 7. Comprobar
+
+Las comprobaciones de [DEPLOY.md, sección 6](DEPLOY.md#6-comprobaciones-después-de-desplegar), y antes de
+desplegar, en local:
+
 ```bash
-cd server
-npm run secrets:generate
+cd client && npm run lint && npm test && npm run build
+cd ../server && npm run lint && npm test
 ```
-Copia el bloque generado de `JWT_SECRET`, `REFRESH_TOKEN_HASH_SECRET` y `EMAIL_TOKEN_HASH_SECRET`.
 
-### 4.2 Configurar Stripe
-1. En el [Dashboard de Stripe](https://dashboard.stripe.com/):
-   - Ve a **Desarrolladores > Claves de API** y copia `STRIPE_SECRET_KEY` (`sk_live_...`).
-   - Ve a **Webhooks > Añadir endpoint**.
-     - URL: `https://api.studiovintagemadrid.com/api/stripe/webhook`
-     - Eventos: `checkout.session.completed`.
-     - Copia el Secreto de firma `whsec_...` como `STRIPE_WEBHOOK_SECRET`.
+## Archivos que se cambian a mano: `client/public/` y `client/vercel.json`
 
-### 4.3 Configurar Resend
-1. En [Resend](https://resend.com):
-   - Añade el dominio del cliente (ej. `studiovintagemadrid.com`).
-   - Agrega los registros DNS (DKIM, SPF) en su panel de dominio.
-   - Crea una API Key `re_...` y define `RESEND_FROM=Studio Vintage <hola@studiovintagemadrid.com>`.
+`init:client` no los toca: son archivos que se sirven tal cual (imágenes, JSON, texto) o configuración de
+Vercel, y no pueden leer `brand.config.js`. **Hasta que los reemplaces, la tienda nueva enseña el icono, la
+imagen para redes y las fotos de Nave 5, y sus peticiones van a la API y al Supabase de Nave 5.** Hazlo antes
+del primer despliegue.
 
----
+| Archivo | Qué lleva de Nave 5 | Qué hacer |
+|---|---|---|
+| `client/public/favicon.svg` | El icono de la pestaña (y del manifiesto), con los colores de Nave 5 | Sustituirlo por el icono del cliente, en SVG cuadrado (`viewBox="0 0 64 64"` o similar) |
+| `client/public/og-image.png` | La imagen que sale al compartir un enlace en redes y en WhatsApp | Sustituirla por una del cliente de **1200 × 630 px**, mismo nombre |
+| `client/public/manifest.json` | `name`, `short_name`, `description`, `background_color` y `theme_color` | Poner el nombre, el nombre corto y la descripción del cliente; `background_color` = su `--color-bg` y `theme_color` = su `--color-primary` de `tokens.css` |
+| `client/public/robots.txt` | `Sitemap: https://www.nave5barcelona.com/sitemap.xml` | Cambiar la línea `Sitemap:` por la web del cliente (la misma que `BRAND.web`) |
+| `client/public/img/` | Las fotos del hero y de la galería de la portada (`hero-*.webp`, `galeria-*.webp`) | Sustituirlas por fotos del cliente con los **mismos nombres y tamaños** (las de `-800` y `-1200` son las versiones pequeñas). Las de la portada también se pueden cambiar después desde el panel |
+| `client/public/img/sin-imagen.svg` | El dibujo de "sin imagen", con el fondo y el trazo de Nave 5 | Cambiar sus dos colores (`fill` del fondo y `stroke`) por el `--color-bg` y el `--color-accent` del cliente |
+| `client/public/audio/` | La música de fondo (8 pistas de Pixabay) | Cambiar las pistas y su lista en `client/src/utils/musica.js`, o dejarlas (son de uso libre) |
+| `client/vercel.json` | `https://nave5-api.vercel.app` (en el `rewrite` de `/sitemap.xml` y en `connect-src`) y `https://gdrmpxcpucmaxvtpljge.supabase.co` (en `img-src`) | Cambiar las dos URL por la de la API del cliente en Vercel y la de su proyecto de Supabase. Son las únicas líneas que hay que tocar: el resto (caché y cabeceras de seguridad) vale igual |
 
-## 5. Fase 4: Despliegue en Vercel (Minutos 22-26)
+Y en `client/index.html`, las dos líneas de `preconnect` y `dns-prefetch` a Supabase: la URL del proyecto del
+cliente. Para comprobar que no queda nada de Nave 5 fuera de la marca:
 
-### 5.1 Despliegue Backend
-1. En Vercel: **Add New > Project** > Selecciona el repo > Root directory: `server`.
-2. Añade las variables de entorno:
-   - `NODE_ENV`: `production`
-   - `CLIENT_URL`: `https://studiovintagemadrid.com`
-   - `SUPABASE_URL`: `https://...`
-   - `SUPABASE_SERVICE_ROLE_KEY`: `eyJ...`
-   - `JWT_SECRET`, `REFRESH_TOKEN_HASH_SECRET`, `EMAIL_TOKEN_HASH_SECRET`
-   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
-   - `RESEND_API_KEY`, `RESEND_FROM`, `ADMIN_EMAIL`
-   - `RESERVAS_ACTIVAS`: `true`
-3. Despliega y asigna el dominio: `api.studiovintagemadrid.com`.
+```bash
+git grep -n -i -E "nave ?5|nave5|gdrmpxcpucmaxvtpljge" -- client/public client/vercel.json client/index.html
+```
 
-### 5.2 Despliegue Frontend
-1. En Vercel: **Add New > Project** > Selecciona el mismo repo > Root directory: `client`.
-2. Añade las variables de entorno:
-   - `VITE_API_URL`: `https://api.studiovintagemadrid.com/api`
-   - `VITE_RESERVAS_ACTIVAS`: `true`
-3. Despliega y asigna los dominios: `studiovintagemadrid.com` y `www.studiovintagemadrid.com`.
+Tiene que salir vacío (las fotos `.webp` y `og-image.png` no salen en `git grep`: compruébalas a ojo).
 
-### 5.3 Asignación de Dominio
-En el panel DNS del cliente (Cloudflare / registrador):
-- `A` / `@` -> `76.76.21.21`
-- `CNAME` / `www` -> `cname.vercel-dns.com`
-- `CNAME` / `api` -> `cname.vercel-dns.com`
+## Otros textos y datos propios de Nave 5 (a mano)
 
----
+| Qué | Dónde |
+|---|---|
+| Logo de los correos | `server/scripts/logo-email.js` lo genera a partir de `client/src/theme/LogoDibujo.jsx`; su URL va en `BRAND.email.logo` del servidor. Sin logo (vacío), la cabecera de los correos lleva el nombre en texto |
+| Textos propios de Nave 5: Sobre nosotros, Sostenibilidad, Aviso legal, Privacidad, Condiciones | `client/src/pages/About.jsx`, `Sustainability.jsx`, `Legal.jsx`, `PrivacyPolicy.jsx`, `Terms.jsx`. Ya usan el nombre, la dirección y el NIF de `brand.config.js`, pero la prosa es de Nave 5 y los textos legales los tiene que dar el cliente |
+| Producciones en las que han salido las piezas | `client/src/utils/producciones.js` |
+| Reglas del alquiler (horarios, días mínimos, portes) | `server/src/utils/reglasAlquiler.js` |
 
-## 6. Fase 5: Verificación y Pruebas de Humo (Minutos 26-30)
+## Los tests con otra marca
 
-Comprobaciones rápidas para certificar que la tienda está 100% operativa:
+Los tests leen el valor esperado de `brand.config.js` (el nombre, la web, el dominio, el prefijo de las
+referencias, el id interno, el logo...), no de Nave 5. Con la tienda de ejemplo de arriba generada con
+`init:client`, **pasan todos**: lint, tests y build de la web y lint y tests de la API, sin tocar ningún test.
+Si después cambias a mano un campo de la marca, siguen pasando.
 
-1. **Health check**:
-   ```bash
-   curl -s https://api.studiovintagemadrid.com/api/health
-   # Respuesta esperada: {"status":"ok",...}
-   ```
-2. **Acceso Admin**:
-   - Entra en `https://studiovintagemadrid.com/admin`.
-   - Crea o promueve la cuenta administradora inicial.
-   - Sube un mueble de prueba con fotos y descripción.
-3. **Catálogo y Ficha**:
-   - Comprueba que la pieza aparece en el catálogo con el prefijo SKU correcto (ej. `SVM-001`).
-   - Verifica el funcionamiento del botón de compra o reserva.
-4. **Prueba de Pago**:
-   - Realiza un pedido de prueba (modo test o real reembolsable).
-   - Comprueba recepción de correo transaccional y registro en la pestaña de Pedidos.
+Solo hay tests que se saltan o que conviene cambiar con el cliente:
 
----
+- `client/src/theme/brand.config.test.js` tiene uno que solo corre con Nave 5 (fija su nombre, su prefijo y
+  su correo): con otra marca sale como omitido (`skipped`).
+- `client/src/theme/LogoDibujo.test.jsx` comprueba las formas del dibujo de Nave 5: si pones otro dibujo en
+  `LogoDibujo.jsx`, cambia también su test.
+- `client/src/theme/marca.test.js` y su pareja de la API vigilan que nadie vuelva a escribir el nombre, la
+  web, la dirección o el NIF a mano en el código: si fallan, el dato tiene que salir de `brand.config.js`.
 
-## 7. Checklist Final de Lanzamiento
-
-- [ ] `brand.config.js` actualizado con nombre, teléfono, CIF y redes del cliente.
-- [ ] `tokens.css` ajustado con los colores corporativos.
-- [ ] Migraciones de Supabase completadas sin errores (tablas `muebles`, `pedidos`, `reservas`, etc.).
-- [ ] RLS activado en todas las tablas sensibles.
-- [ ] Bucket `muebles` creado y público.
-- [ ] Secretos únicos generados con `npm run secrets:generate`.
-- [ ] Optimización de imágenes ejecutada con `npm run images:optimize` (si se importó catálogo previo de fotos pesadas).
-- [ ] Stripe en modo Live con Webhook HTTPS registrado.
-- [ ] Resend con dominio verificado (SPF/DKIM/DMARC) y dirección `RESEND_FROM` válida.
-- [ ] Variables de entorno cargadas en ambos proyectos de Vercel.
-- [ ] DNS propagado y certificados SSL activos en Vercel.
-- [ ] Smoke tests completados con éxito.

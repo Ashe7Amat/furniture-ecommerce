@@ -7,8 +7,25 @@
 // LOS VALORES SON PROVISIONALES: son los valores por defecto del diseño y están pendientes de
 // confirmar con el cliente (sección 10.1 del diseño). Los que dependen de una pregunta concreta lo
 // dicen al lado.
+// La fianza, en % del alquiler (R-e, decisión de Ashe del 29 oct: 30 %). Se puede cambiar sin
+// tocar el código con FIANZA_PORCENTAJE (un entero de 0 a 100; 0 = sin fianza); un valor que no lo
+// sea se ignora y se usa el 30 %, para no cobrar nunca una fianza absurda por una errata.
+const FIANZA_PORCENTAJE_POR_DEFECTO = 30;
+const leerFianzaPorcentaje = (valor = process.env.FIANZA_PORCENTAJE) => {
+  if (valor === undefined || valor === '') return FIANZA_PORCENTAJE_POR_DEFECTO;
+  const numero = Number(valor);
+  if (!Number.isInteger(numero) || numero < 0 || numero > 100) {
+    console.error(
+      `FIANZA_PORCENTAJE="${valor}" no es un entero de 0 a 100: se usa el ${FIANZA_PORCENTAJE_POR_DEFECTO} %.`
+    );
+    return FIANZA_PORCENTAJE_POR_DEFECTO;
+  }
+  return numero;
+};
+
 const REGLAS_ALQUILER = Object.freeze({
-  version: 1,
+  // 2 (29 oct): la fianza y el tope de la recogida a 165 días de la reserva.
+  version: 2,
 
   // Los días facturados no son una regla configurable: son bloques de 24 h desde la hora de entrega
   // (decisión de Ashe, 13 oct 2026; ver diasFacturados en precioReserva.js).
@@ -23,6 +40,15 @@ const REGLAS_ALQUILER = Object.freeze({
   // contradice las 48 h (pregunta 8).
   antelacionMinDias: 2,
   antelacionMaxMeses: 6,
+
+  // La recogida pactada, como mucho a estos días de hoy (decisión de Ashe del 29 oct): la fianza se
+  // devuelve con un reembolso del mismo pago, y así queda dentro de los 180 días desde el cobro con
+  // 15 días para revisar la pieza. Junto con la antelación y la duración máxima, manda la más corta.
+  diasMaxHastaRecogida: 165,
+
+  // La fianza (6.6, opción A: se cobra con el alquiler y se devuelve tras revisar la pieza): este %
+  // del importe del alquiler, ya con el descuento y sin los trayectos. Redondeada al céntimo.
+  fianzaPorcentaje: leerFianzaPorcentaje(),
 
   // Cuánto se tarda como mucho en pagar una reserva (6.3). La reserva provisional dura lo mismo que
   // la sesión de pago de Stripe, que no se puede alargar una vez creada (30 min es lo mínimo que
@@ -56,4 +82,4 @@ const REGLAS_ALQUILER = Object.freeze({
   ivaPorConcepto: Object.freeze({})
 });
 
-module.exports = { REGLAS_ALQUILER };
+module.exports = { REGLAS_ALQUILER, leerFianzaPorcentaje, FIANZA_PORCENTAJE_POR_DEFECTO };

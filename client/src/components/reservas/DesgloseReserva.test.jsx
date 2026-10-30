@@ -64,4 +64,32 @@ describe('DesgloseReserva', () => {
     render(<DesgloseReserva presupuesto={{ ...PRESUPUESTO, descuento_centimos: 500, importe_total_centimos: 12500 }} />);
     expect(filas()[1]).toEqual(['Descuento', `−${eurosDeCentimos(500)}`]);
   });
+
+  it('con fianza (R-e): su línea con el porcentaje antes del total, y debajo cuándo se devuelve', () => {
+    render(
+      <DesgloseReserva
+        presupuesto={{
+          ...PRESUPUESTO,
+          fianza: { porcentaje: 30, importe_centimos: 3000 },
+          importe_total_centimos: 16000
+        }}
+      />
+    );
+    expect(filas()).toEqual([
+      [`4 días × ${eurosDeCentimos(2500)}`, eurosDeCentimos(10000)],
+      ['Entrega a domicilio', eurosDeCentimos(3000)],
+      ['Recogida en la tienda', 'Gratis'],
+      ['Fianza reembolsable (30 % del alquiler)', eurosDeCentimos(3000)],
+      ['Total', `${eurosDeCentimos(16000)} IVA incluido`]
+    ]);
+    expect(
+      screen.getByText('La fianza te la devolvemos en la misma tarjeta después de la recogida, cuando revisemos la pieza.')
+    ).toBeInTheDocument();
+  });
+
+  it('sin fianza (0 %), ni la línea ni la nota', () => {
+    render(<DesgloseReserva presupuesto={{ ...PRESUPUESTO, fianza: { porcentaje: 0, importe_centimos: 0 } }} />);
+    expect(filas()).toHaveLength(4);
+    expect(screen.queryByText(/La fianza/)).not.toBeInTheDocument();
+  });
 });

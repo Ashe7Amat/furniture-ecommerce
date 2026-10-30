@@ -6,7 +6,7 @@
   z-index: 5000;
   background: var(--card-bg);
   border-top: 1px solid var(--border-color);
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 -8px 30px rgba(var(--color-black-rgb), 0.12);
   padding: 20px 24px;
   display: flex;
   flex-wrap: wrap;

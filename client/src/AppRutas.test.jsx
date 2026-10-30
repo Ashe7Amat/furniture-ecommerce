@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 import * as api from './services/api';
+import { BRAND } from './theme/brand.config';
 
 vi.mock('./services/api');
 
@@ -26,15 +27,18 @@ afterEach(() => {
   window.history.pushState({}, '', '/');
 });
 
+// El h1 de la portada: el nombre corto y, en su propia línea, la ciudad («Nave 5» «Barcelona»)
+const TITULO_PORTADA = `${BRAND.nombreCorto} ${BRAND.contacto.ciudad}`;
+
 describe('App — rutas', () => {
   it('la portada va en el paquete inicial: su h1 sale sin esperar', () => {
     visitar('/');
-    expect(screen.getByRole('heading', { level: 1, name: 'Nave 5 Barcelona' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: TITULO_PORTADA })).toBeInTheDocument();
   });
 
   it.each([
     ['/catalogo', 'Colección Completa'],
-    ['/sobre-nosotros', 'Nave 5 Barcelona'],
+    ['/sobre-nosotros', BRAND.nombre],
     ['/sostenibilidad', 'Sostenibilidad y Restauración'],
     ['/legal', 'Aviso Legal'],
     ['/privacidad', 'Política de Privacidad'],
@@ -66,13 +70,13 @@ describe('App — rutas', () => {
   const MUEBLE = { id: 'm1', nombre: 'Aparador de roble', estado: 'disponible', imagenes: [], descripcion: 'Restaurado' };
 
   it.each([
-    ['/', 'Nave 5 Barcelona'],
+    ['/', TITULO_PORTADA],
     ['/catalogo', 'Colección Completa'],
     ['/mueble/m1', 'Aparador de roble'],
     ['/login', 'Acceder a mi cuenta'],
     ['/contacto', 'Conecta con Nosotros'],
     ['/cuenta', 'Mi Cuenta'],
-    ['/sobre-nosotros', 'Nave 5 Barcelona'],
+    ['/sobre-nosotros', BRAND.nombre],
     ['/forgot-password', 'Recuperar contraseña'],
     ['/reset-password', 'Restablecer contraseña'],
     ['/esto-no-existe', 'Esta pieza no está en el almacén']

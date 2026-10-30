@@ -598,9 +598,13 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
         'STRIPE refunds.list',
         'GET /rest/v1/reservas',
         'PATCH /rest/v1/reservas',
+        // El nombre de la pieza para el correo de la cancelación al cliente (R-e, paso 20)...
+        'GET /rest/v1/muebles',
         'STRIPE refunds.create',
         'GET /rest/v1/reservas',
         'PATCH /rest/v1/reservas',
+        // ...y para el del reembolso hecho. La última lectura es la de la respuesta del panel.
+        'GET /rest/v1/muebles',
         'GET /rest/v1/muebles'
       ]
     );
@@ -774,6 +778,8 @@ describe('contrato de las acciones: el UPDATE guardado por updated_at', () => {
         'STRIPE refunds.list',
         'GET /rest/v1/reservas',
         'PATCH /rest/v1/reservas',
+        // El nombre de la pieza para el correo del reembolso al cliente (R-e, paso 20).
+        'GET /rest/v1/muebles',
         'GET /rest/v1/muebles'
       ]
     );

@@ -5,7 +5,8 @@ import {
   entregarReservaAdmin,
   recogerReservaAdmin,
   cancelarReservaAdmin,
-  bloquearFechasAdmin
+  bloquearFechasAdmin,
+  accionReservaAdmin
 } from '../../../services/api';
 import { formatPrice } from '../../../utils/format';
 import {
@@ -16,9 +17,11 @@ import {
   primerDiaDe,
   sumarDias,
   diasEntre,
-  diaDeLaSemana
+  diaDeLaSemana,
+  eurosDeCentimos
 } from '../../../utils/reservas';
 import '../../../styles/AdminReservas.css';
+import { BRAND } from '../../../theme/brand.config';
 
 const ETIQUETAS_ESTADO = {
   confirmada: 'Confirmada',
@@ -29,6 +32,15 @@ const ETIQUETAS_ESTADO = {
 };
 
 const DIAS_CABECERA = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+
+// La fianza de una devuelta (R-e): cómo está, para enseñarlo bajo su estado.
+const ETIQUETAS_FIANZA = {
+  garantizada: 'Fianza por resolver',
+  en_resolucion: 'Fianza a medias',
+  liberada: 'Fianza devuelta',
+  cobrada_parcial: 'Fianza devuelta en parte',
+  cobrada: 'Fianza retenida'
+};
 
 const formatearFecha = (fechaStr) => {
   if (!fechaStr) return '—';
@@ -63,6 +75,14 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
   const [reembolsarTotal, setReembolsarTotal] = useState(true);
   const [importeReembolsoEuros, setImporteReembolsoEuros] = useState(0);
   const [cancelando, setCancelando] = useState(false);
+
+  // Estado Modal Fianza (R-e): devolverla entera o retener una parte con su motivo
+  const [reservaFianza, setReservaFianza] = useState(null);
+  const [retenerParte, setRetenerParte] = useState(false);
+  const [retenerEuros, setRetenerEuros] = useState('');
+  const [motivoRetencion, setMotivoRetencion] = useState('');
+  const [guardandoFianza, setGuardandoFianza] = useState(false);
+  const [errorFianza, setErrorFianza] = useState(null);
 
   // Estado Modal Bloqueo de Fechas
   const [modalBloqueoAbierto, setModalBloqueoAbierto] = useState(false);
@@ -277,9 +297,11 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       const importeElegido = reembolsarTotal ? totalOriginal : Number(importeReembolsoEuros || 0);
       const reembolsoEnCentimos = Math.max(0, Math.round(importeElegido * 100));
 
+      // Por la acción «cancelar» del servidor (utils/adminReservas.js): reclama el reembolso antes de
+      // moverlo, con su clave de idempotencia, y devuelve exactamente lo elegido (0 = nada).
       const res = await cancelarReservaAdmin(reservaACancelar.id, {
         motivo: 'Cancelada por el administrador',
-        reembolso_importe: reembolsoEnCentimos
+        reembolso_centimos: reembolsoEnCentimos
       });
       if (res?.error) {
         showToast(res.error, 'error');
@@ -297,6 +319,71 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       showToast('No se pudo cancelar la reserva', 'error');
     } finally {
       setCancelando(false);
+    }
+  };
+
+  // Fianza (R-e): el modal y la acción «devolver-fianza» del servidor.
+  const abrirModalFianza = (reserva) => {
+    setReservaFianza(reserva);
+    setRetenerParte(false);
+    setRetenerEuros('');
+    setMotivoRetencion('');
+    setErrorFianza(null);
+  };
+
+  const cerrarModalFianza = () => {
+    if (guardandoFianza) return;
+    setReservaFianza(null);
+  };
+
+  const fianzaDe = (reserva) => Number(reserva?.fianza?.importe ?? 0);
+  const retenerCentimos = retenerParte ? Math.max(0, Math.round(Number(retenerEuros || 0) * 100)) : 0;
+  const fianzaACentimos = Math.round(fianzaDe(reservaFianza) * 100);
+  const devolverCentimos = Math.max(0, fianzaACentimos - retenerCentimos);
+  const fianzaAMedias = reservaFianza?.fianza?.estado === 'en_resolucion';
+
+  const handleConfirmarFianza = async () => {
+    if (!reservaFianza) return;
+    if (!fianzaAMedias && retenerParte) {
+      if (retenerCentimos <= 0) {
+        setErrorFianza('Indica cuánto retienes, o elige devolver la fianza entera.');
+        return;
+      }
+      if (retenerCentimos > fianzaACentimos) {
+        setErrorFianza(`No se puede retener más que la fianza (${eurosDeCentimos(fianzaACentimos)}).`);
+        return;
+      }
+      if (!motivoRetencion.trim()) {
+        setErrorFianza('Escribe el motivo por el que retienes parte de la fianza.');
+        return;
+      }
+    }
+    setGuardandoFianza(true);
+    setErrorFianza(null);
+    try {
+      const res = await accionReservaAdmin(
+        reservaFianza.id,
+        'devolver-fianza',
+        fianzaAMedias
+          ? {}
+          : {
+              retener_centimos: retenerCentimos,
+              ...(retenerCentimos > 0 && { motivo_retencion: motivoRetencion.trim() })
+            }
+      );
+      if (res?.error) {
+        setErrorFianza(res.error);
+        if (res.codigo === 'reembolso_a_medias') cargarReservas();
+      } else {
+        showToast('Fianza resuelta. Le hemos enviado un correo al cliente.', 'success');
+        setReservaFianza(null);
+        cargarReservas();
+      }
+    } catch (err) {
+      console.error('Error al resolver la fianza:', err);
+      setErrorFianza('No se ha podido resolver la fianza.');
+    } finally {
+      setGuardandoFianza(false);
     }
   };
 
@@ -568,7 +655,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
       {/* CABECERA EDITORIAL */}
       <div className="admin-view-head n5-reservas-header">
         <div>
-          <span className="n5-eyebrow">Nave 5 Barcelona · Operaciones</span>
+          <span className="n5-eyebrow">{`${BRAND.nombre} · Operaciones`}</span>
           <h2 className="n5-title">Gestión de Reservas</h2>
           <p className="n5-subtitle">
             {reservas.length} {reservas.length === 1 ? 'reserva registrada' : 'reservas registradas'}
@@ -784,6 +871,11 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                               <span className="n5-badge-dot" />
                               {ETIQUETAS_ESTADO[estado] || estado}
                             </span>
+                            {estado === 'devuelta' && ETIQUETAS_FIANZA[reserva.fianza?.estado] && (
+                              <small className="reserva-fianza-estado">
+                                {ETIQUETAS_FIANZA[reserva.fianza.estado]}
+                              </small>
+                            )}
                             {reserva.cancelacion_solicitada && (
                               <span
                                 className="reserva-solicitud-badge"
@@ -831,15 +923,24 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                               </button>
                             )}
 
-                            {estado === 'devuelta' && (
-                              <button
-                                type="button"
-                                className="n5-btn n5-btn-finished n5-btn-sm"
-                                disabled
-                              >
-                                Finalizada
-                              </button>
-                            )}
+                            {estado === 'devuelta' &&
+                              ((reserva.acciones ?? []).includes('devolver-fianza') ? (
+                                <button
+                                  type="button"
+                                  className="n5-btn n5-btn-action-pickup n5-btn-sm"
+                                  onClick={() => abrirModalFianza(reserva)}
+                                >
+                                  Gestionar fianza
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="n5-btn n5-btn-finished n5-btn-sm"
+                                  disabled
+                                >
+                                  Finalizada
+                                </button>
+                              ))}
 
                             {esCancelable && (
                               <button
@@ -1217,7 +1318,7 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                     )}{' '}
                     céntimos
                   </strong>{' '}
-                  (`reembolso_importe`) a la pasarela de pago.
+                  a la pasarela de pago.
                 </small>
               </div>
             </div>
@@ -1238,6 +1339,118 @@ const ReservasTab = ({ alCambiar, recargarMuebles, muebles = [] }) => {
                 disabled={cancelando}
               >
                 {cancelando ? 'Cancelando y reembolsando…' : 'Cancelar reserva'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FIANZA (R-e): devolverla entera o retener una parte */}
+      {reservaFianza && (
+        <div className="admin-modal-overlay n5-modal-overlay">
+          <div className="admin-modal-card n5-modal-card" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-fianza">
+            <h3 className="n5-modal-title" id="titulo-modal-fianza">
+              Gestionar fianza
+            </h3>
+            <p className="n5-modal-description">
+              {(reservaFianza.pieza || reservaFianza.mueble || {}).nombre || 'Pieza'} · fianza cobrada:{' '}
+              <strong>{eurosDeCentimos(fianzaACentimos)}</strong>
+            </p>
+
+            {fianzaAMedias ? (
+              <p className="n5-modal-description">
+                La devolución se quedó a medias. Al confirmar se termina con lo que decidiste
+                {Number(reservaFianza.fianza?.retenido) > 0
+                  ? ` (retener ${eurosDeCentimos(Math.round(Number(reservaFianza.fianza.retenido) * 100))})`
+                  : ' (devolverla entera)'}
+                , y antes se comprueba en Stripe que no esté ya hecha.
+              </p>
+            ) : (
+              <div className="n5-refund-box">
+                <label className="n5-checkbox-label">
+                  <input
+                    type="radio"
+                    name="fianza-opcion"
+                    checked={!retenerParte}
+                    onChange={() => setRetenerParte(false)}
+                  />
+                  <span>Devolver la fianza entera (la pieza está bien)</span>
+                </label>
+                <label className="n5-checkbox-label">
+                  <input
+                    type="radio"
+                    name="fianza-opcion"
+                    checked={retenerParte}
+                    onChange={() => setRetenerParte(true)}
+                  />
+                  <span>Retener una parte (daños, retraso…)</span>
+                </label>
+
+                {retenerParte && (
+                  <div className="n5-refund-input-group">
+                    <label htmlFor="input-fianza-retener" className="n5-form-label">
+                      Importe que se retiene (€):
+                    </label>
+                    <input
+                      id="input-fianza-retener"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={fianzaDe(reservaFianza)}
+                      className="n5-input"
+                      value={retenerEuros}
+                      onChange={(e) => setRetenerEuros(e.target.value)}
+                    />
+                    <label htmlFor="input-fianza-motivo" className="n5-form-label">
+                      Motivo (lo verá el cliente en el correo):
+                    </label>
+                    <textarea
+                      id="input-fianza-motivo"
+                      className="n5-input"
+                      rows={3}
+                      maxLength={500}
+                      value={motivoRetencion}
+                      onChange={(e) => setMotivoRetencion(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <small className="n5-refund-helper">
+                  {devolverCentimos > 0
+                    ? `Se devolverán ${eurosDeCentimos(devolverCentimos)} a la tarjeta del cliente.`
+                    : 'No se devuelve nada: se retiene la fianza entera.'}
+                </small>
+              </div>
+            )}
+
+            {errorFianza && (
+              <div className="n5-alert-error" role="alert">
+                {errorFianza}
+              </div>
+            )}
+
+            <div className="n5-modal-actions">
+              <button
+                type="button"
+                className="n5-btn n5-btn-ghost"
+                onClick={cerrarModalFianza}
+                disabled={guardandoFianza}
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                className="n5-btn n5-btn-primary"
+                onClick={handleConfirmarFianza}
+                disabled={guardandoFianza}
+              >
+                {guardandoFianza
+                  ? 'Guardando…'
+                  : fianzaAMedias
+                    ? 'Terminar la devolución'
+                    : devolverCentimos > 0
+                      ? `Devolver ${eurosDeCentimos(devolverCentimos)}`
+                      : 'Retener la fianza entera'}
               </button>
             </div>
           </div>

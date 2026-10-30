@@ -1539,6 +1539,37 @@ ha elegido A, B o C (y el importe). Si es A, el soporte de Stripe ha confirmado 
 reembolsar un pago con tarjeta a 180 días o más. Si es B, el asesor ha revisado el consentimiento para cobros
 fuera de sesión (SCA). R-a a R-d no dependen de nada de esto.
 
+> **Hechos el 29 oct 2026 los pasos 19 y 20** (a petición de Ashe, sin esperar a la fianza, que sigue
+> bloqueada). Paso 19: `GET /api/cron/reservas` (`utils/tareaDiariaReservas.js`), lanzada por Vercel Cron a las
+> 08:00 UTC (`server/vercel.json`), con `Authorization: Bearer <CRON_SECRET>` (503 sin la variable, 401 con otro
+> secreto, 404 con `RESERVAS_ACTIVAS` apagado). Envía el recordatorio de entrega a los alquileres confirmados que
+> empiezan mañana o pasado, el de devolución a los entregados que terminan mañana o pasado, y a los retrasados
+> les amplía `fin_ocupacion` hasta mañana (8.5) y les envía un aviso una sola vez; si la ampliación choca, aviso
+> urgente al administrador cada día que siga. `retrasada` sigue siendo calculada (T5), no un estado guardado.
+> Cada correo se apunta antes en el historial de la reserva (`recordatorio_entrega`, `recordatorio_recogida`,
+> `aviso_retraso`, `ampliada`, con `por: 'sistema'`) y solo lo envía quien lo apunta: nunca dos veces. Fuera
+> quedan los contratos antiguos (`origen = 'legacy'`). Paso 20: además de esos tres, el correo de la cancelación
+> desde el panel (con lo que se devolverá, sin el motivo, que es una nota interna) y el del reembolso hecho (al
+> cancelar, al reintentar, o al «Dar por reembolsado» con Stripe conforme; no con `aunque_no_conste`). Los de la
+> fianza y la penalización por retraso llegan con el paso 18. **Paso manual antes de encender:** `CRON_SECRET`
+> en el proyecto `nave5-api` de Vercel.
+
+> **Hecho el 29 oct 2026 el paso 18, la fianza (opción A).** Ashe fijó el 30 % del alquiler (ya con el descuento,
+> sin los trayectos; configurable con `FIANZA_PORCENTAJE`) y, para que la devolución quede dentro de 180 días desde
+> el cobro, que **la recogida pactada sea como mucho a 165 días de la reserva** (`diasMaxHastaRecogida`; 15 días
+> para revisar la pieza). Antes, con 6 meses de antelación y 180 de duración, se podía llegar a ~365 días. No se pudo
+> leer la documentación de Stripe desde el entorno (red bloqueada): el límite de 180 días queda **por confirmar** en
+> https://docs.stripe.com/refunds. Sin migración: R2 ya tenía `fianza_importe`, `fianza_estado` y
+> `fianza_stripe_ref`. Al crear la reserva, `fianza_estado = 'pendiente'` (o `'no_aplica'` al 0 %); al confirmar
+> el pago, `'garantizada'`; y desde el panel, tras la recogida, la acción `devolver-fianza`
+> (`POST /api/admin/reservas/:id/devolver-fianza`, `{ retener_centimos, motivo_retencion }`) la resuelve con las
+> tres capas del 8.6: reclama (`'en_resolucion'`, con lo decidido en el historial), hace el reembolso parcial del
+> mismo pago en Stripe (marca `devolucion_fianza`, clave fija) y guarda `'liberada'`, `'cobrada_parcial'` o
+> `'cobrada'` con el id del reembolso. A medias, la misma acción la termina sin repetirla. Queda en el registro de
+> actividad (`resolver_fianza`) y el cliente recibe un correo con lo devuelto y, si se retiene algo, el motivo.
+> Lo que no hace: la penalización por retraso (sigue sin confirmar, 8.5) ni el plazo de 14 días para devolverla
+> (no hay recordatorio todavía).
+
 18. `feat(server): fianza de alquiler (<mecanismo elegido>)`.
 19. `feat(server): tarea diaria de retrasos y recordatorios` (Vercel Cron, protegido con secreto).
 20. `feat(server): emails del resto del ciclo de la reserva` (recordatorios de entrega y devolución, retraso,

@@ -1,4 +1,5 @@
 const supabase = require('../data/supabase');
+const { BRAND } = require('../config/brand.config');
 
 // A4 (ver docs/tarea3-diseno.md): genera la referencia única de un mueble a partir del código
 // de su categoría. Formato: NAV-COD-NNN (p. ej. NAV-SIL-001, NAV-MES-042).
@@ -15,7 +16,7 @@ const supabase = require('../data/supabase');
 // (MAX_REINTENTOS veces), y en cada iteración recalcula llamando a calcularSiguienteReferencia
 // — que en ese momento ya ve la referencia del primero y devuelve la correcta.
 
-const PREFIJO = 'NAV';
+const PREFIJO = BRAND.prefijoSku;
 const MAX_REINTENTOS = 3;
 
 /**

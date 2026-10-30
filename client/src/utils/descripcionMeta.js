@@ -10,7 +10,7 @@ import { BRAND } from '../theme/brand.config';
 export const MAX_DESCRIPCION_META = 150;
 export const MIN_DESCRIPCION_SOLA = 80;
 
-const TIENDA = 'almacén de muebles y atrezo vintage en Barcelona';
+const TIENDA = `${BRAND.tipoNegocio} en ${BRAND.contacto.ciudad}`;
 
 const cortar = (texto) => {
   if (texto.length <= MAX_DESCRIPCION_META) return texto;
