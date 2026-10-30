@@ -123,8 +123,7 @@ cd ../server && npm run lint && npm test
 | Producciones en las que han salido las piezas | `client/src/utils/producciones.js` |
 | Dominios de la API y de Supabase | `client/vercel.json` y el `preconnect` de `client/index.html` |
 | Reglas del alquiler (horarios, días mínimos, portes) | `server/src/utils/reglasAlquiler.js` |
-| Colores sueltos en las demás hojas de estilo (110, sobre todo `Home.css`, `ProductCard.css`, `AdminUI.css` y `ModalContacto.css`: por ejemplo, el botón claro del hero) | `client/src/styles/`. Solo `index.css`, `Admin.css`, `AdminReservas.css` y `ProductDetail.css` usan ya solo tokens |
-| Color del icono de "sin imagen" y de la barra del navegador | `client/public/img/sin-imagen.svg`, `<meta name="theme-color">` de `client/index.html` y `client/public/manifest.json` |
+| Color del icono de "sin imagen" y del manifiesto | `client/public/img/sin-imagen.svg` y `client/public/manifest.json` (el color de la barra del navegador de `index.html` ya sale de `--color-primary` al compilar) |
 
 ## Los tests de ejemplo
 

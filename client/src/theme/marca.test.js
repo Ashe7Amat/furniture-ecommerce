@@ -55,7 +55,8 @@ describe('la marca solo vive en brand.config.js', () => {
     expect(html).not.toMatch(new RegExp(literal(BRAND.nombreCorto), 'i'));
     expect(html).not.toContain(BRAND.dominio);
     const marcadores = new Set(html.match(/%BRAND_[A-Z_]+%/g));
-    expect([...marcadores].sort()).toEqual(['%BRAND_DESCRIPCION%', '%BRAND_NOMBRE%', '%BRAND_WEB%']);
+    expect([...marcadores].sort()).toEqual(['%BRAND_COLOR_TEMA%', '%BRAND_DESCRIPCION%', '%BRAND_NOMBRE%', '%BRAND_WEB%']);
+    expect(html.match(/#[0-9a-fA-F]{3,8}\b/g), 'colores de index.html: de tokens.css').toBeNull();
     const config = readFileSync(new URL('../../vite.config.js', import.meta.url), 'utf8');
     for (const marcador of marcadores) expect(config).toContain(`${marcador.slice(1, -1)}:`);
   });

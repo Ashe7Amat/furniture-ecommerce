@@ -93,7 +93,7 @@ const ProductCard = ({ mueble, nivelTitulo: Titulo = 'h2' }) => {
               height="18"
               viewBox="0 0 24 24"
               fill={isFav ? "var(--accent-color)" : "none"}
-              stroke={isFav ? "var(--accent-color)" : "#ffffff"}
+              stroke={isFav ? "var(--accent-color)" : "var(--color-white)"}
               strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"

@@ -46,8 +46,11 @@ Otras carpetas:
   (`--color-primary`, `--color-surface`, `--font-display`, `--radius-md`...) en tres bloques: claro, oscuro
   del sistema (`prefers-color-scheme`) y oscuro elegido con el botón (`data-theme="dark"` en `<html>`).
   Mantiene los alias de antes (`--primary-color`, `--card-bg`...) apuntando a los nuevos, porque el resto
-  de hojas los usan. `index.css`, `Admin.css`, `AdminReservas.css` y `ProductDetail.css` solo usan
-  variables (lo vigila `client/src/theme/tokens.test.js`).
+  de hojas los usan. Ninguna hoja ni componente lleva colores escritos a mano (lo vigila
+  `client/src/theme/tokens.test.js`), con dos excepciones a propósito que no son de la marca: el QR de
+  las etiquetas (negro sobre blanco, para que lo lean los móviles) y el fondo blanco de las fotos que se
+  pasan a JPEG. El color de la barra del navegador (`theme-color` de `index.html`) sale de
+  `--color-primary` al compilar.
 - Solo `index.css` importa `tokens.css`, así que un tema importado detrás en `main.jsx` gana siempre
   (ejemplo: `theme-cliente-demo.css`).
 - **`brand.config.js`** (web) exporta `BRAND`. Lo leen los componentes, `index.html` (marcadores

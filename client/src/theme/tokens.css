@@ -1,7 +1,7 @@
 /* ─── DESIGN TOKENS (tema base) ───
    La única fuente de los valores de color, tipografía, espaciado, radios y sombras de la web.
-   index.css, Admin.css, AdminReservas.css y ProductDetail.css solo usan estas variables; el resto
-   de hojas usan los alias clásicos (--primary-color, --card-bg...), que apuntan aquí.
+   Ninguna hoja de client/src lleva colores escritos a mano (lo comprueba tokens.test.js): todas
+   usan estas variables, muchas con los alias clásicos (--primary-color, --card-bg...), que apuntan aquí.
 
    Para otro cliente: cambia los valores de "Paleta de la marca" (y sus dos bloques de modo
    oscuro, abajo) y las fuentes, o importa un tema encima (ver theme-cliente-demo.css), o genera
@@ -52,6 +52,39 @@
   --color-on-dark:       #F7F4EE;                  /* texto claro sobre el botón oscuro y las bandas */
   --color-banner-sold:   rgba(184, 50, 50, 0.85);
   --color-banner-rented: rgba(194, 120, 24, 0.85);
+  --color-white-rgb:     255, 255, 255;            /* bordes y puntos sobre fotos: rgba(var(--color-white-rgb), 0.2) */
+
+  /* Tonos de la marca en rgb, para halos y bordes con transparencia. Son los del modo claro y no
+     cambian en oscuro: rgba(var(--color-accent-rgb), 0.35) */
+  --color-primary-rgb:       62, 50, 42;           /* el de --color-primary (velo de la vista rápida) */
+  --color-accent-rgb:        179, 138, 112;        /* el de --color-accent (borde de la tarjeta, halo del filtro) */
+  --color-accent-text-rgb:   126, 90, 66;          /* el de --color-accent-text (halo de los campos del panel) */
+  --color-focus-contact-rgb: 184, 115, 51;         /* halo de los campos de la ventana de contacto */
+  --color-focus-booking-rgb: 184, 134, 11;         /* halo de los desplegables de la reserva */
+
+  /* Portada: el hero sobre la foto */
+  --color-hero-bg:       #221B16;                  /* se ve mientras carga la foto */
+  --color-hero-light:    #F5F2EC;                  /* subtítulo, botón lleno y borde del de solo borde */
+  --color-hero-ink:      #1a1a1a;                  /* texto del botón lleno */
+
+  /* Botón de favoritos sobre la foto de la tarjeta */
+  --color-photo-btn-rgb: 30, 24, 20;
+
+  /* Ventana de contacto */
+  --color-overlay-contact:   rgba(20, 16, 13, 0.75);
+  --color-cta-hover-contact: #2D241D;              /* hover de "Enviar" (el de la ficha es --color-cta-hover) */
+  --color-success-check:     #2b8a3e;              /* icono de mensaje enviado */
+  --color-success-check-rgb: 43, 138, 62;
+
+  /* Barra del administrador sobre la web pública */
+  --color-admin-bar-bg:   rgba(24, 19, 15, 0.9);
+  --color-admin-bar-text: #F5EFE8;
+
+  /* Panel (AdminUI.css): insignias de estado y fondo de las ventanas */
+  --color-state-success-rgb: 46, 125, 50;
+  --color-state-warning-rgb: 230, 81, 0;
+  --color-state-danger-rgb:  198, 40, 40;
+  --color-overlay-slate:     rgba(15, 23, 42, 0.55);
 
   /* Insignias del panel: historial de actividad y estados de las reservas */
   --color-badge-green-bg:      #dcfce7;

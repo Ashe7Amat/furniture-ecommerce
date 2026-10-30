@@ -162,7 +162,7 @@
   border: 1px solid var(--border-color);
   border-radius: 6px;
   padding: 30px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 20px rgba(var(--color-black-rgb), 0.04);
 }
 .contact-form-card h2 { /* H43: antes h3 */
   margin-top: 1em;

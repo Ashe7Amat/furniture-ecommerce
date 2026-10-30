@@ -4,7 +4,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(var(--color-black-rgb), 0.6);
   z-index: 2000;
   display: flex;
   justify-content: center;
@@ -19,7 +19,7 @@
   max-height: 90vh;
   overflow-y: auto;
   border-radius: 6px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 40px rgba(var(--color-black-rgb), 0.3);
   animation: modalFadeIn 0.3s ease;
   position: relative;
 }

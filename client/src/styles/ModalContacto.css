@@ -1,7 +1,7 @@
 .mc-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(20, 16, 13, 0.75);
+  background-color: var(--color-overlay-contact);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
@@ -25,7 +25,7 @@
   color: var(--text-color);
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 40px rgba(var(--color-black-rgb), 0.3);
   padding: 32px;
   max-height: 90vh;
   overflow-y: auto;
@@ -62,7 +62,7 @@
 
 .mc-close-btn:hover {
   color: var(--text-color);
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: rgba(var(--color-black-rgb), 0.05);
 }
 
 .mc-header {
@@ -170,7 +170,7 @@
 .mc-field textarea:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(184, 115, 51, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--color-focus-contact-rgb), 0.15);
 }
 
 .mc-field textarea {
@@ -179,7 +179,7 @@
 }
 
 .mc-error {
-  color: var(--danger-color, #c92a2a);
+  color: var(--danger-color);
   font-size: 0.85rem;
   margin: 0;
 }
@@ -203,15 +203,15 @@
 }
 
 .mc-btn-primary {
-  background-color: #1A1510;
-  color: #F7F4EE;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  background-color: var(--color-cta);
+  color: var(--color-on-dark);
+  box-shadow: 0 4px 14px rgba(var(--color-black-rgb), 0.15);
 }
 
 .mc-btn-primary:hover:not(:disabled) {
-  background-color: #2D241D;
+  background-color: var(--color-cta-hover-contact);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 6px 18px rgba(var(--color-black-rgb), 0.2);
 }
 
 .mc-btn-primary:disabled {
@@ -232,8 +232,8 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: rgba(43, 138, 62, 0.12);
-  color: #2b8a3e;
+  background: rgba(var(--color-success-check-rgb), 0.12);
+  color: var(--color-success-check);
   font-size: 28px;
   display: flex;
   align-items: center;

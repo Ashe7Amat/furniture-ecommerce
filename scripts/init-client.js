@@ -124,11 +124,29 @@ const generarPaleta = (primario, acento = mezclar(primario, BLANCO, 0.35)) => {
   oscuro['--color-text-muted'] = oscuro['--color-secondary'];
 
   const cta = mezclar(primario, NEGRO, 0.55);
+  const rgb = (hex) => aRgb(hex).join(', ');
+  // Los colores fijos (iguales en claro y en oscuro) que salen de la marca. Los neutros (blanco, negro,
+  // grises, insignias y estados del panel) se quedan como están.
   const fijos = {
     '--color-cta': cta,
     '--color-cta-hover': mezclar(primario, NEGRO, 0.25),
-    '--color-cta-rgb': aRgb(cta).join(', '),
-    '--color-on-dark': fondo
+    '--color-cta-rgb': rgb(cta),
+    '--color-on-dark': fondo,
+    '--color-overlay': `rgba(${rgb(mezclar(primario, NEGRO, 0.75))}, 0.5)`,
+    '--color-overlay-warm': `rgba(${rgb(fondoOscuro)}, 0.55)`,
+    '--color-focus-glow': `rgba(${rgb(acento)}, 0.2)`,
+    '--color-primary-rgb': rgb(primario),
+    '--color-accent-rgb': rgb(acento),
+    '--color-accent-text-rgb': rgb(claro['--color-accent-text']),
+    '--color-focus-contact-rgb': rgb(acento),
+    '--color-focus-booking-rgb': rgb(acento),
+    '--color-hero-bg': fondoOscuro,
+    '--color-hero-light': fondo,
+    '--color-photo-btn-rgb': rgb(mezclar(primario, NEGRO, 0.6)),
+    '--color-overlay-contact': `rgba(${rgb(mezclar(primario, NEGRO, 0.7))}, 0.75)`,
+    '--color-cta-hover-contact': mezclar(primario, NEGRO, 0.25),
+    '--color-admin-bar-bg': `rgba(${rgb(mezclar(primario, NEGRO, 0.65))}, 0.9)`,
+    '--color-admin-bar-text': fondo
   };
   // Los correos no entienden variables CSS: sus colores van en hex en la marca del servidor
   const correo = {

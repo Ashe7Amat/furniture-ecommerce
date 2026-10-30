@@ -78,14 +78,14 @@
 /* Primario: Terracota / Acento de marca */
 .admin-btn-primary {
   background-color: var(--color-accent);
-  color: var(--color-accent-text, #ffffff);
+  color: var(--color-accent-text);
   border: 1px solid var(--color-accent);
   box-shadow: var(--shadow-sm);
 }
 
 .admin-btn-primary:hover:not(:disabled) {
-  background-color: var(--color-accent-hover, #674732);
-  border-color: var(--color-accent-hover, #674732);
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -124,7 +124,7 @@
 
 .admin-btn-danger:hover:not(:disabled) {
   background-color: var(--color-danger);
-  color: #ffffff;
+  color: var(--color-white);
   box-shadow: var(--shadow-sm);
 }
 
@@ -262,21 +262,21 @@
 }
 
 .admin-badge-success {
-  background-color: rgba(46, 125, 50, 0.12);
+  background-color: rgba(var(--color-state-success-rgb), 0.12);
   color: var(--color-success);
-  border: 1px solid rgba(46, 125, 50, 0.25);
+  border: 1px solid rgba(var(--color-state-success-rgb), 0.25);
 }
 
 .admin-badge-warning {
-  background-color: rgba(230, 81, 0, 0.12);
+  background-color: rgba(var(--color-state-warning-rgb), 0.12);
   color: var(--color-warning);
-  border: 1px solid rgba(230, 81, 0, 0.25);
+  border: 1px solid rgba(var(--color-state-warning-rgb), 0.25);
 }
 
 .admin-badge-danger {
-  background-color: rgba(198, 40, 40, 0.12);
+  background-color: rgba(var(--color-state-danger-rgb), 0.12);
   color: var(--color-danger);
-  border: 1px solid rgba(198, 40, 40, 0.25);
+  border: 1px solid rgba(var(--color-state-danger-rgb), 0.25);
 }
 
 /* ─── Formularios e Inputs ─── */
@@ -307,7 +307,7 @@
 .admin-select:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(126, 90, 66, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--color-accent-text-rgb), 0.15);
 }
 
 .admin-input::placeholder {
@@ -319,7 +319,7 @@
 .admin-modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.55);
+  background-color: var(--color-overlay-slate);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   display: flex;

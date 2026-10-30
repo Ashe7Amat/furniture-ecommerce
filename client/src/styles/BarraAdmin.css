@@ -13,11 +13,11 @@
   max-width: calc(100vw - 32px);
   box-sizing: border-box;
   padding: 8px 8px 8px 16px;
-  background: rgba(24, 19, 15, 0.9);
-  color: #F5EFE8;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: var(--color-admin-bar-bg);
+  color: var(--color-admin-bar-text);
+  border: 1px solid rgba(var(--color-white-rgb), 0.14);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 24px rgba(var(--color-black-rgb), 0.25);
   backdrop-filter: blur(6px);
   font-size: 0.85rem;
 }
@@ -33,7 +33,7 @@
   flex-shrink: 0;
   padding: 2px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(var(--color-white-rgb), 0.14);
   font-size: 0.78rem;
 }
 .barra-admin-botones { display: flex; gap: 8px; flex-shrink: 0; }
@@ -41,7 +41,7 @@
   display: inline-flex;
   align-items: center;
   padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(var(--color-white-rgb), 0.4);
   border-radius: 4px;
   background: transparent;
   color: inherit;
@@ -52,8 +52,8 @@
   cursor: pointer;
 }
 .barra-admin-btn:hover,
-.barra-admin-btn[aria-expanded="true"] { background: rgba(255, 255, 255, 0.14); border-color: #F5EFE8; }
-.barra-admin-btn:focus-visible { outline: 2px solid #F5EFE8; outline-offset: 2px; }
+.barra-admin-btn[aria-expanded="true"] { background: rgba(var(--color-white-rgb), 0.14); border-color: var(--color-admin-bar-text); }
+.barra-admin-btn:focus-visible { outline: 2px solid var(--color-admin-bar-text); outline-offset: 2px; }
 
 /* La ficha deja sitio debajo para que la barra no tape el final de la página. */
 .pd-container.con-barra-admin { padding-bottom: 96px; }

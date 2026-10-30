@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(62, 50, 42, 0.45);
+  background: rgba(var(--color-primary-rgb), 0.45);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   animation: qvFadeIn 0.25s ease;

@@ -4,7 +4,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(var(--color-black-rgb), 0.5);
   backdrop-filter: blur(4px);
   z-index: 3000;
   display: flex;
@@ -22,7 +22,7 @@
   max-width: 400px;
   border-radius: 4px;
   text-align: center;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  box-shadow: 0 10px 40px rgba(var(--color-black-rgb), 0.2);
 
   transform: translateY(20px) scale(0.95);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;

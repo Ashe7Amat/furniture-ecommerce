@@ -1,15 +1,32 @@
 // @vitest-environment node
-// El sistema de temas (tarea 1 del starter kit): la paleta vive solo en tokens.css y las hojas
-// refactorizadas no llevan colores ni fuentes sueltos, para que cambiar de marca sea cambiar variables.
+// El sistema de temas (starter kit): la paleta vive solo en tokens.css y ninguna hoja ni componente
+// lleva colores o fuentes sueltos, para que cambiar de marca sea cambiar variables.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { join, relative } from 'node:path';
 import { BRAND } from './brand.config';
 
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
 const sinComentarios = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
-const HOJAS = ['../styles/index.css', '../styles/Admin.css', '../styles/AdminReservas.css', '../styles/ProductDetail.css'];
+const SRC = fileURLToPath(new URL('..', import.meta.url));
+const archivos = (filtro, dir = SRC) =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const ruta = join(dir, e.name);
+    if (e.isDirectory()) return e.name === 'theme' ? [] : archivos(filtro, ruta);
+    return filtro(e.name) ? [`../${relative(SRC, ruta)}`] : [];
+  });
+// Todas las hojas de la web menos las del tema (tokens.css y los temas de ejemplo)
+const HOJAS = archivos((nombre) => nombre.endsWith('.css'));
+// Las cuatro primeras que se pasaron a tokens usan además los nombres nuevos (--color-*)
+const HOJAS_NOMBRES_NUEVOS = ['../styles/index.css', '../styles/Admin.css', '../styles/AdminReservas.css', '../styles/ProductDetail.css'];
 
 describe('hojas que consumen solo tokens', () => {
+  it('encuentra todas las hojas de la web', () => {
+    expect(HOJAS.length).toBeGreaterThanOrEqual(28);
+    expect(HOJAS).toEqual(expect.arrayContaining([...HOJAS_NOMBRES_NUEVOS, '../styles/Home.css', '../pages/Profile.css']));
+  });
+
   it.each(HOJAS)('%s no tiene colores escritos a mano', (hoja) => {
     const css = sinComentarios(leer(hoja));
     expect(css.match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
@@ -22,15 +39,29 @@ describe('hojas que consumen solo tokens', () => {
     for (const familia of familias) expect(familia).toMatch(/^(var\(--font-[a-z-]+\)|inherit)$/);
   });
 
-  it.each(HOJAS)('%s usa los nombres nuevos, no los alias clásicos', (hoja) => {
+  it.each(HOJAS_NOMBRES_NUEVOS)('%s usa los nombres nuevos, no los alias clásicos', (hoja) => {
     expect(leer(hoja)).not.toMatch(/var\(--(bg-color|primary-color|secondary-color|accent-color|card-bg|border-color|text-color)\b/);
   });
 
   it('solo index.css importa tokens.css (si otra hoja lo importara, pisaría un tema puesto encima)', () => {
     expect(leer('../styles/index.css')).toContain("@import '../theme/tokens.css';");
-    for (const hoja of [...HOJAS.slice(1), '../styles/AdminUI.css']) {
+    for (const hoja of HOJAS.filter((h) => h !== '../styles/index.css')) {
       expect(sinComentarios(leer(hoja))).not.toContain('tokens.css');
     }
+  });
+});
+
+describe('componentes sin colores escritos a mano', () => {
+  // Dos excepciones a propósito, que no son de la marca: el QR tiene que ser negro sobre blanco para que
+  // lo lean los móviles, y el canvas que pasa fotos a JPEG no entiende variables CSS (pinta de blanco lo
+  // transparente).
+  const EXCEPCIONES = { '../pages/admin/CodigoQr.jsx': ['#fff', '#000'], '../utils/imagen.js': ['#fff'] };
+  const CODIGO = archivos((nombre) => /\.(jsx?|tsx?)$/.test(nombre) && !/\.test\./.test(nombre));
+
+  it.each(CODIGO)('%s', (archivo) => {
+    const codigo = leer(archivo).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+    const colores = [...codigo.matchAll(/['"`]\s*(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\((?!var\()[^)]*\))/g)].map((m) => m[1]);
+    expect(colores).toEqual(EXCEPCIONES[archivo] ?? []);
   });
 });
 

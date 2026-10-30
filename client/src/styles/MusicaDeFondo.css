@@ -20,7 +20,7 @@
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   color: var(--primary-color);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 8px 28px rgba(var(--color-black-rgb), 0.10);
 }
 
 /* El pie oscuro deja sitio a la izquierda para que el botón no tape el copyright. */

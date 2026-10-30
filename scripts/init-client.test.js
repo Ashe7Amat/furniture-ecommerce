@@ -129,6 +129,27 @@ test('genera las dos marcas y la paleta sin dejar datos de la tienda anterior', 
   assert.equal(claro['--color-accent'], '#C9A227');
   assert.equal(claro['--primary-color'], 'var(--color-primary)', 'los alias siguen igual');
   assert.equal(claro['--color-success'], '#4D6E4A', 'los colores de estado no se tocan');
+  assert.equal(claro['--color-accent-rgb'], '201, 162, 39', 'los tonos en rgb salen del acento');
+  assert.equal(claro['--color-hero-light'], claro['--color-bg'], 'el hero usa el fondo nuevo');
+  const valores = [
+    ':root {',
+    ':root:not([data-theme="light"])',
+    ':root[data-theme="dark"]'
+  ].flatMap((selector) => Object.values(variables(bloque(css, selector))));
+  for (const tonoNave5 of [
+    '#221B16',
+    '#F5F2EC',
+    '#3E322A',
+    '#B38A70',
+    '#1A1510',
+    '179, 138, 112',
+    '62, 50, 42'
+  ]) {
+    assert.ok(
+      !valores.some((v) => v.toUpperCase().includes(tonoNave5)),
+      `queda ${tonoNave5} en tokens.css`
+    );
+  }
   assert.deepEqual(
     variables(bloque(css, ':root[data-theme="dark"]')),
     variables(bloque(css, ':root:not([data-theme="light"])')),
