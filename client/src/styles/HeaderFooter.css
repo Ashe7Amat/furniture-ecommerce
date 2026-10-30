@@ -20,7 +20,7 @@
   display: none;
   font-size: 1.5rem;
 }
-/* El logotipo es un SVG (components/Logo.jsx) en el color del texto: ya no usa Fraunces. */
+/* El logotipo (components/Logo.jsx) va en el color del texto: el dibujo de la marca o su nombre en texto. */
 .logo {
   display: inline-flex;
   align-items: center;
@@ -32,11 +32,28 @@
   display: block;
   height: 30px;
   width: auto;
-  aspect-ratio: 496.3 / 178.9; /* el del viewBox */
+  aspect-ratio: 496.3 / 178.9; /* el del viewBox de theme/LogoDibujo.jsx */
 }
 @media (max-width: 480px) {
   .logo-svg {
     height: 24px;
+  }
+}
+/* Logo en texto (marca sin dibujo propio): el nombre corto con la fuente de títulos, del alto del dibujo. */
+.logo-svg.logo-texto {
+  height: auto;
+  aspect-ratio: auto;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .logo-svg.logo-texto {
+    font-size: 1.3rem;
   }
 }
 

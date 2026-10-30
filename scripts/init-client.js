@@ -223,6 +223,7 @@ const generarMarcaCliente = (codigo, d) => {
     ['tipoNegocio', d.tipoNegocio],
     ['hashtag', d.hashtag],
     ['descripcion', d.descripcion],
+    ['logo', 'texto'],
     ['prefijoSku', d.prefijo],
     ['idInterno', d.idInterno],
     ['email', d.email, 'contacto:'],
@@ -469,9 +470,12 @@ const inicializar = async (args, raiz, rl) => {
 Siguientes pasos (docs/NUEVO_CLIENTE.md):
   1. Revisa los cambios con git diff y completa lo marcado como ${PENDIENTE} (dirección, código postal, razón
      social, NIF) en las dos brand.config.js, y el logo de los correos (email.logo) en la del servidor.
-  2. Cambia a mano lo que la marca no cubre: Logo.jsx, client/public/ (favicon, og-image, manifest.json,
-     robots.txt), los textos legales y client/vercel.json.
-  3. Los tests que comprueban textos de Nave 5 fallarán: actualiza sus textos esperados.`);
+  2. La cabecera lleva el nombre en texto (logo: 'texto'). Si el cliente tiene un logo dibujado, pon su SVG
+     en client/src/theme/LogoDibujo.jsx y cambia logo a 'dibujo'.
+  3. Cambia a mano lo que la marca no cubre: client/public/ (favicon, og-image, manifest.json, robots.txt,
+     fotos), client/vercel.json y los textos legales (docs/NUEVO_CLIENTE.md, "Archivos que se cambian a mano").
+  4. Comprueba: npm run lint, npm test y npm run build en client/, y npm test en server/. Los tests leen la
+     marca de brand.config.js: tienen que pasar en verde.`);
 };
 
 if (require.main === module) {

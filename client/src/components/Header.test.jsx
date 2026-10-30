@@ -69,15 +69,21 @@ beforeEach(() => {
 const CLAVE_TEMA = `${BRAND.idInterno}Theme`;
 
 describe('Header — logotipo', () => {
-  it('el logo es el SVG de "NAVE 5" (sin "Barcelona" en texto) y lleva al inicio', async () => {
+  it('el logo de la marca (el dibujo o el nombre corto, sin "Barcelona") lleva al inicio', async () => {
     await renderHeader({ ruta: '/catalogo' });
     // Uno en la cabecera y otro en el menú lateral, los dos con el mismo nombre accesible.
     const logos = screen.getAllByRole('link', { name: `${BRAND.nombreCorto}, ir al inicio` });
     expect(logos).toHaveLength(2);
     for (const logo of logos) {
       expect(logo).toHaveAttribute('href', '/');
-      expect(logo.querySelector('svg.logo-svg')).toHaveAttribute('aria-hidden', 'true');
-      expect(logo.textContent).toBe('');
+      expect(logo.querySelector('.logo-svg')).toHaveAttribute('aria-hidden', 'true');
+      // Nave 5 lleva el dibujo (SVG sin texto); una marca sin dibujo, su nombre corto
+      if (BRAND.logo === 'dibujo') {
+        expect(logo.querySelector('svg.logo-svg')).toBeInTheDocument();
+        expect(logo.textContent).toBe('');
+      } else {
+        expect(logo.textContent).toBe(BRAND.nombreCorto);
+      }
     }
     expect(screen.queryByText(BRAND.nombre)).not.toBeInTheDocument();
   });

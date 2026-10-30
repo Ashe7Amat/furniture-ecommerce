@@ -11,6 +11,10 @@ export const BRAND = {
   tipoNegocio: 'almacén de muebles y atrezo vintage',
   hashtag: '#Nave5Barcelona',
   descripcion: 'Almacén de ideas en el corazón de Barcelona: muebles y piezas restauradas con historia, cuidadas al detalle para dar vida a tus espacios.',
+
+  // Logotipo de la cabecera (components/Logo.jsx): 'dibujo' pinta el SVG de theme/LogoDibujo.jsx;
+  // 'texto', el nombre corto en mayúsculas. init:client lo deja en 'texto'.
+  logo: 'dibujo',
   
   // Catálogo y referencias
   prefijoSku: 'NAV',

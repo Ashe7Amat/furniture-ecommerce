@@ -104,6 +104,7 @@ test('genera las dos marcas y la paleta sin dejar datos de la tienda anterior', 
   assert.equal(web.nombre, 'Studio Vintage Madrid');
   assert.equal(web.prefijoSku, 'SVM');
   assert.equal(web.prefijoSKU, 'SVM');
+  assert.equal(web.logo, 'texto', 'sin dibujo propio, el logo de la cabecera es el nombre');
   assert.equal(web.contacto.email, 'hola@studiovintage.es');
   assert.equal(web.contacto.ciudad, 'Madrid');
   assert.equal(web.web, 'https://www.studiovintagemadrid.com');

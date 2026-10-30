@@ -76,7 +76,7 @@ const {
 } = BRAND.email.colores;
 const FUENTE = 'Arial, Helvetica, sans-serif';
 
-// El logo de la cabecera: el de la web (client/src/components/Logo.jsx) en PNG, fondo transparente y
+// El logo de la cabecera: el de la web (client/src/theme/LogoDibujo.jsx) en PNG, fondo transparente y
 // en blanco roto, en el almacenamiento público de Supabase (bucket imagenes, carpeta marca/). Lo
 // generó y subió server/scripts/logo-email.js: 240 px de ancho, y 480 px para pantallas de alta
 // densidad (srcset, que solo usan algunos clientes; los demás pintan el de 240 a 120 px).

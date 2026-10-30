@@ -4,6 +4,11 @@ Checklist para montar otra tienda a partir de este repositorio. Los pasos de inf
 explicados en [DEPLOY.md](DEPLOY.md) y las variables en [ENV_VARS.md](ENV_VARS.md); aquí va el orden y
 lo que hay que cambiar de la marca.
 
+> **Importante:** `npm run init:client` cambia la marca en el código, pero **no toca `client/public/` ni
+> `client/vercel.json`**. El favicon, la imagen para redes, el manifiesto, el `robots.txt`, las fotos y los
+> dominios de la API y de Supabase siguen siendo los de Nave 5 hasta que los reemplaces a mano: ver
+> [Archivos que se cambian a mano](#archivos-que-se-cambian-a-mano-clientpublic-y-clientverceljson).
+
 ## Los 30 minutos
 
 | Minuto | Paso |
@@ -52,13 +57,22 @@ Capturas de esa tienda de ejemplo, generada así sobre una copia del repositorio
 **A mano**: dos archivos con los mismos datos, porque la web y la API se despliegan por separado:
 
 - **`client/src/theme/brand.config.js`**: nombre (`nombre`, `nombreCorto`), `eslogan`, `tipoNegocio`,
-  `hashtag`, `descripcion`, `prefijoSku`, `idInterno`, `contacto` (correo, calle, dirección, ciudad,
+  `hashtag`, `descripcion`, `logo`, `prefijoSku`, `idInterno`, `contacto` (correo, calle, dirección, ciudad,
   código postal, razón social, NIF...), `web`, `dominio` y `redes`. Los textos de la web, el `<title>` y
   las metas de `index.html` (marcadores `%BRAND_...%`), los datos estructurados de Google, el albarán y
   las etiquetas del panel salen de aquí.
 - **`server/src/config/brand.config.js`**: `nombre`, `nombreLogo`, `eslogan`, `prefijoSku`, `idInterno`,
   `web`, `dominio`, `contacto`, y en `email` el remitente y el destinatario de avisos por defecto, el
   logo y los colores de los correos.
+
+**El logotipo de la cabecera** lo elige el campo `logo` de `client/src/theme/brand.config.js`:
+
+- `'texto'` (lo que deja `init:client`): el nombre corto (`nombreCorto`) en mayúsculas, con la fuente de
+  títulos y el color de la marca. No hay que tocar nada más.
+- `'dibujo'`: el SVG de `client/src/theme/LogoDibujo.jsx`. Ahí está el de Nave 5. Si el cliente tiene un
+  logo dibujado, pon su SVG en ese archivo (rellenos con `currentColor`), ajusta el `aspect-ratio` de
+  `.logo-svg` en `client/src/styles/HeaderFooter.css` a su `viewBox` (lo comprueba `Logo.css.test.js`) y
+  cambia `client/src/theme/LogoDibujo.test.jsx`, que comprueba las formas del dibujo de Nave 5.
 
 Cuidado con dos campos:
 
@@ -108,28 +122,55 @@ cd client && npm run lint && npm test && npm run build
 cd ../server && npm run lint && npm test
 ```
 
-## Lo que `brand.config.js` no cubre (a mano)
+## Archivos que se cambian a mano: `client/public/` y `client/vercel.json`
+
+`init:client` no los toca: son archivos que se sirven tal cual (imágenes, JSON, texto) o configuración de
+Vercel, y no pueden leer `brand.config.js`. **Hasta que los reemplaces, la tienda nueva enseña el icono, la
+imagen para redes y las fotos de Nave 5, y sus peticiones van a la API y al Supabase de Nave 5.** Hazlo antes
+del primer despliegue.
+
+| Archivo | Qué lleva de Nave 5 | Qué hacer |
+|---|---|---|
+| `client/public/favicon.svg` | El icono de la pestaña (y del manifiesto), con los colores de Nave 5 | Sustituirlo por el icono del cliente, en SVG cuadrado (`viewBox="0 0 64 64"` o similar) |
+| `client/public/og-image.png` | La imagen que sale al compartir un enlace en redes y en WhatsApp | Sustituirla por una del cliente de **1200 × 630 px**, mismo nombre |
+| `client/public/manifest.json` | `name`, `short_name`, `description`, `background_color` y `theme_color` | Poner el nombre, el nombre corto y la descripción del cliente; `background_color` = su `--color-bg` y `theme_color` = su `--color-primary` de `tokens.css` |
+| `client/public/robots.txt` | `Sitemap: https://www.nave5barcelona.com/sitemap.xml` | Cambiar la línea `Sitemap:` por la web del cliente (la misma que `BRAND.web`) |
+| `client/public/img/` | Las fotos del hero y de la galería de la portada (`hero-*.webp`, `galeria-*.webp`) | Sustituirlas por fotos del cliente con los **mismos nombres y tamaños** (las de `-800` y `-1200` son las versiones pequeñas). Las de la portada también se pueden cambiar después desde el panel |
+| `client/public/img/sin-imagen.svg` | El dibujo de "sin imagen", con el fondo y el trazo de Nave 5 | Cambiar sus dos colores (`fill` del fondo y `stroke`) por el `--color-bg` y el `--color-accent` del cliente |
+| `client/public/audio/` | La música de fondo (8 pistas de Pixabay) | Cambiar las pistas y su lista en `client/src/utils/musica.js`, o dejarlas (son de uso libre) |
+| `client/vercel.json` | `https://nave5-api.vercel.app` (en el `rewrite` de `/sitemap.xml` y en `connect-src`) y `https://gdrmpxcpucmaxvtpljge.supabase.co` (en `img-src`) | Cambiar las dos URL por la de la API del cliente en Vercel y la de su proyecto de Supabase. Son las únicas líneas que hay que tocar: el resto (caché y cabeceras de seguridad) vale igual |
+
+Y en `client/index.html`, las dos líneas de `preconnect` y `dns-prefetch` a Supabase: la URL del proyecto del
+cliente. Para comprobar que no queda nada de Nave 5 fuera de la marca:
+
+```bash
+git grep -n -i -E "nave ?5|nave5|gdrmpxcpucmaxvtpljge" -- client/public client/vercel.json client/index.html
+```
+
+Tiene que salir vacío (las fotos `.webp` y `og-image.png` no salen en `git grep`: compruébalas a ojo).
+
+## Otros textos y datos propios de Nave 5 (a mano)
 
 | Qué | Dónde |
 |---|---|
-| Logotipo de la web (SVG con «NAVE 5» en letras de plantilla) | `client/src/components/Logo.jsx` |
-| Favicon, imagen para redes, manifiesto y robots | `client/public/favicon.svg`, `og-image.png`, `manifest.json`, `robots.txt` |
-| Fotos del hero y de la portada | `client/public/img/` (las de la portada también se cambian desde el panel) |
-| Música de fondo | `client/public/audio/` y `client/src/utils/musica.js` |
-| Logo de los correos | `server/scripts/logo-email.js` lo genera; su URL va en `BRAND.email.logo` |
+| Logo de los correos | `server/scripts/logo-email.js` lo genera a partir de `client/src/theme/LogoDibujo.jsx`; su URL va en `BRAND.email.logo` del servidor. Sin logo (vacío), la cabecera de los correos lleva el nombre en texto |
 | Textos propios de Nave 5: Sobre nosotros, Sostenibilidad, Aviso legal, Privacidad, Condiciones | `client/src/pages/About.jsx`, `Sustainability.jsx`, `Legal.jsx`, `PrivacyPolicy.jsx`, `Terms.jsx`. Ya usan el nombre, la dirección y el NIF de `brand.config.js`, pero la prosa es de Nave 5 y los textos legales los tiene que dar el cliente |
 | Producciones en las que han salido las piezas | `client/src/utils/producciones.js` |
-| Dominios de la API y de Supabase | `client/vercel.json` y el `preconnect` de `client/index.html` |
 | Reglas del alquiler (horarios, días mínimos, portes) | `server/src/utils/reglasAlquiler.js` |
-| Color del icono de "sin imagen" y del manifiesto | `client/public/img/sin-imagen.svg` y `client/public/manifest.json` (el color de la barra del navegador de `index.html` ya sale de `--color-primary` al compilar) |
 
-## Los tests de ejemplo
+## Los tests con otra marca
 
-Muchos tests comprueban textos de Nave 5 tal cual («Nave 5 Barcelona», `NAV-SIL-001`, la web, los
-correos...). Con la tienda de ejemplo de arriba, lint y build salen limpios, pero fallan **66 tests de la
-web** (en 23 archivos: datos estructurados, metas, cookies, cabecera, pie, etiquetas QR, mensajes del
-panel...) y **45 de la API** (en 13 archivos: correos, sitemap, CSV, referencias). La web funciona: lo que cambia es el
-texto esperado. Para un cliente nuevo hay que actualizar esos textos (ninguno es de los `Admin.*.test.jsx`
-congelados). Los tests del starter (`client/src/theme/`, `server/src/config/`, `scripts/`) sí se adaptan a
-la marca, salvo dos de `client/src/theme/brand.config.test.js` que comprueban los datos de Nave 5, y vigilan que nadie
-vuelva a escribir el nombre o la web a mano en el código.
+Los tests leen el valor esperado de `brand.config.js` (el nombre, la web, el dominio, el prefijo de las
+referencias, el id interno, el logo...), no de Nave 5. Con la tienda de ejemplo de arriba generada con
+`init:client`, **pasan todos**: lint, tests y build de la web y lint y tests de la API, sin tocar ningún test.
+Si después cambias a mano un campo de la marca, siguen pasando.
+
+Solo hay tests que se saltan o que conviene cambiar con el cliente:
+
+- `client/src/theme/brand.config.test.js` tiene uno que solo corre con Nave 5 (fija su nombre, su prefijo y
+  su correo): con otra marca sale como omitido (`skipped`).
+- `client/src/theme/LogoDibujo.test.jsx` comprueba las formas del dibujo de Nave 5: si pones otro dibujo en
+  `LogoDibujo.jsx`, cambia también su test.
+- `client/src/theme/marca.test.js` y su pareja de la API vigilan que nadie vuelva a escribir el nombre, la
+  web, la dirección o el NIF a mano en el código: si fallan, el dato tiene que salir de `brand.config.js`.
+

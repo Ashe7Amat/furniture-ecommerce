@@ -1,5 +1,5 @@
 // Genera el logo de la cabecera de los correos (PNG, fondo transparente, en blanco roto) a partir del
-// SVG de client/src/components/Logo.jsx, y opcionalmente lo sube a Supabase Storage.
+// SVG de client/src/theme/LogoDibujo.jsx, y opcionalmente lo sube a Supabase Storage.
 //
 // USO (desde server/):
 //   node scripts/logo-email.js <carpeta-de-salida>           -> solo genera los dos PNG
@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const sharp = require('sharp');
 
-const LOGO_JSX = path.resolve(__dirname, '../../client/src/components/Logo.jsx');
+const LOGO_JSX = path.resolve(__dirname, '../../client/src/theme/LogoDibujo.jsx');
 const COLOR = '#F5F2EC'; // blanco roto, el claro de la web (client/src/styles/index.css)
 const ANCHOS = { 'logo-nave5.png': 240, 'logo-nave5@2x.png': 480 };
 const BUCKET = 'imagenes';
