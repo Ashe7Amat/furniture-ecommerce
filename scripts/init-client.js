@@ -3,6 +3,7 @@
 //   - client/src/theme/brand.config.js   (la web)
 //   - server/src/config/brand.config.js  (la API: correos, sitemap, referencias)
 //   - client/src/theme/tokens.css        (la paleta, en claro y en los dos modos oscuros)
+// y, con --desde (un paquete de ForgeStudio), también client/index.html (el enlace de Google Fonts).
 // Solo cambia los valores: los comentarios, el orden y los campos que no pregunta se quedan como están.
 // Lo que no sabe (dirección, NIF, razón social, Instagram, logo de los correos) lo deja como "PENDIENTE", para que
 // no se cuele ningún dato de la tienda anterior. Ver docs/NUEVO_CLIENTE.md.
@@ -759,12 +760,133 @@ const correoDesdeTokens = (correo, css) => {
   return final;
 };
 
+// ─── Fuentes de Google en client/index.html (--desde) ────────────────────────────────────────────
+// Con --desde, index.html carga de Google Fonts las dos familias del paquete (fuentes.display y
+// fuentes.body del JSON; si una viene vacía, la que se queda en tokens.css): se cambia el enlace de la
+// hoja (y el de <noscript>), y se quita la precarga de las familias que ya no se usan. Las familias
+// nuevas no llevan precarga: su archivo .woff2 no se sabe sin preguntar a Google.
+
+// Los pesos que se piden de cada familia: las del starter (los mismos que ya pedía index.html, para que
+// con Fraunces e Inter no cambie nada) y las de los presets de ForgeStudio. Una familia que no está aquí
+// se pide sin pesos (solo la normal, 400), que Google sirve siempre que la familia exista.
+const EJES_GOOGLE_FONTS = {
+  Fraunces: 'opsz,wght@9..144,400;9..144,600',
+  Inter: 'wght@400;500;600;700',
+  'Playfair Display': 'wght@400;600;700',
+  'Plus Jakarta Sans': 'wght@400;500;600;700',
+  'Space Grotesk': 'wght@400;500;600;700',
+  'Space Mono': 'wght@400;700'
+};
+// Las que ya tiene el sistema o son genéricas de CSS: no se piden a Google
+const FUENTES_DEL_SISTEMA = new Set([
+  ...GENERICAS,
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+  '-apple-system',
+  'blinkmacsystemfont',
+  'segoe ui',
+  'helvetica',
+  'helvetica neue',
+  'arial',
+  'verdana',
+  'tahoma',
+  'trebuchet ms',
+  'georgia',
+  'times',
+  'times new roman',
+  'palatino linotype',
+  'iowan old style',
+  'courier',
+  'courier new',
+  'menlo',
+  'consolas',
+  'sfmono-regular',
+  'liberation mono'
+]);
+
+const primeraFamilia = (pila = '') =>
+  pila
+    .split(',')[0]
+    .trim()
+    .replace(/^['"]|['"]$/g, '');
+// "Playfair Display" → "playfairdisplay", la carpeta de la familia en fonts.gstatic.com
+const carpetaGoogle = (familia) => familia.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+// La URL de la hoja de Google Fonts para esas familias (null si ninguna es de Google)
+const enlaceGoogleFonts = (familias) => {
+  const deGoogle = [];
+  for (const familia of familias) {
+    if (!familia || FUENTES_DEL_SISTEMA.has(familia.toLowerCase())) continue;
+    if (!deGoogle.some((f) => f.toLowerCase() === familia.toLowerCase())) deGoogle.push(familia);
+  }
+  if (!deGoogle.length) return { url: null, familias: [] };
+  const parametros = deGoogle.map((familia) => {
+    const ejes = EJES_GOOGLE_FONTS[familia];
+    return `family=${familia.replace(/ /g, '+')}${ejes ? `:${ejes}` : ''}`;
+  });
+  return {
+    url: `https://fonts.googleapis.com/css2?${parametros.join('&')}&display=swap`,
+    familias: deGoogle
+  };
+};
+
+// Cambia en index.html la hoja de Google Fonts por la de `familias` y quita las precargas que sobran
+const generarIndexHtml = (html, familias, avisos = []) => {
+  const { url, familias: deGoogle } = enlaceGoogleFonts(familias);
+  const carpetas = new Set(deGoogle.map(carpetaGoogle));
+  const hoja = /href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]*"/;
+  const fin = html.includes('\r\n') ? '\r\n' : '\n';
+  const lineas = html.split(fin);
+  let hayHoja = false;
+  const resultado = [];
+  for (const linea of lineas) {
+    if (hoja.test(linea)) {
+      hayHoja = true;
+      if (url) resultado.push(linea.replace(hoja, `href="${url}"`));
+      continue;
+    }
+    const precarga = /rel="preload"/.test(linea)
+      ? linea.match(/href="https:\/\/fonts\.gstatic\.com\/s\/([a-z0-9]+)\//)
+      : null;
+    if (precarga && !carpetas.has(precarga[1])) {
+      avisos.push(`index.html: se quita la precarga de ${precarga[1]} (ya no se usa)`);
+      continue;
+    }
+    resultado.push(linea);
+  }
+  if (url && !hayHoja) {
+    const cierre = resultado.findIndex((linea) => linea.includes('</head>'));
+    if (cierre < 0) throw new Error('index.html: no encuentro </head>');
+    const sangria = `${resultado[cierre].match(/^\s*/)[0]}  `;
+    resultado.splice(
+      cierre,
+      0,
+      `${sangria}<link rel="stylesheet" href="${url}" media="print" onload="this.media='all'" />`,
+      `${sangria}<noscript><link rel="stylesheet" href="${url}" /></noscript>`
+    );
+  }
+  for (const familia of deGoogle) {
+    if (!EJES_GOOGLE_FONTS[familia])
+      avisos.push(
+        `${familia}: se pide a Google Fonts solo en 400 (no está en EJES_GOOGLE_FONTS de ` +
+          'init-client.js); comprueba que existe en fonts.google.com y añade sus pesos si hacen falta'
+      );
+  }
+  if (!url)
+    avisos.push('Las fuentes del paquete son del sistema: index.html deja de cargar Google Fonts');
+  return resultado.join(fin);
+};
+
 // ─── Programa ────────────────────────────────────────────────────────────────────────────────────
 
 const ARCHIVOS = {
   marcaCliente: 'client/src/theme/brand.config.js',
   marcaServidor: 'server/src/config/brand.config.js',
-  tokens: 'client/src/theme/tokens.css'
+  tokens: 'client/src/theme/tokens.css',
+  // Solo con --desde: el enlace de Google Fonts
+  indexHtml: 'client/index.html'
 };
 
 // `opciones.capa`: las variables de un paquete de ForgeStudio (--desde), que se escriben encima de la
@@ -787,16 +909,22 @@ const generar = (raiz, respuestas, opciones = {}) => {
       });
     correo = correoDesdeTokens(correo, tokens);
   }
-  return {
-    datos: d,
-    paleta,
-    fusion,
-    archivos: {
-      [ARCHIVOS.marcaCliente]: generarMarcaCliente(leer(ARCHIVOS.marcaCliente), d),
-      [ARCHIVOS.marcaServidor]: generarMarcaServidor(leer(ARCHIVOS.marcaServidor), d, correo),
-      [ARCHIVOS.tokens]: tokens
-    }
+  const archivos = {
+    [ARCHIVOS.marcaCliente]: generarMarcaCliente(leer(ARCHIVOS.marcaCliente), d),
+    [ARCHIVOS.marcaServidor]: generarMarcaServidor(leer(ARCHIVOS.marcaServidor), d, correo),
+    [ARCHIVOS.tokens]: tokens
   };
+  const avisos = [];
+  if (opciones.capa) {
+    // Las familias del JSON; si una viene vacía, la que se ha quedado en tokens.css
+    const claro = variablesDelBloque(tokens, 'claro');
+    const familias = [
+      d.fuentes?.display || primeraFamilia(claro['--font-display']),
+      d.fuentes?.body || primeraFamilia(claro['--font-body'])
+    ];
+    archivos[ARCHIVOS.indexHtml] = generarIndexHtml(leer(ARCHIVOS.indexHtml), familias, avisos);
+  }
+  return { datos: d, paleta, fusion, archivos, avisos };
 };
 
 const main = async () => {
@@ -861,7 +989,7 @@ const inicializar = async (argsConsola, raiz, rl) => {
     console.log('Nuevo cliente: marca y paleta (Enter acepta lo que va entre corchetes)\n');
   }
   const respuestas = { ...(await preguntar(args, rl)), ...(paquete?.extra || {}) };
-  const { datos, archivos, fusion } = generar(
+  const { datos, archivos, fusion, avisos } = generar(
     raiz,
     respuestas,
     paquete ? { capa: paquete.capa } : {}
@@ -900,6 +1028,7 @@ const inicializar = async (argsConsola, raiz, rl) => {
         );
     }
   }
+  for (const aviso of avisos) console.log(`  ${aviso}`);
   const total = Object.keys(archivos).length;
   if (!(await confirmar(args, rl, `\n¿Escribo los ${total} archivos en ${raiz}?`))) {
     console.log('No se ha escrito nada.');
@@ -948,6 +1077,8 @@ module.exports = {
   ponerCampo,
   leerPaqueteForge,
   fusionarCapa,
+  generarIndexHtml,
+  enlaceGoogleFonts,
   VARIABLES_FORGE,
   ARCHIVOS
 };

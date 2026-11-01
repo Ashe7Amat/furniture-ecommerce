@@ -14,6 +14,8 @@ const {
   ponerCampo,
   leerPaqueteForge,
   fusionarCapa,
+  generarIndexHtml,
+  enlaceGoogleFonts,
   VARIABLES_FORGE,
   ARCHIVOS
 } = require('./init-client');
@@ -507,4 +509,109 @@ test('--desde: sin los dos guiones, npm deja la ruta en npm_config_desde y tambi
   });
   assert.match(salida, /sin los dos guiones/);
   assert.match(leerEn(dir, ARCHIVOS.marcaCliente), /prefijoSku: 'CO'/);
+});
+
+// ─── --desde: fuentes de Google en client/index.html ─────────────────────────────────────────────
+
+const INDEX = fs.readFileSync(path.join(RAIZ, ARCHIVOS.indexHtml), 'utf8');
+const hojasDeFuentes = (html) =>
+  [...html.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]*)"/g)].map((m) => m[1]);
+const precargas = (html) =>
+  [...html.matchAll(/rel="preload"[^>]*fonts\.gstatic\.com\/s\/([a-z0-9]+)\//g)].map((m) => m[1]);
+const INTER = 'family=Inter:wght@400;500;600;700';
+
+test('index.html: con las fuentes del starter (Fraunces e Inter) no cambia nada', () => {
+  assert.equal(generarIndexHtml(INDEX, ['Fraunces', 'Inter']), INDEX);
+});
+
+test('index.html: cambia la hoja y su <noscript> y quita la precarga de la familia que se va', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Playfair Display', 'Inter'], avisos);
+  const url = `https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&${INTER}&display=swap`;
+  assert.deepEqual(hojasDeFuentes(html), [url, url], 'la hoja y la de <noscript>');
+  assert.match(html, /media="print" onload="this\.media='all'"/, 'se sigue cargando sin bloquear');
+  assert.deepEqual(precargas(html), ['inter'], 'Inter sigue, Fraunces se va');
+  assert.match(avisos.join('\n'), /fraunces/);
+  // Lo demás, igual: preconnect, marcadores de la marca y el script de la CSP
+  assert.match(html, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin \/>/);
+  assert.deepEqual(html.match(/%BRAND_[A-Z_]+%/g), INDEX.match(/%BRAND_[A-Z_]+%/g));
+  assert.deepEqual(
+    html.match(/<script>[\s\S]*?<\/script>/g),
+    INDEX.match(/<script>[\s\S]*?<\/script>/g)
+  );
+  assert.equal(html.split('\n').length, INDEX.split('\n').length - 1, 'solo sobra la precarga');
+});
+
+test('index.html: una familia fuera de la tabla se pide sin pesos, y las repetidas una vez', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Bebas Neue', 'Bebas Neue'], avisos);
+  assert.deepEqual(hojasDeFuentes(html), [
+    'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
+    'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap'
+  ]);
+  assert.deepEqual(precargas(html), []);
+  assert.match(avisos.join('\n'), /Bebas Neue: se pide a Google Fonts solo en 400/);
+  assert.equal(
+    enlaceGoogleFonts(['Space Mono', 'Space Grotesk']).url,
+    'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&' +
+      'family=Space+Grotesk:wght@400;500;600;700&display=swap'
+  );
+});
+
+test('index.html: con fuentes del sistema deja de cargar Google Fonts', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Georgia', 'system-ui'], avisos);
+  assert.deepEqual(hojasDeFuentes(html), []);
+  assert.deepEqual(precargas(html), []);
+  assert.doesNotMatch(html, /<noscript>/);
+  assert.match(avisos.join('\n'), /son del sistema/);
+});
+
+test('index.html: si no tenía enlace de Google Fonts, lo añade antes de </head>', () => {
+  const sinFuentes = INDEX.split('\n')
+    .filter((linea) => !/fonts\.googleapis\.com\/css2|fonts\.gstatic\.com\/s\//.test(linea))
+    .join('\n');
+  const html = generarIndexHtml(sinFuentes, ['Playfair Display', 'Inter']);
+  const lineas = html.split('\n');
+  const cierre = lineas.findIndex((linea) => linea.includes('</head>'));
+  assert.match(
+    lineas[cierre - 2],
+    /^ {4}<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Playfair\+Display/
+  );
+  assert.match(lineas[cierre - 1], /^ {4}<noscript><link rel="stylesheet"/);
+});
+
+test('--desde: escribe client/index.html con las fuentes del paquete; los flags solos no lo tocan', () => {
+  const dir = copiaDelRepo();
+  ejecutar([`--dir=${dir}`, ...Object.entries(CLIENTE).map(([c, v]) => `--${c}=${v}`), '--si']);
+  assert.equal(leerEn(dir, ARCHIVOS.indexHtml), INDEX, 'sin --desde, index.html no se toca');
+
+  const salida = ejecutar([
+    `--desde=${path.join(PAQUETE, 'forge-brand.json')}`,
+    `--dir=${dir}`,
+    '--si'
+  ]);
+  assert.match(salida, /escrito client\/index\.html/);
+  const html = leerEn(dir, ARCHIVOS.indexHtml);
+  assert.deepEqual(
+    new Set(hojasDeFuentes(html)),
+    new Set([
+      `https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&${INTER}&display=swap`
+    ])
+  );
+
+  // Sin fuente de títulos en el paquete, se queda la de tokens.css (la del starter, sin forge-tokens.css)
+  const dir2 = copiaDelRepo();
+  const json = paqueteCon(
+    { fuentes: { display: '', body: 'Space Grotesk' } },
+    { conTokens: false }
+  );
+  ejecutar([`--desde=${json}`, `--dir=${dir2}`, '--si']);
+  assert.deepEqual(
+    new Set(hojasDeFuentes(leerEn(dir2, ARCHIVOS.indexHtml))),
+    new Set([
+      'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&' +
+        'family=Space+Grotesk:wght@400;500;600;700&display=swap'
+    ])
+  );
 });
