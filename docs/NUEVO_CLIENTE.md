@@ -71,6 +71,24 @@ node scripts/init-client.js --nombre="Studio Vintage Madrid" --nombreCorto="Stud
 Capturas de esa tienda de ejemplo, generada así sobre una copia del repositorio, en
 `/mnt/project-files/starter-kit/` del proyecto (30 oct 2026).
 
+**Desde ForgeStudio** (el editor visual): si la marca se ha diseñado allí, su exportación "Starter Kit
+(Marca)" da un ZIP con `forge-brand.json` y `forge-tokens.css`. Descomprímelo en la raíz del repositorio
+y, desde ahí:
+
+```bash
+npm run init:client -- --desde=forge-brand.json
+```
+
+Ojo con los dos guiones: sin ellos npm se queda el argumento (el script lo recupera y avisa). Los datos
+salen del JSON y no se preguntan, salvo el correo si viene vacío (o `--email=...`). Además de las dos
+`brand.config.js` y `tokens.css`, cambia el enlace de Google Fonts de `client/index.html` por las
+fuentes del paquete. En `tokens.css`, la paleta se genera como con los flags y encima se escriben las
+21 variables de `forge-tokens.css` (si está junto al JSON): colores en claro y en oscuro, fuentes,
+radios y sombra; los alias (`--bg-color`, `--card-bg`...), los estados, las insignias y el espaciado
+no se tocan. Los flags que pases a la vez ganan al JSON, salvo `--primario` y `--acento` (los colores
+salen del paquete). Lo que el paquete no trae (dirección, razón social, NIF si no lo lleva) se queda
+como `PENDIENTE`.
+
 **A mano**: dos archivos con los mismos datos, porque la web y la API se despliegan por separado:
 
 - **`client/src/theme/brand.config.js`**: nombre (`nombre`, `nombreCorto`), `eslogan`, `tipoNegocio`,

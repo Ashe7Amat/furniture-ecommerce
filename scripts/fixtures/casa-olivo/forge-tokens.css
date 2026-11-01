@@ -1,0 +1,97 @@
+/* Generado por ForgeStudio — Casa Olivo — 2026-11-01T11:09:09.620Z */
+/* Capa de marca para el Starter Kit: cárgala después de client/src/theme/tokens.css. */
+:root {
+  --bg-color: #f5f1e8;
+  --color-bg: #f5f1e8;
+  --card-bg: #ffffff;
+  --color-surface: #ffffff;
+  --surface-alt: #ded9cf;
+  --color-surface-alt: #ded9cf;
+  --primary-color: #2d3a2a;
+  --color-primary: #2d3a2a;
+  --color-primary-rgb: 45, 58, 42;
+  --secondary-color: #4a4742;
+  --color-secondary: #4a4742;
+  --accent-color: #7a8b5a;
+  --color-accent: #7a8b5a;
+  --color-accent-rgb: 122, 139, 90;
+  --color-accent-hover: #6b7a4f;
+  --color-accent-text: #64714a;
+  --border-color: #1a1a1a;
+  --color-border: #1a1a1a;
+  --text-color: #1a1a1a;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b665f;
+  --color-on-dark: #ffffff;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-full: 0px;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --shadow-md: none;
+}
+
+:root[data-theme="dark"] {
+  --bg-color: #141312;
+  --color-bg: #141312;
+  --card-bg: #1c1b19;
+  --color-surface: #1c1b19;
+  --surface-alt: #272522;
+  --color-surface-alt: #272522;
+  --primary-color: #eae6df;
+  --color-primary: #eae6df;
+  --color-primary-rgb: 234, 230, 223;
+  --secondary-color: #b8b2a7;
+  --color-secondary: #b8b2a7;
+  --accent-color: #e63946;
+  --color-accent: #e63946;
+  --color-accent-rgb: 230, 57, 70;
+  --color-accent-hover: #ca323e;
+  --color-accent-text: #e7434f;
+  --border-color: #383531;
+  --color-border: #383531;
+  --text-color: #eae6df;
+  --color-text: #eae6df;
+  --color-text-muted: #8a8479;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-full: 0px;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --shadow-md: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-color: #141312;
+    --color-bg: #141312;
+    --card-bg: #1c1b19;
+    --color-surface: #1c1b19;
+    --surface-alt: #272522;
+    --color-surface-alt: #272522;
+    --primary-color: #eae6df;
+    --color-primary: #eae6df;
+    --color-primary-rgb: 234, 230, 223;
+    --secondary-color: #b8b2a7;
+    --color-secondary: #b8b2a7;
+    --accent-color: #e63946;
+    --color-accent: #e63946;
+    --color-accent-rgb: 230, 57, 70;
+    --color-accent-hover: #ca323e;
+    --color-accent-text: #e7434f;
+    --border-color: #383531;
+    --color-border: #383531;
+    --text-color: #eae6df;
+    --color-text: #eae6df;
+    --color-text-muted: #8a8479;
+    --radius-sm: 0px;
+    --radius-md: 0px;
+    --radius-lg: 0px;
+    --radius-full: 0px;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --shadow-md: none;
+  }
+}

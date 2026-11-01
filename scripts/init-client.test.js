@@ -12,6 +12,11 @@ const {
   contraste,
   completar,
   ponerCampo,
+  leerPaqueteForge,
+  fusionarCapa,
+  generarIndexHtml,
+  enlaceGoogleFonts,
+  VARIABLES_FORGE,
   ARCHIVOS
 } = require('./init-client');
 
@@ -203,4 +208,410 @@ test('rechaza datos mal escritos', () => {
       malo
     );
   }
+});
+
+// ─── --desde: el paquete de marca de ForgeStudio ─────────────────────────────────────────────────
+// fixtures/casa-olivo es un paquete exportado de verdad con ForgeStudio (solo se ha cambiado el nombre
+// largo): forge-brand.json y forge-tokens.css.
+
+const PAQUETE = path.join(__dirname, 'fixtures', 'casa-olivo');
+const JSON_FORGE = JSON.parse(fs.readFileSync(path.join(PAQUETE, 'forge-brand.json'), 'utf8'));
+const SCRIPT = path.join(__dirname, 'init-client.js');
+const TONOS_NAVE5 = [
+  '#221B16',
+  '#F5F2EC',
+  '#3E322A',
+  '#B38A70',
+  '#1A1510',
+  '179, 138, 112',
+  '62, 50, 42'
+];
+
+const ejecutar = (argumentos, opciones = {}) =>
+  execFileSync(process.execPath, [SCRIPT, ...argumentos], {
+    stdio: 'pipe',
+    ...opciones
+  }).toString();
+
+// Un paquete en una carpeta temporal: el JSON con `cambios` y, si se pide, el forge-tokens.css real
+const paqueteCon = (cambios = {}, { conTokens = true } = {}) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-'));
+  const json = { ...JSON_FORGE, ...cambios };
+  fs.writeFileSync(path.join(dir, 'forge-brand.json'), JSON.stringify(json, null, 2));
+  if (conTokens)
+    fs.copyFileSync(path.join(PAQUETE, 'forge-tokens.css'), path.join(dir, 'forge-tokens.css'));
+  return path.join(dir, 'forge-brand.json');
+};
+const leerEn = (dir, ruta) => fs.readFileSync(path.join(dir, ruta), 'utf8');
+
+test('--desde: escribe los datos del JSON en las dos marcas sin preguntar nada', () => {
+  const dir = copiaDelRepo();
+  ejecutar([`--desde=${path.join(PAQUETE, 'forge-brand.json')}`, `--dir=${dir}`, '--si']);
+
+  const web = cargarMarcaCliente(leerEn(dir, ARCHIVOS.marcaCliente));
+  assert.equal(web.nombre, 'Casa Olivo Valencia');
+  assert.equal(web.nombreCorto, 'Casa Olivo');
+  assert.equal(web.eslogan, 'Muebles de madera para vivir despacio');
+  assert.equal(web.prefijoSku, 'CO');
+  assert.equal(web.contacto.email, 'hola@casaolivo.com');
+  assert.equal(web.contacto.ciudad, 'Valencia');
+  assert.equal(web.web, 'https://casaolivo.com');
+  assert.equal(web.dominio, 'casaolivo.com');
+  assert.equal(web.redes.instagramUsuario, 'casaolivo');
+  assert.equal(web.redes.instagram, 'https://www.instagram.com/casaolivo');
+  assert.match(web.contacto.cif, /PENDIENTE/, 'el paquete no trae NIF');
+  assert.equal(web.logo, 'texto');
+
+  const api = cargarMarcaServidor(leerEn(dir, ARCHIVOS.marcaServidor));
+  assert.equal(api.nombre, 'Casa Olivo Valencia');
+  assert.equal(api.nombreLogo, 'CASA OLIVO');
+  assert.equal(api.prefijoSku, 'CO');
+  assert.equal(api.email.avisosPorDefecto, 'hola@casaolivo.com');
+  // Los correos llevan los colores finales de la web, los del paquete
+  assert.equal(api.email.colores.claro, '#F5F1E8');
+  assert.equal(api.email.colores.texto, '#1A1A1A');
+  assert.equal(api.email.colores.acento, '#7A8B5A');
+  assert.equal(api.email.colores.superficie, '#FFFFFF');
+
+  const anterior = /Nave ?5|nave5|Barcelona|Plom|08038|amatashenafi|gdrmpxcpucmaxvtpljge/i;
+  for (const ruta of [ARCHIVOS.marcaCliente, ARCHIVOS.marcaServidor]) {
+    const sinComentarios = leerEn(dir, ruta)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    assert.doesNotMatch(sinComentarios, anterior, ruta);
+  }
+});
+
+test('--desde: fusiona forge-tokens.css en tokens.css sin tocar lo que no es de la marca', () => {
+  const dir = copiaDelRepo();
+  const original = leerEn(dir, ARCHIVOS.tokens);
+  ejecutar([`--desde=${path.join(PAQUETE, 'forge-brand.json')}`, `--dir=${dir}`, '--si']);
+  const css = leerEn(dir, ARCHIVOS.tokens);
+  const claro = variables(bloque(css, ':root {'));
+  const antes = variables(bloque(original, ':root {'));
+
+  // Las variables del paquete, tal cual (los hex en mayúsculas, como el resto del archivo)
+  assert.equal(claro['--color-bg'], '#F5F1E8');
+  assert.equal(claro['--color-primary'], '#2D3A2A');
+  assert.equal(claro['--color-accent'], '#7A8B5A');
+  assert.equal(claro['--color-accent-text'], '#64714A');
+  assert.equal(claro['--color-text'], '#1A1A1A');
+  assert.equal(claro['--color-border'], '#1A1A1A');
+  assert.equal(claro['--color-on-dark'], '#FFFFFF');
+  assert.equal(claro['--color-primary-rgb'], '45, 58, 42');
+  assert.equal(
+    claro['--color-accent-text-rgb'],
+    '100, 113, 74',
+    'sigue al acento como texto del paquete'
+  );
+  assert.equal(claro['--radius-md'], '0px');
+  assert.equal(claro['--shadow-md'], 'none');
+  assert.equal(claro['--font-display'], "'Playfair Display', Georgia, serif");
+  assert.equal(claro['--font-body'], "'Inter', system-ui, sans-serif");
+
+  // Los alias siguen apuntando a las variables nuevas (no se escriben en hex)
+  for (const [alias, destino] of [
+    ['--bg-color', 'var(--color-bg)'],
+    ['--card-bg', 'var(--color-surface)'],
+    ['--surface-alt', 'var(--color-surface-alt)'],
+    ['--primary-color', 'var(--color-primary)'],
+    ['--text-color', 'var(--color-text)']
+  ])
+    assert.equal(claro[alias], destino, alias);
+
+  // Lo que no es de la marca, intacto
+  for (const fija of [
+    '--color-success',
+    '--color-danger',
+    '--color-badge-blue',
+    '--color-gray-500',
+    '--space-md',
+    '--radius-pill',
+    '--shadow-sm',
+    '--shadow-lg',
+    '--font-mono'
+  ])
+    assert.equal(claro[fija], antes[fija], fija);
+
+  // Las variables de la marca que el paquete no trae salen del primario y el acento: nada de Nave 5
+  const todos = [':root {', ':root:not([data-theme="light"])', ':root[data-theme="dark"]'].flatMap(
+    (selector) => Object.values(variables(bloque(css, selector)))
+  );
+  for (const tono of TONOS_NAVE5)
+    assert.ok(!todos.some((v) => v.toUpperCase().includes(tono)), `queda ${tono} en tokens.css`);
+  assert.equal(claro['--color-hero-light'], '#F5F1E8', 'el hero usa el fondo del paquete');
+
+  // Los dos modos oscuros: la paleta oscura del paquete, solo en las variables que ya tenían
+  const oscuro = variables(bloque(css, ':root[data-theme="dark"]'));
+  assert.equal(oscuro['--color-bg'], '#141312');
+  assert.equal(oscuro['--color-accent'], '#E63946');
+  assert.equal(oscuro['--color-success'], '#93B48E', 'los estados en oscuro no se tocan');
+  assert.equal(oscuro['--radius-md'], undefined, 'no se añaden variables a los bloques oscuros');
+  assert.equal(oscuro['--color-primary-rgb'], undefined);
+  assert.deepEqual(oscuro, variables(bloque(css, ':root:not([data-theme="light"])')));
+  // Las variables del paquete en claro son todas las de VARIABLES_FORGE
+  for (const nombre of VARIABLES_FORGE) assert.ok(claro[nombre], nombre);
+});
+
+test('--desde: sin forge-tokens.css usa los colores y las fuentes del JSON', () => {
+  const dir = copiaDelRepo();
+  const original = variables(bloque(leerEn(dir, ARCHIVOS.tokens), ':root {'));
+  const salida = ejecutar([
+    `--desde=${paqueteCon({}, { conTokens: false })}`,
+    `--dir=${dir}`,
+    '--si'
+  ]);
+  assert.match(salida, /No hay forge-tokens\.css/);
+  const claro = variables(bloque(leerEn(dir, ARCHIVOS.tokens), ':root {'));
+  assert.equal(claro['--color-primary'], '#2D3A2A');
+  assert.equal(claro['--color-accent'], '#7A8B5A');
+  assert.equal(claro['--color-bg'], '#F5F1E8');
+  assert.equal(claro['--color-text'], '#1A1A1A');
+  assert.ok(contraste(claro['--color-secondary'], claro['--color-bg']) >= 4.5, 'secundario AA');
+  assert.ok(contraste(claro['--color-accent-text'], claro['--color-bg']) >= 4.5, 'acento AA');
+  // La familia del JSON delante, con la pila de reserva que ya tenía el starter
+  assert.equal(
+    claro['--font-display'],
+    original['--font-display'].replace("'Fraunces'", "'Playfair Display'")
+  );
+  assert.equal(claro['--font-body'], original['--font-body'], 'Inter ya era la del starter');
+  assert.equal(claro['--radius-md'], original['--radius-md'], 'sin paquete CSS no hay radios');
+});
+
+test('--desde: los flags ganan al JSON y el NIF y la descripción llegan si el paquete los trae', () => {
+  const dir = copiaDelRepo();
+  const json = paqueteCon({ nif: 'b12345678', descripcion: 'Muebles de olivo hechos a mano.' });
+  ejecutar([
+    `--desde=${json}`,
+    `--dir=${dir}`,
+    '--email=pedidos@casaolivo.es',
+    '--ciudad=Xàtiva',
+    '--si'
+  ]);
+  const web = cargarMarcaCliente(leerEn(dir, ARCHIVOS.marcaCliente));
+  assert.equal(web.contacto.email, 'pedidos@casaolivo.es');
+  assert.equal(web.contacto.ciudad, 'Xàtiva');
+  assert.equal(web.contacto.cif, 'B12345678');
+  assert.equal(web.descripcion, 'Muebles de olivo hechos a mano.');
+  assert.equal(web.nombre, 'Casa Olivo Valencia', 'lo que no va en flags sigue saliendo del JSON');
+
+  // Los colores salen del paquete: --primario y --acento no se mezclan con --desde
+  const antes = leerEn(dir, ARCHIVOS.tokens);
+  assert.throws(
+    () => ejecutar([`--desde=${json}`, `--dir=${dir}`, '--primario=#123456', '--si']),
+    /no se combinan con --desde/
+  );
+  assert.equal(leerEn(dir, ARCHIVOS.tokens), antes);
+});
+
+test('--desde: sin correo en el paquete pide --email, y sin --si ni terminal no escribe', () => {
+  const dir = copiaDelRepo();
+  const antes = leerEn(dir, ARCHIVOS.tokens);
+  const sinCorreo = paqueteCon({ contacto: { ...JSON_FORGE.contacto, email: '' } });
+  assert.throws(
+    () => ejecutar([`--desde=${sinCorreo}`, `--dir=${dir}`, '--si']),
+    (error) => /no trae el correo/.test(error.stderr) && /--email=/.test(error.stderr)
+  );
+  assert.throws(() =>
+    ejecutar([`--desde=${path.join(PAQUETE, 'forge-brand.json')}`, `--dir=${dir}`])
+  );
+  assert.equal(leerEn(dir, ARCHIVOS.tokens), antes);
+  ejecutar([`--desde=${sinCorreo}`, `--dir=${dir}`, '--email=hola@casaolivo.com', '--si']);
+  assert.notEqual(leerEn(dir, ARCHIVOS.tokens), antes);
+});
+
+test('--desde: rechaza un paquete mal formado y dice qué campos fallan', () => {
+  const noJson = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'forge-')), 'forge-brand.json');
+  fs.writeFileSync(noJson, '{ esto no es JSON');
+  assert.throws(() => leerPaqueteForge(noJson), /no es un JSON válido/);
+  assert.throws(() => leerPaqueteForge('/no/existe/forge-brand.json'), /no encuentro/);
+
+  const { nombre: _nombre, ...sinNombre } = JSON_FORGE;
+  const roto = paqueteCon({
+    ...sinNombre,
+    version: '2.0',
+    nombre: undefined,
+    prefijoSku: 'C0',
+    contacto: { email: 'hola', web: 'ftp://x', instagram: 'no vale' },
+    colores: { primario: 'verde', acento: '#12345' },
+    fuentes: { display: '<script>', body: 'Inter' }
+  });
+  assert.throws(
+    () => leerPaqueteForge(roto),
+    (error) =>
+      [
+        'version: "2.0"',
+        'nombre: falta',
+        'prefijoSku:',
+        'contacto.email:',
+        'contacto.web:',
+        'contacto.instagram:',
+        'colores.primario:',
+        'colores.acento:',
+        'fuentes.display:'
+      ].every((campo) => error.message.includes(campo)) && !error.message.includes('fuentes.body')
+  );
+  assert.throws(() => leerPaqueteForge(paqueteCon({ colores: undefined })), /colores: falta/);
+  assert.throws(
+    () => leerPaqueteForge(paqueteCon({ nombreCorto: 3 })),
+    /nombreCorto: tiene que ser texto/
+  );
+});
+
+test('--desde: normaliza la web, el Instagram y el prefijo del paquete', () => {
+  const { datos } = leerPaqueteForge(
+    paqueteCon({
+      prefijoSku: 'co',
+      contacto: {
+        email: 'a@b.es',
+        ciudad: '',
+        web: 'www.casaolivo.com/',
+        instagram: 'https://www.instagram.com/casa.olivo/'
+      }
+    })
+  );
+  assert.equal(datos.web, 'https://www.casaolivo.com');
+  assert.equal(datos.instagramUsuario, 'casa.olivo');
+  assert.equal(datos.prefijo, 'CO');
+});
+
+test('--desde: forge-tokens.css solo escribe las variables de la marca, con valores seguros', () => {
+  const css = fs
+    .readFileSync(path.join(PAQUETE, 'forge-tokens.css'), 'utf8')
+    .replace('--color-bg: #f5f1e8;', '--color-bg: #f5f1e8;\n  --color-badge-red: #000000;')
+    .replace('--color-surface: #ffffff;', '--color-surface: url(https://x.y/z.png);');
+  const dir = path.dirname(paqueteCon());
+  fs.writeFileSync(path.join(dir, 'forge-tokens.css'), css);
+  const paquete = leerPaqueteForge(path.join(dir, 'forge-brand.json'));
+  assert.equal(paquete.capa.claro['--color-badge-red'], undefined);
+  assert.equal(paquete.capa.claro['--color-surface'], undefined);
+  assert.equal(paquete.capa.claro['--bg-color'], undefined, 'los alias no se escriben');
+  assert.match(paquete.avisos.join('\n'), /--color-badge-red/);
+  assert.match(paquete.avisos.join('\n'), /--color-surface/);
+
+  // Un alias del paquete nunca pisa la variable que lo contiene (--surface-alt dentro de --color-surface-alt)
+  const tokens =
+    ':root {\n  --color-surface-alt: #111111;\n  --surface-alt: var(--color-surface-alt);\n}\n' +
+    '@media (prefers-color-scheme: dark) {\n  :root:not([data-theme="light"]) {\n  }\n}\n' +
+    ':root[data-theme="dark"] {\n}\n';
+  const { css: fusionado, escritas } = fusionarCapa(tokens, {
+    claro: { '--color-surface-alt': '#222222', '--surface-alt': '#333333' }
+  });
+  assert.match(fusionado, /--color-surface-alt: #222222;/);
+  assert.match(fusionado, /--surface-alt: var\(--color-surface-alt\);/);
+  assert.deepEqual(escritas.claro, ['--color-surface-alt']);
+});
+
+test('--desde: sin los dos guiones, npm deja la ruta en npm_config_desde y también vale', () => {
+  const dir = copiaDelRepo();
+  const salida = ejecutar([`--dir=${dir}`, '--si'], {
+    env: { ...process.env, npm_config_desde: path.join(PAQUETE, 'forge-brand.json') }
+  });
+  assert.match(salida, /sin los dos guiones/);
+  assert.match(leerEn(dir, ARCHIVOS.marcaCliente), /prefijoSku: 'CO'/);
+});
+
+// ─── --desde: fuentes de Google en client/index.html ─────────────────────────────────────────────
+
+const INDEX = fs.readFileSync(path.join(RAIZ, ARCHIVOS.indexHtml), 'utf8');
+const hojasDeFuentes = (html) =>
+  [...html.matchAll(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]*)"/g)].map((m) => m[1]);
+const precargas = (html) =>
+  [...html.matchAll(/rel="preload"[^>]*fonts\.gstatic\.com\/s\/([a-z0-9]+)\//g)].map((m) => m[1]);
+const INTER = 'family=Inter:wght@400;500;600;700';
+
+test('index.html: con las fuentes del starter (Fraunces e Inter) no cambia nada', () => {
+  assert.equal(generarIndexHtml(INDEX, ['Fraunces', 'Inter']), INDEX);
+});
+
+test('index.html: cambia la hoja y su <noscript> y quita la precarga de la familia que se va', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Playfair Display', 'Inter'], avisos);
+  const url = `https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&${INTER}&display=swap`;
+  assert.deepEqual(hojasDeFuentes(html), [url, url], 'la hoja y la de <noscript>');
+  assert.match(html, /media="print" onload="this\.media='all'"/, 'se sigue cargando sin bloquear');
+  assert.deepEqual(precargas(html), ['inter'], 'Inter sigue, Fraunces se va');
+  assert.match(avisos.join('\n'), /fraunces/);
+  // Lo demás, igual: preconnect, marcadores de la marca y el script de la CSP
+  assert.match(html, /<link rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin \/>/);
+  assert.deepEqual(html.match(/%BRAND_[A-Z_]+%/g), INDEX.match(/%BRAND_[A-Z_]+%/g));
+  assert.deepEqual(
+    html.match(/<script>[\s\S]*?<\/script>/g),
+    INDEX.match(/<script>[\s\S]*?<\/script>/g)
+  );
+  assert.equal(html.split('\n').length, INDEX.split('\n').length - 1, 'solo sobra la precarga');
+});
+
+test('index.html: una familia fuera de la tabla se pide sin pesos, y las repetidas una vez', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Bebas Neue', 'Bebas Neue'], avisos);
+  assert.deepEqual(hojasDeFuentes(html), [
+    'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap',
+    'https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap'
+  ]);
+  assert.deepEqual(precargas(html), []);
+  assert.match(avisos.join('\n'), /Bebas Neue: se pide a Google Fonts solo en 400/);
+  assert.equal(
+    enlaceGoogleFonts(['Space Mono', 'Space Grotesk']).url,
+    'https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&' +
+      'family=Space+Grotesk:wght@400;500;600;700&display=swap'
+  );
+});
+
+test('index.html: con fuentes del sistema deja de cargar Google Fonts', () => {
+  const avisos = [];
+  const html = generarIndexHtml(INDEX, ['Georgia', 'system-ui'], avisos);
+  assert.deepEqual(hojasDeFuentes(html), []);
+  assert.deepEqual(precargas(html), []);
+  assert.doesNotMatch(html, /<noscript>/);
+  assert.match(avisos.join('\n'), /son del sistema/);
+});
+
+test('index.html: si no tenía enlace de Google Fonts, lo añade antes de </head>', () => {
+  const sinFuentes = INDEX.split('\n')
+    .filter((linea) => !/fonts\.googleapis\.com\/css2|fonts\.gstatic\.com\/s\//.test(linea))
+    .join('\n');
+  const html = generarIndexHtml(sinFuentes, ['Playfair Display', 'Inter']);
+  const lineas = html.split('\n');
+  const cierre = lineas.findIndex((linea) => linea.includes('</head>'));
+  assert.match(
+    lineas[cierre - 2],
+    /^ {4}<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Playfair\+Display/
+  );
+  assert.match(lineas[cierre - 1], /^ {4}<noscript><link rel="stylesheet"/);
+});
+
+test('--desde: escribe client/index.html con las fuentes del paquete; los flags solos no lo tocan', () => {
+  const dir = copiaDelRepo();
+  ejecutar([`--dir=${dir}`, ...Object.entries(CLIENTE).map(([c, v]) => `--${c}=${v}`), '--si']);
+  assert.equal(leerEn(dir, ARCHIVOS.indexHtml), INDEX, 'sin --desde, index.html no se toca');
+
+  const salida = ejecutar([
+    `--desde=${path.join(PAQUETE, 'forge-brand.json')}`,
+    `--dir=${dir}`,
+    '--si'
+  ]);
+  assert.match(salida, /escrito client\/index\.html/);
+  const html = leerEn(dir, ARCHIVOS.indexHtml);
+  assert.deepEqual(
+    new Set(hojasDeFuentes(html)),
+    new Set([
+      `https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&${INTER}&display=swap`
+    ])
+  );
+
+  // Sin fuente de títulos en el paquete, se queda la de tokens.css (la del starter, sin forge-tokens.css)
+  const dir2 = copiaDelRepo();
+  const json = paqueteCon(
+    { fuentes: { display: '', body: 'Space Grotesk' } },
+    { conTokens: false }
+  );
+  ejecutar([`--desde=${json}`, `--dir=${dir2}`, '--si']);
+  assert.deepEqual(
+    new Set(hojasDeFuentes(leerEn(dir2, ARCHIVOS.indexHtml))),
+    new Set([
+      'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&' +
+        'family=Space+Grotesk:wght@400;500;600;700&display=swap'
+    ])
+  );
 });
