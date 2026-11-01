@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ReservasTab from './ReservasTab';
 import { ToastContext } from '../../../context/ToastContext';
@@ -413,6 +413,10 @@ describe('ReservasTab — Panel Rediseñado de Reservas (Editorial, KPIs, 3 Vist
   /* -------------------------------------------------------------------------- */
   describe('Vista Master e Inspector Lateral', () => {
     it('en Vista Master, al pulsar una celda ocupada se abre el inspector lateral de la reserva', async () => {
+      // La reserva es de noviembre de 2026 y el test pulsa «mes siguiente»: fija hoy en octubre de 2026
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-10-15T12:00:00'));
+      onTestFinished(() => vi.useRealTimers());
       getReservasAdmin.mockResolvedValue({
         data: { reservas: [RESERVA_CONFIRMADA] }
       });
