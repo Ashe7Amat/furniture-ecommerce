@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "generadoPor": "ForgeStudio",
+  "generadoEl": "2026-11-01T11:09:09.620Z",
+  "nombre": "Casa Olivo Valencia",
+  "nombreCorto": "Casa Olivo",
+  "eslogan": "Muebles de madera para vivir despacio",
+  "descripcion": "",
+  "contacto": {
+    "email": "hola@casaolivo.com",
+    "ciudad": "Valencia",
+    "web": "https://casaolivo.com",
+    "instagram": "@casaolivo"
+  },
+  "prefijoSku": "CO",
+  "nif": "",
+  "colores": {
+    "primario": "#2d3a2a",
+    "acento": "#7a8b5a",
+    "fondo": "#f5f1e8",
+    "texto": "#1a1a1a"
+  },
+  "fuentes": {
+    "display": "Playfair Display",
+    "body": "Inter"
+  }
+}
