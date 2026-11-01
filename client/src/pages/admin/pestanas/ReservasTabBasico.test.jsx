@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, onTestFinished } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ReservasTab from './ReservasTab';
 import PedidosTab from './PedidosTab';
@@ -355,6 +355,10 @@ describe('ReservasTab — Estructura básica del Panel de Reservas (R-d)', () =>
   });
 
   it('en la Vista Master, al hacer clic en una celda ocupada se abre el inspector lateral de la reserva', async () => {
+    // La reserva es de noviembre de 2026 y el test pulsa «mes siguiente»: fija hoy en octubre de 2026
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-15T12:00:00'));
+    onTestFinished(() => vi.useRealTimers());
     getReservasAdmin.mockResolvedValue({
       data: { reservas: [RESERVA_CONFIRMADA] }
     });
